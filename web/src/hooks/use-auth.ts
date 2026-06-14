@@ -33,9 +33,24 @@ export function useAuth() {
   };
 }
 
+const HONORIFIC_PREFIXES = new Set([
+  "dr",
+  "mr",
+  "mrs",
+  "ms",
+  "miss",
+  "prof",
+  "sir",
+  "dame",
+]);
+
 export function getInitials(name: string): string {
   return name
     .split(" ")
+    .filter((part) => {
+      const normalized = part.toLowerCase().replace(/\./g, "");
+      return part.length > 0 && !HONORIFIC_PREFIXES.has(normalized);
+    })
     .map((part) => part[0])
     .join("")
     .slice(0, 2)

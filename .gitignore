@@ -7,6 +7,9 @@ node_modules/
 !.env.example
 api/.env
 web/.env.local
+deploy/env/api.env
+deploy/env/web.env.local
+deploy/env/postgres.env
 
 # Build output
 api/dist/

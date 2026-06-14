@@ -7,7 +7,7 @@ import {
   useTracks,
   TrackToggle,
 } from "@livekit/components-react";
-import { Track } from "livekit-client";
+import { Track, type Participant } from "livekit-client";
 import {
   Mic,
   Signal,
@@ -19,8 +19,8 @@ import {
 import { useSpeakingRoom } from "@/contexts/speaking-room-context";
 import { cn } from "@/lib/utils";
 
-function QualityBadge() {
-  const { quality } = useConnectionQualityIndicator();
+function QualityBadge({ participant }: { participant: Participant }) {
+  const { quality } = useConnectionQualityIndicator({ participant });
   const Icon =
     quality === "excellent" || quality === "good"
       ? SignalHigh
@@ -75,7 +75,7 @@ export function SpeakingVideoLayout({
   return (
     <div className="relative flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl bg-navy lg:min-h-[480px]">
       <div className="absolute left-4 top-4 z-10 flex items-center gap-3">
-        <QualityBadge />
+        {localParticipant && <QualityBadge participant={localParticipant} />}
         {!isConnected && (
           <span className="flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-200">
             <Signal className="h-3.5 w-3.5" />

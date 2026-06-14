@@ -53,16 +53,18 @@ export function useDeviceCheck() {
       analyserRef.current = analyser;
 
       const data = new Uint8Array(analyser.frequencyBinCount);
-      const tick = () => {
+      let lastLevelUpdate = 0;
+      const tick = (now: number) => {
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
-        setState((s) => ({
-          ...s,
-          micLevel: Math.min(100, Math.round((avg / 128) * 100)),
-        }));
+        const level = Math.min(100, Math.round((avg / 128) * 100));
+        if (now - lastLevelUpdate >= 100) {
+          lastLevelUpdate = now;
+          setState((s) => ({ ...s, micLevel: level }));
+        }
         animationRef.current = requestAnimationFrame(tick);
       };
-      tick();
+      animationRef.current = requestAnimationFrame(tick);
 
       setState({
         micOk: stream.getAudioTracks().some((t) => t.enabled),
