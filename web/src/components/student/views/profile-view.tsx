@@ -1,0 +1,71 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  ProfileHero,
+  type ProfileTab,
+} from "@/components/student/profile/profile-hero";
+import { ProfileHeader } from "@/components/student/profile/profile-header";
+import { ProfileOverviewTab } from "@/components/student/profile/profile-overview-tab";
+import { ProfilePlanTab } from "@/components/student/profile/profile-plan-tab";
+import {
+  ProfileNotificationsTab,
+  ProfileSecurityTab,
+} from "@/components/student/profile/profile-settings-tabs";
+import { ApiDataShell } from "@/components/shared/api-data-shell";
+import {
+  StudentProfileProvider,
+  useStudentProfileData,
+} from "@/contexts/student-profile-context";
+
+const VALID_TABS: ProfileTab[] = [
+  "overview",
+  "plan",
+  "security",
+  "notifications",
+];
+
+export function ProfileView() {
+  return (
+    <StudentProfileProvider>
+      <Suspense fallback={<ProfileViewContent initialTab="overview" />}>
+        <ProfileViewWithParams />
+      </Suspense>
+    </StudentProfileProvider>
+  );
+}
+
+function ProfileViewWithParams() {
+  const searchParams = useSearchParams();
+  const requested = searchParams.get("tab");
+  const initialTab: ProfileTab =
+    requested && VALID_TABS.includes(requested as ProfileTab)
+      ? (requested as ProfileTab)
+      : "overview";
+  return <ProfileViewContent initialTab={initialTab} />;
+}
+
+function ProfileViewContent({ initialTab }: { initialTab: ProfileTab }) {
+  const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
+  const { profile, loading, error } = useStudentProfileData();
+
+  return (
+    <ApiDataShell loading={loading} error={error} empty={!profile}>
+      {profile && (
+        <div>
+          <ProfileHeader />
+          <ProfileHero activeTab={activeTab} onTabChange={setActiveTab} />
+
+          <div className="mx-auto max-w-6xl px-6 py-8 lg:px-8">
+            {activeTab === "overview" && <ProfileOverviewTab />}
+            {activeTab === "security" && <ProfileSecurityTab />}
+            {activeTab === "notifications" && <ProfileNotificationsTab />}
+
+            {activeTab === "plan" && <ProfilePlanTab />}
+          </div>
+        </div>
+      )}
+    </ApiDataShell>
+  );
+}

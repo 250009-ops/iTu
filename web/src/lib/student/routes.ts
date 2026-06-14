@@ -1,0 +1,62 @@
+export const STUDENT_BASE = "/student";
+
+export type StudentView =
+  | "dashboard"
+  | "browse"
+  | "mock-day"
+  | "results"
+  | "profile"
+  | "notifications"
+  | "help";
+
+export const STUDENT_VIEW_PATHS: Record<StudentView, string> = {
+  dashboard: "/student",
+  browse: "/student/browse",
+  "mock-day": "/student/mock-day",
+  results: "/student/results",
+  profile: "/student/profile",
+  notifications: "/student/notifications",
+  help: "/student/help",
+};
+
+export const STUDENT_VIEW_LABELS: Record<StudentView, string> = {
+  dashboard: "Dashboard",
+  browse: "Browse Mocks",
+  "mock-day": "Mock Day Hub",
+  results: "Results",
+  profile: "Profile",
+  notifications: "Notifications",
+  help: "Help & Support",
+};
+
+const VALID_VIEWS = new Set<string>(Object.keys(STUDENT_VIEW_PATHS));
+
+export function parseStudentView(segments: string[] | undefined): StudentView {
+  if (!segments || segments.length === 0) return "dashboard";
+  const slug = segments[0];
+  if (slug === "dashboard") return "dashboard";
+  if (VALID_VIEWS.has(slug)) return slug as StudentView;
+  return "dashboard";
+}
+
+export function isStudentViewActive(
+  pathname: string,
+  view: StudentView,
+): boolean {
+  const path = STUDENT_VIEW_PATHS[view];
+  if (view === "dashboard") {
+    return pathname === "/student" || pathname === "/student/dashboard";
+  }
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+export function pathnameToView(pathname: string): StudentView {
+  if (pathname === "/student" || pathname === "/student/dashboard") {
+    return "dashboard";
+  }
+  if (pathname.startsWith("/student/")) {
+    const slug = pathname.slice("/student/".length).split("/")[0];
+    return parseStudentView([slug]);
+  }
+  return "dashboard";
+}

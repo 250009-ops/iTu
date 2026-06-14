@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Environment & secrets (never commit)
+.env
+.env.*
+!.env.example
+api/.env
+web/.env.local
+
+# Build output
+api/dist/
+web/.next/
+web/out/
+web/build/
+coverage/
+
+# Database
+api/prisma/dev.db
+api/prisma/dev.db-journal
+*.db
+*.db-journal
+
+# Logs & OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# IDE / tooling
+.idea/
+.vscode/
+*.tsbuildinfo
+web/next-env.d.ts
+
+# Playwright
+web/test-results/
+web/playwright-report/
+web/e2e/.auth/
+web/e2e/.state.json
+
+# Cursor / local assets
+.cursor/
+assets/

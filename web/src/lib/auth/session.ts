@@ -1,0 +1,129 @@
+export type UserRole = "student" | "teacher" | "admin";
+
+export interface AuthSession {
+  accessToken: string;
+  role: UserRole;
+  email: string;
+  name: string;
+}
+
+const SESSION_KEY = "ielts_mock_session";
+const REMEMBER_KEY = "ielts_mock_remember";
+
+/** Cached snapshot for useSyncExternalStore — must return stable references. */
+let cachedRaw: string | null | undefined = undefined;
+let cachedSession: AuthSession | null = null;
+
+export const DASHBOARD_PATHS: Record<UserRole, string> = {
+  student: "/student",
+  teacher: "/teacher/dashboard",
+  admin: "/admin/dashboard",
+};
+
+function readRawSession(): string | null {
+  if (typeof window === "undefined") return null;
+  return (
+    sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY)
+  );
+}
+
+/** Cached snapshot getter for useSyncExternalStore (client). */
+export function getSession(): AuthSession | null {
+  return syncCacheFromStorage();
+}
+
+/** Server snapshot — always null during SSR. */
+export function getServerSession(): null {
+  return null;
+}
+
+export function getAccessToken(): string | null {
+  return getSession()?.accessToken ?? null;
+}
+
+function syncCacheFromStorage(): AuthSession | null {
+  if (typeof window === "undefined") return null;
+
+  const raw = readRawSession();
+
+  if (raw === cachedRaw) {
+    return cachedSession;
+  }
+
+  cachedRaw = raw;
+
+  if (!raw) {
+    cachedSession = null;
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as AuthSession;
+    if (!parsed.accessToken || !parsed.role) {
+      cachedSession = null;
+      return null;
+    }
+    cachedSession = parsed;
+    return cachedSession;
+  } catch {
+    cachedSession = null;
+    return null;
+  }
+}
+
+export function setSession(
+  session: AuthSession,
+  options?: { rememberMe?: boolean },
+): void {
+  if (typeof window === "undefined") return;
+
+  const rememberMe = options?.rememberMe ?? false;
+  const raw = JSON.stringify(session);
+
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_KEY);
+
+  if (rememberMe) {
+    localStorage.setItem(REMEMBER_KEY, "1");
+    localStorage.setItem(SESSION_KEY, raw);
+  } else {
+    localStorage.removeItem(REMEMBER_KEY);
+    sessionStorage.setItem(SESSION_KEY, raw);
+  }
+
+  cachedRaw = raw;
+  cachedSession = session;
+  window.dispatchEvent(new Event("ielts-auth-change"));
+}
+
+export function clearSession(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(REMEMBER_KEY);
+  cachedRaw = null;
+  cachedSession = null;
+  window.dispatchEvent(new Event("ielts-auth-change"));
+}
+
+export function subscribeSession(callback: () => void): () => void {
+  const handler = () => callback();
+  window.addEventListener("ielts-auth-change", handler);
+  window.addEventListener("storage", handler);
+  return () => {
+    window.removeEventListener("ielts-auth-change", handler);
+    window.removeEventListener("storage", handler);
+  };
+}
+
+export function getDashboardPath(role: UserRole): string {
+  return DASHBOARD_PATHS[role];
+}
+
+export function normalizeRole(role: string): UserRole {
+  const lower = role.toLowerCase() as UserRole;
+  if (lower === "student" || lower === "teacher" || lower === "admin") {
+    return lower;
+  }
+  return "student";
+}

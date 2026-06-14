@@ -1,0 +1,518 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  CalendarDays,
+  Check,
+  CreditCard,
+  Loader2,
+  Lock,
+  Mic,
+  PenLine,
+  Star,
+  X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { useToast } from "@/components/ui/toast";
+import {
+  createBooking,
+  getAvailability,
+  listTeachers,
+} from "@/lib/api/bookings";
+import { getErrorMessage } from "@/lib/api/errors";
+import type { BrowseProduct } from "@/lib/api/mappers/student";
+import { cn } from "@/lib/utils";
+
+type Teacher = {
+  id: string;
+  name: string;
+  email: string;
+  speciality: string;
+  rating: number | null;
+  status: string;
+};
+
+type Slot = {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+};
+
+type Step = 1 | 2 | 3 | 4;
+
+const STEP_LABELS: Record<Step, string> = {
+  1: "Date & time",
+  2: "Writing examiner",
+  3: "Speaking slot",
+  4: "Payment",
+};
+
+const EXAM_START_TIMES = ["08:30", "09:00", "09:30", "10:00", "13:00"];
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatSlotTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+export function BookingWizard({
+  product,
+  onClose,
+}: {
+  product: BrowseProduct;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [step, setStep] = useState<Step>(1);
+  const [mockDate, setMockDate] = useState(todayIso());
+  const [mockTime, setMockTime] = useState(EXAM_START_TIMES[0]);
+
+  const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
+  const [writingTeacherId, setWritingTeacherId] = useState<string | null>(null);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+
+  const [cardName, setCardName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const priceLabel = `${product.currency === "USD" ? "$" : `${product.currency} `}${product.price}`;
+
+  const loadTeachers = useCallback(async () => {
+    setTeachersLoading(true);
+    try {
+      const list = await listTeachers("writing");
+      setWritingTeachers(list);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not load examiners"));
+    } finally {
+      setTeachersLoading(false);
+    }
+  }, []);
+
+  const loadSlots = useCallback(async () => {
+    setSlotsLoading(true);
+    setSelectedSlot(null);
+    try {
+      const list = await getAvailability(mockDate);
+      setSlots(list);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not load speaking slots"));
+    } finally {
+      setSlotsLoading(false);
+    }
+  }, [mockDate]);
+
+  useEffect(() => {
+    if (step === 2 && writingTeachers.length === 0) {
+      void loadTeachers();
+    }
+    if (step === 3) {
+      void loadSlots();
+    }
+  }, [step, writingTeachers.length, loadTeachers, loadSlots]);
+
+  const slotsByTeacher = useMemo(() => {
+    const groups = new Map<string, { name: string; slots: Slot[] }>();
+    for (const slot of slots) {
+      const entry = groups.get(slot.teacherId) ?? {
+        name: slot.teacherName,
+        slots: [],
+      };
+      entry.slots.push(slot);
+      groups.set(slot.teacherId, entry);
+    }
+    return [...groups.values()];
+  }, [slots]);
+
+  const canContinue = useMemo(() => {
+    if (step === 1) return Boolean(mockDate && mockTime);
+    if (step === 2) return Boolean(writingTeacherId);
+    if (step === 3) return Boolean(selectedSlot);
+    if (step === 4)
+      return Boolean(cardName && cardNumber && cardExpiry && cardCvc);
+    return false;
+  }, [
+    step,
+    mockDate,
+    mockTime,
+    writingTeacherId,
+    selectedSlot,
+    cardName,
+    cardNumber,
+    cardExpiry,
+    cardCvc,
+  ]);
+
+  function goNext() {
+    setError(null);
+    if (step < 4) setStep((s) => (s + 1) as Step);
+  }
+
+  function goBack() {
+    setError(null);
+    if (step > 1) setStep((s) => (s - 1) as Step);
+  }
+
+  async function handleConfirm() {
+    if (!writingTeacherId || !selectedSlot) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await createBooking({
+        packageId: product.id,
+        mockDate: new Date(`${mockDate}T${mockTime}:00`).toISOString(),
+        mockTime,
+        writingTeacherId,
+        speakingTeacherId: selectedSlot.teacherId,
+        speakingSlotId: selectedSlot.id,
+        paymentMethod: "card",
+      });
+      toast("Booking confirmed", {
+        description: `${product.title} booked · ${result.enrollmentCode}`,
+        variant: "success",
+      });
+      onClose();
+      router.push("/student/mock-day");
+    } catch (err) {
+      setError(getErrorMessage(err, "Booking failed. Please try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} ariaLabel={`Book ${product.title}`}>
+        <div className="flex items-start justify-between border-b border-border px-6 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-navy">Book {product.title}</h2>
+            <p className="mt-0.5 text-sm text-muted">
+              Step {step} of 4 · {STEP_LABELS[step]}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 border-b border-border px-6 py-3">
+          {([1, 2, 3, 4] as Step[]).map((s) => (
+            <div key={s} className="flex flex-1 items-center gap-2">
+              <div
+                className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                  s < step
+                    ? "bg-emerald-500 text-white"
+                    : s === step
+                      ? "bg-navy text-white"
+                      : "bg-slate-100 text-slate-400",
+                )}
+              >
+                {s < step ? <Check size={14} /> : s}
+              </div>
+              {s < 4 && (
+                <div
+                  className={cn(
+                    "h-0.5 flex-1 rounded-full",
+                    s < step ? "bg-emerald-400" : "bg-slate-200",
+                  )}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {step === 1 && (
+            <div className="space-y-5">
+              <div>
+                <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-navy">
+                  <CalendarDays size={15} />
+                  Mock date
+                </label>
+                <Input
+                  type="date"
+                  min={todayIso()}
+                  value={mockDate}
+                  onChange={(e) => setMockDate(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted">
+                  All four skills take place on this single day.
+                </p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-navy">
+                  Exam start time
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {EXAM_START_TIMES.map((time) => (
+                    <button
+                      key={time}
+                      type="button"
+                      onClick={() => setMockTime(time)}
+                      className={cn(
+                        "rounded-lg border px-4 py-2 text-sm font-semibold",
+                        mockTime === time
+                          ? "border-navy bg-navy text-white"
+                          : "border-border bg-white text-foreground hover:bg-slate-50",
+                      )}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  Check-in opens 15 minutes before your start time.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted">
+                Choose the examiner who will grade your Writing submission.
+              </p>
+              {teachersLoading ? (
+                <div className="flex items-center justify-center py-10 text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : writingTeachers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted">
+                  No Writing examiners are available right now.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {writingTeachers.map((teacher) => (
+                    <button
+                      key={teacher.id}
+                      type="button"
+                      onClick={() => setWritingTeacherId(teacher.id)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl border p-4 text-left transition-colors",
+                        writingTeacherId === teacher.id
+                          ? "border-navy bg-navy/5"
+                          : "border-border bg-white hover:bg-slate-50",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                          <PenLine size={18} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            {teacher.name}
+                          </p>
+                          <p className="text-xs text-muted">
+                            Writing examiner · IELTS certified
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {teacher.rating != null && (
+                          <span className="flex items-center gap-1 text-sm text-amber-500">
+                            <Star size={14} className="fill-current" />
+                            {teacher.rating.toFixed(1)}
+                          </span>
+                        )}
+                        {writingTeacherId === teacher.id && (
+                          <Check size={18} className="text-navy" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted">
+                Pick an available Speaking slot for{" "}
+                <span className="font-semibold text-foreground">
+                  {new Date(`${mockDate}T00:00`).toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+                . The slot also assigns your Speaking examiner.
+              </p>
+              {slotsLoading ? (
+                <div className="flex items-center justify-center py-10 text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : slotsByTeacher.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted">
+                  No Speaking slots available on this date. Try another date in
+                  step 1.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {slotsByTeacher.map((group) => (
+                    <div key={group.name}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                          <Mic size={15} />
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {group.name}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {group.slots.map((slot) => (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            onClick={() => setSelectedSlot(slot)}
+                            className={cn(
+                              "rounded-lg border px-3 py-2 text-sm font-semibold",
+                              selectedSlot?.id === slot.id
+                                ? "border-rose-500 bg-rose-500 text-white"
+                                : "border-border bg-white text-foreground hover:bg-slate-50",
+                            )}
+                          >
+                            {formatSlotTime(slot.startsAt)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-5">
+              <div className="rounded-xl border border-border bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-navy">Order summary</p>
+                <dl className="mt-3 space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted">Package</dt>
+                    <dd className="font-medium text-foreground">
+                      {product.title}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted">Mock date</dt>
+                    <dd className="font-medium text-foreground">
+                      {new Date(`${mockDate}T00:00`).toLocaleDateString(
+                        "en-US",
+                        { month: "short", day: "numeric", year: "numeric" },
+                      )}{" "}
+                      · {mockTime}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted">Speaking slot</dt>
+                    <dd className="font-medium text-foreground">
+                      {selectedSlot
+                        ? `${formatSlotTime(selectedSlot.startsAt)} · ${selectedSlot.teacherName}`
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div className="mt-2 flex justify-between border-t border-border pt-2">
+                    <dt className="font-semibold text-navy">Total</dt>
+                    <dd className="font-bold text-navy">{priceLabel}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-navy">
+                  <CreditCard size={15} />
+                  Card details
+                </div>
+                <Input
+                  placeholder="Name on card"
+                  value={cardName}
+                  onChange={(e) => setCardName(e.target.value)}
+                />
+                <Input
+                  placeholder="Card number"
+                  inputMode="numeric"
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    placeholder="MM / YY"
+                    value={cardExpiry}
+                    onChange={(e) => setCardExpiry(e.target.value)}
+                  />
+                  <Input
+                    placeholder="CVC"
+                    inputMode="numeric"
+                    value={cardCvc}
+                    onChange={(e) => setCardCvc(e.target.value)}
+                  />
+                </div>
+                <p className="flex items-center gap-1.5 text-xs text-muted">
+                  <Lock size={12} />
+                  Demo checkout — no real card is charged.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
+          <Button
+            variant="secondary"
+            onClick={step === 1 ? onClose : goBack}
+            disabled={submitting}
+          >
+            {step === 1 ? "Cancel" : "Back"}
+          </Button>
+          {step < 4 ? (
+            <Button variant="danger" onClick={goNext} disabled={!canContinue}>
+              Continue
+            </Button>
+          ) : (
+            <Button
+              variant="danger"
+              onClick={handleConfirm}
+              disabled={!canContinue}
+              loading={submitting}
+            >
+              Pay {priceLabel}
+            </Button>
+          )}
+        </div>
+    </Modal>
+  );
+}

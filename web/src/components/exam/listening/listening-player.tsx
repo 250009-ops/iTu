@@ -1,0 +1,166 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Headphones } from "lucide-react";
+import type { ListeningContent } from "@/lib/exam/types";
+import { ExamTopBar } from "@/components/exam/shell/exam-top-bar";
+import { ExamTimer } from "@/components/exam/shell/exam-timer";
+import {
+  QuestionPalette,
+  type PalettePart,
+} from "@/components/exam/shell/question-palette";
+import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
+import { QuestionGroup } from "@/components/exam/questions/question-group";
+import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
+import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
+import { useExamContent } from "@/hooks/use-exam-content";
+import { useServerTimer } from "@/hooks/use-server-timer";
+import { useExamAutosave } from "@/hooks/use-exam-autosave";
+import { startSection, submitSection, logIntegrity } from "@/lib/api/exam";
+import { ApiDataShell } from "@/components/shared/api-data-shell";
+
+export function ListeningPlayer({ sessionId }: { sessionId: string }) {
+  const router = useRouter();
+  const { content, loading, error } = useExamContent<ListeningContent>(
+    sessionId,
+    "listening",
+  );
+  const [started, setStarted] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const state = useExamState(content?.parts[0]?.id ?? "part-1");
+  const { remaining, expired } = useServerTimer(sessionId);
+  useExamAutosave(sessionId, state.answers);
+
+  useEffect(() => {
+    if (!content || started) return;
+    void startSection(sessionId, "listening")
+      .then(() => setStarted(true))
+      .catch(() => setStarted(true));
+  }, [content, sessionId, started]);
+
+  useEffect(() => {
+    if (expired) setSubmitOpen(true);
+  }, [expired]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        void logIntegrity(sessionId, "tab_switch");
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [sessionId]);
+
+  const paletteParts: PalettePart[] = useMemo(
+    () =>
+      content?.parts.map((p) => ({
+        id: p.id,
+        label: p.title,
+        numbers: questionNumbers(p.groups),
+      })) ?? [],
+    [content?.parts],
+  );
+
+  const allNumbers = useMemo(
+    () => paletteParts.flatMap((p) => p.numbers),
+    [paletteParts],
+  );
+  const answered = answeredCount(state.answers, allNumbers);
+
+  if (loading || !content) {
+    return <ApiDataShell loading={loading} error={error} />;
+  }
+
+  const activePart =
+    content.parts.find((p) => p.id === state.activePart) ?? content.parts[0];
+
+  const goToQuestion = (n: number) => {
+    const part = content.parts.find((p) =>
+      questionNumbers(p.groups).includes(n),
+    );
+    if (part && part.id !== state.activePart) state.setActivePart(part.id);
+    state.setCurrent(n);
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`q-${n}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  };
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    try {
+      await submitSection(sessionId, "listening");
+      router.push(`/exam/${sessionId}/break?from=listening&next=reading`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <ExamTopBar
+        testTakerId={sessionId}
+        audioStatus="Audio is playing"
+        timer={<ExamTimer remainingSeconds={remaining} hidden={state.hideTimer} />}
+        textSize={state.textSize}
+        onTextSize={state.setTextSize}
+        hideTimer={state.hideTimer}
+        onToggleTimer={state.setHideTimer}
+      />
+
+      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5 py-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+          <Headphones size={16} />
+        </div>
+        <div>
+          <p className="text-[14px] font-bold text-navy">{activePart.title}</p>
+          <p className="text-[13px] text-slate-500">{activePart.blurb}</p>
+        </div>
+      </div>
+
+      <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
+        <div
+          className={`mx-auto max-w-3xl space-y-8 px-5 py-6 ${TEXT_SIZE_CLASS[state.textSize]}`}
+        >
+          {activePart.groups.map((group) => (
+            <QuestionGroup
+              key={group.id}
+              group={group}
+              answers={state.answers}
+              current={state.current}
+              onAnswer={state.setAnswer}
+              onFocus={state.focusQuestion}
+            />
+          ))}
+        </div>
+      </main>
+
+      <QuestionPalette
+        parts={paletteParts}
+        answers={state.answers}
+        activePart={state.activePart}
+        current={state.current}
+        onSelectPart={state.setActivePart}
+        onSelectQuestion={goToQuestion}
+        onSubmit={() => setSubmitOpen(true)}
+        submitLabel="End Listening"
+      />
+
+      <SubmitDialog
+        open={submitOpen}
+        title="End the Listening section?"
+        message="Your answers will be submitted and automatically scored. You cannot return to Listening."
+        answered={answered}
+        total={content.totalQuestions}
+        confirmLabel={submitting ? "Submitting…" : "Submit Listening"}
+        onCancel={() => !expired && setSubmitOpen(false)}
+        onConfirm={() => void handleSubmit()}
+      />
+    </>
+  );
+}

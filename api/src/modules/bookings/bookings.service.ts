@@ -1,0 +1,348 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  EnrollmentStatus,
+  ExamSessionState,
+  ExamSkill,
+  NotificationType,
+  OrderStatus,
+  PaymentMethod,
+  SlotStatus,
+} from '@prisma/client';
+import { RequestUser } from '../../common/types/request-user';
+import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { CreateBookingDto } from './dto/create-booking.dto';
+import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+
+@Injectable()
+export class BookingsService {
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
+
+  async getAvailability(date: string, teacherId?: string) {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const slots = await this.prisma.teacherSlot.findMany({
+      where: {
+        startsAt: { gte: dayStart, lte: dayEnd },
+        ...(teacherId ? { teacherId } : {}),
+        status: SlotStatus.AVAILABLE,
+      },
+      include: {
+        teacher: { include: { user: { select: { name: true } } } },
+      },
+      orderBy: { startsAt: 'asc' },
+    });
+
+    return slots.map((s) => ({
+      id: s.id,
+      teacherId: s.teacherId,
+      teacherName: s.teacher.user.name,
+      startsAt: s.startsAt,
+      endsAt: s.endsAt,
+      status: s.status.toLowerCase(),
+    }));
+  }
+
+  async listTeachers(speciality?: 'writing' | 'speaking' | 'both') {
+    const teachers = await this.prisma.teacherProfile.findMany({
+      where: {
+        status: 'APPROVED',
+        ...(speciality
+          ? {
+              speciality:
+                speciality === 'both'
+                  ? 'BOTH'
+                  : speciality === 'writing'
+                    ? { in: ['WRITING', 'BOTH'] as const }
+                    : (speciality.toUpperCase() as 'WRITING' | 'SPEAKING'),
+            }
+          : {}),
+      },
+      include: { user: { select: { id: true, name: true, email: true } } },
+      orderBy: { rating: 'desc' },
+    });
+
+    return teachers.map((t) => ({
+      id: t.id,
+      name: t.user.name,
+      email: t.user.email,
+      speciality: t.speciality.toLowerCase(),
+      rating: t.rating,
+      status: t.status.toLowerCase(),
+    }));
+  }
+
+  async createBooking(dto: CreateBookingDto, user: RequestUser) {
+    if (!user.studentProfileId) {
+      throw new ForbiddenException('Only students can create bookings');
+    }
+
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id: dto.packageId },
+    });
+    if (!pkg || !pkg.isActive) {
+      throw new NotFoundException('Package not found');
+    }
+
+    const enrollmentCode = await this.generateCode('ENR');
+    const orderCode = await this.generateCode('ORD');
+    const sessionCode = await this.generateCode('MOCK');
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const slot = await tx.teacherSlot.findUnique({
+        where: { id: dto.speakingSlotId },
+      });
+      if (!slot || slot.status !== SlotStatus.AVAILABLE) {
+        throw new BadRequestException('Speaking slot is no longer available');
+      }
+
+      const booked = await tx.teacherSlot.updateMany({
+        where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
+        data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
+      });
+      if (booked.count === 0) {
+        throw new BadRequestException('Speaking slot booking conflict');
+      }
+
+      const enrollment = await tx.enrollment.create({
+        data: {
+          enrollmentCode,
+          studentId: user.studentProfileId!,
+          packageId: dto.packageId,
+          mockDate: new Date(dto.mockDate),
+          mockTime: dto.mockTime,
+          status: EnrollmentStatus.ENROLLED,
+          writingTeacherId: dto.writingTeacherId,
+          speakingTeacherId: dto.speakingTeacherId,
+          speakingSlotId: dto.speakingSlotId,
+        },
+      });
+
+      const order = await tx.order.create({
+        data: {
+          orderCode,
+          studentId: user.studentProfileId!,
+          enrollmentId: enrollment.id,
+          packageId: dto.packageId,
+          amount: pkg.price,
+          currency: pkg.currency,
+          paymentMethod: (dto.paymentMethod?.toUpperCase() as PaymentMethod) ?? PaymentMethod.CARD,
+          status: OrderStatus.PAID,
+        },
+      });
+
+      const session = await tx.examSession.create({
+        data: {
+          sessionCode,
+          enrollmentId: enrollment.id,
+          state: ExamSessionState.ENROLLED,
+        },
+      });
+
+      const speakingAttempt = await tx.sectionAttempt.create({
+        data: {
+          sessionId: session.id,
+          skill: ExamSkill.SPEAKING,
+        },
+      });
+
+      const speakingSession = await tx.speakingSession.create({
+        data: {
+          sectionAttemptId: speakingAttempt.id,
+          teacherId: dto.speakingTeacherId,
+          status: 'SCHEDULED',
+          scheduledAt: slot.startsAt,
+        },
+      });
+
+      return { enrollment, order, session, slot, speakingSession };
+    });
+
+    const [writingTeacher, speakingTeacher, studentUser] = await Promise.all([
+      this.prisma.teacherProfile.findUnique({
+        where: { id: dto.writingTeacherId },
+        include: { user: true },
+      }),
+      this.prisma.teacherProfile.findUnique({
+        where: { id: dto.speakingTeacherId },
+        include: { user: true },
+      }),
+      this.prisma.user.findFirst({
+        where: { studentProfile: { id: user.studentProfileId! } },
+      }),
+    ]);
+
+    if (studentUser) {
+      await this.notifications.create(
+        studentUser.id,
+        'Mock booked',
+        `Your mock is confirmed for ${new Date(dto.mockDate).toLocaleDateString()} at ${dto.mockTime}.`,
+        NotificationType.INFO,
+        '/student/mock-day',
+      );
+    }
+
+    if (writingTeacher) {
+      await this.notifications.create(
+        writingTeacher.userId,
+        'Writing submission incoming',
+        `A new writing submission will be assigned after the student's exam.`,
+        NotificationType.GRADING,
+        '/teacher/grading',
+      );
+    }
+
+    if (speakingTeacher) {
+      await this.notifications.create(
+        speakingTeacher.userId,
+        'Speaking session scheduled',
+        `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
+        NotificationType.REMINDER,
+        `/teacher/speaking?session=${result.speakingSession.id}`,
+      );
+    }
+
+    return {
+      enrollmentId: result.enrollment.id,
+      enrollmentCode: result.enrollment.enrollmentCode,
+      orderId: result.order.id,
+      orderCode: result.order.orderCode,
+      sessionCode: result.session.sessionCode,
+      amount: result.order.amount,
+      currency: result.order.currency,
+      status: 'confirmed',
+    };
+  }
+
+  async rescheduleBooking(
+    enrollmentId: string,
+    dto: RescheduleBookingDto,
+    user: RequestUser,
+  ) {
+    if (!user.studentProfileId) {
+      throw new ForbiddenException('Only students can reschedule bookings');
+    }
+
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, studentId: user.studentProfileId },
+      include: {
+        examSession: {
+          include: {
+            sectionAttempts: { include: { speakingSession: true } },
+          },
+        },
+      },
+    });
+    if (!enrollment) {
+      throw new NotFoundException('Enrollment not found');
+    }
+    if (enrollment.status !== EnrollmentStatus.ENROLLED) {
+      throw new BadRequestException(
+        'Only upcoming mocks that have not started can be rescheduled',
+      );
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const slot = await tx.teacherSlot.findUnique({
+        where: { id: dto.speakingSlotId },
+      });
+      if (!slot || slot.status !== SlotStatus.AVAILABLE) {
+        throw new BadRequestException('Speaking slot is no longer available');
+      }
+
+      const booked = await tx.teacherSlot.updateMany({
+        where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
+        data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
+      });
+      if (booked.count === 0) {
+        throw new BadRequestException('Speaking slot booking conflict');
+      }
+
+      if (
+        enrollment.speakingSlotId &&
+        enrollment.speakingSlotId !== dto.speakingSlotId
+      ) {
+        await tx.teacherSlot.updateMany({
+          where: { id: enrollment.speakingSlotId },
+          data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+        });
+      }
+
+      const updated = await tx.enrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          mockDate: new Date(dto.mockDate),
+          mockTime: dto.mockTime,
+          speakingTeacherId: slot.teacherId,
+          speakingSlotId: slot.id,
+        },
+      });
+
+      const speakingAttempt = enrollment.examSession?.sectionAttempts.find(
+        (a) => a.skill === ExamSkill.SPEAKING,
+      );
+      if (speakingAttempt?.speakingSession) {
+        await tx.speakingSession.update({
+          where: { id: speakingAttempt.speakingSession.id },
+          data: {
+            teacherId: slot.teacherId,
+            scheduledAt: slot.startsAt,
+          },
+        });
+      }
+
+      return { updated, slot, speakingSessionId: speakingAttempt?.speakingSession?.id };
+    });
+
+    const speakingTeacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: result.slot.teacherId },
+      include: { user: true },
+    });
+    if (speakingTeacher && result.speakingSessionId) {
+      await this.notifications.create(
+        speakingTeacher.userId,
+        'Speaking session rescheduled',
+        `Session moved to ${result.slot.startsAt.toLocaleString()}.`,
+        NotificationType.REMINDER,
+        `/teacher/speaking?session=${result.speakingSessionId}`,
+      );
+    }
+
+    const studentUser = await this.prisma.user.findFirst({
+      where: { studentProfile: { id: user.studentProfileId! } },
+    });
+    if (studentUser) {
+      await this.notifications.create(
+        studentUser.id,
+        'Mock rescheduled',
+        `Your mock is now scheduled for ${result.updated.mockDate.toLocaleDateString()} at ${result.updated.mockTime}.`,
+        NotificationType.INFO,
+        '/student/mock-day',
+      );
+    }
+
+    return {
+      enrollmentId: result.updated.id,
+      enrollmentCode: result.updated.enrollmentCode,
+      mockDate: result.updated.mockDate,
+      mockTime: result.updated.mockTime,
+      status: 'rescheduled',
+    };
+  }
+
+  private async generateCode(prefix: string): Promise<string> {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    return `${prefix}-${num}`;
+  }
+}

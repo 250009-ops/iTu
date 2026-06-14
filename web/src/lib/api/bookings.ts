@@ -1,0 +1,71 @@
+import { apiFetch } from "./client";
+
+export function listTeachers(speciality?: "writing" | "speaking" | "both") {
+  const q = speciality ? `?speciality=${speciality}` : "";
+  return apiFetch<
+    {
+      id: string;
+      name: string;
+      email: string;
+      speciality: string;
+      rating: number | null;
+      status: string;
+    }[]
+  >(`/bookings/teachers${q}`, { auth: false });
+}
+
+export function getAvailability(date: string, teacherId?: string) {
+  const params = new URLSearchParams({ date });
+  if (teacherId) params.set("teacherId", teacherId);
+  return apiFetch<
+    {
+      id: string;
+      teacherId: string;
+      teacherName: string;
+      startsAt: string;
+      endsAt: string;
+      status: string;
+    }[]
+  >(`/bookings/availability?${params}`, { auth: false });
+}
+
+export type CreateBookingBody = {
+  packageId: string;
+  mockDate: string;
+  mockTime: string;
+  writingTeacherId: string;
+  speakingTeacherId: string;
+  speakingSlotId: string;
+  paymentMethod?: string;
+};
+
+export type CreateBookingResult = {
+  enrollmentId: string;
+  enrollmentCode: string;
+  orderId: string;
+  orderCode: string;
+  sessionCode: string;
+  amount: number;
+  currency: string;
+  status: string;
+};
+
+export function createBooking(body: CreateBookingBody) {
+  return apiFetch<CreateBookingResult>("/bookings", {
+    method: "POST",
+    body,
+  });
+}
+
+export function rescheduleBooking(
+  enrollmentId: string,
+  body: { mockDate: string; mockTime: string; speakingSlotId: string },
+) {
+  return apiFetch<{
+    enrollmentId: string;
+    enrollmentCode: string;
+    mockDate: string;
+    mockTime: string;
+    status: string;
+  }>(`/bookings/${enrollmentId}/reschedule`, { method: "PATCH", body });
+}

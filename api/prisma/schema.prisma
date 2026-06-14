@@ -1,0 +1,638 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum TeacherStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum ExamType {
+  ACADEMIC
+  GENERAL_TRAINING
+}
+
+enum TeacherSpeciality {
+  WRITING
+  SPEAKING
+  BOTH
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  AWAITING_RESULTS
+  COMPLETED
+  CANCELLED
+}
+
+enum ResultsStatus {
+  PENDING
+  PARTIAL
+  RELEASED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  WALLET
+}
+
+enum ExamSessionState {
+  ENROLLED
+  CHECK_IN_OPEN
+  LISTENING_ACTIVE
+  LISTENING_SUBMITTED
+  READING_ACTIVE
+  READING_SUBMITTED
+  BREAK
+  WRITING_ACTIVE
+  WRITING_SUBMITTED
+  SPEAKING_SCHEDULED
+  SPEAKING_ACTIVE
+  SPEAKING_SUBMITTED
+  AWAITING_GRADING
+  RESULTS_RELEASED
+}
+
+enum ExamSkill {
+  LISTENING
+  READING
+  WRITING
+  SPEAKING
+}
+
+enum ContentTestStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentTestType {
+  LISTENING
+  READING
+  WRITING
+  SPEAKING
+}
+
+enum WritingSubmissionStatus {
+  PENDING
+  IN_REVIEW
+  GRADED
+}
+
+enum SpeakingSessionStatus {
+  SCHEDULED
+  WAITING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  INFO
+  REMINDER
+  RESULT
+  PAYMENT
+  GRADING
+  SYSTEM
+}
+
+enum TicketType {
+  REGRADE_REQUEST
+  TEACHER_NO_SHOW
+  TECHNICAL_ISSUE
+  PAYMENT_DISPUTE
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SlaState {
+  ON_TRACK
+  AT_RISK
+  BREACHED
+}
+
+enum IntegrityStatus {
+  CLEAR
+  FLAGGED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+// ─── Users & Profiles ────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  studentProfile StudentProfile?
+  teacherProfile TeacherProfile?
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  assignedTickets SupportTicket[] @relation("TicketAssignee")
+  reportedTickets SupportTicket[] @relation("TicketReporter")
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id                   String    @id @default(cuid())
+  userId               String    @unique @map("user_id")
+  targetBand           Float?    @map("target_band")
+  examType             ExamType  @default(ACADEMIC) @map("exam_type")
+  country              String?
+  phone                String?
+  publishToLeaderboard Boolean   @default(false) @map("publish_to_leaderboard")
+  notificationPrefs    Json?     @map("notification_prefs")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+  orders      Order[]
+  reviews     Review[]
+
+  @@map("student_profiles")
+}
+
+model TeacherProfile {
+  id             String            @id @default(cuid())
+  userId         String            @unique @map("user_id")
+  slug           String?           @unique
+  bio            String?
+  longBio        String?           @map("long_bio")
+  avatarUrl      String?           @map("avatar_url")
+  notificationPrefs Json?          @map("notification_prefs")
+  credentials    Json?
+  languages      Json              @default("[]")
+  commissionRate Float             @default(0.25) @map("commission_rate")
+  status         TeacherStatus     @default(PENDING)
+  speciality     TeacherSpeciality @default(BOTH)
+  rating         Float?
+  reviewCount    Int               @default(0) @map("review_count")
+  isTopRated     Boolean           @default(false) @map("is_top_rated")
+  totalSessions  Int               @default(0) @map("total_sessions")
+  totalEarned    Float             @default(0) @map("total_earned")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availability         TeacherAvailability[]
+  slots                TeacherSlot[]
+  writingEnrollments   Enrollment[]          @relation("WritingTeacher")
+  speakingEnrollments  Enrollment[]          @relation("SpeakingTeacher")
+  writingSubmissions   WritingSubmission[]
+  speakingSessions     SpeakingSession[]
+  grades               Grade[]
+  payouts              Payout[]
+  reviews              Review[]
+
+  @@map("teacher_profiles")
+}
+
+model TeacherAvailability {
+  id           String @id @default(cuid())
+  teacherId    String @map("teacher_id")
+  dayOfWeek    Int    @map("day_of_week")
+  startTime    String @map("start_time")
+  endTime      String @map("end_time")
+  slotDuration Int    @default(30) @map("slot_duration")
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_availability")
+}
+
+model TeacherSlot {
+  id        String     @id @default(cuid())
+  teacherId String     @map("teacher_id")
+  startsAt  DateTime   @map("starts_at")
+  endsAt    DateTime   @map("ends_at")
+  status    SlotStatus @default(AVAILABLE)
+  version   Int        @default(0)
+
+  teacher     TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+
+  @@unique([teacherId, startsAt])
+  @@map("teacher_slots")
+}
+
+// ─── Catalog & Content ─────────────────────────────────────────────────────────
+
+model MockTestPackage {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  description     String?
+  price           Float
+  currency        String   @default("USD")
+  examType        ExamType @default(ACADEMIC) @map("exam_type")
+  mostPopular     Boolean  @default(false) @map("most_popular")
+  rating          Float?
+  reviewCount     Int      @default(0) @map("review_count")
+  skills          Json              @default("[]")
+  included        Json              @default("[]")
+  rules           Json              @default("[]")
+  listeningTestId String?  @map("listening_test_id")
+  readingTestId   String?  @map("reading_test_id")
+  writingTestId   String?  @map("writing_test_id")
+  speakingBankId  String?  @map("speaking_bank_id")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  listeningTest ContentTest? @relation("PackageListening", fields: [listeningTestId], references: [id])
+  readingTest   ContentTest? @relation("PackageReading", fields: [readingTestId], references: [id])
+  writingTest   ContentTest? @relation("PackageWriting", fields: [writingTestId], references: [id])
+  speakingBank  ContentTest? @relation("PackageSpeaking", fields: [speakingBankId], references: [id])
+  enrollments   Enrollment[]
+  orders        Order[]
+  reviews       Review[]
+
+  @@map("mock_test_packages")
+}
+
+model ContentTest {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  title       String
+  type        ContentTestType
+  status      ContentTestStatus @default(DRAFT)
+  version     Int               @default(1)
+  content     Json
+  answerKey   Json?             @map("answer_key")
+  durationMin Int               @default(60) @map("duration_min")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  publishedAt DateTime?         @map("published_at")
+
+  packageListening MockTestPackage[] @relation("PackageListening")
+  packageReading   MockTestPackage[] @relation("PackageReading")
+  packageWriting   MockTestPackage[] @relation("PackageWriting")
+  packageSpeaking  MockTestPackage[] @relation("PackageSpeaking")
+  mediaAssets      MediaAsset[]
+
+  @@map("content_tests")
+}
+
+model MediaAsset {
+  id        String   @id @default(cuid())
+  testId    String?  @map("test_id")
+  key       String
+  url       String
+  mimeType  String   @map("mime_type")
+  sizeBytes Int?     @map("size_bytes")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  test ContentTest? @relation(fields: [testId], references: [id], onDelete: SetNull)
+
+  @@map("media_assets")
+}
+
+// ─── Enrollments & Orders ────────────────────────────────────────────────────
+
+model Enrollment {
+  id               String           @id @default(cuid())
+  enrollmentCode   String           @unique @map("enrollment_code")
+  studentId        String           @map("student_id")
+  packageId        String           @map("package_id")
+  mockDate         DateTime         @map("mock_date")
+  mockTime         String           @map("mock_time")
+  status           EnrollmentStatus @default(ENROLLED)
+  resultsStatus    ResultsStatus    @default(PENDING) @map("results_status")
+  writingTeacherId String?          @map("writing_teacher_id")
+  speakingTeacherId String?         @map("speaking_teacher_id")
+  speakingSlotId   String?          @map("speaking_slot_id")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  student         StudentProfile  @relation(fields: [studentId], references: [id])
+  package         MockTestPackage @relation(fields: [packageId], references: [id])
+  writingTeacher  TeacherProfile? @relation("WritingTeacher", fields: [writingTeacherId], references: [id])
+  speakingTeacher TeacherProfile? @relation("SpeakingTeacher", fields: [speakingTeacherId], references: [id])
+  speakingSlot    TeacherSlot?    @relation(fields: [speakingSlotId], references: [id])
+  order           Order?
+  examSession     ExamSession?
+  tickets         SupportTicket[]
+  review          Review?
+
+  @@map("enrollments")
+}
+
+model Review {
+  id             String   @id @default(cuid())
+  enrollmentId   String   @unique @map("enrollment_id")
+  studentId      String   @map("student_id")
+  packageId      String   @map("package_id")
+  teacherId      String?  @map("teacher_id")
+  rating         Int
+  comment        String?
+  publishConsent Boolean  @default(false) @map("publish_consent")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  enrollment Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  student    StudentProfile  @relation(fields: [studentId], references: [id])
+  package    MockTestPackage @relation(fields: [packageId], references: [id])
+  teacher    TeacherProfile? @relation(fields: [teacherId], references: [id])
+
+  @@map("reviews")
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  orderCode     String        @unique @map("order_code")
+  studentId     String        @map("student_id")
+  enrollmentId  String?       @unique @map("enrollment_id")
+  packageId     String        @map("package_id")
+  amount        Float
+  currency      String        @default("USD")
+  paymentMethod PaymentMethod @default(CARD) @map("payment_method")
+  status        OrderStatus   @default(PENDING)
+  stripePaymentId String?     @map("stripe_payment_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  student    StudentProfile  @relation(fields: [studentId], references: [id])
+  enrollment Enrollment?     @relation(fields: [enrollmentId], references: [id])
+  package    MockTestPackage @relation(fields: [packageId], references: [id])
+  refunds    Refund[]
+
+  @@map("orders")
+}
+
+model Refund {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  amount    Float
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("refunds")
+}
+
+// ─── Exam Delivery ───────────────────────────────────────────────────────────
+
+model ExamSession {
+  id           String           @id @default(cuid())
+  sessionCode  String           @unique @map("session_code")
+  enrollmentId String           @unique @map("enrollment_id")
+  state        ExamSessionState @default(ENROLLED)
+  sectionTimers Json?           @map("section_timers")
+  integrityLog Json?            @map("integrity_log")
+  integrity    IntegrityStatus  @default(CLEAR)
+  version      Int              @default(0)
+  checkInAt    DateTime?        @map("check_in_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  enrollment      Enrollment       @relation(fields: [enrollmentId], references: [id])
+  sectionAttempts SectionAttempt[]
+
+  @@map("exam_sessions")
+}
+
+model SectionAttempt {
+  id            String    @id @default(cuid())
+  sessionId     String    @map("session_id")
+  skill         ExamSkill
+  startedAt     DateTime? @map("started_at")
+  submittedAt   DateTime? @map("submitted_at")
+  rawScore      Int?      @map("raw_score")
+  band          Float?
+  timeRemaining Int?      @map("time_remaining")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  session            ExamSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answers            Answer[]
+  writingSubmission  WritingSubmission?
+  speakingSession    SpeakingSession?
+
+  @@unique([sessionId, skill])
+  @@map("section_attempts")
+}
+
+model Answer {
+  id               String   @id @default(cuid())
+  sectionAttemptId String   @map("section_attempt_id")
+  questionNumber   Int      @map("question_number")
+  questionType     String   @map("question_type")
+  value            Json
+  revision         Int      @default(1)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  sectionAttempt SectionAttempt @relation(fields: [sectionAttemptId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionAttemptId, questionNumber])
+  @@map("answers")
+}
+
+model WritingSubmission {
+  id               String                  @id @default(cuid())
+  sectionAttemptId String                  @unique @map("section_attempt_id")
+  teacherId        String?                 @map("teacher_id")
+  task1Text        String?                 @map("task1_text")
+  task2Text        String?                 @map("task2_text")
+  task1WordCount   Int                     @default(0) @map("task1_word_count")
+  task2WordCount   Int                     @default(0) @map("task2_word_count")
+  status           WritingSubmissionStatus @default(PENDING)
+  slaDueAt         DateTime?               @map("sla_due_at")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  sectionAttempt SectionAttempt  @relation(fields: [sectionAttemptId], references: [id], onDelete: Cascade)
+  teacher        TeacherProfile? @relation(fields: [teacherId], references: [id])
+  grade          Grade?
+
+  @@map("writing_submissions")
+}
+
+model SpeakingSession {
+  id               String                @id @default(cuid())
+  sectionAttemptId String                @unique @map("section_attempt_id")
+  teacherId        String?               @map("teacher_id")
+  status           SpeakingSessionStatus @default(SCHEDULED)
+  activePhase      String?               @map("active_phase")
+  examinerReady    Boolean               @default(false) @map("examiner_ready")
+  recordingUrl     String?               @map("recording_url")
+  partTimestamps   Json?                 @map("part_timestamps")
+  teacherNotes     String?               @map("teacher_notes")
+  scheduledAt      DateTime?             @map("scheduled_at")
+  startedAt        DateTime?             @map("started_at")
+  endedAt          DateTime?             @map("ended_at")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+
+  sectionAttempt SectionAttempt  @relation(fields: [sectionAttemptId], references: [id], onDelete: Cascade)
+  teacher        TeacherProfile? @relation(fields: [teacherId], references: [id])
+  grade          Grade?
+
+  @@map("speaking_sessions")
+}
+
+model Grade {
+  id                  String   @id @default(cuid())
+  writingSubmissionId String?  @unique @map("writing_submission_id")
+  speakingSessionId   String?  @unique @map("speaking_session_id")
+  gradedById          String   @map("graded_by_id")
+  criteriaScores      Json     @map("criteria_scores")
+  overallBand         Float    @map("overall_band")
+  feedback            String?
+  gradedAt            DateTime @default(now()) @map("graded_at")
+
+  writingSubmission WritingSubmission? @relation(fields: [writingSubmissionId], references: [id], onDelete: Cascade)
+  speakingSession   SpeakingSession?   @relation(fields: [speakingSessionId], references: [id], onDelete: Cascade)
+  gradedBy          TeacherProfile     @relation(fields: [gradedById], references: [id])
+
+  @@map("grades")
+}
+
+// ─── Commerce & Payouts ──────────────────────────────────────────────────────
+
+model Payout {
+  id         String       @id @default(cuid())
+  teacherId  String       @map("teacher_id")
+  amount     Float
+  currency   String       @default("USD")
+  status     PayoutStatus @default(PENDING)
+  periodStart DateTime    @map("period_start")
+  periodEnd   DateTime    @map("period_end")
+  paidAt     DateTime?    @map("paid_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  @@map("payouts")
+}
+
+// ─── Operations ──────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType @default(INFO)
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model SupportTicket {
+  id           String         @id @default(cuid())
+  ticketCode   String         @unique @map("ticket_code")
+  userId       String?        @map("user_id")
+  enrollmentId String?        @map("enrollment_id")
+  type         TicketType
+  priority     TicketPriority @default(MEDIUM)
+  status       TicketStatus   @default(OPEN)
+  subject      String
+  description  String
+  slaState     SlaState       @default(ON_TRACK) @map("sla_state")
+  slaProgress  Int            @default(100) @map("sla_progress")
+  assigneeId   String?        @map("assignee_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  resolvedAt   DateTime?      @map("resolved_at")
+
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id])
+  user       User?       @relation("TicketReporter", fields: [userId], references: [id])
+  assignee   User?       @relation("TicketAssignee", fields: [assigneeId], references: [id])
+
+  @@map("support_tickets")
+}
+
+// ─── Platform Config ─────────────────────────────────────────────────────────
+
+model BandConversionTable {
+  id        String    @id @default(cuid())
+  skill     ExamSkill
+  rawScore  Int       @map("raw_score")
+  band      Float
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@unique([skill, rawScore])
+  @@map("band_conversion_tables")
+}
+
+model PlatformSettings {
+  id        String   @id @default(cuid())
+  section   String   @unique
+  settings  Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
