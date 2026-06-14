@@ -23,6 +23,7 @@ import {
   RoomEvent,
   type RemoteParticipant,
 } from "livekit-client";
+import { pickRemoteParticipant } from "@/hooks/use-camera-track-ref";
 import {
   getSpeakingState,
   joinSpeakingSession,
@@ -117,6 +118,7 @@ export function SpeakingRoomProvider({
               role: role === "examiner" ? "examiner" : "student",
               speakingSessionId,
               livekitConfigured: false,
+              recordingEnabled: false,
             };
           } else {
             throw joinErr;
@@ -188,12 +190,21 @@ export function SpeakingRoomProvider({
       token={joinInfo.token}
       serverUrl={joinInfo.serverUrl}
       connect
-      audio
-      video
+      audio={{
+        echoCancellation: true,
+        noiseSuppression: true,
+      }}
+      video={{
+        facingMode: "user",
+        resolution: { width: 1280, height: 720, frameRate: 24 },
+      }}
+      connectOptions={{ autoSubscribe: true }}
+      options={{ adaptiveStream: true, dynacast: true }}
       data-lk-theme="default"
       className="h-full w-full"
     >
       <RoomAudioRenderer />
+      <EnsureMediaEnabled />
       <SpeakingRoomInner
         shell={shellValue}
         setPhaseState={setPhaseState}
@@ -284,6 +295,37 @@ function OfflineSpeakingRoomProvider({
   );
 }
 
+function EnsureMediaEnabled() {
+  const connectionState = useConnectionState();
+  const { localParticipant } = useLocalParticipant();
+
+  useEffect(() => {
+    if (connectionState !== ConnectionState.Connected || !localParticipant) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function enableMedia() {
+      try {
+        await localParticipant.setMicrophoneEnabled(true);
+        if (!cancelled) {
+          await localParticipant.setCameraEnabled(true);
+        }
+      } catch (err) {
+        console.warn("Could not enable camera/microphone:", err);
+      }
+    }
+
+    void enableMedia();
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionState, localParticipant]);
+
+  return null;
+}
+
 function SpeakingRoomInner({
   shell,
   setPhaseState,
@@ -308,8 +350,8 @@ function SpeakingRoomInner({
   const connectionState = useConnectionState();
   const { localParticipant } = useLocalParticipant();
   const participants = useParticipants();
-  const remoteParticipant = participants.find(
-    (p) => !p.isLocal,
+  const remoteParticipant = pickRemoteParticipant(
+    participants,
   ) as RemoteParticipant | undefined;
 
   useEffect(() => {

@@ -53,6 +53,9 @@ export function getSpeakingSession(id: string) {
     status: string;
     scheduledAt: string | null;
     teacherNotes: string | null;
+    activePhase?: string;
+    examinerReady?: boolean;
+    recordingUrl?: string | null;
     grade: {
       criteriaScores: Record<string, number>;
       overallBand: number;

@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:live": "playwright test --config=playwright.live.config.ts 00-student-dashboard.spec.ts 01-student-browse.spec.ts",
+    "test:e2e:live:browse": "playwright test --config=playwright.live.config.ts 01-student-browse.spec.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

@@ -4,7 +4,6 @@ import {
   VideoTrack,
   useConnectionQualityIndicator,
   useLocalParticipant,
-  useTracks,
   TrackToggle,
 } from "@livekit/components-react";
 import { Track, type Participant } from "livekit-client";
@@ -17,6 +16,7 @@ import {
   Video,
 } from "lucide-react";
 import { useSpeakingRoom } from "@/contexts/speaking-room-context";
+import { useCameraTrackRef } from "@/hooks/use-camera-track-ref";
 import { cn } from "@/lib/utils";
 
 function QualityBadge({ participant }: { participant: Participant }) {
@@ -45,6 +45,59 @@ function QualityBadge({ participant }: { participant: Participant }) {
   );
 }
 
+function CameraTile({
+  trackRef,
+  label,
+  placeholder,
+  className,
+  pip,
+}: {
+  trackRef: ReturnType<typeof useCameraTrackRef>;
+  label: string;
+  placeholder: string;
+  className?: string;
+  pip?: boolean;
+}) {
+  const hasVideo =
+    trackRef?.publication?.track &&
+    !trackRef.publication.isMuted &&
+    trackRef.publication.isEnabled;
+
+  return (
+    <div className={cn("relative overflow-hidden bg-slate-900", className)}>
+      {hasVideo && trackRef ? (
+        <VideoTrack
+          trackRef={trackRef}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
+          <div
+            className={cn(
+              "flex items-center justify-center rounded-full bg-slate-700 font-bold text-white",
+              pip ? "h-10 w-10 text-sm" : "h-20 w-20 text-2xl",
+            )}
+          >
+            {placeholder}
+          </div>
+          {!pip && <p className="text-sm">Waiting for participant…</p>}
+          {pip && !hasVideo && (
+            <p className="text-[10px]">Camera off</p>
+          )}
+        </div>
+      )}
+      <span
+        className={cn(
+          "absolute rounded bg-black/50 font-medium text-white",
+          pip ? "left-2 top-2 px-1.5 py-0.5 text-[10px]" : "left-3 top-12 px-2 py-1 text-[11px]",
+        )}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export function SpeakingVideoLayout({
   remoteLabel,
   localLabel,
@@ -61,16 +114,8 @@ export function SpeakingVideoLayout({
   const { remoteParticipant, isConnected } = useSpeakingRoom();
   const { localParticipant } = useLocalParticipant();
 
-  const cameraTracks = useTracks([Track.Source.Camera], {
-    onlySubscribed: false,
-  });
-
-  const remoteTrack = cameraTracks.find(
-    (t) => t.participant.identity === remoteParticipant?.identity,
-  );
-  const localTrack = cameraTracks.find(
-    (t) => t.participant.identity === localParticipant.identity,
-  );
+  const remoteTrack = useCameraTrackRef(remoteParticipant);
+  const localTrack = useCameraTrackRef(localParticipant);
 
   return (
     <div className="relative flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl bg-navy lg:min-h-[480px]">
@@ -85,41 +130,22 @@ export function SpeakingVideoLayout({
       </div>
 
       <div className="absolute inset-0">
-        {remoteTrack ? (
-          <VideoTrack
-            trackRef={remoteTrack}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-slate-900 text-slate-400">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-700 text-2xl font-bold text-white">
-              {remotePlaceholder}
-            </div>
-            <p className="text-sm">Waiting for participant…</p>
-          </div>
-        )}
-        <span className="absolute left-3 top-12 rounded-md bg-black/50 px-2 py-1 text-[11px] font-medium text-white">
-          {remoteLabel}
-        </span>
+        <CameraTile
+          trackRef={remoteTrack}
+          label={remoteLabel}
+          placeholder={remotePlaceholder}
+          className="h-full w-full"
+        />
       </div>
 
-      <div className="absolute bottom-4 right-4 z-10 h-28 w-40 overflow-hidden rounded-xl border-2 border-white/20 bg-slate-900 shadow-xl">
-        {localTrack ? (
-          <VideoTrack
-            trackRef={localTrack}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-400">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700 text-sm font-bold text-white">
-              {localPlaceholder}
-            </div>
-            <p className="text-[10px]">Camera off</p>
-          </div>
-        )}
-        <span className="absolute left-2 top-2 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">
-          {localLabel}
-        </span>
+      <div className="absolute bottom-4 right-4 z-10 h-28 w-40 overflow-hidden rounded-xl border-2 border-white/20 shadow-xl">
+        <CameraTile
+          trackRef={localTrack}
+          label={localLabel}
+          placeholder={localPlaceholder}
+          className="h-full w-full"
+          pip
+        />
       </div>
 
       {overlay}

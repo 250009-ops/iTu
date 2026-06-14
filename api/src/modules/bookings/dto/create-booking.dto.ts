@@ -12,17 +12,17 @@ export class CreateBookingDto {
   @IsNotEmpty()
   mockTime: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  writingTeacherId: string;
+  writingTeacherId?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  speakingTeacherId: string;
+  speakingTeacherId?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  speakingSlotId: string;
+  speakingSlotId?: string;
 
   @IsOptional()
   @IsString()

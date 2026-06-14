@@ -44,13 +44,13 @@ type Slot = {
   status: string;
 };
 
-type Step = 1 | 2 | 3 | 4;
+type WizardStepId = "date" | "writing" | "speaking" | "payment";
 
-const STEP_LABELS: Record<Step, string> = {
-  1: "Date & time",
-  2: "Writing examiner",
-  3: "Speaking slot",
-  4: "Payment",
+const STEP_LABELS: Record<WizardStepId, string> = {
+  date: "Date & time",
+  writing: "Writing examiner",
+  speaking: "Speaking slot",
+  payment: "Payment",
 };
 
 const EXAM_START_TIMES = ["08:30", "09:00", "09:30", "10:00", "13:00"];
@@ -67,6 +67,27 @@ function formatSlotTime(iso: string) {
   });
 }
 
+function buildWizardSteps(product: BrowseProduct): WizardStepId[] {
+  const steps: WizardStepId[] = ["date"];
+  if (product.needsWriting) steps.push("writing");
+  if (product.needsSpeaking) steps.push("speaking");
+  steps.push("payment");
+  return steps;
+}
+
+function dateStepHint(product: BrowseProduct) {
+  if (product.skillIds.length >= 4) {
+    return "All four skills take place on this single day.";
+  }
+  if (product.needsSpeaking && !product.needsWriting) {
+    return "Your live Speaking session will take place on this date.";
+  }
+  if (product.needsWriting && !product.needsSpeaking) {
+    return "Complete your Writing tasks on this date within the 60-minute window.";
+  }
+  return "Your exam sections take place on this single day.";
+}
+
 export function BookingWizard({
   product,
   onClose,
@@ -76,8 +97,11 @@ export function BookingWizard({
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const steps = useMemo(() => buildWizardSteps(product), [product]);
 
-  const [step, setStep] = useState<Step>(1);
+  const [stepIndex, setStepIndex] = useState(0);
+  const currentStep = steps[stepIndex]!;
+
   const [mockDate, setMockDate] = useState(todayIso());
   const [mockTime, setMockTime] = useState(EXAM_START_TIMES[0]);
 
@@ -98,6 +122,9 @@ export function BookingWizard({
   const [error, setError] = useState<string | null>(null);
 
   const priceLabel = `${product.currency === "USD" ? "$" : `${product.currency} `}${product.price}`;
+  const selectedWritingTeacher = writingTeachers.find(
+    (teacher) => teacher.id === writingTeacherId,
+  );
 
   const loadTeachers = useCallback(async () => {
     setTeachersLoading(true);
@@ -125,13 +152,13 @@ export function BookingWizard({
   }, [mockDate]);
 
   useEffect(() => {
-    if (step === 2 && writingTeachers.length === 0) {
+    if (currentStep === "writing" && writingTeachers.length === 0) {
       void loadTeachers();
     }
-    if (step === 3) {
+    if (currentStep === "speaking") {
       void loadSlots();
     }
-  }, [step, writingTeachers.length, loadTeachers, loadSlots]);
+  }, [currentStep, writingTeachers.length, loadTeachers, loadSlots]);
 
   const slotsByTeacher = useMemo(() => {
     const groups = new Map<string, { name: string; slots: Slot[] }>();
@@ -147,14 +174,15 @@ export function BookingWizard({
   }, [slots]);
 
   const canContinue = useMemo(() => {
-    if (step === 1) return Boolean(mockDate && mockTime);
-    if (step === 2) return Boolean(writingTeacherId);
-    if (step === 3) return Boolean(selectedSlot);
-    if (step === 4)
+    if (currentStep === "date") return Boolean(mockDate && mockTime);
+    if (currentStep === "writing") return Boolean(writingTeacherId);
+    if (currentStep === "speaking") return Boolean(selectedSlot);
+    if (currentStep === "payment") {
       return Boolean(cardName && cardNumber && cardExpiry && cardCvc);
+    }
     return false;
   }, [
-    step,
+    currentStep,
     mockDate,
     mockTime,
     writingTeacherId,
@@ -167,16 +195,18 @@ export function BookingWizard({
 
   function goNext() {
     setError(null);
-    if (step < 4) setStep((s) => (s + 1) as Step);
+    if (stepIndex < steps.length - 1) setStepIndex((index) => index + 1);
   }
 
   function goBack() {
     setError(null);
-    if (step > 1) setStep((s) => (s - 1) as Step);
+    if (stepIndex > 0) setStepIndex((index) => index - 1);
   }
 
   async function handleConfirm() {
-    if (!writingTeacherId || !selectedSlot) return;
+    if (product.needsWriting && !writingTeacherId) return;
+    if (product.needsSpeaking && !selectedSlot) return;
+
     setSubmitting(true);
     setError(null);
     try {
@@ -184,9 +214,15 @@ export function BookingWizard({
         packageId: product.id,
         mockDate: new Date(`${mockDate}T${mockTime}:00`).toISOString(),
         mockTime,
-        writingTeacherId,
-        speakingTeacherId: selectedSlot.teacherId,
-        speakingSlotId: selectedSlot.id,
+        ...(product.needsWriting && writingTeacherId
+          ? { writingTeacherId }
+          : {}),
+        ...(product.needsSpeaking && selectedSlot
+          ? {
+              speakingTeacherId: selectedSlot.teacherId,
+              speakingSlotId: selectedSlot.id,
+            }
+          : {}),
         paymentMethod: "card",
       });
       toast("Booking confirmed", {
@@ -202,13 +238,15 @@ export function BookingWizard({
     }
   }
 
+  const isLastStep = stepIndex === steps.length - 1;
+
   return (
     <Modal open onClose={onClose} ariaLabel={`Book ${product.title}`}>
         <div className="flex items-start justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-navy">Book {product.title}</h2>
             <p className="mt-0.5 text-sm text-muted">
-              Step {step} of 4 · {STEP_LABELS[step]}
+              Step {stepIndex + 1} of {steps.length} · {STEP_LABELS[currentStep]}
             </p>
           </div>
           <button
@@ -222,25 +260,25 @@ export function BookingWizard({
         </div>
 
         <div className="flex items-center gap-2 border-b border-border px-6 py-3">
-          {([1, 2, 3, 4] as Step[]).map((s) => (
-            <div key={s} className="flex flex-1 items-center gap-2">
+          {steps.map((step, index) => (
+            <div key={step} className="flex flex-1 items-center gap-2">
               <div
                 className={cn(
                   "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                  s < step
+                  index < stepIndex
                     ? "bg-emerald-500 text-white"
-                    : s === step
+                    : index === stepIndex
                       ? "bg-navy text-white"
                       : "bg-slate-100 text-slate-400",
                 )}
               >
-                {s < step ? <Check size={14} /> : s}
+                {index < stepIndex ? <Check size={14} /> : index + 1}
               </div>
-              {s < 4 && (
+              {index < steps.length - 1 && (
                 <div
                   className={cn(
                     "h-0.5 flex-1 rounded-full",
-                    s < step ? "bg-emerald-400" : "bg-slate-200",
+                    index < stepIndex ? "bg-emerald-400" : "bg-slate-200",
                   )}
                 />
               )}
@@ -249,7 +287,7 @@ export function BookingWizard({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {step === 1 && (
+          {currentStep === "date" && (
             <div className="space-y-5">
               <div>
                 <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-navy">
@@ -262,9 +300,7 @@ export function BookingWizard({
                   value={mockDate}
                   onChange={(e) => setMockDate(e.target.value)}
                 />
-                <p className="mt-1 text-xs text-muted">
-                  All four skills take place on this single day.
-                </p>
+                <p className="mt-1 text-xs text-muted">{dateStepHint(product)}</p>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-navy">
@@ -294,7 +330,7 @@ export function BookingWizard({
             </div>
           )}
 
-          {step === 2 && (
+          {currentStep === "writing" && (
             <div className="space-y-3">
               <p className="text-sm text-muted">
                 Choose the examiner who will grade your Writing submission.
@@ -352,7 +388,7 @@ export function BookingWizard({
             </div>
           )}
 
-          {step === 3 && (
+          {currentStep === "speaking" && (
             <div className="space-y-3">
               <p className="text-sm text-muted">
                 Pick an available Speaking slot for{" "}
@@ -410,7 +446,7 @@ export function BookingWizard({
             </div>
           )}
 
-          {step === 4 && (
+          {currentStep === "payment" && (
             <div className="space-y-5">
               <div className="rounded-xl border border-border bg-slate-50 p-4">
                 <p className="text-sm font-semibold text-navy">Order summary</p>
@@ -431,14 +467,24 @@ export function BookingWizard({
                       · {mockTime}
                     </dd>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted">Speaking slot</dt>
-                    <dd className="font-medium text-foreground">
-                      {selectedSlot
-                        ? `${formatSlotTime(selectedSlot.startsAt)} · ${selectedSlot.teacherName}`
-                        : "—"}
-                    </dd>
-                  </div>
+                  {product.needsWriting && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted">Writing examiner</dt>
+                      <dd className="font-medium text-foreground">
+                        {selectedWritingTeacher?.name ?? "—"}
+                      </dd>
+                    </div>
+                  )}
+                  {product.needsSpeaking && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted">Speaking slot</dt>
+                      <dd className="font-medium text-foreground">
+                        {selectedSlot
+                          ? `${formatSlotTime(selectedSlot.startsAt)} · ${selectedSlot.teacherName}`
+                          : "—"}
+                      </dd>
+                    </div>
+                  )}
                   <div className="mt-2 flex justify-between border-t border-border pt-2">
                     <dt className="font-semibold text-navy">Total</dt>
                     <dd className="font-bold text-navy">{priceLabel}</dd>
@@ -493,12 +539,12 @@ export function BookingWizard({
         <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
           <Button
             variant="secondary"
-            onClick={step === 1 ? onClose : goBack}
+            onClick={stepIndex === 0 ? onClose : goBack}
             disabled={submitting}
           >
-            {step === 1 ? "Cancel" : "Back"}
+            {stepIndex === 0 ? "Cancel" : "Back"}
           </Button>
-          {step < 4 ? (
+          {!isLastStep ? (
             <Button variant="danger" onClick={goNext} disabled={!canContinue}>
               Continue
             </Button>

@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "itestu-api",
       cwd: "/var/www/itestu/app/api",
-      script: "dist/main.js",
+      script: "dist/src/main.js",
       instances: 1,
       exec_mode: "fork",
       env: {
@@ -25,6 +25,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: "3000",
+        INTERNAL_API_URL: "http://127.0.0.1:3001/api/v1",
       },
       max_memory_restart: "768M",
       error_file: "/var/log/itestu/web-error.log",

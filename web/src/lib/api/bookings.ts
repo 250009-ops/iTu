@@ -33,9 +33,9 @@ export type CreateBookingBody = {
   packageId: string;
   mockDate: string;
   mockTime: string;
-  writingTeacherId: string;
-  speakingTeacherId: string;
-  speakingSlotId: string;
+  writingTeacherId?: string;
+  speakingTeacherId?: string;
+  speakingSlotId?: string;
   paymentMethod?: string;
 };
 

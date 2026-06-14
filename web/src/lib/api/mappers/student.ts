@@ -2,9 +2,12 @@ import type { listPackages } from "@/lib/api/catalog";
 import type { getResult, listResults } from "@/lib/api/results";
 import type { getMockDayHub, getStudentProfile } from "@/lib/api/students";
 import {
-  browseHighlights,
   defaultExamRules,
+  fullMockHighlights,
+  speakingOnlyHighlights,
   speakingTip,
+  writingOnlyHighlights,
+  type BrowseHighlight,
 } from "@/lib/student/constants";
 
 type CatalogPackage = Awaited<ReturnType<typeof listPackages>>[number];
@@ -117,29 +120,86 @@ function formatExamType(examType: string) {
   }
 }
 
+function browseDeliveryLabel(skillIds: SkillId[]): string {
+  if (skillIds.length === 1 && skillIds[0] === "speaking") {
+    return "Live Session";
+  }
+  if (skillIds.length === 1 && skillIds[0] === "writing") {
+    return "Online Submission";
+  }
+  return "Computer-Based";
+}
+
+function browseBookCta(skillIds: SkillId[]): string {
+  if (skillIds.length === 1 && skillIds[0] === "speaking") {
+    return "Book Speaking Session";
+  }
+  if (skillIds.length === 1 && skillIds[0] === "writing") {
+    return "Book Writing Mock";
+  }
+  return "Book Full Mock Exam";
+}
+
+function browseHighlightsFor(skillIds: SkillId[]): BrowseHighlight[] {
+  if (skillIds.length === 1 && skillIds[0] === "speaking") {
+    return speakingOnlyHighlights;
+  }
+  if (skillIds.length === 1 && skillIds[0] === "writing") {
+    return writingOnlyHighlights;
+  }
+  return fullMockHighlights;
+}
+
+function normalizePackageDescription(description: string | null | undefined) {
+  if (!description) return undefined;
+  if (description.includes("Score + criteria feedback")) {
+    return "A single live Speaking session with a certified examiner, with criteria-level feedback.";
+  }
+  return description;
+}
+
+function normalizeIncludedItems(items: string[]) {
+  return items.map((item) => {
+    switch (item) {
+      case "Same-day band release":
+        return "Full band report within 24 hours";
+      case "Same-day score release":
+        return "Speaking score within 24 hours";
+      default:
+        return item;
+    }
+  });
+}
+
 export function mapBrowseProduct(pkg: CatalogPackage) {
+  const skillIds = pkg.skills.map((skill) => skill.toLowerCase() as SkillId);
+  const description =
+    normalizePackageDescription(pkg.description) ??
+    "Complete 4-skill exam · Computer-delivered IELTS format · Human-graded W & S";
+
   return {
     id: pkg.id,
     slug: pkg.slug,
     title: pkg.title,
-    description:
-      pkg.description ??
-      "Complete 4-skill exam · Computer-delivered IELTS format · Human-graded W & S",
+    description,
     examType: formatExamType(pkg.examType),
-    delivery: "Computer-Based",
+    delivery: browseDeliveryLabel(skillIds),
+    bookCta: browseBookCta(skillIds),
+    skillIds,
+    needsWriting: skillIds.includes("writing"),
+    needsSpeaking: skillIds.includes("speaking"),
     mostPopular: pkg.mostPopular,
     rating: pkg.rating ?? 0,
     reviewCount: pkg.reviewCount,
     price: pkg.price,
     currency: pkg.currency,
-    skills: pkg.skills.map((skill) => {
-      const id = skill.toLowerCase() as SkillId;
+    skills: skillIds.map((id) => {
       const meta = SKILL_META[id] ?? SKILL_META.listening;
       return { id, ...meta };
     }),
-    included: pkg.included,
+    included: normalizeIncludedItems(pkg.included),
     rules: pkg.rules,
-    highlights: browseHighlights,
+    highlights: browseHighlightsFor(skillIds),
   };
 }
 

@@ -259,7 +259,7 @@ async function main() {
       skills: ['listening', 'reading', 'writing', 'speaking'],
       included: [
         'Pick your certified examiner',
-        'Same-day band release',
+        'Full band report within 24 hours',
         'Criteria-level written feedback',
         'Score progression tracking',
         'Secure exam environment',
@@ -293,7 +293,7 @@ async function main() {
         skills: ['listening', 'reading', 'writing', 'speaking'],
         included: [
           'Pick your certified examiner',
-          'Same-day band release',
+          'Full band report within 24 hours',
           'Criteria-level written feedback',
           'Score progression tracking',
           'Secure exam environment',
@@ -309,7 +309,7 @@ async function main() {
         slug: 'speaking-only',
         title: 'Speaking Only',
         description:
-          'A single live Speaking session with a certified examiner. Score + criteria feedback.',
+          'A single live Speaking session with a certified examiner, with criteria-level feedback.',
         price: 22.0,
         currency: 'USD',
         examType: ExamType.ACADEMIC,
@@ -319,7 +319,7 @@ async function main() {
         skills: ['speaking'],
         included: [
           'Pick your certified examiner',
-          'Same-day score release',
+          'Speaking score within 24 hours',
           'Criteria-level speaking feedback',
           'Part 1, 2 & 3 transcript notes',
         ],

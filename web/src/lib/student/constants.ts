@@ -1,9 +1,9 @@
 export const browseFaqs = [
   {
     id: "included",
-    question: "What is included in the full mock exam?",
+    question: "What is included in a full mock exam?",
     answer:
-      "You get a complete 4-skill IELTS Academic mock on one calendar day: Listening and Reading (auto-scored CBT), Writing and Speaking (graded by a certified examiner you choose), plus a full band report and PDF certificate when all sections are complete.",
+      "You get a complete 4-skill IELTS mock (Academic or General Training) on one calendar day: Listening and Reading (auto-scored CBT), Writing and Speaking (graded by a certified examiner you choose), plus a full band report when all sections are complete.",
   },
   {
     id: "duration",
@@ -58,13 +58,36 @@ export const testimonials = [
   },
 ];
 
-export const browseHighlights = [
-  { label: "~4.5 hours total", icon: "clock" as const },
-  { label: "Pick your examiner", icon: "user" as const },
-  { label: "Results within 24 hrs", icon: "check" as const },
-  { label: "Official CBT interface", icon: "globe" as const },
-  { label: "Detailed band feedback", icon: "chart" as const },
+export type BrowseHighlightIcon = "clock" | "user" | "check" | "globe" | "chart";
+
+export type BrowseHighlight = { label: string; icon: BrowseHighlightIcon };
+
+export const fullMockHighlights: BrowseHighlight[] = [
+  { label: "~4.5 hours total", icon: "clock" },
+  { label: "Pick your certified examiner", icon: "user" },
+  { label: "Results within 24 hours", icon: "check" },
+  { label: "Official CBT interface", icon: "globe" },
+  { label: "Detailed band feedback", icon: "chart" },
 ];
+
+export const speakingOnlyHighlights: BrowseHighlight[] = [
+  { label: "11–14 minutes live", icon: "clock" },
+  { label: "Pick your certified examiner", icon: "user" },
+  { label: "Results within 24 hours", icon: "check" },
+  { label: "Live video session", icon: "globe" },
+  { label: "Detailed band feedback", icon: "chart" },
+];
+
+export const writingOnlyHighlights: BrowseHighlight[] = [
+  { label: "60-minute window", icon: "clock" },
+  { label: "Certified examiner grading", icon: "user" },
+  { label: "Results within 24 hours", icon: "check" },
+  { label: "Task 1 + Task 2", icon: "globe" },
+  { label: "Criteria-level feedback", icon: "chart" },
+];
+
+/** @deprecated Use package-specific highlights from mapBrowseProduct */
+export const browseHighlights = fullMockHighlights;
 
 export const defaultExamRules = [
   "Fullscreen required for all sections",

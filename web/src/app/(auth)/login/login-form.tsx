@@ -66,7 +66,7 @@ export default function LoginForm() {
     } catch (error) {
       if (error instanceof ApiError && error.status === 0) {
         setAuthError(
-          "Cannot reach the API server. Start it with: cd api && npm run start:dev",
+          "Cannot reach the server. Check your connection and try again, or contact support if the problem continues.",
         );
         return;
       }

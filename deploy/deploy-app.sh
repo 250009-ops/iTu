@@ -8,7 +8,9 @@ REPO_URL="${REPO_URL:-https://github.com/250009-ops/iTu.git}"
 DOMAIN="${DOMAIN:-itestu.uz}"
 
 echo "==> Pulling latest code..."
-if [[ -d "$APP_DIR/.git" ]]; then
+if [[ "${SKIP_GIT:-}" == "1" ]]; then
+  echo "Skipping git (source uploaded directly)."
+elif [[ -d "$APP_DIR/.git" ]]; then
   cd "$APP_DIR"
   git fetch origin
   git reset --hard origin/main

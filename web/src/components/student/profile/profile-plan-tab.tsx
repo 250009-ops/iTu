@@ -167,7 +167,7 @@ export function ProfilePlanTab() {
             IELTS attempt.
           </p>
           <Link href="/student/browse" className="mt-4 inline-block">
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               Browse mock packages
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>

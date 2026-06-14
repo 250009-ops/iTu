@@ -71,10 +71,11 @@ export function BrowsePageHeader() {
         Official computer-delivered IELTS format
       </div>
       <h1 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">
-        Book a Full Mock Exam
+        Browse Mock Exams
       </h1>
       <p className="text-muted">
-        Expert human grading · Same-day results · Pick your examiner
+        Expert human grading · Results within 24 hours · Pick your certified
+        examiner
       </p>
     </div>
   );
@@ -201,7 +202,7 @@ export function MockProductCard({ product }: { product: BrowseProduct }) {
           className="flex-1 sm:max-w-md"
           onClick={() => setWizardOpen(true)}
         >
-          Book Full Mock Exam
+          {product.bookCta}
           <ArrowRight className="h-4 w-4" />
         </Button>
         <p className="flex items-center justify-center gap-1.5 text-xs text-muted sm:justify-start">

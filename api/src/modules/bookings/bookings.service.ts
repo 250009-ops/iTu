@@ -95,24 +95,53 @@ export class BookingsService {
       throw new NotFoundException('Package not found');
     }
 
+    const skills = this.packageSkills(pkg);
+    const needsWriting = skills.includes('writing');
+    const needsSpeaking = skills.includes('speaking');
+
+    if (needsWriting && !dto.writingTeacherId) {
+      throw new BadRequestException('Writing examiner is required for this package');
+    }
+    if (needsSpeaking && (!dto.speakingTeacherId || !dto.speakingSlotId)) {
+      throw new BadRequestException(
+        'Speaking examiner and slot are required for this package',
+      );
+    }
+    if (!needsWriting && dto.writingTeacherId) {
+      throw new BadRequestException(
+        'Writing examiner is not required for this package',
+      );
+    }
+    if (!needsSpeaking && (dto.speakingTeacherId || dto.speakingSlotId)) {
+      throw new BadRequestException(
+        'Speaking slot is not required for this package',
+      );
+    }
+
     const enrollmentCode = await this.generateCode('ENR');
     const orderCode = await this.generateCode('ORD');
     const sessionCode = await this.generateCode('MOCK');
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const slot = await tx.teacherSlot.findUnique({
-        where: { id: dto.speakingSlotId },
-      });
-      if (!slot || slot.status !== SlotStatus.AVAILABLE) {
-        throw new BadRequestException('Speaking slot is no longer available');
-      }
+      let slot: { id: string; teacherId: string; startsAt: Date } | null =
+        null;
 
-      const booked = await tx.teacherSlot.updateMany({
-        where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
-        data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
-      });
-      if (booked.count === 0) {
-        throw new BadRequestException('Speaking slot booking conflict');
+      if (needsSpeaking && dto.speakingSlotId) {
+        const speakingSlot = await tx.teacherSlot.findUnique({
+          where: { id: dto.speakingSlotId },
+        });
+        if (!speakingSlot || speakingSlot.status !== SlotStatus.AVAILABLE) {
+          throw new BadRequestException('Speaking slot is no longer available');
+        }
+
+        const booked = await tx.teacherSlot.updateMany({
+          where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
+          data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
+        });
+        if (booked.count === 0) {
+          throw new BadRequestException('Speaking slot booking conflict');
+        }
+        slot = speakingSlot;
       }
 
       const enrollment = await tx.enrollment.create({
@@ -123,9 +152,9 @@ export class BookingsService {
           mockDate: new Date(dto.mockDate),
           mockTime: dto.mockTime,
           status: EnrollmentStatus.ENROLLED,
-          writingTeacherId: dto.writingTeacherId,
-          speakingTeacherId: dto.speakingTeacherId,
-          speakingSlotId: dto.speakingSlotId,
+          writingTeacherId: dto.writingTeacherId ?? null,
+          speakingTeacherId: dto.speakingTeacherId ?? null,
+          speakingSlotId: dto.speakingSlotId ?? null,
         },
       });
 
@@ -137,7 +166,9 @@ export class BookingsService {
           packageId: dto.packageId,
           amount: pkg.price,
           currency: pkg.currency,
-          paymentMethod: (dto.paymentMethod?.toUpperCase() as PaymentMethod) ?? PaymentMethod.CARD,
+          paymentMethod:
+            (dto.paymentMethod?.toUpperCase() as PaymentMethod) ??
+            PaymentMethod.CARD,
           status: OrderStatus.PAID,
         },
       });
@@ -150,34 +181,45 @@ export class BookingsService {
         },
       });
 
-      const speakingAttempt = await tx.sectionAttempt.create({
-        data: {
-          sessionId: session.id,
-          skill: ExamSkill.SPEAKING,
-        },
-      });
+      let speakingSession: { id: string } | null = null;
 
-      const speakingSession = await tx.speakingSession.create({
-        data: {
-          sectionAttemptId: speakingAttempt.id,
-          teacherId: dto.speakingTeacherId,
-          status: 'SCHEDULED',
-          scheduledAt: slot.startsAt,
-        },
-      });
+      for (const skill of skills) {
+        const examSkill = skill.toUpperCase() as ExamSkill;
+        const attempt = await tx.sectionAttempt.create({
+          data: {
+            sessionId: session.id,
+            skill: examSkill,
+          },
+        });
+
+        if (skill === 'speaking' && dto.speakingTeacherId && slot) {
+          speakingSession = await tx.speakingSession.create({
+            data: {
+              sectionAttemptId: attempt.id,
+              teacherId: dto.speakingTeacherId,
+              status: 'SCHEDULED',
+              scheduledAt: slot.startsAt,
+            },
+          });
+        }
+      }
 
       return { enrollment, order, session, slot, speakingSession };
     });
 
     const [writingTeacher, speakingTeacher, studentUser] = await Promise.all([
-      this.prisma.teacherProfile.findUnique({
-        where: { id: dto.writingTeacherId },
-        include: { user: true },
-      }),
-      this.prisma.teacherProfile.findUnique({
-        where: { id: dto.speakingTeacherId },
-        include: { user: true },
-      }),
+      dto.writingTeacherId
+        ? this.prisma.teacherProfile.findUnique({
+            where: { id: dto.writingTeacherId },
+            include: { user: true },
+          })
+        : Promise.resolve(null),
+      dto.speakingTeacherId
+        ? this.prisma.teacherProfile.findUnique({
+            where: { id: dto.speakingTeacherId },
+            include: { user: true },
+          })
+        : Promise.resolve(null),
       this.prisma.user.findFirst({
         where: { studentProfile: { id: user.studentProfileId! } },
       }),
@@ -203,7 +245,7 @@ export class BookingsService {
       );
     }
 
-    if (speakingTeacher) {
+    if (speakingTeacher && result.slot && result.speakingSession) {
       await this.notifications.create(
         speakingTeacher.userId,
         'Speaking session scheduled',
@@ -339,6 +381,11 @@ export class BookingsService {
       mockTime: result.updated.mockTime,
       status: 'rescheduled',
     };
+  }
+
+  private packageSkills(pkg: { skills: unknown }): string[] {
+    if (!Array.isArray(pkg.skills)) return [];
+    return pkg.skills.map((skill) => String(skill).toLowerCase());
   }
 
   private async generateCode(prefix: string): Promise<string> {
