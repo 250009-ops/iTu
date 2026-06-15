@@ -20,10 +20,12 @@ import { SpeakingModule } from './modules/speaking/speaking.module';
 import { StudentsModule } from './modules/students/students.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { MailModule } from './common/mail/mail.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    MailModule,
     PrismaModule,
     AuthModule,
     CatalogModule,

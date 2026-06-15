@@ -8,10 +8,14 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
+import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const DASHBOARD_PATHS: Record<UserRole, string> = {
   STUDENT: '/student',
@@ -25,6 +29,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -125,6 +130,64 @@ export class AuthService {
     await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash },
+    });
+
+    return { updated: true };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (user) {
+      const rawToken = randomBytes(32).toString('hex');
+      const passwordResetToken = createHash('sha256')
+        .update(rawToken)
+        .digest('hex');
+      const passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordResetToken, passwordResetExpires },
+      });
+
+      const appUrl = this.config
+        .get<string>('APP_URL', 'http://localhost:3000')
+        .replace(/\/$/, '');
+      const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+
+      await this.mail.sendPasswordResetEmail(user.email, user.name, resetUrl);
+    }
+
+    return { sent: true };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const passwordResetToken = createHash('sha256')
+      .update(dto.token.trim())
+      .digest('hex');
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        passwordResetToken,
+        passwordResetExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException(
+        'This reset link is invalid or has expired. Request a new one.',
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
     });
 
     return { updated: true };

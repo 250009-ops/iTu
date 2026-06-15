@@ -8,6 +8,8 @@ import { ArrowLeft, CheckCircle2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { forgotPassword as apiForgotPassword } from "@/lib/api/auth";
+import { getErrorMessage } from "@/lib/api/errors";
 import {
   forgotPasswordSchema,
   type ForgotPasswordFormValues,
@@ -17,7 +19,7 @@ export default function ForgotPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
-
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -28,16 +30,17 @@ export default function ForgotPasswordForm() {
 
   async function onSubmit(data: ForgotPasswordFormValues) {
     setLoading(true);
+    setError(null);
     try {
-      // TODO: wire to auth API
-      await new Promise((r) => setTimeout(r, 900));
+      await apiForgotPassword(data.email);
       setSubmittedEmail(data.email);
       setSent(true);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not send reset email. Try again."));
     } finally {
       setLoading(false);
     }
   }
-
   return (
     <div className="w-full max-w-md animate-fade-in">
       <div className="rounded-2xl border border-border bg-white p-8 shadow-sm sm:p-10">
@@ -61,8 +64,12 @@ export default function ForgotPasswordForm() {
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-              <FormField error={errors.email?.message}>
-                <div className="relative">
+              {error ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </p>
+              ) : null}
+              <FormField error={errors.email?.message}>                <div className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     {...register("email")}

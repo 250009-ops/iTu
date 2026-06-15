@@ -67,3 +67,19 @@ export function changePassword(currentPassword: string, newPassword: string) {
     body: { currentPassword, newPassword },
   });
 }
+
+export function forgotPassword(email: string) {
+  return apiFetch<{ sent: boolean }>("/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+    auth: false,
+  });
+}
+
+export function resetPassword(token: string, newPassword: string) {
+  return apiFetch<{ updated: boolean }>("/auth/reset-password", {
+    method: "POST",
+    body: { token, newPassword },
+    auth: false,
+  });
+}
