@@ -293,7 +293,7 @@ export function ContentTestEditor({ module, testId }: Props) {
   ];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+    <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div>
           <h2 className="font-semibold capitalize text-navy">{module} editor</h2>
@@ -337,7 +337,7 @@ export function ContentTestEditor({ module, testId }: Props) {
         </div>
       </div>
 
-      <div className="space-y-5 p-5 sm:p-6">
+      <div className="space-y-5 p-5 pb-8 sm:p-6 sm:pb-10">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="edit-title">Title</Label>
@@ -408,14 +408,12 @@ export function ContentTestEditor({ module, testId }: Props) {
                 />
               )}
               {module === "writing" && (
-                <div className="space-y-5 pt-1">
-                  <WritingVisualEditor
+                <WritingVisualEditor
                   testId={testId ?? undefined}
                   content={content as WritingContent}
                   onContentChange={(c) => handleContentChange(c)}
                   onMediaUpdated={refreshMediaAssets}
                 />
-                </div>
               )}
               {module === "speaking" && (
                 <div className="space-y-5 pt-1">
