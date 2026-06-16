@@ -49,7 +49,7 @@ async function main() {
   const tarPath = join(tmpdir(), 'itestu-production.tar.gz');
   console.log('==> Packaging api + web...');
   execSync(
-    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh`,
+    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh deploy/ensure-local-media.sh deploy/nginx/itestu.uz.conf`,
     { stdio: 'inherit' },
   );
 
@@ -67,10 +67,18 @@ set -e
 cd /var/www/itestu/app
 tar -xzf /var/www/itestu/production.tar.gz
 rm /var/www/itestu/production.tar.gz
-if [ -f /var/www/itestu/app/deploy/deploy-rebuild.sh ]; then
-  cp /var/www/itestu/app/deploy/deploy-rebuild.sh /var/www/itestu/deploy/deploy-rebuild.sh
-  sed -i 's/\r$//' /var/www/itestu/deploy/deploy-rebuild.sh
-  chmod +x /var/www/itestu/deploy/deploy-rebuild.sh
+mkdir -p /var/www/itestu/deploy/nginx
+for f in deploy-rebuild.sh ensure-local-media.sh; do
+  if [ -f "/var/www/itestu/app/deploy/$f" ]; then
+    cp "/var/www/itestu/app/deploy/$f" "/var/www/itestu/deploy/$f"
+    sed -i 's/\\r$//' "/var/www/itestu/deploy/$f"
+    chmod +x "/var/www/itestu/deploy/$f"
+  fi
+done
+if [ -f /var/www/itestu/app/deploy/nginx/itestu.uz.conf ]; then
+  cp /var/www/itestu/app/deploy/nginx/itestu.uz.conf /var/www/itestu/deploy/nginx/itestu.uz.conf
+  cp /var/www/itestu/deploy/nginx/itestu.uz.conf /etc/nginx/sites-available/itestu.uz
+  nginx -t && systemctl reload nginx
 fi
 bash /var/www/itestu/deploy/deploy-rebuild.sh
 cd /var/www/itestu/app/api

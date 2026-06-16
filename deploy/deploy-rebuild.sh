@@ -14,6 +14,12 @@ if [[ -f "$DEPLOY_DIR/env/web.env.local" ]]; then
   cp "$DEPLOY_DIR/env/web.env.local" "$APP_DIR/web/.env.local"
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bash "$SCRIPT_DIR/ensure-local-media.sh"
+if [[ -f "$DEPLOY_DIR/env/api.env" ]]; then
+  cp "$DEPLOY_DIR/env/api.env" "$APP_DIR/api/.env"
+fi
+
 echo "==> Ensuring Postgres & Redis..."
 cd "$DEPLOY_DIR"
 docker compose up -d

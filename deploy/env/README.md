@@ -22,7 +22,7 @@ Redis powers **server-authoritative exam timers** and **per-session locks**. If 
 Create the media directory on the server and ensure the API process can write to it:
 
 ```bash
-sudo mkdir -p /var/www/itestu/media/{listening,recordings,results}
+sudo mkdir -p /var/www/itestu/media/{listening,maps,recordings,results}
 sudo chown -R $USER:$USER /var/www/itestu/media
 ```
 

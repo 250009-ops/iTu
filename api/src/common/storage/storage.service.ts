@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-const ALLOWED_PREFIXES = ['listening/', 'recordings/', 'results/'];
+const ALLOWED_PREFIXES = ['listening/', 'maps/', 'recordings/', 'results/'];
 
 @Injectable()
 export class StorageService implements OnModuleInit {
