@@ -35,7 +35,7 @@ export function ListeningAudioUpload({
       .then((test) => {
         if (!active) return;
         const map: AssetMap = {};
-        for (const asset of test.mediaAssets) {
+        for (const asset of test.mediaAssets ?? []) {
           map[asset.key] = { url: asset.url, sizeBytes: asset.sizeBytes };
         }
         setAssets(map);

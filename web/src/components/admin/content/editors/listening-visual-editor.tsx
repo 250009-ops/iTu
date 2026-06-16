@@ -26,7 +26,8 @@ export function ListeningVisualEditor({
   onAnswerKeyChange,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const part = content.parts[activeIdx];
+  const parts = content.parts ?? [];
+  const part = parts[activeIdx];
 
   if (!part) {
     return <p className="text-sm text-muted">No listening parts defined.</p>;
@@ -39,15 +40,15 @@ export function ListeningVisualEditor({
   }
 
   function updatePart(patch: Partial<typeof part>) {
-    const parts = [...content.parts];
-    parts[activeIdx] = { ...part, ...patch };
-    commit({ ...content, parts });
+    const nextParts = [...parts];
+    nextParts[activeIdx] = { ...part, ...patch };
+    commit({ ...content, parts: nextParts });
   }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
-        {content.parts.map((p, idx) => (
+        {parts.map((p, idx) => (
           <button
             key={p.id}
             type="button"

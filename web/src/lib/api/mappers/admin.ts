@@ -543,7 +543,8 @@ export function mapMonitorSummary(meta: ReturnType<typeof mapLiveMonitorMeta>) {
 }
 
 export function mapContentTests(tests: ContentTests) {
-  const mapped: ContentTest[] = tests.map((t) => ({
+  const list = Array.isArray(tests) ? tests : [];
+  const mapped: ContentTest[] = list.map((t) => ({
     id: t.id,
     name: t.title || t.code,
     module: normalizeContentModule(t.type),

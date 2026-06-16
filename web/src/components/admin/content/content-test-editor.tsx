@@ -60,11 +60,13 @@ export function ContentTestEditor({ module, testId }: Props) {
   const [contentJson, setContentJson] = useState("{}");
   const [answerKeyJson, setAnswerKeyJson] = useState("{}");
   const [mediaCount, setMediaCount] = useState(0);
+  const [loadedTestId, setLoadedTestId] = useState<string | null>(null);
 
   const showAnswerKey = moduleUsesAnswerKey(module);
 
   useEffect(() => {
     if (!testId) {
+      setLoadedTestId(null);
       setTitle("");
       setCode("");
       setStatus("draft");
@@ -73,11 +75,13 @@ export function ContentTestEditor({ module, testId }: Props) {
       setContentJson("{}");
       setAnswerKeyJson("{}");
       setMediaCount(0);
+      setLoading(false);
       return;
     }
 
     let active = true;
     setLoading(true);
+    setLoadedTestId(null);
     void getContentTest(testId)
       .then((test) => {
         if (!active) return;
@@ -95,9 +99,11 @@ export function ContentTestEditor({ module, testId }: Props) {
         setContentJson(formatJson(c));
         setAnswerKeyJson(formatJson(syncedKey));
         setMediaCount(test.mediaAssets?.length ?? 0);
+        setLoadedTestId(testId);
       })
       .catch((err) => {
         if (!active) return;
+        setLoadedTestId(null);
         toast("Failed to load test", {
           description: getErrorMessage(err, "Failed to load test"),
           variant: "error",
@@ -140,6 +146,19 @@ export function ContentTestEditor({ module, testId }: Props) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-slate-50 px-5 py-10 text-center text-sm text-muted">
         Select a test from the table above, or create a new draft.
+      </div>
+    );
+  }
+
+  const contentReady = loadedTestId === testId;
+
+  if (loading || !contentReady) {
+    return (
+      <div className="rounded-xl border border-border bg-white shadow-sm">
+        <div className="flex items-center justify-center gap-2 px-5 py-12 text-sm text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading test…
+        </div>
       </div>
     );
   }
@@ -308,13 +327,7 @@ export function ContentTestEditor({ module, testId }: Props) {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 px-5 py-12 text-sm text-muted">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading test…
-        </div>
-      ) : (
-        <div className="space-y-5 p-5 sm:p-6">
+      <div className="space-y-5 p-5 sm:p-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="edit-title">Title</Label>
@@ -433,7 +446,6 @@ export function ContentTestEditor({ module, testId }: Props) {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }

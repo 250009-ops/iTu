@@ -13,22 +13,23 @@ type Props = {
 
 export function WritingVisualEditor({ content, onContentChange }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const task = content.tasks[activeIdx];
+  const tasks = content.tasks ?? [];
+  const task = tasks[activeIdx];
 
   if (!task) {
     return <p className="text-sm text-muted">No writing tasks defined.</p>;
   }
 
   function updateTask(patch: Partial<typeof task>) {
-    const tasks = [...content.tasks];
-    tasks[activeIdx] = { ...task, ...patch };
-    onContentChange({ ...content, tasks });
+    const nextTasks = [...tasks];
+    nextTasks[activeIdx] = { ...task, ...patch };
+    onContentChange({ ...content, tasks: nextTasks });
   }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
-        {content.tasks.map((t, idx) => (
+        {tasks.map((t, idx) => (
           <button
             key={t.id}
             type="button"

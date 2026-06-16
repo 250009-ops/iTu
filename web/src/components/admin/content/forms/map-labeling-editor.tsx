@@ -54,15 +54,18 @@ export function MapLabelingEditor({
     [group, onChange, testId, toast],
   );
 
+  const zones = group.zones ?? [];
+  const options = group.options ?? [];
+
   function placeZone(clientX: number, clientY: number) {
     if (activeZone == null || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = Math.min(95, Math.max(5, ((clientX - rect.left) / rect.width) * 100));
     const y = Math.min(95, Math.max(5, ((clientY - rect.top) / rect.height) * 100));
-    const zones = group.zones.map((z) =>
+    const nextZones = zones.map((z) =>
       z.n === activeZone ? { ...z, x: Math.round(x), y: Math.round(y) } : z,
     );
-    onChange({ ...group, zones });
+    onChange({ ...group, zones: nextZones });
   }
 
   return (
@@ -104,7 +107,7 @@ export function MapLabelingEditor({
           Select a zone number, then click the map to position it
         </Label>
         <div className="flex flex-wrap gap-1">
-          {group.zones.map((z) => (
+          {zones.map((z) => (
             <button
               key={z.n}
               type="button"
@@ -141,7 +144,7 @@ export function MapLabelingEditor({
           </div>
         )}
 
-        {group.zones.map((zone) => (
+        {zones.map((zone) => (
           <button
             key={zone.n}
             type="button"
@@ -164,22 +167,22 @@ export function MapLabelingEditor({
 
       <div className="space-y-2">
         <Label className="text-xs">Options bank</Label>
-        {group.options.map((opt, idx) => (
+        {options.map((opt, idx) => (
           <div key={opt.id} className="flex items-center gap-2">
             <span className="w-8 text-xs font-bold">{opt.id}</span>
             <Input
               value={opt.label}
               onChange={(e) => {
-                const options = [...group.options];
-                options[idx] = { ...opt, label: e.target.value };
-                onChange({ ...group, options });
+                const nextOptions = [...options];
+                nextOptions[idx] = { ...opt, label: e.target.value };
+                onChange({ ...group, options: nextOptions });
               }}
             />
           </div>
         ))}
       </div>
 
-      {group.zones.map((zone, idx) => (
+      {zones.map((zone, idx) => (
         <div
           key={zone.n}
           className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
@@ -190,9 +193,9 @@ export function MapLabelingEditor({
           <Input
             value={zone.label}
             onChange={(e) => {
-              const zones = [...group.zones];
-              zones[idx] = { ...zone, label: e.target.value };
-              onChange({ ...group, zones });
+              const nextZones = [...zones];
+              nextZones[idx] = { ...zone, label: e.target.value };
+              onChange({ ...group, zones: nextZones });
             }}
             placeholder="Location label"
           />
@@ -204,7 +207,7 @@ export function MapLabelingEditor({
             answerKey={answerKey}
             onChange={onAnswerKeyChange}
             type="option"
-            options={group.options.map((o) => o.id)}
+            options={options.map((o) => o.id)}
           />
         </div>
       ))}
@@ -217,7 +220,7 @@ export function MapLabelingEditor({
           onChange({
             ...group,
             to: n,
-            zones: [...group.zones, { n, x: 50, y: 50, label: "" }],
+            zones: [...zones, { n, x: 50, y: 50, label: "" }],
           });
         }}
       >

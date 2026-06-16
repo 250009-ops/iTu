@@ -42,13 +42,14 @@ type Props = {
 };
 
 export function QuestionGroupsPanel({
-  groups,
+  groups: groupsProp,
   module,
   testId,
   answerKey,
   onGroupsChange,
   onAnswerKeyChange,
 }: Props) {
+  const groups = groupsProp ?? [];
   const types = module === "reading" ? READING_TYPES : LISTENING_TYPES;
 
   function nextQuestionNumber(): number {

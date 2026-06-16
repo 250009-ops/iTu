@@ -32,7 +32,8 @@ export function ReadingVisualEditor({
   onAnswerKeyChange,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const passage = content.passages[activeIdx];
+  const passages = content.passages ?? [];
+  const passage = passages[activeIdx];
 
   if (!passage) {
     return (
@@ -41,9 +42,9 @@ export function ReadingVisualEditor({
   }
 
   function updatePassage(patch: Partial<typeof passage>) {
-    const passages = [...content.passages];
-    passages[activeIdx] = { ...passage, ...patch };
-    const next = { ...content, passages };
+    const nextPassages = [...passages];
+    nextPassages[activeIdx] = { ...passage, ...patch };
+    const next = { ...content, passages: nextPassages };
     recomputeTotalQuestions(next);
     onContentChange(next);
     onAnswerKeyChange(syncAnswerKey("reading", next, answerKey));
@@ -56,7 +57,7 @@ export function ReadingVisualEditor({
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
-        {content.passages.map((p, idx) => (
+        {passages.map((p, idx) => (
           <button
             key={p.id}
             type="button"
@@ -71,16 +72,16 @@ export function ReadingVisualEditor({
             Passage {p.part}
           </button>
         ))}
-        {content.passages.length < 3 && (
+        {passages.length < 3 && (
           <Button
             variant="secondary"
             size="sm"
             onClick={() => {
-              const part = content.passages.length + 1;
-              const passages = [...content.passages, emptyReadingPassage(part)];
-              const next = { ...content, passages };
+              const part = passages.length + 1;
+              const nextPassages = [...passages, emptyReadingPassage(part)];
+              const next = { ...content, passages: nextPassages };
               onContentChange(next);
-              setActiveIdx(passages.length - 1);
+              setActiveIdx(nextPassages.length - 1);
             }}
           >
             <Plus className="h-3.5 w-3.5" /> Add passage
@@ -126,7 +127,7 @@ export function ReadingVisualEditor({
             <Plus className="h-3.5 w-3.5" /> Add paragraph
           </Button>
         </div>
-        {passage.paragraphs.map((para, idx) => (
+        {(passage.paragraphs ?? []).map((para, idx) => (
           <div key={idx} className="rounded-lg border border-border bg-white p-3">
             <div className="mb-2 flex items-center gap-2">
               <Input

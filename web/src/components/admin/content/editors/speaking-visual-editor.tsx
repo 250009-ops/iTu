@@ -12,21 +12,33 @@ type Props = {
 };
 
 export function SpeakingVisualEditor({ content, onContentChange }: Props) {
-  function updatePart(index: number, patch: Partial<(typeof content.parts)[0]>) {
-    const parts = [...content.parts];
-    parts[index] = { ...parts[index], ...patch };
-    onContentChange({ ...content, parts });
+  const parts = content.parts ?? [];
+  const cueCard = content.cueCard ?? {
+    title: "",
+    bullets: [""],
+    prepSeconds: 60,
+    speakSeconds: 120,
+  };
+  const bullets = cueCard.bullets ?? [""];
+
+  function updatePart(index: number, patch: Partial<(typeof parts)[0]>) {
+    const nextParts = [...parts];
+    nextParts[index] = { ...nextParts[index], ...patch };
+    onContentChange({ ...content, parts: nextParts });
   }
 
   function updateCueCard(patch: Partial<SpeakingContent["cueCard"]>) {
-    onContentChange({ ...content, cueCard: { ...content.cueCard, ...patch } });
+    onContentChange({
+      ...content,
+      cueCard: { ...cueCard, ...patch },
+    });
   }
 
   return (
     <div className="space-y-6">
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-navy">Speaking parts</h3>
-        {content.parts.map((part, idx) => (
+        {parts.map((part, idx) => (
           <div key={part.part} className="rounded-xl border border-border bg-slate-50 p-4">
             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted">
               Part {part.part}
@@ -65,7 +77,7 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
         <div className="space-y-2">
           <Label className="text-xs">Topic title</Label>
           <Input
-            value={content.cueCard.title}
+            value={cueCard.title}
             onChange={(e) => updateCueCard({ title: e.target.value })}
             placeholder="Describe a book you read recently…"
           />
@@ -75,7 +87,7 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
             <Label className="text-xs">Preparation (seconds)</Label>
             <Input
               type="number"
-              value={content.cueCard.prepSeconds}
+              value={cueCard.prepSeconds}
               onChange={(e) => updateCueCard({ prepSeconds: Number(e.target.value) })}
             />
           </div>
@@ -83,21 +95,21 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
             <Label className="text-xs">Speaking time (seconds)</Label>
             <Input
               type="number"
-              value={content.cueCard.speakSeconds}
+              value={cueCard.speakSeconds}
               onChange={(e) => updateCueCard({ speakSeconds: Number(e.target.value) })}
             />
           </div>
         </div>
         <div className="space-y-2">
           <Label className="text-xs">Bullet prompts</Label>
-          {content.cueCard.bullets.map((bullet, idx) => (
+          {bullets.map((bullet, idx) => (
             <div key={idx} className="flex gap-2">
               <Input
                 value={bullet}
                 onChange={(e) => {
-                  const bullets = [...content.cueCard.bullets];
-                  bullets[idx] = e.target.value;
-                  updateCueCard({ bullets });
+                  const nextBullets = [...bullets];
+                  nextBullets[idx] = e.target.value;
+                  updateCueCard({ bullets: nextBullets });
                 }}
                 placeholder={`Bullet ${idx + 1}`}
               />
@@ -106,8 +118,8 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
                 size="sm"
                 className="shrink-0 text-red-600"
                 onClick={() => {
-                  const bullets = content.cueCard.bullets.filter((_, i) => i !== idx);
-                  updateCueCard({ bullets: bullets.length ? bullets : [""] });
+                  const nextBullets = bullets.filter((_, i) => i !== idx);
+                  updateCueCard({ bullets: nextBullets.length ? nextBullets : [""] });
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -117,7 +129,7 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => updateCueCard({ bullets: [...content.cueCard.bullets, ""] })}
+            onClick={() => updateCueCard({ bullets: [...bullets, ""] })}
           >
             <Plus className="h-3.5 w-3.5" /> Add bullet
           </Button>
