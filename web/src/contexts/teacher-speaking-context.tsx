@@ -30,6 +30,7 @@ type TeacherSpeakingValue = {
   speakingContent: SpeakingContent | null;
   contentLoading: boolean;
   contentError: string | null;
+  refreshSession: () => Promise<void>;
 };
 
 const TeacherSpeakingContext = createContext<TeacherSpeakingValue | null>(null);
@@ -94,6 +95,7 @@ export function TeacherSpeakingProvider({ children }: { children: ReactNode }) {
       speakingContent: bank.data?.content ?? null,
       contentLoading: bank.loading,
       contentError: bank.error,
+      refreshSession: speaking.refresh,
     };
   }, [resolvedId, urlSessionId, dashboard, speaking, bank]);
 

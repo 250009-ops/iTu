@@ -54,6 +54,7 @@ type SpeakingRoomContextValue = {
   livekitConfigured: boolean;
   setPhase: (phase: SpeakingPhase) => Promise<void>;
   endSession: () => Promise<void>;
+  leaveRoom: () => Promise<void>;
   publishSync: (message: SpeakingSyncMessage) => Promise<void>;
   refreshState: () => Promise<void>;
   error: string | null;
@@ -266,6 +267,8 @@ function OfflineSpeakingRoomProvider({
     setPhaseState("complete");
   }, [shell.speakingSessionId, setPhaseState, setState]);
 
+  const leaveRoom = useCallback(async () => undefined, []);
+
   const value = useMemo<SpeakingRoomContextValue>(
     () => ({
       role: shell.role,
@@ -280,12 +283,13 @@ function OfflineSpeakingRoomProvider({
       livekitConfigured: false,
       setPhase,
       endSession,
+      leaveRoom,
       publishSync,
       refreshState: shell.refreshState,
       error: shell.error,
       loading: shell.loading,
     }),
-    [shell, setPhase, endSession, publishSync],
+    [shell, setPhase, endSession, leaveRoom, publishSync],
   );
 
   return (
@@ -417,6 +421,10 @@ function SpeakingRoomInner({
     }
   }, [shell.role, shell.speakingSessionId, publishSync, setPhaseState, setState]);
 
+  const leaveRoom = useCallback(async () => {
+    room.disconnect();
+  }, [room]);
+
   const value = useMemo<SpeakingRoomContextValue>(
     () => ({
       role: shell.role,
@@ -431,6 +439,7 @@ function SpeakingRoomInner({
       livekitConfigured: true,
       setPhase,
       endSession,
+      leaveRoom,
       publishSync,
       refreshState: shell.refreshState,
       error: shell.error,
@@ -443,6 +452,7 @@ function SpeakingRoomInner({
       remoteParticipant,
       setPhase,
       endSession,
+      leaveRoom,
       publishSync,
     ],
   );

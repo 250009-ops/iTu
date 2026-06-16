@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,6 +10,7 @@ import {
   Radio,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScoringSidebar } from "@/components/teacher/speaking/scoring-overlay";
 import {
   LivekitSetupNotice,
@@ -27,18 +28,30 @@ import {
 } from "@/lib/speaking/content";
 import { formatElapsed, type SpeakingPart } from "@/lib/speaking/scoring";
 import { phaseToPart, type SpeakingPhase } from "@/lib/speaking/sync";
+import { getErrorMessage } from "@/lib/api/errors";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 export function SpeakingLiveConsole() {
+  const router = useRouter();
+  const { toast } = useToast();
   const {
     session,
     sessionId,
     speakingContent,
     contentLoading,
     contentError,
+    refreshSession,
   } = useTeacherSpeaking();
-  const { phase, setPhase, endSession, state, participantCount, livekitConfigured } =
-    useSpeakingRoom();
+  const {
+    phase,
+    setPhase,
+    endSession,
+    leaveRoom,
+    state,
+    participantCount,
+    livekitConfigured,
+  } = useSpeakingRoom();
 
   const parts = useMemo(
     () => buildExaminerParts(speakingContent ?? emptySpeakingContent()),
@@ -48,9 +61,13 @@ export function SpeakingLiveConsole() {
   const [activePart, setActivePart] = useState<SpeakingPart>(1);
   const [promptIndex, setPromptIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [exiting, setExiting] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const current = parts.find((p) => p.part === activePart) ?? parts[0];
+  const sessionEnded = phase === "complete" || state?.status === "completed";
 
   useEffect(() => {
     if (phase === "part1") setActivePart(1);
@@ -69,7 +86,57 @@ export function SpeakingLiveConsole() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!sessionEnded || !timerRef.current) return;
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+  }, [sessionEnded]);
+
   if (!session || !sessionId) return null;
+
+  function prepUrl() {
+    return `/teacher/speaking?session=${sessionId}`;
+  }
+
+  async function handleExit() {
+    if (exiting || ending) return;
+    setExiting(true);
+    try {
+      await leaveRoom();
+      router.push(prepUrl());
+    } catch (err) {
+      toast("Could not leave live console", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "error",
+      });
+    } finally {
+      setExiting(false);
+    }
+  }
+
+  async function handleEndSession() {
+    if (!session || sessionEnded || ending || exiting) return;
+    const studentName = session.studentName;
+    setEndConfirmOpen(false);
+    setEnding(true);
+    try {
+      await endSession();
+      await leaveRoom();
+      await refreshSession();
+      router.push(prepUrl());
+      toast("Speaking session ended", {
+        description: `${studentName} can now finish their exam flow.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Could not end session", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "error",
+      });
+    } finally {
+      setEnding(false);
+    }
+  }
 
   async function selectPart(part: SpeakingPart) {
     setActivePart(part);
@@ -104,12 +171,14 @@ export function SpeakingLiveConsole() {
     <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950 text-white">
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/95 px-4 py-2.5 backdrop-blur">
         <div className="flex items-center gap-3">
-          <Link
-            href="/teacher/speaking"
-            className="rounded-lg px-2 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+          <button
+            type="button"
+            onClick={() => void handleExit()}
+            disabled={exiting || ending}
+            className="rounded-lg px-2 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
-            ← Exit
-          </Link>
+            {exiting ? "Leaving…" : "← Exit"}
+          </button>
           <div>
             <p className="text-sm font-bold">{session.studentName}</p>
             <p className="text-xs text-white/50">{session.timeRange}</p>
@@ -118,7 +187,7 @@ export function SpeakingLiveConsole() {
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5 rounded-full bg-rose-500/20 px-2.5 py-1 text-xs font-semibold text-rose-200">
             <Radio className="h-3 w-3 animate-pulse" />
-            Live
+            {sessionEnded ? "Ended" : "Live"}
           </span>
           <span className="font-mono text-lg font-bold tabular-nums">
             {formatElapsed(elapsed)}
@@ -255,10 +324,12 @@ export function SpeakingLiveConsole() {
               variant="secondary"
               size="sm"
               className="h-8 border-rose-500/30 bg-rose-950/50 text-rose-200 hover:bg-rose-900/60"
-              onClick={() => void endSession()}
+              disabled={sessionEnded || ending || exiting}
+              loading={ending}
+              onClick={() => setEndConfirmOpen(true)}
             >
               <PhoneOff className="h-3.5 w-3.5" />
-              End session
+              {sessionEnded ? "Session ended" : "End session"}
             </Button>
           </div>
         </div>
@@ -269,6 +340,16 @@ export function SpeakingLiveConsole() {
           </p>
         )}
       </footer>
+
+      <ConfirmDialog
+        open={endConfirmOpen}
+        title="End speaking session?"
+        message={`This will disconnect the live call and mark ${session.studentName}'s speaking session as complete. The student will be able to finish their exam.`}
+        confirmLabel="End session"
+        tone="danger"
+        onConfirm={() => void handleEndSession()}
+        onCancel={() => setEndConfirmOpen(false)}
+      />
     </div>
   );
 }

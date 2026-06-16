@@ -9,8 +9,10 @@ export function SpeakingSessionHeader() {
   const { state } = useSpeakingRoom();
   if (!session) return null;
 
-  const { studentName, timeRange, activePart } = session;
+  const { studentName, timeRange, activePart, status, activePhase } = session;
   const recordingActive = state?.recordingActive ?? false;
+  const sessionCompleted =
+    status === "completed" || activePhase === "complete";
 
   return (
     <div>
@@ -26,9 +28,15 @@ export function SpeakingSessionHeader() {
           <Clock className="h-4 w-4" />
           {timeRange}
         </span>
-        <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">
-          Part {activePart} Active
-        </span>
+        {sessionCompleted ? (
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+            Session complete
+          </span>
+        ) : (
+          <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">
+            Part {activePart} Active
+          </span>
+        )}
         {recordingActive && (
           <span className="flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">
             <Radio className="h-3.5 w-3.5 animate-pulse" />

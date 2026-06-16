@@ -56,40 +56,68 @@ function SpeakingContent() {
     return <SpeakingEmptyState todaySessions={todaySessions} />;
   }
 
+  const sessionCompleted =
+    session.status === "completed" || session.activePhase === "complete";
+
   return (
     <SpeakingRoomProvider speakingSessionId={sessionId} role="examiner">
       <div className="p-4 lg:p-6 xl:p-8">
         <div className="mx-auto max-w-3xl space-y-6">
           <SpeakingSessionHeader />
           <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-navy">Ready to examine?</h2>
-            <p className="mt-2 text-sm text-muted">
-              Open the full-screen live console to run the speaking test with
-              video, content-driven prompts from the published bank, and
-              in-call scoring.
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Student: <strong className="text-navy">{session.studentName}</strong>
-              {" · "}
-              {session.timeRange}
-            </p>
-            <Link
-              href={`/teacher/speaking?session=${sessionId}&live=1`}
-              className="mt-4 inline-block"
-            >
-              <Button size="lg">Enter live console</Button>
-            </Link>
+            {sessionCompleted ? (
+              <>
+                <h2 className="text-lg font-bold text-navy">Session complete</h2>
+                <p className="mt-2 text-sm text-muted">
+                  This speaking session with{" "}
+                  <strong className="text-navy">{session.studentName}</strong> has
+                  ended. Submit your grade from the live console if you have not
+                  already, or review the recording below.
+                </p>
+                {session.recordingUrl && (
+                  <a
+                    href={session.recordingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-block text-sm font-semibold text-sky-600 hover:underline"
+                  >
+                    Open speaking recording
+                  </a>
+                )}
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-navy">Ready to examine?</h2>
+                <p className="mt-2 text-sm text-muted">
+                  Open the full-screen live console to run the speaking test with
+                  video, content-driven prompts from the published bank, and
+                  in-call scoring.
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Student:{" "}
+                  <strong className="text-navy">{session.studentName}</strong>
+                  {" · "}
+                  {session.timeRange}
+                </p>
+                <Link
+                  href={`/teacher/speaking?session=${sessionId}&live=1`}
+                  className="mt-4 inline-block"
+                >
+                  <Button size="lg">Enter live console</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
-      <LiveConsoleGate />
+      <LiveConsoleGate sessionCompleted={sessionCompleted} />
     </SpeakingRoomProvider>
   );
 }
 
-function LiveConsoleGate() {
+function LiveConsoleGate({ sessionCompleted }: { sessionCompleted: boolean }) {
   const searchParams = useSearchParams();
   const isLive = searchParams.get("live") === "1";
-  if (!isLive) return null;
+  if (!isLive || sessionCompleted) return null;
   return <SpeakingLiveConsole />;
 }
