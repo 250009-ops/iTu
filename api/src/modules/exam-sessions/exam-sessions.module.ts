@@ -4,11 +4,12 @@ import { SettingsModule } from '../settings/settings.module';
 import { AutoScoringService } from './auto-scoring.service';
 import { ExamSessionsController } from './exam-sessions.controller';
 import { ExamSessionsService } from './exam-sessions.service';
+import { ExamTimerService } from './exam-timer.service';
 
 @Module({
   imports: [SettingsModule, NotificationsModule],
   controllers: [ExamSessionsController],
-  providers: [ExamSessionsService, AutoScoringService],
+  providers: [ExamSessionsService, AutoScoringService, ExamTimerService],
   exports: [ExamSessionsService],
 })
 export class ExamSessionsModule {}

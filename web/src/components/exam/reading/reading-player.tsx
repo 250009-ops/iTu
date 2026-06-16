@@ -17,6 +17,7 @@ import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
+import { useExamIntegrity } from "@/hooks/use-exam-integrity";
 import { startSection, submitSection, logIntegrity } from "@/lib/api/exam";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 
@@ -36,6 +37,12 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
   const state = useExamState(content?.passages[0]?.id ?? "passage-1");
   const { remaining, expired } = useServerTimer(sessionId);
   useExamAutosave(sessionId, state.answers);
+  useExamIntegrity(sessionId);
+
+  const logPaste = useCallback(
+    () => void logIntegrity(sessionId, "paste_attempt"),
+    [sessionId],
+  );
 
   useEffect(() => {
     if (!content || started) return;
@@ -47,16 +54,6 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (expired) setSubmitOpen(true);
   }, [expired]);
-
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden) {
-        void logIntegrity(sessionId, "tab_switch");
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [sessionId]);
 
   const paletteParts: PalettePart[] = useMemo(
     () =>
@@ -189,7 +186,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-6" data-exam-surface>
           <div className={`space-y-8 ${TEXT_SIZE_CLASS[state.textSize]}`}>
             {activePassage.groups.map((group) => (
               <QuestionGroup
@@ -199,6 +196,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
                 current={state.current}
                 onAnswer={state.setAnswer}
                 onFocus={state.focusQuestion}
+                onPasteBlocked={logPaste}
               />
             ))}
           </div>

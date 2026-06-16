@@ -3,9 +3,13 @@
 import { Download, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { useAdminOrders } from "@/contexts/admin-orders-context";
+import { exportOrdersCsv } from "@/lib/admin/export";
 
 export function OrdersHeader() {
   const { toast } = useToast();
+  const { orders } = useAdminOrders();
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -35,11 +39,12 @@ export function OrdersHeader() {
         <Button
           variant="primary"
           size="sm"
-          onClick={() =>
-            toast("Export started", {
-              description: "Your transactions CSV will download shortly.",
-            })
-          }
+          onClick={() => {
+            exportOrdersCsv(orders);
+            toast("Export ready", {
+              description: `${orders.length} orders downloaded.`,
+            });
+          }}
         >
           <Download className="h-4 w-4" />
           Export CSV

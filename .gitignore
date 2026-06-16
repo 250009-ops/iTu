@@ -10,6 +10,8 @@ web/.env.local
 deploy/env/api.env
 deploy/env/web.env.local
 deploy/env/postgres.env
+deploy/.env
+deploy/node_modules/
 
 # Build output
 api/dist/
@@ -41,6 +43,10 @@ web/test-results/
 web/playwright-report/
 web/e2e/.auth/
 web/e2e/.state.json
+
+# Uploaded media (local VPS storage)
+api/storage/media/*
+!api/storage/media/.gitkeep
 
 # Cursor / local assets
 .cursor/

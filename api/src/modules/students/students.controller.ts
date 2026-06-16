@@ -65,4 +65,9 @@ export class StudentsController {
   ) {
     return this.students.createSupportTicket(user, dto);
   }
+
+  @Get('me/data-export')
+  exportPersonalData(@CurrentUser() user: RequestUser) {
+    return this.students.exportPersonalData(user);
+  }
 }

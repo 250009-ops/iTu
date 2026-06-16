@@ -9,6 +9,7 @@ interface GapInputProps {
   active: boolean;
   onChange: (value: string) => void;
   onFocus: () => void;
+  onPasteBlocked?: () => void;
 }
 
 /** Inline numbered blank used in note/form/table/summary completion. */
@@ -19,6 +20,7 @@ export function GapInput({
   active,
   onChange,
   onFocus,
+  onPasteBlocked,
 }: GapInputProps) {
   return (
     <span className="mx-1 inline-flex items-center align-baseline">
@@ -38,7 +40,10 @@ export function GapInput({
         placeholder={placeholder}
         onFocus={onFocus}
         onChange={(e) => onChange(e.target.value)}
-        onPaste={(e) => e.preventDefault()}
+        onPaste={(e) => {
+          e.preventDefault();
+          onPasteBlocked?.();
+        }}
         spellCheck={false}
         autoComplete="off"
         className={cn(

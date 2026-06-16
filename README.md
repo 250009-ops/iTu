@@ -69,7 +69,7 @@ See [api/README.md](api/README.md) for full API documentation.
 ```
 web/ (Next.js 16)  ──REST/JWT──►  api/ (NestJS 11)
                                       ├── PostgreSQL (Prisma)
-                                      └── Redis (ready for timers/queues)
+                                      └── Redis (exam timers & session locks)
 ```
 
 All portal data flows through `web/src/lib/api/*` with role-based route guards. Exam delivery uses server-authoritative timers, autosave, and section state machine.

@@ -2,7 +2,9 @@
 
 import { BarChart3, Download, TrendingUp } from "lucide-react";
 import { useStudentResultsData } from "@/contexts/student-results-context";
-import { exportAttemptsCsv, printResultsReport } from "@/lib/student/export";
+import { exportAttemptsCsv, downloadResultsPdf } from "@/lib/student/export";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
 function formatBand(value: number) {
@@ -37,8 +39,20 @@ function BandCell({ value, delta }: { value: number | null; delta?: number }) {
 }
 
 export function AttemptsHistory() {
+  const { toast } = useToast();
   const { data } = useStudentResultsData();
   if (!data?.released) return null;
+
+  async function handlePdfDownload(enrollmentCode: string) {
+    try {
+      await downloadResultsPdf(enrollmentCode);
+    } catch (err) {
+      toast("Could not download PDF", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "error",
+      });
+    }
+  }
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -117,7 +131,7 @@ export function AttemptsHistory() {
                 <td className="px-5 py-4 text-right sm:px-6">
                   <button
                     type="button"
-                    onClick={printResultsReport}
+                    onClick={() => void handlePdfDownload(attempt.id)}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-navy"
                   >
                     PDF

@@ -6,7 +6,6 @@ import {
   EncodedFileOutput,
   EncodedFileType,
   EncodingOptionsPreset,
-  S3Upload,
 } from 'livekit-server-sdk';
 
 export type SpeakingRoomRole = 'examiner' | 'student';
@@ -149,27 +148,7 @@ export class LivekitService {
 
   private buildFileOutput(speakingSessionId: string): EncodedFileOutput {
     const filepath = `ielts-speaking/${speakingSessionId}.mp4`;
-    const bucket = this.config.get<string>('AWS_S3_BUCKET');
-    const region = this.config.get<string>('AWS_REGION');
-    const accessKey = this.config.get<string>('AWS_ACCESS_KEY_ID');
-    const secret = this.config.get<string>('AWS_SECRET_ACCESS_KEY');
-
-    if (bucket && region && accessKey && secret) {
-      return new EncodedFileOutput({
-        fileType: EncodedFileType.MP4,
-        filepath,
-        output: {
-          case: 's3',
-          value: new S3Upload({
-            accessKey,
-            secret,
-            region,
-            bucket,
-          }),
-        },
-      });
-    }
-
+    // LiveKit Cloud stores the file; the API mirrors it to VPS disk when MEDIA_* is set.
     return new EncodedFileOutput({
       fileType: EncodedFileType.MP4,
       filepath,

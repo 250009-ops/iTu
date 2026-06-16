@@ -5,6 +5,8 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ReportTimeframe } from "@/lib/admin/types";
 import { useToast } from "@/components/ui/toast";
+import { useAdminReports } from "@/contexts/admin-reports-context";
+import { exportReportsCsv } from "@/lib/admin/export";
 import { cn } from "@/lib/utils";
 
 const timeframes: { value: ReportTimeframe; label: string }[] = [
@@ -16,6 +18,8 @@ const timeframes: { value: ReportTimeframe; label: string }[] = [
 export function ReportsHeader() {
   const [timeframe, setTimeframe] = useState<ReportTimeframe>("jun");
   const { toast } = useToast();
+  const { teacherLeaderboard, enrollmentFunnel, revenueExamVolume } =
+    useAdminReports();
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -49,11 +53,16 @@ export function ReportsHeader() {
         <Button
           variant="primary"
           size="sm"
-          onClick={() =>
-            toast("Export started", {
-              description: `Report data (${timeframe.toUpperCase()}) will download shortly.`,
-            })
-          }
+          onClick={() => {
+            exportReportsCsv({
+              teacherLeaderboard,
+              enrollmentFunnel,
+              revenueExamVolume,
+            });
+            toast("Export ready", {
+              description: `Report data (${timeframe.toUpperCase()}) downloaded.`,
+            });
+          }}
         >
           <Download className="h-4 w-4" />
           Export CSV

@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ExamSkill } from '@prisma/client';
+import { AuditAction } from '../../common/audit/audit.actions';
+import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const DEFAULT_SETTINGS: Record<string, object> = {
   general: {
-    platformName: 'IELTS Mock ERP',
-    supportEmail: 'support@ielts-mock.example',
-    timezone: 'UTC',
+    platformName: 'iTestU',
+    supportEmail: 'support@itestu.uz',
+    timezone: 'Asia/Tashkent',
     defaultLanguage: 'en',
   },
   exam_timers: {
@@ -18,6 +20,13 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     break: 10,
     checkIn: 30,
     lateJoin: 15,
+  },
+  exam_integrity: {
+    flagOnTabSwitch: true,
+    flagOnPaste: true,
+    flagOnFullscreenExit: true,
+    flagOnAudioSeek: true,
+    maxWarningsBeforeFlag: 1,
   },
   commission: {
     platformCommission: 25,
@@ -45,12 +54,13 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     fraud: true,
   },
   integrations: {
-    stripeConfigured: true,
+    stripeConfigured: false,
+    smtpConfigured: false,
     sendgridConfigured: false,
     livekitConfigured: false,
     livekitRecordingEnabled: false,
-    slackConfigured: true,
-    s3Configured: false,
+    slackConfigured: false,
+    mediaStorageConfigured: false,
   },
 };
 
@@ -59,6 +69,7 @@ export class SettingsService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private audit: AuditService,
   ) {}
 
   async getAll() {
@@ -84,17 +95,27 @@ export class SettingsService {
     return base;
   }
 
-  async updateSection(section: string, settings: object) {
+  async updateSection(section: string, settings: object, actorId: string) {
     const payload =
       section === 'integrations'
         ? this.stripEnvManagedIntegrations(settings)
         : settings;
 
-    return this.prisma.platformSettings.upsert({
+    const updated = await this.prisma.platformSettings.upsert({
       where: { section },
       create: { section, settings: payload },
       update: { settings: payload },
     });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_SETTINGS_UPDATE,
+      entity: 'platform_settings',
+      entityId: section,
+      metadata: { section },
+    });
+
+    return updated;
   }
 
   async getSectionDurationsSec(): Promise<Record<ExamSkill, number>> {
@@ -114,25 +135,32 @@ export class SettingsService {
     const commission = (await this.getSection('commission')) as {
       writingRate?: number;
       speakingRate?: number;
+      payoutSchedule?: string;
     };
     return {
       writingRate: commission.writingRate ?? 35,
       speakingRate: commission.speakingRate ?? 25,
+      payoutSchedule: commission.payoutSchedule ?? 'weekly',
     };
   }
 
   private mergeIntegrations(integrations: object) {
     const stored = integrations as Record<string, boolean>;
     const livekitConfigured = this.isLivekitConfigured();
-    const s3Configured = this.isS3Configured();
+    const mediaStorageConfigured = this.isMediaStorageConfigured();
+    const smtpConfigured = this.isSmtpConfigured();
 
     return {
       ...stored,
+      smtpConfigured,
+      sendgridConfigured: smtpConfigured || Boolean(stored.sendgridConfigured),
       livekitConfigured,
       livekitRecordingEnabled:
         livekitConfigured &&
         this.config.get<string>('LIVEKIT_RECORDING_ENABLED', 'true') !== 'false',
-      s3Configured: s3Configured || Boolean(stored.s3Configured),
+      mediaStorageConfigured,
+      // Legacy key — treat VPS media storage as connected storage
+      s3Configured: mediaStorageConfigured || Boolean(stored.s3Configured),
     };
   }
 
@@ -141,9 +169,10 @@ export class SettingsService {
     delete stored.livekitConfigured;
     delete stored.livekitRecordingEnabled;
     delete stored.zoomConfigured;
-    if (this.isS3Configured()) {
-      delete stored.s3Configured;
-    }
+    delete stored.mediaStorageConfigured;
+    delete stored.s3Configured;
+    delete stored.smtpConfigured;
+    delete stored.sendgridConfigured;
     return stored;
   }
 
@@ -155,12 +184,18 @@ export class SettingsService {
     );
   }
 
-  private isS3Configured(): boolean {
+  private isMediaStorageConfigured(): boolean {
     return Boolean(
-      this.config.get<string>('AWS_S3_BUCKET') &&
-        this.config.get<string>('AWS_REGION') &&
-        this.config.get<string>('AWS_ACCESS_KEY_ID') &&
-        this.config.get<string>('AWS_SECRET_ACCESS_KEY'),
+      this.config.get<string>('MEDIA_ROOT') &&
+        this.config.get<string>('MEDIA_PUBLIC_URL'),
+    );
+  }
+
+  private isSmtpConfigured(): boolean {
+    return Boolean(
+      this.config.get<string>('SMTP_HOST')?.trim() &&
+        this.config.get<string>('SMTP_USER')?.trim() &&
+        this.config.get<string>('SMTP_PASS')?.trim(),
     );
   }
 }

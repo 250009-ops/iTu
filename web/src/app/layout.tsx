@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   },
   description:
     "Professional IELTS computer-delivered mock exams — Listening, Reading, Writing and Speaking in one day.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

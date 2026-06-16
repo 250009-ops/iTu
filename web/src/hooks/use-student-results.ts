@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
+  mapPendingStudentResults,
   mapStudentResults,
   type StudentResultsData,
 } from "@/lib/api/mappers/student";
-import { getResult, listResults } from "@/lib/api/results";
+import { getPendingResult, getResult, listResults } from "@/lib/api/results";
 import { getStudentProfile } from "@/lib/api/students";
 
 export function useStudentResults() {
@@ -18,20 +19,24 @@ export function useStudentResults() {
     setLoading(true);
     setError(null);
     try {
-      const [list, profile] = await Promise.all([
+      const [list, pending, profile] = await Promise.all([
         listResults(),
+        getPendingResult().catch(() => null),
         getStudentProfile().catch(() => null),
       ]);
+      const targetBand = profile?.targetBand ?? null;
 
       if (!list.length) {
-        setData(null);
+        if (pending) {
+          setData(mapPendingStudentResults(pending, targetBand));
+        } else {
+          setData(null);
+        }
         return;
       }
 
       const detail = await getResult(list[0].enrollmentCode);
-      setData(
-        mapStudentResults(list, detail, profile?.targetBand ?? null),
-      );
+      setData(mapStudentResults(list, detail, targetBand));
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load results"));
     } finally {

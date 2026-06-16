@@ -107,6 +107,7 @@ export type Ticket = {
 
 export type LiveSessionRow = {
   id: string;
+  sessionCode: string;
   studentName: string;
   country: string;
   initials: string;
@@ -125,6 +126,7 @@ export type ContentTest = {
   module: ContentModule;
   status: TestStatus;
   questions: number;
+  mediaCount: number;
   lastUpdated: string;
   author: string;
 };

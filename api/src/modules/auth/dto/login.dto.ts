@@ -11,4 +11,8 @@ export class LoginDto {
 
   @IsOptional()
   rememberMe?: boolean;
+
+  @IsOptional()
+  @IsString()
+  totpCode?: string;
 }

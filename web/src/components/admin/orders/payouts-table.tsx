@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -36,6 +36,14 @@ const statusStyles: Record<
   },
 };
 
+type ConfirmAction = {
+  payout: AdminPayout;
+  status: "PAID" | "FAILED" | "PENDING";
+  title: string;
+  message: string;
+  confirmLabel: string;
+};
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -47,26 +55,41 @@ function formatDate(dateStr: string) {
 }
 
 export function PayoutsTable() {
-  const { payouts, payoutsLoading, markPayoutPaid } = useAdminOrders();
+  const { payouts, payoutsLoading, markPayoutPaid, updatePayout } =
+    useAdminOrders();
   const { toast } = useToast();
-  const [confirming, setConfirming] = useState<AdminPayout | null>(null);
+  const [confirming, setConfirming] = useState<ConfirmAction | null>(null);
   const [busy, setBusy] = useState(false);
 
   const pending = useMemo(
-    () => payouts.filter((p) => p.status === "pending" || p.status === "processing"),
+    () =>
+      payouts.filter(
+        (p) => p.status === "pending" || p.status === "processing",
+      ),
     [payouts],
   );
 
-  async function confirmMarkPaid() {
+  async function confirmAction() {
     if (!confirming) return;
-    const target = confirming;
+    const { payout, status } = confirming;
     setBusy(true);
     try {
-      await markPayoutPaid(target.id);
-      toast(`${target.teacherName} payout marked paid`, {
-        description: `$${target.amount.toFixed(2)} ${target.currency}`,
-        variant: "success",
-      });
+      if (status === "PAID") {
+        await markPayoutPaid(payout.id);
+      } else {
+        await updatePayout(payout.id, status);
+      }
+      toast(
+        status === "PAID"
+          ? `${payout.teacherName} payout marked paid`
+          : status === "FAILED"
+            ? `${payout.teacherName} payout marked failed`
+            : `${payout.teacherName} payout reopened`,
+        {
+          description: `$${payout.amount.toFixed(2)} ${payout.currency}`,
+          variant: status === "FAILED" ? "warning" : "success",
+        },
+      );
       setConfirming(null);
     } catch (err) {
       toast("Failed to update payout", {
@@ -117,6 +140,10 @@ export function PayoutsTable() {
                 const status = statusStyles[payout.status] ?? statusStyles.pending;
                 const canMarkPaid =
                   payout.status === "pending" || payout.status === "processing";
+                const canMarkFailed =
+                  payout.status === "pending" || payout.status === "processing";
+                const canReopen = payout.status === "failed";
+
                 return (
                   <tr key={payout.id} className="hover:bg-slate-50/80">
                     <td className="px-5 py-4 font-semibold text-navy sm:px-6">
@@ -144,18 +171,65 @@ export function PayoutsTable() {
                       </span>
                     </td>
                     <td className="px-5 py-4 sm:px-6">
-                      <div className="flex justify-end">
-                        {canMarkPaid ? (
+                      <div className="flex justify-end gap-2">
+                        {canMarkPaid && (
                           <Button
                             variant="secondary"
                             size="sm"
                             className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                            onClick={() => setConfirming(payout)}
+                            onClick={() =>
+                              setConfirming({
+                                payout,
+                                status: "PAID",
+                                title: `Mark ${payout.teacherName}'s payout as paid?`,
+                                message: `Confirm $${payout.amount.toFixed(2)} ${payout.currency} has been transferred.`,
+                                confirmLabel: "Mark as paid",
+                              })
+                            }
                           >
                             <CheckCircle className="h-3.5 w-3.5" />
-                            Mark Paid
+                            Paid
                           </Button>
-                        ) : (
+                        )}
+                        {canMarkFailed && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-8 border-rose-200 text-rose-700 hover:bg-rose-50"
+                            onClick={() =>
+                              setConfirming({
+                                payout,
+                                status: "FAILED",
+                                title: `Mark ${payout.teacherName}'s payout as failed?`,
+                                message: "The teacher will be notified to update their bank details.",
+                                confirmLabel: "Mark failed",
+                              })
+                            }
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Failed
+                          </Button>
+                        )}
+                        {canReopen && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-8"
+                            onClick={() =>
+                              setConfirming({
+                                payout,
+                                status: "PENDING",
+                                title: `Reopen ${payout.teacherName}'s payout?`,
+                                message: "This returns the payout to pending for another transfer attempt.",
+                                confirmLabel: "Reopen",
+                              })
+                            }
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Retry
+                          </Button>
+                        )}
+                        {!canMarkPaid && !canMarkFailed && !canReopen && (
                           <span className="text-xs text-muted">
                             {payout.paidAt
                               ? `Paid ${formatDate(payout.paidAt)}`
@@ -174,18 +248,10 @@ export function PayoutsTable() {
 
       <ConfirmDialog
         open={confirming !== null}
-        title={
-          confirming
-            ? `Mark ${confirming.teacherName}'s payout as paid?`
-            : ""
-        }
-        message={
-          confirming
-            ? `Confirm $${confirming.amount.toFixed(2)} ${confirming.currency} has been transferred.`
-            : ""
-        }
-        confirmLabel={busy ? "Saving…" : "Mark as paid"}
-        onConfirm={confirmMarkPaid}
+        title={confirming?.title ?? ""}
+        message={confirming?.message ?? ""}
+        confirmLabel={busy ? "Saving…" : confirming?.confirmLabel ?? "Confirm"}
+        onConfirm={confirmAction}
         onCancel={() => setConfirming(null)}
       />
     </div>

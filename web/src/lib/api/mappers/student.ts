@@ -477,6 +477,8 @@ export type StudentResultsData = {
   released: boolean;
   message?: string;
   mockId: string;
+  enrollmentCode: string;
+  pdfUrl?: string | null;
   dateLabel: string;
   title: string;
   subtitle: string;
@@ -578,6 +580,41 @@ function deriveImprovements(
     });
 }
 
+export function mapPendingStudentResults(
+  pending: {
+    enrollmentCode: string;
+    mockDate: string;
+    package: string;
+    message: string;
+  },
+  targetBand: number | null = null,
+): StudentResultsData {
+  return {
+    released: false,
+    message: pending.message,
+    mockId: pending.enrollmentCode,
+    enrollmentCode: pending.enrollmentCode,
+    dateLabel: formatLongDate(pending.mockDate),
+    title: `${pending.package} — ${formatLongDate(pending.mockDate)}`,
+    subtitle: `Mock ID: ${pending.enrollmentCode}`,
+    examType: "Academic IELTS",
+    examFormat: "Academic",
+    overallBand: 0,
+    bandLabel: "Pending",
+    targetBand,
+    targetAchieved: false,
+    improvement: 0,
+    overallImprovement: 0,
+    skills: [],
+    moduleDetails: {} as Record<SkillId, ModuleDetail>,
+    scoreProgression: [],
+    attempts: [],
+    improvementOpportunities: [],
+    targetMessage: "",
+    nextSteps: [],
+  };
+}
+
 export function mapStudentResults(
   list: ResultList,
   detail: ResultDetail,
@@ -589,10 +626,11 @@ export function mapStudentResults(
     return {
       released: false,
       message: detail.message ?? "Results are not yet available.",
-      mockId: list[0].enrollmentCode,
-      dateLabel: formatLongDate(list[0].mockDate),
-      title: `${list[0].package} — ${formatLongDate(list[0].mockDate)}`,
-      subtitle: `Mock ID: ${list[0].enrollmentCode}`,
+      mockId: detail.enrollmentCode ?? list[0]?.enrollmentCode ?? "",
+      enrollmentCode: detail.enrollmentCode ?? list[0]?.enrollmentCode ?? "",
+      dateLabel: formatLongDate(detail.mockDate ?? list[0]?.mockDate ?? ""),
+      title: `${detail.package ?? list[0]?.package ?? "Mock"} — ${formatLongDate(detail.mockDate ?? list[0]?.mockDate ?? "")}`,
+      subtitle: `Mock ID: ${detail.enrollmentCode ?? list[0]?.enrollmentCode ?? ""}`,
       examType: "Academic IELTS",
       examFormat: "Academic",
       overallBand: 0,
@@ -686,6 +724,8 @@ export function mapStudentResults(
   return {
     released: true,
     mockId: detail.enrollmentCode ?? latest.enrollmentCode,
+    enrollmentCode: detail.enrollmentCode ?? latest.enrollmentCode,
+    pdfUrl: detail.pdfUrl ?? latest.pdfUrl ?? null,
     dateLabel: formatLongDate(detail.mockDate ?? latest.mockDate),
     title: `${detail.package ?? latest.package} — ${formatLongDate(detail.mockDate ?? latest.mockDate)}`,
     subtitle: `Mock ID: ${detail.enrollmentCode ?? latest.enrollmentCode} · IDP Computer-delivered format · All 4 modules`,

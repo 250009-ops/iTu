@@ -3,9 +3,13 @@
 import { Download, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { useAdminDisputes } from "@/contexts/admin-disputes-context";
+import { exportDisputesCsv } from "@/lib/admin/export";
 
 export function DisputesHeader() {
   const { toast } = useToast();
+  const { tickets } = useAdminDisputes();
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -21,11 +25,12 @@ export function DisputesHeader() {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() =>
-            toast("Export started", {
-              description: "Your tickets export will download shortly.",
-            })
-          }
+          onClick={() => {
+            exportDisputesCsv(tickets);
+            toast("Export ready", {
+              description: `${tickets.length} tickets downloaded.`,
+            });
+          }}
         >
           <Download className="h-4 w-4" />
           Export

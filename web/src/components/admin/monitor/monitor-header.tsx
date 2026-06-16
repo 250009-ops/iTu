@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Activity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAdminLiveMonitor } from "@/contexts/admin-live-monitor-context";
+import { SessionDetailDialog } from "@/components/admin/monitor/session-detail-dialog";
 import { useToast } from "@/components/ui/toast";
 
 export function MonitorHeader() {
@@ -45,41 +47,51 @@ export function MonitorHeader() {
 }
 
 export function IntegrityAlertBanner() {
-  const { meta } = useAdminLiveMonitor();
-  const { toast } = useToast();
+  const { meta, liveSessions, refresh } = useAdminLiveMonitor();
   const { flaggedStudents, flaggedCount } = meta;
+  const [reviewCode, setReviewCode] = useState<string | null>(null);
 
   if (flaggedCount === 0) return null;
 
+  const firstFlagged = liveSessions.find((s) => s.integrity === "flagged");
+
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-rose-200 bg-rose-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-      <div className="flex gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
-          <Activity className="h-5 w-5" />
+    <>
+      <div className="flex flex-col gap-4 rounded-xl border border-rose-200 bg-rose-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+            <Activity className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-semibold text-rose-900">Integrity Alerts Detected</p>
+            <p className="mt-0.5 text-sm text-rose-800">
+              {flaggedCount} session{flaggedCount > 1 ? "s" : ""} flagged
+              {flaggedStudents.length > 0
+                ? `: ${flaggedStudents.join(", ")}. Please review immediately.`
+                : "."}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="font-semibold text-rose-900">Integrity Alerts Detected</p>
-          <p className="mt-0.5 text-sm text-rose-800">
-            {flaggedCount} session{flaggedCount > 1 ? "s" : ""} flagged
-            {flaggedStudents.length > 0
-              ? `: ${flaggedStudents.join(", ")}. Please review immediately.`
-              : "."}
-          </p>
-        </div>
+        <Button
+          variant="danger"
+          size="sm"
+          className="shrink-0"
+          onClick={() =>
+            setReviewCode(firstFlagged?.sessionCode ?? liveSessions[0]?.sessionCode ?? null)
+          }
+        >
+          Review Now
+        </Button>
       </div>
-      <Button
-        variant="danger"
-        size="sm"
-        className="shrink-0"
-        onClick={() =>
-          toast("Flagged sessions", {
-            description: `Reviewing ${flaggedCount} flagged session(s).`,
-            variant: "warning",
-          })
-        }
-      >
-        Review Now
-      </Button>
-    </div>
+
+      {reviewCode && (
+        <SessionDetailDialog
+          sessionCode={reviewCode}
+          open={Boolean(reviewCode)}
+          onClose={() => setReviewCode(null)}
+          onUpdated={() => void refresh()}
+        />
+      )}
+    </>
   );
 }

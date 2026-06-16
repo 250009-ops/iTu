@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { getMe, login as apiLogin } from "@/lib/api/auth";
+import { getMe, isTwoFactorChallenge, login as apiLogin } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/errors";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
@@ -33,6 +33,13 @@ export default function LoginForm() {
   const sessionReason = searchParams.get("reason");
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [twoFactorStep, setTwoFactorStep] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [pendingCredentials, setPendingCredentials] = useState<{
+    email: string;
+    password: string;
+    rememberMe: boolean;
+  } | null>(null);
 
   const {
     register,
@@ -43,26 +50,47 @@ export default function LoginForm() {
     defaultValues: { rememberMe: false },
   });
 
+  async function completeLogin(
+    email: string,
+    password: string,
+    rememberMe: boolean,
+    code?: string,
+  ) {
+    const response = await apiLogin(email, password, code);
+
+    if (isTwoFactorChallenge(response)) {
+      setPendingCredentials({ email, password, rememberMe });
+      setTwoFactorStep(true);
+      setAuthError(null);
+      return;
+    }
+
+    const verified = await getMe(response.accessToken);
+    const role = normalizeRole(verified.role);
+
+    setSession(
+      {
+        accessToken: response.accessToken,
+        role,
+        email: verified.email,
+        name: verified.name,
+      },
+      { rememberMe },
+    );
+
+    router.push(response.dashboardPath ?? getDashboardPath(role));
+  }
+
   async function onSubmit(data: LoginFormValues) {
     setLoading(true);
     setAuthError(null);
 
     try {
-      const response = await apiLogin(data.email, data.password);
-      const verified = await getMe(response.accessToken);
-      const role = normalizeRole(verified.role);
-
-      setSession(
-        {
-          accessToken: response.accessToken,
-          role,
-          email: verified.email,
-          name: verified.name,
-        },
-        { rememberMe: data.rememberMe ?? false },
+      await completeLogin(
+        data.email,
+        data.password,
+        data.rememberMe ?? false,
       );
-
-      router.push(response.dashboardPath ?? getDashboardPath(role));
     } catch (error) {
       if (error instanceof ApiError && error.status === 0) {
         setAuthError(
@@ -82,6 +110,39 @@ export default function LoginForm() {
     }
   }
 
+  async function onSubmitTotp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pendingCredentials || totpCode.trim().length !== 6) {
+      setAuthError("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+
+    setLoading(true);
+    setAuthError(null);
+
+    try {
+      await completeLogin(
+        pendingCredentials.email,
+        pendingCredentials.password,
+        pendingCredentials.rememberMe,
+        totpCode.trim(),
+      );
+    } catch (error) {
+      setAuthError(
+        getErrorMessage(error, "Invalid authentication code. Try again."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function backToPasswordStep() {
+    setTwoFactorStep(false);
+    setTotpCode("");
+    setPendingCredentials(null);
+    setAuthError(null);
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between lg:hidden">
@@ -96,9 +157,13 @@ export default function LoginForm() {
 
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">
-          Welcome back
+          {twoFactorStep ? "Two-factor authentication" : "Welcome back"}
         </h1>
-        <p className="text-muted">Sign in to continue to your dashboard.</p>
+        <p className="text-muted">
+          {twoFactorStep
+            ? "Enter the 6-digit code from your authenticator app."
+            : "Sign in to continue to your dashboard."}
+        </p>
       </div>
 
       {registered && (
@@ -131,6 +196,32 @@ export default function LoginForm() {
         </div>
       )}
 
+      {twoFactorStep ? (
+        <form onSubmit={(e) => void onSubmitTotp(e)} className="space-y-5" noValidate>
+          <FormField error={authError ?? undefined}>
+            <Input
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              className="text-center text-lg tracking-[0.3em]"
+              aria-invalid={!!authError}
+            />
+          </FormField>
+          <Button type="submit" className="w-full" size="lg" loading={loading}>
+            Verify &amp; Sign In
+            {!loading && <ArrowRight className="h-4 w-4" />}
+          </Button>
+          <button
+            type="button"
+            onClick={backToPasswordStep}
+            className="w-full text-sm font-medium text-muted hover:text-navy"
+          >
+            Back to sign in
+          </button>
+        </form>
+      ) : (
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
         <FormField error={errors.email?.message}>
           <div className="relative">
@@ -176,12 +267,15 @@ export default function LoginForm() {
           {!loading && <ArrowRight className="h-4 w-4" />}
         </Button>
       </form>
+      )}
 
+      {!twoFactorStep && (
       <div className="rounded-lg border border-dashed border-border bg-slate-50 px-3 py-2.5 text-center text-xs text-muted">
         <span className="font-medium text-foreground">Demo:</span>{" "}
         student · teacher · admin{" "}
         <span className="text-slate-400">(same as password)</span>
       </div>
+      )}
 
       <p className="text-center text-sm text-muted">
         New here?{" "}

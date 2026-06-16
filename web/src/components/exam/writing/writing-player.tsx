@@ -13,12 +13,9 @@ import { countWords } from "@/lib/exam/helpers";
 import { cn } from "@/lib/utils";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
-import {
-  startSection,
-  submitSection,
-  submitWriting,
-  logIntegrity,
-} from "@/lib/api/exam";
+import { useWritingAutosave } from "@/hooks/use-writing-autosave";
+import { useExamIntegrity } from "@/hooks/use-exam-integrity";
+import { startSection, submitSection, submitWriting } from "@/lib/api/exam";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 
 export function WritingPlayer({ sessionId }: { sessionId: string }) {
@@ -32,12 +29,18 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [essays, setEssays] = useState<Record<string, string>>({});
   const [leftPct, setLeftPct] = useState(46);
-  const [saved, setSaved] = useState<"saved" | "saving">("saved");
   const draggingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const state = useExamState(content?.tasks[0]?.id ?? "task-1");
   const { remaining, expired } = useServerTimer(sessionId);
+  useExamIntegrity(sessionId);
+
+  const task1 = content?.tasks.find((t) => t.taskNumber === 1);
+  const task2 = content?.tasks.find((t) => t.taskNumber === 2);
+  const task1Text = task1 ? (essays[task1.id] ?? "") : "";
+  const task2Text = task2 ? (essays[task2.id] ?? "") : "";
+  const saveStatus = useWritingAutosave(sessionId, task1Text, task2Text);
 
   useEffect(() => {
     if (!content || started) return;
@@ -49,33 +52,6 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (expired) setSubmitOpen(true);
   }, [expired]);
-
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden) {
-        void logIntegrity(sessionId, "tab_switch");
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (!content) return;
-    const task1 = content.tasks.find((t) => t.taskNumber === 1);
-    const task2 = content.tasks.find((t) => t.taskNumber === 2);
-    const task1Text = task1 ? (essays[task1.id] ?? "") : "";
-    const task2Text = task2 ? (essays[task2.id] ?? "") : "";
-    if (!task1Text && !task2Text) return;
-
-    setSaved("saving");
-    const id = window.setTimeout(() => {
-      void submitWriting(sessionId, task1Text, task2Text).then(() =>
-        setSaved("saved"),
-      );
-    }, 1500);
-    return () => window.clearTimeout(id);
-  }, [essays, content, sessionId]);
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!draggingRef.current || !containerRef.current) return;
@@ -120,13 +96,7 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   async function handleSubmit() {
     setSubmitting(true);
     try {
-      const task1 = content!.tasks.find((t) => t.taskNumber === 1);
-      const task2 = content!.tasks.find((t) => t.taskNumber === 2);
-      await submitWriting(
-        sessionId,
-        task1 ? (essays[task1.id] ?? "") : "",
-        task2 ? (essays[task2.id] ?? "") : "",
-      );
+      await submitWriting(sessionId, task1Text, task2Text);
       await submitSection(sessionId, "writing");
       router.push(`/exam/${sessionId}/waiting-speaking`);
     } finally {
@@ -187,16 +157,12 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col bg-slate-50">
+        <div className="flex min-h-0 flex-1 flex-col bg-slate-50" data-exam-surface>
           <textarea
             value={essay}
             onChange={(e) =>
               setEssays((prev) => ({ ...prev, [activeTask.id]: e.target.value }))
             }
-            onPaste={(e) => {
-              e.preventDefault();
-              void logIntegrity(sessionId, "paste_attempt");
-            }}
             spellCheck={false}
             placeholder="Type your answer here. Pasting is disabled in line with exam rules."
             className={`min-h-0 flex-1 resize-none bg-white px-6 py-5 leading-7 text-slate-800 outline-none ${TEXT_SIZE_CLASS[state.textSize]}`}
@@ -204,7 +170,11 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
           <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-2.5">
             <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
               <Cloud size={14} />
-              {saved === "saving" ? "Saving…" : "All changes saved"}
+              {saveStatus === "saving"
+                ? "Saving…"
+                : saveStatus === "saved"
+                  ? "All changes saved"
+                  : "Autosave on"}
             </span>
             <span
               className={cn(

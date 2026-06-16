@@ -43,7 +43,8 @@ interface TestsTableProps {
 }
 
 export function TestsTable({ module }: TestsTableProps) {
-  const { tests: contentTests, publishTest } = useAdminContent();
+  const { tests: contentTests, publishTest, setSelectedTestId, selectedTestId } =
+    useAdminContent();
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
@@ -113,8 +114,12 @@ export function TestsTable({ module }: TestsTableProps) {
             ) : (
               filtered.map((test) => {
                 const status = statusStyles[test.status];
+                const isSelected = selectedTestId === test.id;
                 return (
-                  <tr key={test.id} className="hover:bg-slate-50/80">
+                  <tr
+                    key={test.id}
+                    className={isSelected ? "bg-sky-50/60" : "hover:bg-slate-50/80"}
+                  >
                     <td className="px-5 py-4 font-semibold text-navy sm:px-6">
                       {test.name}
                     </td>
@@ -147,9 +152,17 @@ export function TestsTable({ module }: TestsTableProps) {
                     </td>
                     <td className="px-5 py-4 text-muted sm:px-6">{test.author}</td>
                     <td className="px-5 py-4 sm:px-6">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant={isSelected ? "primary" : "secondary"}
+                          size="sm"
+                          className="h-8 px-3"
+                          onClick={() => setSelectedTestId(test.id)}
+                        >
+                          Edit
+                        </Button>
                         {test.status === "published" ? (
-                          <span className="text-xs font-medium text-muted">
+                          <span className="flex items-center text-xs font-medium text-muted">
                             Live
                           </span>
                         ) : (

@@ -1,22 +1,21 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useAdminSettings } from "@/contexts/admin-settings-context";
 import { cn } from "@/lib/utils";
 
 const services = [
   {
     name: "Stripe",
-    description: "Payment processing & subscriptions",
+    description: "Payment processing (Phase H)",
     key: "stripeConfigured" as const,
     envManaged: false,
   },
   {
-    name: "SendGrid",
-    description: "Transactional email delivery",
-    key: "sendgridConfigured" as const,
-    envManaged: false,
+    name: "Eskiz SMTP",
+    description: "Transactional email — password reset, bookings, results",
+    key: "smtpConfigured" as const,
+    envManaged: true,
   },
   {
     name: "LiveKit",
@@ -25,15 +24,9 @@ const services = [
     envManaged: true,
   },
   {
-    name: "Slack",
-    description: "Admin alert notifications",
-    key: "slackConfigured" as const,
-    envManaged: false,
-  },
-  {
-    name: "AWS S3",
-    description: "Speaking recording storage (optional — LiveKit Cloud storage used when unset)",
-    key: "s3Configured" as const,
+    name: "VPS Media Storage",
+    description: "Listening audio & speaking recordings on Eskiz server disk",
+    key: "mediaStorageConfigured" as const,
     envManaged: true,
   },
 ];
@@ -79,29 +72,27 @@ export function IntegrationsPanel() {
                 <div className="flex items-center gap-3">
                   <span
                     className={cn(
-                      "flex items-center gap-1.5 text-xs font-semibold",
+                      "inline-flex items-center gap-1.5 text-xs font-semibold",
                       status.text,
                     )}
                   >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+                    <span className={cn("h-2 w-2 rounded-full", status.dot)} />
                     {status.label}
                   </span>
-                  {service.envManaged ? (
-                    <span className="text-xs text-muted">
-                      Set in <code className="rounded bg-slate-100 px-1">api/.env</code>
-                    </span>
+                  {!service.envManaged ? (
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input
+                        type="checkbox"
+                        className="peer sr-only"
+                        checked={connected}
+                        onChange={(e) =>
+                          setField("integrations", service.key, e.target.checked)
+                        }
+                      />
+                      <span className="h-6 w-11 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500 peer-focus-visible:ring-2 peer-focus-visible:ring-sky-300 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5" />
+                    </label>
                   ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="h-8"
-                      onClick={() =>
-                        setField("integrations", service.key, !connected)
-                      }
-                    >
-                      {connected ? "Disconnect" : "Connect"}
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
+                    <span className="text-xs text-muted">via api/.env</span>
                   )}
                 </div>
               </div>
@@ -110,9 +101,24 @@ export function IntegrationsPanel() {
         </div>
       </div>
 
-      <div className="mt-8 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        LiveKit and S3 connection status is read from server environment variables.
-        Stripe, SendGrid, and Slack toggles are persisted in platform settings.
+      <div className="mt-6 rounded-xl border border-dashed border-border bg-slate-50 px-4 py-3 text-sm text-muted">
+        <p>
+          <strong className="text-navy">Eskiz mail:</strong> create a mailbox
+          (e.g. <code className="text-xs">noreply@itestu.uz</code>) in the
+          Eskiz panel, then set <code className="text-xs">SMTP_*</code> in{" "}
+          <code className="text-xs">api/.env</code> on the VPS. Use{" "}
+          <code className="text-xs">npm run mail:test</code> in the api folder
+          to verify.
+        </p>
+        <a
+          href="https://eskiz.uz/uz/mail"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-slate-50"
+        >
+          Eskiz mail docs
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
       </div>
     </div>
   );

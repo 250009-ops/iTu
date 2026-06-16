@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-/** Hotfix deploy — upload source, rebuild api + web, restart PM2 */
+/** Hotfix deploy — upload source, rebuild api + web, restart PM2 (preserves server .env) */
 import { readFileSync } from "fs";
 import { join } from "path";
 import { execSync } from "child_process";
 import { tmpdir } from "os";
 import { Client } from "ssh2";
+import { VPS, assertVpsCredentials } from "./lib/vps.js";
 
-const VPS = { host: "170.168.6.42", username: "root", password: "WpQnJrT0k8eKjOli", port: 22 };
 const ROOT = join(import.meta.dirname, "..");
+const DOMAIN = process.env.DEPLOY_DOMAIN || "itestu.uz";
 
 function exec(conn, cmd) {
   return new Promise((resolve, reject) => {
@@ -28,9 +29,10 @@ function upload(sftp, local, remote) {
 }
 
 async function main() {
+  assertVpsCredentials();
   const tarPath = join(tmpdir(), "itestu-hotfix.tar.gz");
   execSync(
-    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=deploy/node_modules --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web`,
+    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=deploy/node_modules --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh`,
     { stdio: "inherit" },
   );
 
@@ -46,14 +48,7 @@ set -e
 cd /var/www/itestu/app
 tar -xzf /var/www/itestu/hotfix.tar.gz
 rm /var/www/itestu/hotfix.tar.gz
-
-cd api && npm run build
-cd ../web && npm run build
-cd /var/www/itestu/app
-pm2 restart itestu-api itestu-web
-sleep 2
-pm2 status
-curl -sf -o /dev/null -w "API:%{http_code}\\n" https://donish.live/api/v1/catalog/packages
+bash /var/www/itestu/deploy/deploy-rebuild.sh
 `);
 
   conn.end();

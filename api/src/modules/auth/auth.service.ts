@@ -10,12 +10,16 @@ import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { MailService } from '../../common/mail/mail.service';
+import { AuditAction } from '../../common/audit/audit.actions';
+import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { DisableTotpDto, EnableTotpDto } from './dto/totp.dto';
+import { TotpService } from './totp.service';
 
 const DASHBOARD_PATHS: Record<UserRole, string> = {
   STUDENT: '/student',
@@ -30,6 +34,8 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private mail: MailService,
+    private audit: AuditService,
+    private totp: TotpService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -43,13 +49,56 @@ export class AuthService {
     });
 
     if (!user) {
+      await this.audit.log({
+        action: AuditAction.AUTH_LOGIN_FAILURE,
+        entity: 'user',
+        metadata: { email },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
+      await this.audit.log({
+        userId: user.id,
+        action: AuditAction.AUTH_LOGIN_FAILURE,
+        entity: 'user',
+        entityId: user.id,
+        metadata: { email },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
+
+    if (user.totpEnabled) {
+      if (!dto.totpCode?.trim()) {
+        return {
+          requiresTwoFactor: true,
+          user: { email: user.email, name: user.name },
+        };
+      }
+
+      const totpValid = user.totpSecret
+        ? await this.totp.verifyCode(user.totpSecret, dto.totpCode.trim())
+        : false;
+
+      if (!totpValid) {
+        await this.audit.log({
+          userId: user.id,
+          action: AuditAction.AUTH_LOGIN_FAILURE,
+          entity: 'user',
+          entityId: user.id,
+          metadata: { email, reason: 'invalid_totp' },
+        });
+        throw new UnauthorizedException('Invalid authentication code');
+      }
+    }
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_LOGIN_SUCCESS,
+      entity: 'user',
+      entityId: user.id,
+    });
 
     return this.buildAuthResponse(user);
   }
@@ -89,6 +138,16 @@ export class AuthService {
         teacherProfile: true,
       },
     });
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_REGISTER,
+      entity: 'user',
+      entityId: user.id,
+      metadata: { email, examType },
+    });
+
+    void this.mail.sendWelcomeEmail(user.email, user.name).catch(() => undefined);
 
     return this.buildAuthResponse(user);
   }
@@ -130,6 +189,13 @@ export class AuthService {
     await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash },
+    });
+
+    await this.audit.log({
+      userId,
+      action: AuditAction.AUTH_PASSWORD_CHANGE,
+      entity: 'user',
+      entityId: userId,
     });
 
     return { updated: true };
@@ -190,7 +256,104 @@ export class AuthService {
       },
     });
 
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_PASSWORD_RESET,
+      entity: 'user',
+      entityId: user.id,
+    });
+
     return { updated: true };
+  }
+
+  async setupTwoFactor(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    if (user.totpEnabled) {
+      throw new BadRequestException('Two-factor authentication is already enabled');
+    }
+
+    const secret = this.totp.createSecret();
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpPendingSecret: secret },
+    });
+
+    const otpauthUrl = this.totp.buildOtpauthUrl(secret, user.email);
+    const qrDataUrl = await this.totp.toQrDataUrl(otpauthUrl);
+
+    return { secret, otpauthUrl, qrDataUrl };
+  }
+
+  async enableTwoFactor(userId: string, dto: EnableTotpDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.totpPendingSecret) {
+      throw new BadRequestException('Start two-factor setup first');
+    }
+
+    const valid = await this.totp.verifyCode(
+      user.totpPendingSecret,
+      dto.code.trim(),
+    );
+    if (!valid) {
+      throw new BadRequestException('Invalid authentication code');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totpSecret: user.totpPendingSecret,
+        totpPendingSecret: null,
+        totpEnabled: true,
+      },
+    });
+
+    await this.audit.log({
+      userId,
+      action: AuditAction.AUTH_2FA_ENABLE,
+      entity: 'user',
+      entityId: userId,
+    });
+
+    return { enabled: true };
+  }
+
+  async disableTwoFactor(userId: string, dto: DisableTotpDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.totpEnabled || !user.totpSecret) {
+      throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!passwordValid) {
+      throw new UnauthorizedException('Password is incorrect');
+    }
+
+    const totpValid = await this.totp.verifyCode(user.totpSecret, dto.code.trim());
+    if (!totpValid) {
+      throw new BadRequestException('Invalid authentication code');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totpSecret: null,
+        totpPendingSecret: null,
+        totpEnabled: false,
+      },
+    });
+
+    await this.audit.log({
+      userId,
+      action: AuditAction.AUTH_2FA_DISABLE,
+      entity: 'user',
+      entityId: userId,
+    });
+
+    return { disabled: true };
   }
 
   private buildAuthResponse(user: {
@@ -219,6 +382,7 @@ export class AuthService {
       email: string;
       name: string;
       role: UserRole;
+      totpEnabled?: boolean;
       studentProfile?: {
         id: string;
         targetBand?: number | null;
@@ -238,6 +402,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role.toLowerCase(),
+      totpEnabled: user.totpEnabled ?? false,
       studentProfile: user.studentProfile
         ? {
             id: user.studentProfile.id,

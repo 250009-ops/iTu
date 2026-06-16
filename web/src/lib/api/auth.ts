@@ -6,6 +6,7 @@ export type ApiUser = {
   email: string;
   name: string;
   role: UserRole;
+  totpEnabled?: boolean;
   studentProfile?: {
     id: string;
     targetBand: number | null;
@@ -26,6 +27,19 @@ export type AuthResponse = {
   dashboardPath: string;
 };
 
+export type TwoFactorChallenge = {
+  requiresTwoFactor: true;
+  user: { email: string; name: string };
+};
+
+export type LoginResponse = AuthResponse | TwoFactorChallenge;
+
+export function isTwoFactorChallenge(
+  response: LoginResponse,
+): response is TwoFactorChallenge {
+  return "requiresTwoFactor" in response && response.requiresTwoFactor === true;
+}
+
 export type RegisterPayload = {
   fullName: string;
   email: string;
@@ -35,10 +49,10 @@ export type RegisterPayload = {
   acceptTerms: boolean;
 };
 
-export function login(email: string, password: string) {
-  return apiFetch<AuthResponse>("/auth/login", {
+export function login(email: string, password: string, totpCode?: string) {
+  return apiFetch<LoginResponse>("/auth/login", {
     method: "POST",
-    body: { email, password },
+    body: { email, password, ...(totpCode ? { totpCode } : {}) },
     auth: false,
   });
 }
@@ -81,5 +95,29 @@ export function resetPassword(token: string, newPassword: string) {
     method: "POST",
     body: { token, newPassword },
     auth: false,
+  });
+}
+
+export type TotpSetupResponse = {
+  secret: string;
+  otpauthUrl: string;
+  qrDataUrl: string;
+};
+
+export function setupTwoFactor() {
+  return apiFetch<TotpSetupResponse>("/auth/2fa/setup", { method: "POST" });
+}
+
+export function enableTwoFactor(code: string) {
+  return apiFetch<{ enabled: boolean }>("/auth/2fa/enable", {
+    method: "POST",
+    body: { code },
+  });
+}
+
+export function disableTwoFactor(password: string, code: string) {
+  return apiFetch<{ disabled: boolean }>("/auth/2fa/disable", {
+    method: "POST",
+    body: { password, code },
   });
 }

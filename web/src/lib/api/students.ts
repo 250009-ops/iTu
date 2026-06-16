@@ -175,3 +175,7 @@ export function createSupportTicket(body: {
     { method: "POST", body },
   );
 }
+
+export function exportPersonalData() {
+  return apiFetch<Record<string, unknown>>("/students/me/data-export");
+}

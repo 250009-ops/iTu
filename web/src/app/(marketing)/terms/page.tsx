@@ -175,10 +175,10 @@ const SECTIONS: LegalSection[] = [
       <p>
         Questions about these terms can be sent to{" "}
         <a
-          href="mailto:support@ieltsmock.com"
+          href="mailto:support@itestu.uz"
           className="font-medium text-navy underline underline-offset-2 hover:text-brand-red"
         >
-          support@ieltsmock.com
+          support@itestu.uz
         </a>
         .
       </p>

@@ -1,8 +1,14 @@
 import { PayoutStatus, Prisma } from '@prisma/client';
+import {
+  getPayoutPeriod,
+  normalizePayoutSchedule,
+  type PayoutSchedule,
+} from './payout-period';
 
 type CommissionSettings = {
   writingRate?: number;
   speakingRate?: number;
+  payoutSchedule?: string;
 };
 
 export async function accrueTeacherGradingEarning(
@@ -24,24 +30,16 @@ export async function accrueTeacherGradingEarning(
     },
   });
 
+  const schedule = normalizePayoutSchedule(commission.payoutSchedule);
+  const { periodStart, periodEnd } = getPayoutPeriod(schedule);
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const periodEnd = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-    23,
-    59,
-    59,
-    999,
-  );
 
   const existing = await tx.payout.findFirst({
     where: {
       teacherId,
       status: PayoutStatus.PENDING,
-      periodStart: { lte: now },
-      periodEnd: { gte: now },
+      periodStart,
+      periodEnd,
     },
   });
 
@@ -63,3 +61,5 @@ export async function accrueTeacherGradingEarning(
     },
   });
 }
+
+export { PayoutSchedule };

@@ -31,6 +31,10 @@ type OrdersValue = {
     payload?: { amount?: number; reason?: string },
   ) => Promise<void>;
   markPayoutPaid: (payoutId: string) => Promise<void>;
+  updatePayout: (
+    payoutId: string,
+    status: "PENDING" | "PROCESSING" | "PAID" | "FAILED",
+  ) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -64,6 +68,17 @@ export function AdminOrdersProvider({ children }: { children: ReactNode }) {
     [refreshPayouts],
   );
 
+  const updatePayout = useCallback(
+    async (
+      payoutId: string,
+      status: "PENDING" | "PROCESSING" | "PAID" | "FAILED",
+    ) => {
+      await updatePayoutStatus(payoutId, status);
+      await refreshPayouts();
+    },
+    [refreshPayouts],
+  );
+
   const value = useMemo<OrdersValue>(() => {
     const mapped = data ? mapOrders(data) : null;
     return {
@@ -84,6 +99,7 @@ export function AdminOrdersProvider({ children }: { children: ReactNode }) {
       monthlyOrderTrend: mapped?.monthlyOrderTrend ?? [],
       issueRefund,
       markPayoutPaid,
+      updatePayout,
       refresh,
     };
   }, [
@@ -94,6 +110,7 @@ export function AdminOrdersProvider({ children }: { children: ReactNode }) {
     payoutsLoading,
     issueRefund,
     markPayoutPaid,
+    updatePayout,
     refresh,
   ]);
 

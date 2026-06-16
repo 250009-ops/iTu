@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Headphones } from "lucide-react";
 import type { ListeningContent } from "@/lib/exam/types";
@@ -12,11 +12,13 @@ import {
 } from "@/components/exam/shell/question-palette";
 import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
+import { ListeningAudioPlayer } from "@/components/exam/listening/listening-audio-player";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
+import { useExamIntegrity } from "@/hooks/use-exam-integrity";
 import { startSection, submitSection, logIntegrity } from "@/lib/api/exam";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 
@@ -29,10 +31,25 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const [started, setStarted] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [audioStatus, setAudioStatus] = useState("Preparing audio…");
 
   const state = useExamState(content?.parts[0]?.id ?? "part-1");
   const { remaining, expired } = useServerTimer(sessionId);
   useExamAutosave(sessionId, state.answers);
+  useExamIntegrity(sessionId);
+
+  const logPaste = useCallback(
+    () => void logIntegrity(sessionId, "paste_attempt"),
+    [sessionId],
+  );
+
+  const audioTracks = useMemo(() => {
+    if (!content) return [];
+    if (content.audioTracks?.length) return content.audioTracks;
+    return content.parts
+      .filter((p) => p.audioUrl)
+      .map((p) => ({ part: p.part, url: p.audioUrl! }));
+  }, [content]);
 
   useEffect(() => {
     if (!content || started) return;
@@ -44,16 +61,6 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (expired) setSubmitOpen(true);
   }, [expired]);
-
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden) {
-        void logIntegrity(sessionId, "tab_switch");
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [sessionId]);
 
   const paletteParts: PalettePart[] = useMemo(
     () =>
@@ -103,9 +110,17 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
 
   return (
     <>
+      {audioTracks.length > 0 && (
+        <ListeningAudioPlayer
+          tracks={audioTracks}
+          sessionId={sessionId}
+          onStatusChange={setAudioStatus}
+        />
+      )}
+
       <ExamTopBar
         testTakerId={sessionId}
-        audioStatus="Audio is playing"
+        audioStatus={audioStatus}
         timer={<ExamTimer remainingSeconds={remaining} hidden={state.hideTimer} />}
         textSize={state.textSize}
         onTextSize={state.setTextSize}
@@ -123,7 +138,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
+      <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50" data-exam-surface>
         <div
           className={`mx-auto max-w-3xl space-y-8 px-5 py-6 ${TEXT_SIZE_CLASS[state.textSize]}`}
         >
@@ -135,6 +150,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
               current={state.current}
               onAnswer={state.setAnswer}
               onFocus={state.focusQuestion}
+              onPasteBlocked={logPaste}
             />
           ))}
         </div>

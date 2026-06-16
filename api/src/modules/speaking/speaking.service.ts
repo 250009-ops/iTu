@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { SpeakingSessionStatus } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
+import { StorageService } from '../../common/storage/storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   SPEAKING_PHASES,
@@ -42,6 +43,7 @@ export class SpeakingService {
   constructor(
     private prisma: PrismaService,
     private livekit: LivekitService,
+    private storage: StorageService,
   ) {}
 
   async getByExamSessionCode(sessionCode: string, user: RequestUser) {
@@ -230,8 +232,12 @@ export class SpeakingService {
       data.partTimestamps = partTimestamps;
 
       if (partTimestamps.egressId && !session.recordingUrl) {
-        const recordingUrl = await this.livekit.stopRoomRecording(
+        const remoteUrl = await this.livekit.stopRoomRecording(
           partTimestamps.egressId,
+        );
+        const recordingUrl = await this.persistRecording(
+          remoteUrl,
+          speakingSessionId,
         );
         if (recordingUrl) {
           data.recordingUrl = recordingUrl;
@@ -252,10 +258,35 @@ export class SpeakingService {
     const speakingSessionId = this.livekit.speakingSessionIdFromRoom(roomName);
     if (!speakingSessionId || !recordingUrl) return;
 
+    const persisted = await this.persistRecording(
+      recordingUrl,
+      speakingSessionId,
+    );
+    if (!persisted) return;
+
     await this.prisma.speakingSession.updateMany({
       where: { id: speakingSessionId, recordingUrl: null },
-      data: { recordingUrl },
+      data: { recordingUrl: persisted },
     });
+  }
+
+  private async persistRecording(
+    remoteUrl: string | null,
+    speakingSessionId: string,
+  ): Promise<string | null> {
+    if (!remoteUrl) return null;
+    if (!this.storage.isConfigured() || !/^https?:\/\//i.test(remoteUrl)) {
+      return remoteUrl;
+    }
+
+    try {
+      return await this.storage.mirrorRemoteFile(
+        remoteUrl,
+        `recordings/${speakingSessionId}.mp4`,
+      );
+    } catch {
+      return remoteUrl;
+    }
   }
 
   private startRecordingSoon(roomName: string, speakingSessionId: string) {

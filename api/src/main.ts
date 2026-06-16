@@ -3,14 +3,36 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as express from 'express';
+import helmet from 'helmet';
+import * as fs from 'fs';
+import * as path from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
+  const isProduction = config.get('NODE_ENV') === 'production';
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: isProduction ? undefined : false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // Allow base64 image data URLs (e.g. teacher profile photos) in JSON bodies.
   app.useBodyParser('json', { limit: '6mb' });
+
+  const mediaRoot = path.resolve(
+    config.get<string>('MEDIA_ROOT', './storage/media'),
+  );
+  const serveMediaLocally =
+    config.get<string>('SERVE_MEDIA_LOCALLY', 'true') === 'true';
+  if (serveMediaLocally) {
+    fs.mkdirSync(mediaRoot, { recursive: true });
+    app.use('/media', express.static(mediaRoot, { maxAge: '7d' }));
+  }
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
@@ -56,18 +78,24 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('IELTS Mock ERP API')
-    .setDescription('Backend API for the IELTS computer-delivered mock exam platform')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  if (!isProduction || config.get('SWAGGER_ENABLED') === 'true') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('IELTS Mock ERP API')
+      .setDescription(
+        'Backend API for the IELTS computer-delivered mock exam platform',
+      )
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = config.get<number>('PORT', 3001);
   await app.listen(port);
   console.log(`API running on http://localhost:${port}/api/v1`);
-  console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  if (!isProduction || config.get('SWAGGER_ENABLED') === 'true') {
+    console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  }
 }
 bootstrap();

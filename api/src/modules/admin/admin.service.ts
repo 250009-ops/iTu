@@ -5,12 +5,19 @@ import {
 } from '@nestjs/common';
 import {
   EnrollmentStatus,
+  ExamSkill,
   NotificationType,
   Prisma,
   SlotStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditAction } from '../../common/audit/audit.actions';
+import { AuditService } from '../../common/audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  SECTION_DURATIONS_SEC,
+  skillForActiveState,
+} from '../exam-sessions/exam-state-machine';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
@@ -23,6 +30,19 @@ const SKILL_ACCENTS = [
   { id: 'writing', name: 'Writing', detail: 'Task 1 + Task 2', badge: 'Teacher-graded', color: 'violet' },
   { id: 'speaking', name: 'Speaking', detail: 'Live · 11–14 min', badge: 'Teacher-graded', color: 'rose' },
 ];
+
+const INTEGRITY_FLAG_EVENTS = new Set([
+  'tab_switch',
+  'paste_attempt',
+  'fullscreen_exit',
+  'audio_seek_attempt',
+]);
+
+function formatTimeLeft(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 function slugify(value: string): string {
   return value
@@ -37,6 +57,7 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private audit: AuditService,
   ) {}
 
   async getDashboard() {
@@ -58,28 +79,7 @@ export class AdminService {
       this.prisma.supportTicket.count({
         where: { status: { in: ['OPEN', 'IN_PROGRESS'] } },
       }),
-      this.prisma.examSession.findMany({
-        where: {
-          state: {
-            in: [
-              'LISTENING_ACTIVE',
-              'READING_ACTIVE',
-              'WRITING_ACTIVE',
-              'SPEAKING_ACTIVE',
-            ],
-          },
-        },
-        include: {
-          enrollment: {
-            include: {
-              student: { include: { user: true } },
-              speakingTeacher: { include: { user: true } },
-            },
-          },
-          sectionAttempts: true,
-        },
-        take: 20,
-      }),
+      this.getLiveSessions(),
     ]);
 
     return {
@@ -89,26 +89,70 @@ export class AdminService {
         totalRevenue: totalRevenue._sum.amount ?? 0,
         openTickets,
       },
-      liveSessions: liveSessions.map((s) => {
-        const activeSkill = s.state.replace('_ACTIVE', '').toLowerCase();
-        const attempt = s.sectionAttempts.find(
-          (a) => a.skill.toLowerCase() === activeSkill,
-        );
-        return {
-          sessionCode: s.sessionCode,
-          studentName: s.enrollment.student.user.name,
-          country: s.enrollment.student.country ?? '—',
-          skill: activeSkill,
-          progress: attempt?.timeRemaining
-            ? Math.round(
-                (1 - (attempt.timeRemaining ?? 0) / 3600) * 100,
-              )
-            : 50,
-          examiner: s.enrollment.speakingTeacher?.user.name,
-          integrity: s.integrity.toLowerCase(),
-        };
-      }),
+      liveSessions,
     };
+  }
+
+  async getLiveSessions() {
+    const sessions = await this.prisma.examSession.findMany({
+      where: {
+        state: {
+          in: [
+            'LISTENING_ACTIVE',
+            'READING_ACTIVE',
+            'WRITING_ACTIVE',
+            'SPEAKING_ACTIVE',
+          ],
+        },
+      },
+      include: {
+        enrollment: {
+          include: {
+            student: { include: { user: true } },
+            speakingTeacher: { include: { user: true } },
+          },
+        },
+        sectionAttempts: true,
+      },
+      take: 20,
+    });
+
+    return sessions.map((s) => {
+      const activeSkill = skillForActiveState(s.state);
+      const skill = activeSkill?.toLowerCase() ?? 'listening';
+      const attempt = activeSkill
+        ? s.sectionAttempts.find((a) => a.skill === activeSkill)
+        : undefined;
+      const duration = activeSkill ? SECTION_DURATIONS_SEC[activeSkill] : 0;
+      let remainingSec = 0;
+      if (attempt?.startedAt && !attempt.submittedAt && duration > 0) {
+        const elapsed = Math.floor(
+          (Date.now() - attempt.startedAt.getTime()) / 1000,
+        );
+        remainingSec = Math.max(0, duration - elapsed);
+      }
+      const progress =
+        duration > 0
+          ? Math.round(((duration - remainingSec) / duration) * 100)
+          : 0;
+      const log = (s.integrityLog as { event?: string }[]) ?? [];
+      const flags = log.filter((entry) =>
+        INTEGRITY_FLAG_EVENTS.has(entry.event ?? ''),
+      ).length;
+
+      return {
+        sessionCode: s.sessionCode,
+        studentName: s.enrollment.student.user.name,
+        country: s.enrollment.student.country ?? '—',
+        skill,
+        progress,
+        timeLeft: formatTimeLeft(remainingSec),
+        remainingSec,
+        examiner: s.enrollment.speakingTeacher?.user.name,
+        integrity: s.integrity.toLowerCase(),
+        flags,
+      };
+    });
   }
 
   async getEnrollments() {
@@ -179,11 +223,22 @@ export class AdminService {
   async updateTeacherStatus(
     teacherId: string,
     status: 'approved' | 'pending' | 'suspended',
+    actorId: string,
   ) {
-    return this.prisma.teacherProfile.update({
+    const updated = await this.prisma.teacherProfile.update({
       where: { id: teacherId },
       data: { status: status.toUpperCase() as 'APPROVED' | 'PENDING' | 'SUSPENDED' },
     });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_TEACHER_STATUS,
+      entity: 'teacher_profile',
+      entityId: teacherId,
+      metadata: { status },
+    });
+
+    return updated;
   }
 
   async getOrders() {
@@ -332,10 +387,10 @@ export class AdminService {
     }
   }
 
-  async createPackage(dto: CreatePackageDto) {
+  async createPackage(dto: CreatePackageDto, actorId: string) {
     const slug = await this.resolveSlug(dto.title, dto.slug);
 
-    return this.prisma.mockTestPackage.create({
+    const created = await this.prisma.mockTestPackage.create({
       data: {
         slug,
         title: dto.title,
@@ -355,9 +410,19 @@ export class AdminService {
         isActive: dto.isActive ?? true,
       },
     });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_PACKAGE_CREATE,
+      entity: 'mock_test_package',
+      entityId: created.id,
+      metadata: { slug: created.slug, title: created.title },
+    });
+
+    return created;
   }
 
-  async updatePackage(id: string, dto: UpdatePackageDto) {
+  async updatePackage(id: string, dto: UpdatePackageDto, actorId: string) {
     const existing = await this.prisma.mockTestPackage.findUnique({
       where: { id },
     });
@@ -400,10 +465,20 @@ export class AdminService {
         : { disconnect: true };
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
 
-    return this.prisma.mockTestPackage.update({ where: { id }, data });
+    const updated = await this.prisma.mockTestPackage.update({ where: { id }, data });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_PACKAGE_UPDATE,
+      entity: 'mock_test_package',
+      entityId: id,
+      metadata: { fields: Object.keys(dto) },
+    });
+
+    return updated;
   }
 
-  async deletePackage(id: string) {
+  async deletePackage(id: string, actorId: string) {
     const pkg = await this.prisma.mockTestPackage.findUnique({
       where: { id },
       include: { _count: { select: { enrollments: true, orders: true } } },
@@ -416,16 +491,30 @@ export class AdminService {
         where: { id },
         data: { isActive: false },
       });
+      await this.audit.log({
+        userId: actorId,
+        action: AuditAction.ADMIN_PACKAGE_DELETE,
+        entity: 'mock_test_package',
+        entityId: id,
+        metadata: { archived: true },
+      });
       return { archived: true };
     }
 
     await this.prisma.mockTestPackage.delete({ where: { id } });
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_PACKAGE_DELETE,
+      entity: 'mock_test_package',
+      entityId: id,
+      metadata: { deleted: true },
+    });
     return { deleted: true };
   }
 
   // ─── Disputes ────────────────────────────────────────────────────────────
 
-  async updateTicket(id: string, dto: UpdateTicketDto) {
+  async updateTicket(id: string, dto: UpdateTicketDto, actorId: string) {
     const ticket = await this.prisma.supportTicket.findUnique({ where: { id } });
     if (!ticket) throw new NotFoundException('Ticket not found');
 
@@ -449,12 +538,26 @@ export class AdminService {
       throw new BadRequestException('No changes supplied');
     }
 
-    return this.prisma.supportTicket.update({ where: { id }, data });
+    const updated = await this.prisma.supportTicket.update({ where: { id }, data });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_TICKET_UPDATE,
+      entity: 'support_ticket',
+      entityId: id,
+      metadata: {
+        status: dto.status,
+        priority: dto.priority,
+        assigneeId: dto.assigneeId,
+      },
+    });
+
+    return updated;
   }
 
   // ─── Orders & Refunds ────────────────────────────────────────────────────
 
-  async refundOrder(orderId: string, dto: RefundOrderDto) {
+  async refundOrder(orderId: string, dto: RefundOrderDto, actorId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -518,6 +621,18 @@ export class AdminService {
       '/student/profile',
     );
 
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_ORDER_REFUND,
+      entity: 'order',
+      entityId: order.id,
+      metadata: {
+        orderCode: order.orderCode,
+        refundAmount,
+        reason: dto.reason ?? null,
+      },
+    });
+
     return {
       refundId: refund.id,
       orderId: order.orderCode,
@@ -548,16 +663,49 @@ export class AdminService {
     }));
   }
 
-  async updatePayout(id: string, dto: UpdatePayoutDto) {
-    const payout = await this.prisma.payout.findUnique({ where: { id } });
+  async updatePayout(id: string, dto: UpdatePayoutDto, actorId: string) {
+    const payout = await this.prisma.payout.findUnique({
+      where: { id },
+      include: { teacher: { include: { user: true } } },
+    });
     if (!payout) throw new NotFoundException('Payout not found');
 
     const data: Prisma.PayoutUpdateInput = { status: dto.status };
     if (dto.status === 'PAID') {
       data.paidAt = new Date();
     }
+    if (dto.status === 'PENDING' || dto.status === 'PROCESSING') {
+      data.paidAt = null;
+    }
 
-    return this.prisma.payout.update({ where: { id }, data });
+    const updated = await this.prisma.payout.update({ where: { id }, data });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_PAYOUT_UPDATE,
+      entity: 'payout',
+      entityId: id,
+      metadata: { status: dto.status, amount: payout.amount },
+    });
+
+    if (dto.status === 'PAID' || dto.status === 'FAILED') {
+      const title =
+        dto.status === 'PAID' ? 'Payout processed' : 'Payout failed';
+      const body =
+        dto.status === 'PAID'
+          ? `$${payout.amount.toFixed(2)} has been marked as paid for the period ending ${payout.periodEnd.toLocaleDateString()}.`
+          : `Your payout of $${payout.amount.toFixed(2)} could not be processed. Update your bank details or contact support.`;
+
+      await this.notifications.create(
+        payout.teacher.userId,
+        title,
+        body,
+        NotificationType.SYSTEM,
+        '/teacher/earnings',
+      );
+    }
+
+    return updated;
   }
 
   // ─── Band Conversion Table ───────────────────────────────────────────────
@@ -576,7 +724,7 @@ export class AdminService {
     }));
   }
 
-  async updateBandTable(dto: UpdateBandTableDto) {
+  async updateBandTable(dto: UpdateBandTableDto, actorId: string) {
     await this.prisma.$transaction(async (tx) => {
       await tx.bandConversionTable.updateMany({ data: { isActive: false } });
       for (const row of dto.rows) {
@@ -595,6 +743,17 @@ export class AdminService {
       }
     });
 
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_BAND_TABLE_UPDATE,
+      entity: 'band_conversion_table',
+      metadata: { rowCount: dto.rows.length },
+    });
+
     return this.getBandTable();
+  }
+
+  async getAuditLogs(params: { take?: number; skip?: number; entity?: string }) {
+    return this.audit.list(params);
   }
 }

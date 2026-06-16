@@ -7,11 +7,16 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequestUser } from '../../common/types/request-user';
+import { ExamSessionsService } from '../exam-sessions/exam-sessions.service';
 import { AdminService } from './admin.service';
+import { ReviewIntegrityDto } from './dto/review-integrity.dto';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
@@ -23,7 +28,10 @@ import { UpdateTicketDto } from './dto/update-ticket.dto';
 @Controller('admin')
 @Roles(UserRole.ADMIN)
 export class AdminController {
-  constructor(private admin: AdminService) {}
+  constructor(
+    private admin: AdminService,
+    private examSessions: ExamSessionsService,
+  ) {}
 
   @Get('dashboard')
   getDashboard() {
@@ -44,8 +52,9 @@ export class AdminController {
   updateTeacherStatus(
     @Param('id') id: string,
     @Body() body: { status: 'approved' | 'pending' | 'suspended' },
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.admin.updateTeacherStatus(id, body.status);
+    return this.admin.updateTeacherStatus(id, body.status, user.id);
   }
 
   @Get('orders')
@@ -54,8 +63,12 @@ export class AdminController {
   }
 
   @Post('orders/:id/refund')
-  refundOrder(@Param('id') id: string, @Body() body: RefundOrderDto) {
-    return this.admin.refundOrder(id, body);
+  refundOrder(
+    @Param('id') id: string,
+    @Body() body: RefundOrderDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.refundOrder(id, body, user.id);
   }
 
   @Get('payouts')
@@ -64,8 +77,12 @@ export class AdminController {
   }
 
   @Patch('payouts/:id')
-  updatePayout(@Param('id') id: string, @Body() body: UpdatePayoutDto) {
-    return this.admin.updatePayout(id, body);
+  updatePayout(
+    @Param('id') id: string,
+    @Body() body: UpdatePayoutDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.updatePayout(id, body, user.id);
   }
 
   @Get('band-table')
@@ -74,8 +91,11 @@ export class AdminController {
   }
 
   @Put('band-table')
-  updateBandTable(@Body() body: UpdateBandTableDto) {
-    return this.admin.updateBandTable(body);
+  updateBandTable(
+    @Body() body: UpdateBandTableDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.updateBandTable(body, user.id);
   }
 
   @Get('disputes')
@@ -84,8 +104,12 @@ export class AdminController {
   }
 
   @Patch('disputes/:id')
-  updateTicket(@Param('id') id: string, @Body() body: UpdateTicketDto) {
-    return this.admin.updateTicket(id, body);
+  updateTicket(
+    @Param('id') id: string,
+    @Body() body: UpdateTicketDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.updateTicket(id, body, user.id);
   }
 
   @Get('packages')
@@ -94,18 +118,25 @@ export class AdminController {
   }
 
   @Post('packages')
-  createPackage(@Body() body: CreatePackageDto) {
-    return this.admin.createPackage(body);
+  createPackage(
+    @Body() body: CreatePackageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.createPackage(body, user.id);
   }
 
   @Patch('packages/:id')
-  updatePackage(@Param('id') id: string, @Body() body: UpdatePackageDto) {
-    return this.admin.updatePackage(id, body);
+  updatePackage(
+    @Param('id') id: string,
+    @Body() body: UpdatePackageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.updatePackage(id, body, user.id);
   }
 
   @Delete('packages/:id')
-  deletePackage(@Param('id') id: string) {
-    return this.admin.deletePackage(id);
+  deletePackage(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.admin.deletePackage(id, user.id);
   }
 
   @Get('reports/summary')
@@ -115,6 +146,46 @@ export class AdminController {
 
   @Get('sessions/live')
   getLiveSessions() {
-    return this.admin.getDashboard().then((d) => d.liveSessions);
+    return this.admin.getLiveSessions();
+  }
+
+  @Get('sessions/:sessionCode')
+  getSessionDetail(@Param('sessionCode') sessionCode: string) {
+    return this.examSessions.getAdminSessionDetail(sessionCode);
+  }
+
+  @Post('sessions/:sessionCode/force-submit')
+  forceSubmit(
+    @Param('sessionCode') sessionCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.adminForceSubmit(sessionCode, user);
+  }
+
+  @Post('sessions/:sessionCode/integrity/review')
+  reviewIntegrity(
+    @Param('sessionCode') sessionCode: string,
+    @Body() dto: ReviewIntegrityDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.adminReviewIntegrity(
+      sessionCode,
+      dto.decision,
+      dto.note,
+      user,
+    );
+  }
+
+  @Get('audit-logs')
+  getAuditLogs(
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+    @Query('entity') entity?: string,
+  ) {
+    return this.admin.getAuditLogs({
+      take: take ? Number(take) : undefined,
+      skip: skip ? Number(skip) : undefined,
+      entity,
+    });
   }
 }

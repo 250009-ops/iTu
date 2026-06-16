@@ -55,10 +55,10 @@ function ResultsContent() {
   }
 
   return (
-    <div className="min-h-full bg-gray-50/60">
+    <div className="min-h-full bg-gray-50/60 print:bg-white">
       <ResultsHeader />
 
-      <div className="mx-auto max-w-7xl space-y-6 px-6 py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-7xl space-y-6 px-6 py-6 lg:px-8 lg:py-8 print:max-w-none print:px-0 print:py-0">
         <OverallScoreCard />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

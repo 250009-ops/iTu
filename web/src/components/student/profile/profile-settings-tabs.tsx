@@ -10,7 +10,14 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
-import { changePassword } from "@/lib/api/auth";
+import {
+  changePassword,
+  disableTwoFactor,
+  enableTwoFactor,
+  getMe,
+  setupTwoFactor,
+} from "@/lib/api/auth";
+import { exportPersonalData } from "@/lib/api/students";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useStudentProfileData } from "@/contexts/student-profile-context";
 
@@ -70,6 +77,115 @@ export function ProfileSecurityTab() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpLoading, setTotpLoading] = useState(true);
+  const [setupQr, setSetupQr] = useState<string | null>(null);
+  const [setupSecret, setSetupSecret] = useState<string | null>(null);
+  const [enableCode, setEnableCode] = useState("");
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    void getMe()
+      .then((user) => setTotpEnabled(user.totpEnabled ?? false))
+      .finally(() => setTotpLoading(false));
+  }, []);
+
+  async function handleStartTwoFactor() {
+    setTotpLoading(true);
+    try {
+      const setup = await setupTwoFactor();
+      setSetupQr(setup.qrDataUrl);
+      setSetupSecret(setup.secret);
+    } catch (err) {
+      toast("Could not start 2FA setup", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "error",
+      });
+    } finally {
+      setTotpLoading(false);
+    }
+  }
+
+  async function handleEnableTwoFactor(e: React.FormEvent) {
+    e.preventDefault();
+    if (enableCode.trim().length !== 6) {
+      toast("Enter a 6-digit code", { variant: "warning" });
+      return;
+    }
+    setTotpLoading(true);
+    try {
+      await enableTwoFactor(enableCode.trim());
+      setTotpEnabled(true);
+      setSetupQr(null);
+      setSetupSecret(null);
+      setEnableCode("");
+      toast("Two-factor enabled", {
+        description: "You will need your authenticator app at sign-in.",
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Could not enable 2FA", {
+        description: getErrorMessage(err, "Check the code and try again."),
+        variant: "error",
+      });
+    } finally {
+      setTotpLoading(false);
+    }
+  }
+
+  async function handleDisableTwoFactor(e: React.FormEvent) {
+    e.preventDefault();
+    if (!disablePassword || disableCode.trim().length !== 6) {
+      toast("Enter your password and 6-digit code", { variant: "warning" });
+      return;
+    }
+    setTotpLoading(true);
+    try {
+      await disableTwoFactor(disablePassword, disableCode.trim());
+      setTotpEnabled(false);
+      setDisablePassword("");
+      setDisableCode("");
+      toast("Two-factor disabled", { variant: "success" });
+    } catch (err) {
+      toast("Could not disable 2FA", {
+        description: getErrorMessage(err, "Check your password and code."),
+        variant: "error",
+      });
+    } finally {
+      setTotpLoading(false);
+    }
+  }
+
+  async function handleExportData() {
+    setExporting(true);
+    try {
+      const data = await exportPersonalData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `itestu-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast("Data export ready", {
+        description: "Your personal data was downloaded as JSON.",
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Export failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "error",
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -160,10 +276,111 @@ export function ProfileSecurityTab() {
         title="Two-factor authentication"
         description="Add an extra layer of security at sign-in."
       >
-        <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-500">
-          Two-factor authentication is not enabled for this environment yet.
-          Your account is protected by your password and session token.
-        </div>
+        {totpLoading && !setupQr ? (
+          <p className="text-sm text-gray-500">Loading security settings…</p>
+        ) : totpEnabled ? (
+          <form onSubmit={(e) => void handleDisableTwoFactor(e)} className="space-y-3">
+            <p className="text-sm text-emerald-700">
+              Two-factor authentication is enabled on your account.
+            </p>
+            <input
+              type="password"
+              value={disablePassword}
+              onChange={(e) => setDisablePassword(e.target.value)}
+              placeholder="Current password"
+              className={inputClass}
+            />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={disableCode}
+              onChange={(e) =>
+                setDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              placeholder="Authenticator code"
+              className={inputClass}
+            />
+            <button
+              type="submit"
+              disabled={totpLoading}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+            >
+              Disable 2FA
+            </button>
+          </form>
+        ) : setupQr ? (
+          <form onSubmit={(e) => void handleEnableTwoFactor(e)} className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Scan this QR code with Google Authenticator, Authy, or a similar app.
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={setupQr}
+              alt="Authenticator QR code"
+              className="mx-auto h-40 w-40 rounded-lg border border-gray-200"
+            />
+            {setupSecret && (
+              <p className="break-all text-center font-mono text-xs text-gray-500">
+                Manual key: {setupSecret}
+              </p>
+            )}
+            <input
+              type="text"
+              inputMode="numeric"
+              value={enableCode}
+              onChange={(e) =>
+                setEnableCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              placeholder="6-digit code"
+              className={inputClass}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={totpLoading}
+                className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-light disabled:opacity-60"
+              >
+                Confirm &amp; enable
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSetupQr(null);
+                  setSetupSecret(null);
+                  setEnableCode("");
+                }}
+                className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void handleStartTwoFactor()}
+            disabled={totpLoading}
+            className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-light disabled:opacity-60"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Set up authenticator app
+          </button>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        icon={ShieldCheck}
+        title="Download your data"
+        description="Export a copy of your profile, enrollments, orders, and activity (GDPR)."
+      >
+        <button
+          type="button"
+          onClick={() => void handleExportData()}
+          disabled={exporting}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-gray-50 disabled:opacity-60"
+        >
+          {exporting ? "Preparing export…" : "Download JSON export"}
+        </button>
       </SectionCard>
 
       <SectionCard

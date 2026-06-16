@@ -9,14 +9,29 @@ import {
   Prisma,
   SlotStatus,
   TeacherSpeciality,
+  UserRole,
+  NotificationType,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { SettingsService } from '../settings/settings.service';
 import { UpdateTeacherProfileDto } from './dto/update-teacher-profile.dto';
+
+type PayoutDetails = {
+  bankName?: string;
+  accountName?: string;
+  accountLast4?: string;
+  method?: string;
+};
 
 @Injectable()
 export class TeachersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+    private settings: SettingsService,
+  ) {}
 
   async getDashboard(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
@@ -142,6 +157,7 @@ export class TeachersService {
 
   async getEarnings(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
+    const commission = await this.settings.getCommissionRates();
 
     const payouts = await this.prisma.payout.findMany({
       where: { teacherId: teacher.id },
@@ -152,6 +168,8 @@ export class TeachersService {
     return {
       totalEarned: teacher.totalEarned,
       commissionRate: teacher.commissionRate,
+      payoutSchedule: commission.payoutSchedule,
+      payoutDetails: (teacher.payoutDetails as PayoutDetails | null) ?? null,
       payouts: payouts.map((p) => ({
         id: p.id,
         amount: p.amount,
@@ -166,6 +184,13 @@ export class TeachersService {
 
   async requestPayout(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
+    const details = teacher.payoutDetails as PayoutDetails | null;
+
+    if (!details?.accountLast4?.trim()) {
+      throw new BadRequestException(
+        'Add your payout bank details before requesting a payout',
+      );
+    }
 
     const pending = await this.prisma.payout.findMany({
       where: { teacherId: teacher.id, status: PayoutStatus.PENDING },
@@ -181,6 +206,22 @@ export class TeachersService {
       where: { teacherId: teacher.id, status: PayoutStatus.PENDING },
       data: { status: PayoutStatus.PROCESSING },
     });
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN },
+      select: { id: true },
+    });
+    await Promise.all(
+      admins.map((admin) =>
+        this.notifications.create(
+          admin.id,
+          'Payout requested',
+          `${user.name} requested $${amount.toFixed(2)} in pending earnings.`,
+          NotificationType.SYSTEM,
+          '/admin/orders',
+        ),
+      ),
+    );
 
     return { requested: pending.length, amount };
   }
@@ -223,6 +264,7 @@ export class TeachersService {
         speciality?: TeacherSpeciality;
         avatarUrl?: string | null;
         notificationPrefs?: Prisma.InputJsonValue;
+        payoutDetails?: Prisma.InputJsonValue;
       } = {};
       if (dto.bio !== undefined) teacherData.bio = dto.bio;
       if (dto.speciality !== undefined) {
@@ -234,6 +276,9 @@ export class TeachersService {
       }
       if (dto.notificationPrefs !== undefined) {
         teacherData.notificationPrefs = dto.notificationPrefs;
+      }
+      if (dto.payoutDetails !== undefined) {
+        teacherData.payoutDetails = dto.payoutDetails;
       }
 
       if (Object.keys(teacherData).length > 0) {

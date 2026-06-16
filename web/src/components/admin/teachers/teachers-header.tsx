@@ -3,9 +3,13 @@
 import { Download, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { useAdminTeachers } from "@/contexts/admin-teachers-context";
+import { exportTeachersCsv } from "@/lib/admin/export";
 
 export function TeachersHeader() {
   const { toast } = useToast();
+  const { examiners } = useAdminTeachers();
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -21,11 +25,12 @@ export function TeachersHeader() {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() =>
-            toast("Export started", {
-              description: "The teacher roster CSV will download shortly.",
-            })
-          }
+          onClick={() => {
+            exportTeachersCsv(examiners);
+            toast("Export ready", {
+              description: `${examiners.length} teachers downloaded.`,
+            });
+          }}
         >
           <Download className="h-4 w-4" />
           Export

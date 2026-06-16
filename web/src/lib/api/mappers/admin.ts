@@ -189,18 +189,20 @@ export function mapLiveSessions(sessions: LiveSessions): LiveSessionRow[] {
   return sessions.map((s, i) => {
     const integrityLower = s.integrity.toLowerCase();
     const flagged = integrityLower !== "clear" && integrityLower !== "ok";
+    const flags = s.flags ?? (flagged ? 1 : 0);
     return {
       id: s.sessionCode || String(i),
+      sessionCode: s.sessionCode,
       studentName: s.studentName,
       country: s.country,
       initials: initials(s.studentName),
       skill: s.skill,
       skillType: parseSkillType(s.skill),
       progress: s.progress,
-      timeLeft: "—",
+      timeLeft: s.timeLeft ?? "—",
       examiner: s.examiner ?? "Auto-graded",
       integrity: flagged ? "flagged" : "clear",
-      flags: flagged ? 1 : 0,
+      flags,
     };
   });
 }
@@ -350,7 +352,13 @@ export function mapOrders(orders: Orders) {
 }
 
 function mapSla(sla: { state: string; progress: number }) {
-  const state = sla.state.toLowerCase() as "active" | "overdue" | "resolved";
+  const raw = sla.state.toLowerCase();
+  const state: "active" | "overdue" | "resolved" =
+    raw === "breached"
+      ? "overdue"
+      : raw === "resolved" || raw === "closed"
+        ? "resolved"
+        : "active";
   const tone: "amber" | "emerald" | "rose" =
     state === "overdue" ? "rose" : state === "resolved" ? "emerald" : "amber";
   const label =
@@ -539,7 +547,8 @@ export function mapContentTests(tests: ContentTests) {
     name: t.title || t.code,
     module: normalizeContentModule(t.type),
     status: normalizeTestStatus(t.status),
-    questions: 0,
+    questions: t.questionCount ?? 0,
+    mediaCount: t.mediaCount ?? 0,
     lastUpdated: formatShortDate(t.updatedAt),
     author: "Admin",
   }));
@@ -595,11 +604,13 @@ const defaultNotificationValues: Record<string, boolean> = {
 };
 
 const defaultIntegrationValues: Record<string, boolean> = {
-  stripeConfigured: true,
+  stripeConfigured: false,
+  smtpConfigured: false,
   sendgridConfigured: false,
   livekitConfigured: false,
   livekitRecordingEnabled: false,
-  slackConfigured: true,
+  slackConfigured: false,
+  mediaStorageConfigured: false,
   s3Configured: false,
 };
 
@@ -641,9 +652,9 @@ export function mapAdminSettings(raw: Record<string, unknown>) {
   return {
     generalSettings: {
       platformName: String(general.platformName ?? "IELTS Mock Platform"),
-      supportEmail: String(general.supportEmail ?? "support@ielts-mock.com"),
-      adminContact: String(general.adminContact ?? "admin@ielts-mock.com"),
-      platformUrl: String(general.platformUrl ?? "https://ielts-mock.com"),
+      supportEmail: String(general.supportEmail ?? "support@itestu.uz"),
+      adminContact: String(general.adminContact ?? "admin@itestu.uz"),
+      platformUrl: String(general.platformUrl ?? "https://itestu.uz"),
       timezone: String(general.timezone ?? "UTC+0 (London)"),
       defaultLanguage: String(general.defaultLanguage ?? "English (en-GB)"),
     },

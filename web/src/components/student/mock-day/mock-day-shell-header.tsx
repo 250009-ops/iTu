@@ -50,7 +50,7 @@ export function MockDayShellHeader({
               ))}
             </div>
             <a
-              href="mailto:proctor@ielts-mock.com?subject=Mock%20day%20support"
+              href="mailto:support@itestu.uz?subject=Mock%20day%20support"
               className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
               style={{ fontSize: "13px" }}
             >

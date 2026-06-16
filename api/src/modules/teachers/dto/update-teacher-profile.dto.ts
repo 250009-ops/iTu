@@ -29,4 +29,13 @@ export class UpdateTeacherProfileDto {
   @IsOptional()
   @IsObject()
   notificationPrefs?: Record<string, boolean>;
+
+  @IsOptional()
+  @IsObject()
+  payoutDetails?: {
+    bankName?: string;
+    accountName?: string;
+    accountLast4?: string;
+    method?: string;
+  };
 }

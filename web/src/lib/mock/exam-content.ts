@@ -13,6 +13,28 @@ export const listeningContent: ListeningContent = {
   title: "Listening",
   totalQuestions: 40,
   durationMinutes: 32,
+  audioTracks: [
+    {
+      part: 1,
+      url: "https://actions.google.com/sounds/v1/alarms/beep_short.ogg",
+      title: "Part 1",
+    },
+    {
+      part: 2,
+      url: "https://actions.google.com/sounds/v1/alarms/medium_bell_ringing_near.ogg",
+      title: "Part 2",
+    },
+    {
+      part: 3,
+      url: "https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg",
+      title: "Part 3",
+    },
+    {
+      part: 4,
+      url: "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg",
+      title: "Part 4",
+    },
+  ],
   parts: [
     {
       id: "l-part-1",

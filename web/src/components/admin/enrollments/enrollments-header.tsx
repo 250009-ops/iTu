@@ -3,9 +3,13 @@
 import { Download, Plus, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { useAdminEnrollments } from "@/contexts/admin-enrollments-context";
+import { exportEnrollmentsCsv } from "@/lib/admin/export";
 
 export function EnrollmentsHeader() {
   const { toast } = useToast();
+  const { enrollments } = useAdminEnrollments();
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -35,11 +39,12 @@ export function EnrollmentsHeader() {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() =>
-            toast("Export started", {
-              description: "Your enrollments export will download shortly.",
-            })
-          }
+          onClick={() => {
+            exportEnrollmentsCsv(enrollments);
+            toast("Export ready", {
+              description: `${enrollments.length} enrollments downloaded.`,
+            });
+          }}
         >
           <Download className="h-4 w-4" />
           Export

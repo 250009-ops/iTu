@@ -193,6 +193,14 @@ export function mapTeacherEarnings(data: Earnings) {
   const nextPending =
     pendingPayouts[0] ?? data.payouts.find((p) => p.status !== "paid");
 
+  const payoutDetails = data.payoutDetails;
+  const bankLabel =
+    payoutDetails?.bankName && payoutDetails?.accountLast4
+      ? `${payoutDetails.bankName} ···${payoutDetails.accountLast4}`
+      : "No bank details on file";
+  const methodLabel =
+    payoutDetails?.method ?? "Bank transfer (2–3 business days)";
+
   const nextPayout = nextPending
     ? {
         date: new Date(nextPending.periodEnd).toLocaleDateString("en-US", {
@@ -200,8 +208,8 @@ export function mapTeacherEarnings(data: Earnings) {
           day: "numeric",
           year: "numeric",
         }),
-        bank: "Bank account on file",
-        method: "Bank transfer (2–3 business days)",
+        bank: bankLabel,
+        method: methodLabel,
         projectedAmount: nextPending.amount,
         daysRemaining: Math.max(
           0,
@@ -210,13 +218,15 @@ export function mapTeacherEarnings(data: Earnings) {
               86_400_000,
           ),
         ),
+        hasBankDetails: Boolean(payoutDetails?.accountLast4),
       }
     : {
         date: "TBD",
-        bank: "—",
-        method: "Bank transfer",
+        bank: bankLabel,
+        method: methodLabel,
         projectedAmount: 0,
         daysRemaining: 0,
+        hasBankDetails: Boolean(payoutDetails?.accountLast4),
       };
 
   const transactions = data.payouts.map((payout) => ({

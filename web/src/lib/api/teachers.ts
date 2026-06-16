@@ -53,6 +53,13 @@ export function getTeacherEarnings() {
   return apiFetch<{
     totalEarned: number;
     commissionRate: number;
+    payoutSchedule: string;
+    payoutDetails: {
+      bankName?: string;
+      accountName?: string;
+      accountLast4?: string;
+      method?: string;
+    } | null;
     payouts: {
       id: string;
       amount: number;
@@ -96,6 +103,12 @@ export type UpdateTeacherProfileBody = {
   speciality?: "writing" | "speaking" | "both";
   avatarUrl?: string;
   notificationPrefs?: Record<string, boolean>;
+  payoutDetails?: {
+    bankName?: string;
+    accountName?: string;
+    accountLast4?: string;
+    method?: string;
+  };
 };
 
 export function updateTeacherProfile(body: UpdateTeacherProfileBody) {

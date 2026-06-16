@@ -18,6 +18,7 @@ interface QuestionGroupProps {
   current: number | null;
   onAnswer: (n: number, value: AnswerValue) => void;
   onFocus: (n: number) => void;
+  onPasteBlocked?: () => void;
 }
 
 export function QuestionGroup({
@@ -26,6 +27,7 @@ export function QuestionGroup({
   current,
   onAnswer,
   onFocus,
+  onPasteBlocked,
 }: QuestionGroupProps) {
   return (
     <section className="scroll-mt-4" id={`group-${group.id}`}>
@@ -51,6 +53,7 @@ export function QuestionGroup({
         current={current}
         onAnswer={onAnswer}
         onFocus={onFocus}
+        onPasteBlocked={onPasteBlocked}
       />
     </section>
   );
@@ -62,6 +65,7 @@ function renderInline(
   current: number | null,
   onAnswer: (n: number, v: AnswerValue) => void,
   onFocus: (n: number) => void,
+  onPasteBlocked?: () => void,
 ) {
   return nodes.map((node, i) => {
     if (isGap(node)) {
@@ -75,6 +79,7 @@ function renderInline(
           active={current === node.n}
           onChange={(v) => onAnswer(node.n, v)}
           onFocus={() => onFocus(node.n)}
+          onPasteBlocked={onPasteBlocked}
         />
       );
     }
@@ -88,6 +93,7 @@ function GroupBody({
   current,
   onAnswer,
   onFocus,
+  onPasteBlocked,
 }: QuestionGroupProps) {
   switch (group.type) {
     case "note_completion":
@@ -104,7 +110,7 @@ function GroupBody({
           <div className="space-y-2.5 leading-9 text-[15px] text-slate-700">
             {group.lines.map((line, i) => (
               <p key={i} className="flex flex-wrap items-center">
-                {renderInline(line, answers, current, onAnswer, onFocus)}
+                {renderInline(line, answers, current, onAnswer, onFocus, onPasteBlocked)}
               </p>
             ))}
           </div>
@@ -141,7 +147,7 @@ function GroupBody({
                       key={ci}
                       className="border border-slate-200 px-3 py-2 text-[14px] text-slate-700"
                     >
-                      {renderInline(cell, answers, current, onAnswer, onFocus)}
+                      {renderInline(cell, answers, current, onAnswer, onFocus, onPasteBlocked)}
                     </td>
                   ))}
                 </tr>
@@ -397,7 +403,10 @@ function GroupBody({
                   value={value}
                   onFocus={() => onFocus(q.n)}
                   onChange={(e) => onAnswer(q.n, e.target.value)}
-                  onPaste={(e) => e.preventDefault()}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    onPasteBlocked?.();
+                  }}
                   className="w-40 rounded-md border-b-2 border-slate-300 px-2 py-1 text-[14px] text-navy outline-none focus:border-navy"
                 />
               </div>

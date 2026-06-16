@@ -12,6 +12,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
+import { AuditAction } from '../../common/audit/audit.actions';
+import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AutoScoringService } from './auto-scoring.service';
 import {
@@ -23,6 +25,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { SaveAnswersDto, SubmitSectionDto } from './dto/exam-session.dto';
+import { ExamTimerService } from './exam-timer.service';
 
 @Injectable()
 export class ExamSessionsService {
@@ -31,6 +34,8 @@ export class ExamSessionsService {
     private autoScoring: AutoScoringService,
     private settings: SettingsService,
     private notifications: NotificationsService,
+    private examTimer: ExamTimerService,
+    private audit: AuditService,
   ) {}
 
   async getByCode(sessionCode: string, user: RequestUser) {
@@ -55,73 +60,93 @@ export class ExamSessionsService {
       include: this.sessionInclude(),
     });
 
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.EXAM_CHECK_IN,
+      entity: 'exam_session',
+      entityId: session.id,
+      metadata: { sessionCode },
+    });
+
     return this.toSessionResponse(updated);
   }
 
   async startSection(sessionCode: string, skill: ExamSkill, user: RequestUser) {
-    const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    return this.examTimer.withSessionLock(sessionCode, async () => {
+      const session = await this.findSessionOrThrow(sessionCode);
+      await this.assertSessionAccess(session.enrollment.studentId, user);
 
-    const nextState = getActiveStateForSkill(skill);
-    assertTransition(session.state, nextState);
+      const nextState = getActiveStateForSkill(skill);
+      assertTransition(session.state, nextState);
 
-    const durations = await this.settings.getSectionDurationsSec();
-    const duration = durations[skill];
-    const now = new Date();
+      const durations = await this.settings.getSectionDurationsSec();
+      const duration = durations[skill];
+      const now = new Date();
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.sectionAttempt.upsert({
-        where: {
-          sessionId_skill: { sessionId: session.id, skill },
-        },
-        create: {
-          sessionId: session.id,
-          skill,
-          startedAt: now,
-          timeRemaining: duration,
-        },
-        update: {
-          startedAt: now,
-          timeRemaining: duration,
-        },
-      });
-
-      if (skill === ExamSkill.SPEAKING) {
-        const attempt = await tx.sectionAttempt.findUnique({
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await tx.sectionAttempt.upsert({
           where: {
-            sessionId_skill: { sessionId: session.id, skill: ExamSkill.SPEAKING },
+            sessionId_skill: { sessionId: session.id, skill },
+          },
+          create: {
+            sessionId: session.id,
+            skill,
+            startedAt: now,
+            timeRemaining: duration,
+          },
+          update: {
+            startedAt: now,
+            timeRemaining: duration,
           },
         });
-        if (attempt) {
-          await tx.speakingSession.updateMany({
-            where: { sectionAttemptId: attempt.id },
-            data: { status: 'WAITING', activePhase: 'part1' },
+
+        if (skill === ExamSkill.SPEAKING) {
+          const attempt = await tx.sectionAttempt.findUnique({
+            where: {
+              sessionId_skill: { sessionId: session.id, skill: ExamSkill.SPEAKING },
+            },
           });
+          if (attempt) {
+            await tx.speakingSession.updateMany({
+              where: { sectionAttemptId: attempt.id },
+              data: { status: 'WAITING', activePhase: 'part1' },
+            });
+          }
         }
+
+        return tx.examSession.update({
+          where: { id: session.id, version: session.version },
+          data: {
+            state: nextState,
+            version: { increment: 1 },
+            sectionTimers: {
+              ...(session.sectionTimers as object),
+              [skill]: { startedAt: now.toISOString(), durationSec: duration },
+            },
+          },
+          include: this.sessionInclude(),
+        });
+      });
+
+      await this.examTimer.setSectionTimer(session.id, skill, now, duration);
+
+      if (skill !== ExamSkill.LISTENING && skill !== ExamSkill.READING) {
+        await this.prisma.enrollment.update({
+          where: { id: session.enrollmentId },
+          data: { status: EnrollmentStatus.IN_PROGRESS },
+        });
       }
 
-      return tx.examSession.update({
-        where: { id: session.id, version: session.version },
-        data: {
-          state: nextState,
-          version: { increment: 1 },
-          sectionTimers: {
-            ...(session.sectionTimers as object),
-            [skill]: { startedAt: now.toISOString(), durationSec: duration },
-          },
-        },
-        include: this.sessionInclude(),
+      await this.audit.log({
+        userId: user.id,
+        action: AuditAction.EXAM_SECTION_START,
+        entity: 'exam_session',
+        entityId: session.id,
+        metadata: { sessionCode, skill: skill.toLowerCase(), durationSec: duration },
       });
+
+      return this.toSessionResponse(updated);
     });
-
-    if (skill !== ExamSkill.LISTENING && skill !== ExamSkill.READING) {
-      await this.prisma.enrollment.update({
-        where: { id: session.enrollmentId },
-        data: { status: EnrollmentStatus.IN_PROGRESS },
-      });
-    }
-
-    return this.toSessionResponse(updated);
   }
 
   async saveAnswers(
@@ -176,129 +201,147 @@ export class ExamSessionsService {
     dto: SubmitSectionDto,
     user: RequestUser,
   ) {
-    const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    return this.examTimer.withSessionLock(sessionCode, async () => {
+      const session = await this.findSessionOrThrow(sessionCode);
+      await this.assertSessionAccess(session.enrollment.studentId, user);
 
-    const submittedState = getSubmittedStateForSkill(dto.skill);
-    assertTransition(session.state, submittedState);
+      const submittedState = getSubmittedStateForSkill(dto.skill);
+      assertTransition(session.state, submittedState);
 
-    const attempt = await this.prisma.sectionAttempt.findUnique({
-      where: {
-        sessionId_skill: { sessionId: session.id, skill: dto.skill },
-      },
-      include: { answers: true },
-    });
-    if (!attempt) {
-      throw new BadRequestException('Section attempt not found');
-    }
-
-    let rawScore: number | null = null;
-    let band: number | null = null;
-
-    if (
-      dto.skill === ExamSkill.LISTENING ||
-      dto.skill === ExamSkill.READING
-    ) {
-      const pkg = session.enrollment.package;
-      const testId =
-        dto.skill === ExamSkill.LISTENING
-          ? pkg.listeningTestId
-          : pkg.readingTestId;
-      const test = testId
-        ? await this.prisma.contentTest.findUnique({ where: { id: testId } })
-        : null;
-      const scored = await this.autoScoring.scoreListeningOrReading(
-        dto.skill,
-        attempt.answers.map((a) => ({
-          questionNumber: a.questionNumber,
-          value: a.value,
-        })),
-        test?.answerKey as Record<string, string | string[]> | null,
-      );
-      rawScore = scored.rawScore;
-      band = scored.band;
-    }
-
-    const now = new Date();
-    const nextState = this.getNextStateAfterSubmit(dto.skill);
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.sectionAttempt.update({
-        where: { id: attempt.id },
-        data: {
-          submittedAt: now,
-          rawScore,
-          band,
-          timeRemaining: 0,
+      const attempt = await this.prisma.sectionAttempt.findUnique({
+        where: {
+          sessionId_skill: { sessionId: session.id, skill: dto.skill },
         },
+        include: { answers: true },
       });
+      if (!attempt) {
+        throw new BadRequestException('Section attempt not found');
+      }
+
+      let rawScore: number | null = null;
+      let band: number | null = null;
+
+      if (
+        dto.skill === ExamSkill.LISTENING ||
+        dto.skill === ExamSkill.READING
+      ) {
+        const pkg = session.enrollment.package;
+        const testId =
+          dto.skill === ExamSkill.LISTENING
+            ? pkg.listeningTestId
+            : pkg.readingTestId;
+        const test = testId
+          ? await this.prisma.contentTest.findUnique({ where: { id: testId } })
+          : null;
+        const scored = await this.autoScoring.scoreListeningOrReading(
+          dto.skill,
+          attempt.answers.map((a) => ({
+            questionNumber: a.questionNumber,
+            value: a.value,
+          })),
+          test?.answerKey as Record<string, string | string[]> | null,
+        );
+        rawScore = scored.rawScore;
+        band = scored.band;
+      }
+
+      const now = new Date();
+      const nextState = this.getNextStateAfterSubmit(dto.skill);
+
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await tx.sectionAttempt.update({
+          where: { id: attempt.id },
+          data: {
+            submittedAt: now,
+            rawScore,
+            band,
+            timeRemaining: 0,
+          },
+        });
+
+        if (dto.skill === ExamSkill.WRITING) {
+          await tx.writingSubmission.upsert({
+            where: { sectionAttemptId: attempt.id },
+            create: {
+              sectionAttemptId: attempt.id,
+              teacherId: session.enrollment.writingTeacherId ?? undefined,
+              status: 'PENDING',
+              slaDueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+            },
+            update: {},
+          });
+        }
+
+        if (dto.skill === ExamSkill.SPEAKING) {
+          const slot = session.enrollment.speakingSlotId
+            ? await tx.teacherSlot.findUnique({
+                where: { id: session.enrollment.speakingSlotId },
+              })
+            : null;
+          await tx.speakingSession.upsert({
+            where: { sectionAttemptId: attempt.id },
+            create: {
+              sectionAttemptId: attempt.id,
+              teacherId: session.enrollment.speakingTeacherId ?? undefined,
+              status: 'COMPLETED',
+              scheduledAt: slot?.startsAt,
+              endedAt: now,
+            },
+            update: { status: 'COMPLETED', endedAt: now },
+          });
+        }
+
+        return tx.examSession.update({
+          where: { id: session.id, version: session.version },
+          data: {
+            state: nextState,
+            version: { increment: 1 },
+          },
+          include: this.sessionInclude(),
+        });
+      });
+
+      await this.examTimer.clearSectionTimer(session.id, dto.skill);
+
+      if (nextState === ExamSessionState.AWAITING_GRADING) {
+        await this.prisma.enrollment.update({
+          where: { id: session.enrollmentId },
+          data: { status: EnrollmentStatus.AWAITING_RESULTS },
+        });
+      }
 
       if (dto.skill === ExamSkill.WRITING) {
-        await tx.writingSubmission.upsert({
+        const writingSubmission = await this.prisma.writingSubmission.findUnique({
           where: { sectionAttemptId: attempt.id },
-          create: {
-            sectionAttemptId: attempt.id,
-            teacherId: session.enrollment.writingTeacherId ?? undefined,
-            status: 'PENDING',
-            slaDueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-          },
-          update: {},
+          include: { teacher: { include: { user: true } } },
         });
+        if (writingSubmission?.teacher) {
+          await this.notifications.create(
+            writingSubmission.teacher.userId,
+            'Writing ready to grade',
+            'A student writing submission is now in your queue.',
+            NotificationType.GRADING,
+            `/teacher/grading/${writingSubmission.id}`,
+          );
+        }
       }
 
-      if (dto.skill === ExamSkill.SPEAKING) {
-        const slot = session.enrollment.speakingSlotId
-          ? await tx.teacherSlot.findUnique({
-              where: { id: session.enrollment.speakingSlotId },
-            })
-          : null;
-        await tx.speakingSession.upsert({
-          where: { sectionAttemptId: attempt.id },
-          create: {
-            sectionAttemptId: attempt.id,
-            teacherId: session.enrollment.speakingTeacherId ?? undefined,
-            status: 'COMPLETED',
-            scheduledAt: slot?.startsAt,
-            endedAt: now,
-          },
-          update: { status: 'COMPLETED', endedAt: now },
-        });
-      }
-
-      return tx.examSession.update({
-        where: { id: session.id, version: session.version },
-        data: {
-          state: nextState,
-          version: { increment: 1 },
+      await this.audit.log({
+        userId: user.id,
+        action: AuditAction.EXAM_SECTION_SUBMIT,
+        entity: 'exam_session',
+        entityId: session.id,
+        metadata: {
+          sessionCode,
+          skill: dto.skill.toLowerCase(),
+          rawScore,
+          band,
+          nextState,
         },
-        include: this.sessionInclude(),
       });
+
+      return this.toSessionResponse(updated);
     });
-
-    if (nextState === ExamSessionState.AWAITING_GRADING) {
-      await this.prisma.enrollment.update({
-        where: { id: session.enrollmentId },
-        data: { status: EnrollmentStatus.AWAITING_RESULTS },
-      });
-    }
-
-    if (dto.skill === ExamSkill.WRITING) {
-      const writingSubmission = await this.prisma.writingSubmission.findUnique({
-        where: { sectionAttemptId: attempt.id },
-        include: { teacher: { include: { user: true } } },
-      });
-      if (writingSubmission?.teacher) {
-        await this.notifications.create(
-          writingSubmission.teacher.userId,
-          'Writing ready to grade',
-          'A student writing submission is now in your queue.',
-          NotificationType.GRADING,
-          `/teacher/grading/${writingSubmission.id}`,
-        );
-      }
-    }
-
-    return this.toSessionResponse(updated);
   }
 
   async submitWriting(
@@ -355,7 +398,30 @@ export class ExamSessionsService {
 
     const activeSkill = skillForActiveState(session.state);
     if (!activeSkill) {
-      return { skill: null, remainingSec: 0, serverTime: new Date().toISOString() };
+      return {
+        skill: null,
+        remainingSec: 0,
+        serverTime: new Date().toISOString(),
+        redisBacked: this.examTimer.isRedisBacked(),
+      };
+    }
+
+    const durations = await this.settings.getSectionDurationsSec();
+    const duration = durations[activeSkill];
+
+    const redisTimer = await this.examTimer.getSectionTimer(
+      session.id,
+      activeSkill,
+    );
+    if (redisTimer) {
+      const remainingSec = this.examTimer.remainingSeconds(redisTimer);
+      return {
+        skill: activeSkill,
+        remainingSec,
+        serverTime: new Date().toISOString(),
+        expired: remainingSec === 0,
+        redisBacked: true,
+      };
     }
 
     const attempt = await this.prisma.sectionAttempt.findUnique({
@@ -364,20 +430,18 @@ export class ExamSessionsService {
       },
     });
 
-    const durations = await this.settings.getSectionDurationsSec();
-
     if (!attempt?.startedAt) {
       return {
         skill: activeSkill,
-        remainingSec: durations[activeSkill],
+        remainingSec: duration,
         serverTime: new Date().toISOString(),
+        redisBacked: this.examTimer.isRedisBacked(),
       };
     }
 
     const elapsed = Math.floor(
       (Date.now() - attempt.startedAt.getTime()) / 1000,
     );
-    const duration = durations[activeSkill];
     const remainingSec = Math.max(0, duration - elapsed);
 
     if (remainingSec === 0 && attempt.timeRemaining !== 0) {
@@ -392,6 +456,7 @@ export class ExamSessionsService {
       remainingSec,
       serverTime: new Date().toISOString(),
       expired: remainingSec === 0,
+      redisBacked: false,
     };
   }
 
@@ -404,6 +469,28 @@ export class ExamSessionsService {
     const session = await this.findSessionOrThrow(sessionCode);
     await this.assertSessionAccess(session.enrollment.studentId, user);
 
+    const integritySettings = (await this.settings.getSection(
+      'exam_integrity',
+    )) as {
+      flagOnTabSwitch?: boolean;
+      flagOnPaste?: boolean;
+      flagOnFullscreenExit?: boolean;
+      flagOnAudioSeek?: boolean;
+      maxWarningsBeforeFlag?: number;
+    };
+
+    const eventSettings: Record<string, boolean | undefined> = {
+      tab_switch: integritySettings.flagOnTabSwitch,
+      paste_attempt: integritySettings.flagOnPaste,
+      fullscreen_exit: integritySettings.flagOnFullscreenExit,
+      audio_seek_attempt: integritySettings.flagOnAudioSeek,
+    };
+
+    const trackableEvents = Object.keys(eventSettings);
+    const eventEnabled = trackableEvents.includes(event)
+      ? eventSettings[event] !== false
+      : false;
+
     const log = (session.integrityLog as unknown[]) ?? [];
     log.push({
       event,
@@ -412,8 +499,18 @@ export class ExamSessionsService {
       userId: user.id,
     });
 
-    const flaggedEvents = ['tab_switch', 'paste_attempt', 'fullscreen_exit'];
-    const integrity = flaggedEvents.includes(event) ? 'FLAGGED' : session.integrity;
+    const maxWarnings = integritySettings.maxWarningsBeforeFlag ?? 1;
+    const offenseCount = log.filter(
+      (entry) =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        trackableEvents.includes((entry as { event?: string }).event ?? ''),
+    ).length;
+
+    let integrity = session.integrity;
+    if (eventEnabled && offenseCount >= maxWarnings) {
+      integrity = 'FLAGGED';
+    }
 
     await this.prisma.examSession.update({
       where: { id: session.id },
@@ -423,7 +520,98 @@ export class ExamSessionsService {
       },
     });
 
-    return { logged: true };
+    if (integrity === 'FLAGGED' && session.integrity !== 'FLAGGED') {
+      await this.audit.log({
+        userId: user.id,
+        action: AuditAction.EXAM_INTEGRITY_FLAG,
+        entity: 'exam_session',
+        entityId: session.id,
+        metadata: { sessionCode, event, offenseCount, ...metadata },
+      });
+    }
+
+    return { logged: true, integrity: integrity.toLowerCase(), offenseCount };
+  }
+
+  async getAdminSessionDetail(sessionCode: string) {
+    const session = await this.findSessionOrThrow(sessionCode);
+    const activeSkill = skillForActiveState(session.state);
+    const attempt = activeSkill
+      ? session.sectionAttempts.find((a) => a.skill === activeSkill)
+      : undefined;
+
+    return {
+      id: session.id,
+      sessionCode: session.sessionCode,
+      state: session.state,
+      integrity: session.integrity.toLowerCase(),
+      integrityLog: (session.integrityLog as unknown[]) ?? [],
+      studentName: session.enrollment.student.user.name,
+      country: session.enrollment.student.country ?? '—',
+      skill: activeSkill?.toLowerCase() ?? null,
+      sectionStartedAt: attempt?.startedAt?.toISOString() ?? null,
+      enrollmentCode: session.enrollment.enrollmentCode,
+    };
+  }
+
+  async adminForceSubmit(sessionCode: string, user: RequestUser) {
+    const session = await this.findSessionOrThrow(sessionCode);
+    const activeSkill = skillForActiveState(session.state);
+    if (!activeSkill) {
+      throw new BadRequestException('No active section to force submit');
+    }
+
+    const result = await this.submitSection(
+      sessionCode,
+      { skill: activeSkill },
+      user,
+    );
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.EXAM_FORCE_SUBMIT,
+      entity: 'exam_session',
+      entityId: session.id,
+      metadata: { sessionCode, skill: activeSkill.toLowerCase() },
+    });
+
+    return result;
+  }
+
+  async adminReviewIntegrity(
+    sessionCode: string,
+    decision: 'clear' | 'uphold',
+    note: string | undefined,
+    user: RequestUser,
+  ) {
+    const session = await this.findSessionOrThrow(sessionCode);
+    const log = (session.integrityLog as unknown[]) ?? [];
+    log.push({
+      event: 'admin_review',
+      metadata: { decision, note },
+      at: new Date().toISOString(),
+      userId: user.id,
+    });
+
+    const integrity = decision === 'clear' ? 'CLEAR' : 'FLAGGED';
+
+    await this.prisma.examSession.update({
+      where: { id: session.id },
+      data: {
+        integrity,
+        integrityLog: log as Prisma.InputJsonValue,
+      },
+    });
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.EXAM_INTEGRITY_REVIEW,
+      entity: 'exam_session',
+      entityId: session.id,
+      metadata: { sessionCode, decision, note },
+    });
+
+    return { integrity: integrity.toLowerCase(), reviewed: true };
   }
 
   async getExamContent(sessionCode: string, skill: ExamSkill, user: RequestUser) {
@@ -452,6 +640,9 @@ export class ExamSessionsService {
         type: true,
         content: true,
         durationMin: true,
+        mediaAssets: {
+          select: { key: true, url: true },
+        },
       },
     });
 
@@ -459,7 +650,27 @@ export class ExamSessionsService {
       throw new NotFoundException('Content test not found');
     }
 
-    return test;
+    if (skill === ExamSkill.LISTENING && test.mediaAssets.length > 0) {
+      const audioTracks = test.mediaAssets
+        .filter((asset) => asset.key.startsWith('part-'))
+        .map((asset) => ({
+          part: Number(asset.key.replace('part-', '')),
+          url: asset.url,
+        }))
+        .filter((track) => Number.isFinite(track.part))
+        .sort((a, b) => a.part - b.part);
+
+      const { mediaAssets: _assets, ...rest } = test;
+      const content = {
+        ...(rest.content as Record<string, unknown>),
+        audioTracks,
+      };
+
+      return { ...rest, content };
+    }
+
+    const { mediaAssets: _assets, ...rest } = test;
+    return rest;
   }
 
   private getNextStateAfterSubmit(skill: ExamSkill): ExamSessionState {

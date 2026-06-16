@@ -10,7 +10,7 @@ NestJS modular monolith backend for the IELTS computer-delivered mock exam platf
 | Language | TypeScript 5 |
 | ORM | Prisma 6 |
 | Database | PostgreSQL 17 |
-| Cache | Redis 7 (ready for timers/locks) |
+| Cache | Redis 7 — exam section timers & distributed session locks |
 | Auth | JWT + bcrypt |
 | API docs | Swagger at `/api/docs` |
 
@@ -65,13 +65,13 @@ Demo exam session: `MOCK-005`
 | Grading | `/grading` | Writing/Speaking scoring |
 | Results | `/results` | Band reports (gated release) |
 | Notifications | `/notifications` | In-app notifications |
-| Admin | `/admin` | Operations console |
+| Admin | `/admin` | Operations console, audit logs (`/admin/audit-logs`) |
 | Content | `/admin/content` | Test bank management |
 | Settings | `/admin/settings` | Platform configuration |
 
 ## Environment
 
-Copy `.env.example` to `.env` and adjust as needed.
+Copy `.env.example` to `.env`. Set `REDIS_URL` (start Redis via `docker compose up -d`) for server-authoritative exam timers. Production templates: `../deploy/env/`.
 
 ## Frontend integration
 

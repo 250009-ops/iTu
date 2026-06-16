@@ -2,6 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import {
+  contactConfirmationEmail,
+  contactInquiryEmail,
+  passwordResetEmail,
+  welcomeEmail,
+} from './mail.templates';
+
+export type SendMailOptions = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+};
 
 @Injectable()
 export class MailService {
@@ -9,6 +23,16 @@ export class MailService {
   private transporter: Transporter | null = null;
 
   constructor(private config: ConfigService) {}
+
+  isConfigured(): boolean {
+    return Boolean(this.config.get<string>('SMTP_HOST')?.trim());
+  }
+
+  private getFromAddress(): string {
+    return (
+      this.config.get<string>('SMTP_FROM')?.trim() || 'iTestU <noreply@itestu.uz>'
+    );
+  }
 
   private getTransporter(): Transporter | null {
     const host = this.config.get<string>('SMTP_HOST')?.trim();
@@ -33,47 +57,102 @@ export class MailService {
     return this.transporter;
   }
 
+  async send(options: SendMailOptions): Promise<boolean> {
+    const transporter = this.getTransporter();
+    if (!transporter) {
+      return false;
+    }
+
+    const replyTo =
+      options.replyTo ??
+      this.config.get<string>('SMTP_REPLY_TO')?.trim() ??
+      undefined;
+
+    await transporter.sendMail({
+      from: this.getFromAddress(),
+      to: options.to,
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+      replyTo,
+    });
+    return true;
+  }
+
   async sendPasswordResetEmail(
     to: string,
     name: string,
     resetUrl: string,
   ): Promise<void> {
-    const from =
-      this.config.get<string>('SMTP_FROM')?.trim() ||
-      'iTestU <noreply@itestu.uz>';
-    const subject = 'Reset your iTestU password';
-    const text = [
-      `Hi ${name},`,
-      '',
-      'We received a request to reset your password.',
-      `Reset it here: ${resetUrl}`,
-      '',
-      'This link expires in 1 hour. If you did not request this, you can ignore this email.',
-    ].join('\n');
-    const html = `
-      <p>Hi ${this.escapeHtml(name)},</p>
-      <p>We received a request to reset your password.</p>
-      <p><a href="${resetUrl}">Reset your password</a></p>
-      <p>This link expires in 1 hour. If you did not request this, you can ignore this email.</p>
-    `;
+    const { subject, text, html } = passwordResetEmail(name, resetUrl);
+    const sent = await this.send({ to, subject, text, html });
 
-    const transporter = this.getTransporter();
-    if (!transporter) {
+    if (!sent) {
       this.logger.warn(
         `SMTP not configured — password reset link for ${to}: ${resetUrl}`,
       );
       return;
     }
 
-    await transporter.sendMail({ from, to, subject, text, html });
     this.logger.log(`Password reset email sent to ${to}`);
   }
 
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  async sendContactInquiryToSupport(
+    supportEmail: string,
+    name: string,
+    fromEmail: string,
+    topic: string,
+    message: string,
+    ticketCode: string,
+  ): Promise<boolean> {
+    const { subject, text, html } = contactInquiryEmail(
+      name,
+      fromEmail,
+      topic,
+      message,
+      ticketCode,
+    );
+    return this.send({
+      to: supportEmail,
+      subject,
+      text,
+      html,
+      replyTo: fromEmail,
+    });
+  }
+
+  async sendContactConfirmationEmail(
+    to: string,
+    name: string,
+    ticketCode: string,
+  ): Promise<boolean> {
+    const { subject, text, html } = contactConfirmationEmail(name, ticketCode);
+    return this.send({ to, subject, text, html });
+  }
+
+  async sendWelcomeEmail(to: string, name: string): Promise<void> {
+    const appUrl = this.config.get<string>('APP_URL', 'https://itestu.uz').replace(/\/$/, '');
+    const { subject, text, html } = welcomeEmail(name, `${appUrl}/login`);
+    const sent = await this.send({ to, subject, text, html });
+    if (sent) {
+      this.logger.log(`Welcome email sent to ${to}`);
+    }
+  }
+
+  async verifyConnection(): Promise<{ ok: boolean; message: string }> {
+    const transporter = this.getTransporter();
+    if (!transporter) {
+      return { ok: false, message: 'SMTP_HOST is not set' };
+    }
+
+    try {
+      await transporter.verify();
+      return { ok: true, message: 'SMTP connection verified' };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : 'SMTP verify failed',
+      };
+    }
   }
 }

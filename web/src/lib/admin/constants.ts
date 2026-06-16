@@ -293,7 +293,7 @@ export const defaultConnectedServices = [
   { name: "SendGrid", description: "Transactional email delivery", status: "degraded" as const },
   { name: "LiveKit", description: "Speaking exam live video & recording", status: "connected" as const },
   { name: "Slack", description: "Admin alert notifications", status: "connected" as const },
-  { name: "AWS S3", description: "Exam recording & file storage", status: "disconnected" as const },
+  { name: "VPS Media", description: "Exam audio & recordings on server disk", status: "disconnected" as const },
 ];
 
 export const defaultDangerZoneActions = [

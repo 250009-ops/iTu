@@ -101,11 +101,19 @@ export type QuestionGroup =
 
 /** ---- Section structure ---- */
 
+export interface ListeningAudioTrack {
+  part: number;
+  url: string;
+  title?: string;
+}
+
 export interface ListeningPart {
   id: string;
   part: number;
   title: string;
   blurb: string;
+  /** Optional per-part audio URL (merged from media assets when served by API). */
+  audioUrl?: string;
   groups: QuestionGroup[];
 }
 
@@ -137,6 +145,8 @@ export interface ListeningContent {
   totalQuestions: number;
   durationMinutes: number;
   parts: ListeningPart[];
+  /** Ordered audio tracks — plays once, no rewind (IELTS listening rules). */
+  audioTracks?: ListeningAudioTrack[];
 }
 
 export interface ReadingContent {

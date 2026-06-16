@@ -13,6 +13,7 @@ import { accrueTeacherGradingEarning } from '../../common/teacher-earnings';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ResultsPdfService } from '../results/results-pdf.service';
 import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class GradingService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private settings: SettingsService,
+    private resultsPdf: ResultsPdfService,
   ) {}
 
   async getWritingQueue(user: RequestUser) {
@@ -394,5 +396,7 @@ export class GradingService {
         '/student/results',
       );
     }
+
+    void this.resultsPdf.generateForEnrollment(enrollmentId);
   }
 }

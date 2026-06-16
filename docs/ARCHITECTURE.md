@@ -2,7 +2,7 @@
 
 **Document version:** 1.0  
 **Last updated:** June 2026  
-**Status:** Frontend prototype complete · Backend not yet implemented
+**Status:** Full-stack platform — API + portals wired · Phase A foundation (audit, Redis timers) complete
 
 This document describes the **full system architecture** for the IELTS Mock Exam ERP: what we are building, how the pieces fit together, what is implemented today, and what remains. It complements the detailed product specification in [`IELTS-MOCK-ERP-SPECIFICATION.md`](./IELTS-MOCK-ERP-SPECIFICATION.md).
 
@@ -35,18 +35,15 @@ The **IELTS Mock Exam ERP** is a multi-role platform that delivers realistic **o
 
 | Layer | Status |
 |-------|--------|
-| **Student portal UI** | Complete (5 views, mock data) |
-| **Teacher portal UI** | Complete (6 views, mock data) |
-| **Admin portal UI** | Complete (9 pages + settings tabs, mock data) |
-| **Auth UI** | Login works (demo); register/forgot-password are UI-only |
-| **CBT exam players** | Complete UI (Listening, Reading, Writing) with all core question types, server-style timer, autosave indicator, paste-blocking |
-| **Speaking student suite** | Complete UI (waiting room, device check, rules & consent, live session, cue card overlay, session complete) |
-| **Exam day flow** | Complete UI (check-in, timed breaks, waiting-for-speaking interstitials) |
-| **Backend / API / Database** | Not started |
-| **Live video (Speaking)** | Layout + simulated pacing; WebRTC transport not wired |
-| **Payments / booking engine** | Not started |
+| **Student / Teacher / Admin portals** | API-driven with JWT auth and route guards |
+| **CBT exam players** | Listening, Reading, Writing — server timers (Redis-backed when available) |
+| **Speaking** | LiveKit video when configured; offline fallback otherwise |
+| **Backend API** | NestJS 11, Prisma, PostgreSQL/SQLite, 47/47 API E2E scenarios |
+| **Audit trail (M16)** | Writes on auth, booking, exam, admin, and content actions |
+| **Redis** | Exam section timers and per-session distributed locks |
+| **Payments** | Mock card booking (Stripe deferred to Phase H) |
 
-The current codebase is a **frontend prototype** with rich, production-quality portal shells. All screens read from static TypeScript mock fixtures. The backend architecture below is the **target design** agreed in specification and conversation.
+The codebase is a **working full-stack ERP**. Remaining gaps (content studio UI, Stripe, email automation, etc.) are tracked in the implementation roadmap (§12).
 
 ---
 
@@ -688,22 +685,28 @@ API keys and webhook signing secrets are managed in Admin Settings → Integrati
 | **Shell** | Collapsible sidebars, search bar, notifications, user menu, mobile nav |
 | **Charts** | Revenue, band distribution, enrollment funnel, earnings (SVG) |
 
-### 11.2 Not built
+### 11.1 Built (frontend + backend)
 
 | Area | Notes |
 |------|-------|
-| Backend API | No `app/api` routes, no NestJS service |
-| Database | No PostgreSQL, Prisma, or migrations |
-| Route guards | Portals open without authentication |
-| Live WebRTC | Speaking video is a styled placeholder with simulated examiner pacing |
-| Booking wizard | Teacher/slot selection at purchase |
-| Real payments | Stripe not integrated |
-| Server timers | Players use display-only countdowns; server session-control engine not wired |
-| Auto-scoring | L/R band calculation |
-| Results PDF generation | — |
-| Email/Slack notifications | — |
-| Content studio (full) | Listening editor only; other modules table-only |
-| Action buttons | Filter, Export, Approve, Resolve, Save — UI placeholders |
+| **Portals** | Student, Teacher, Admin — REST API via `web/src/lib/api/*` |
+| **Auth** | JWT login, register, forgot/reset password, change password |
+| **Exam delivery** | State machine, autosave (L/R), integrity logging, Redis timers |
+| **Grading & results** | Writing/Speaking queues, deferred results release |
+| **Admin ops** | Enrollments, orders, refunds, disputes, packages, live monitor |
+| **Audit log** | `GET /admin/audit-logs` + automatic writes on sensitive actions |
+| **Marketing site** | Public pages with API-backed stats where available |
+
+### 11.2 Not built (selected)
+
+| Area | Notes |
+|------|-------|
+| Real Stripe payments | Mock card flow until Phase H |
+| Full content authoring UI | Admin wizard still stubbed; API create/publish exists |
+| Transactional email (beyond reset) | SMTP wired for password reset only |
+| Server PDF certificates | Client print/txt export only |
+| Portal global search | Toast placeholder |
+| Phase 5 hardening | Load test, security audit, beta program |
 
 ---
 
@@ -713,16 +716,14 @@ Aligned with specification §17, updated for current progress:
 
 ### Phase 0 — Portal shells ✅ (complete)
 
-- Three portal layouts, all navigation pages, mock data, demo auth
+### Phase 1 — Foundation + L/R CBT (in progress)
 
-### Phase 1 — Foundation + L/R CBT (next)
-
-- NestJS API + PostgreSQL schema
-- Real auth + RBAC middleware
-- M1, M2, M4, M18, M19, M20, M21
-- CBT Listening & Reading players
-- Admin content authoring (full)
-- Session control engine
+- ✅ NestJS API + Prisma schema
+- ✅ Auth + RBAC
+- ✅ CBT players + session control engine
+- ✅ Redis-backed timers & locks (Phase A)
+- ✅ Audit trail (Phase A)
+- ⏳ Admin content authoring (full UI)
 
 ### Phase 2 — Commerce + Writing
 
@@ -807,13 +808,15 @@ Aligned with specification §17, updated for current progress:
 | `web/src/components/exam/writing/writing-player.tsx` | Writing split-pane editor |
 | `web/src/components/exam/speaking/speaking-student-flow.tsx` | Speaking student suite |
 | `web/src/components/exam/questions/question-group.tsx` | Question-type renderer registry |
-| `web/src/lib/mock/exam-content.ts` | L/R/W/S exam content fixtures |
+| `web/src/lib/mock/exam-content.ts` | Offline exam content fallback (synced to DB via `npm run sync:exam-content`) |
 
-### Mock data
+### Infrastructure (Phase A)
 
 | Path | Purpose |
 |------|---------|
-| `web/src/lib/mock/` | All static fixtures (21 files) |
+| `api/src/common/audit/` | M16 audit trail |
+| `api/src/common/redis/` | Redis client, exam timers & locks |
+| `deploy/env/` | Production `.env` templates |
 
 ---
 

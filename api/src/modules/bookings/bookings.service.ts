@@ -14,6 +14,8 @@ import {
   SlotStatus,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
+import { AuditAction } from '../../common/audit/audit.actions';
+import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -24,6 +26,7 @@ export class BookingsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private audit: AuditService,
   ) {}
 
   async getAvailability(date: string, teacherId?: string) {
@@ -255,6 +258,19 @@ export class BookingsService {
       );
     }
 
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.BOOKING_CREATE,
+      entity: 'enrollment',
+      entityId: result.enrollment.id,
+      metadata: {
+        enrollmentCode: result.enrollment.enrollmentCode,
+        orderCode: result.order.orderCode,
+        sessionCode: result.session.sessionCode,
+        packageId: dto.packageId,
+      },
+    });
+
     return {
       enrollmentId: result.enrollment.id,
       enrollmentCode: result.enrollment.enrollmentCode,
@@ -373,6 +389,19 @@ export class BookingsService {
         '/student/mock-day',
       );
     }
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.BOOKING_RESCHEDULE,
+      entity: 'enrollment',
+      entityId: result.updated.id,
+      metadata: {
+        enrollmentCode: result.updated.enrollmentCode,
+        mockDate: result.updated.mockDate,
+        mockTime: result.updated.mockTime,
+        speakingSlotId: dto.speakingSlotId,
+      },
+    });
 
     return {
       enrollmentId: result.updated.id,

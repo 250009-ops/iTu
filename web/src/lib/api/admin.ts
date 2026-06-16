@@ -70,8 +70,11 @@ export function getAdminDashboard() {
       country: string;
       skill: string;
       progress: number;
+      timeLeft: string;
+      remainingSec?: number;
       examiner?: string;
       integrity: string;
+      flags: number;
     }[];
   }>("/admin/dashboard");
 }
@@ -234,10 +237,52 @@ export function getLiveSessions() {
       country: string;
       skill: string;
       progress: number;
+      timeLeft: string;
+      remainingSec?: number;
       examiner?: string;
       integrity: string;
+      flags: number;
     }[]
   >("/admin/sessions/live");
+}
+
+export type AdminSessionDetail = {
+  id: string;
+  sessionCode: string;
+  state: string;
+  integrity: string;
+  integrityLog: {
+    event: string;
+    metadata?: Record<string, unknown>;
+    at: string;
+    userId?: string;
+  }[];
+  studentName: string;
+  country: string;
+  skill: string | null;
+  sectionStartedAt: string | null;
+  enrollmentCode: string;
+};
+
+export function getAdminSessionDetail(sessionCode: string) {
+  return apiFetch<AdminSessionDetail>(`/admin/sessions/${sessionCode}`);
+}
+
+export function forceSubmitSession(sessionCode: string) {
+  return apiFetch(`/admin/sessions/${sessionCode}/force-submit`, {
+    method: "POST",
+  });
+}
+
+export function reviewSessionIntegrity(
+  sessionCode: string,
+  decision: "clear" | "uphold",
+  note?: string,
+) {
+  return apiFetch(`/admin/sessions/${sessionCode}/integrity/review`, {
+    method: "POST",
+    body: { decision, note },
+  });
 }
 
 export function getContentTests(type?: string) {
@@ -253,8 +298,79 @@ export function getContentTests(type?: string) {
       durationMin: number;
       updatedAt: string;
       publishedAt: string | null;
+      mediaCount?: number;
+      questionCount?: number;
     }[]
   >(`/admin/content/tests${q}`);
+}
+
+export function getContentTest(id: string) {
+  return apiFetch<{
+    id: string;
+    code: string;
+    title: string;
+    type: string;
+    status: string;
+    durationMin: number;
+    content: unknown;
+    answerKey: unknown;
+    mediaAssets: {
+      id: string;
+      key: string;
+      url: string;
+      mimeType: string;
+      sizeBytes: number | null;
+    }[];
+  }>(`/admin/content/tests/${id}`);
+}
+
+export async function uploadListeningMedia(
+  testId: string,
+  partKey: string,
+  file: File,
+) {
+  const form = new FormData();
+  form.append("file", file);
+  const { getAccessToken } = await import("@/lib/auth/session");
+  const { API_BASE_URL } = await import("./config");
+  const { ApiError } = await import("./errors");
+  const token = getAccessToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/content/tests/${testId}/media?key=${encodeURIComponent(partKey)}`,
+    {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    },
+  );
+
+  const text = await response.text();
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new ApiError(`Invalid API response (${response.status})`, response.status);
+  }
+
+  if (!response.ok) {
+    const message =
+      typeof data === "object" &&
+      data !== null &&
+      "message" in data &&
+      typeof (data as { message: unknown }).message === "string"
+        ? (data as { message: string }).message
+        : `Upload failed (${response.status})`;
+    throw new ApiError(message, response.status);
+  }
+
+  return data as {
+    id: string;
+    key: string;
+    url: string;
+    mimeType: string;
+    sizeBytes: number | null;
+  };
 }
 
 export function createContentTest(payload: {
@@ -265,7 +381,28 @@ export function createContentTest(payload: {
   answerKey?: object;
   durationMin?: number;
 }) {
-  return apiFetch("/admin/content/tests", { method: "POST", body: payload });
+  return apiFetch<{
+    id: string;
+    code: string;
+    title: string;
+    type: string;
+    status: string;
+  }>("/admin/content/tests", { method: "POST", body: payload });
+}
+
+export function updateContentTest(
+  id: string,
+  payload: {
+    title?: string;
+    content?: object;
+    answerKey?: object;
+    durationMin?: number;
+  },
+) {
+  return apiFetch(`/admin/content/tests/${id}`, {
+    method: "PATCH",
+    body: payload,
+  });
 }
 
 export function publishContentTest(id: string) {

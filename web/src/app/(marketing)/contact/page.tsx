@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 const METHODS = [
   { icon: MessageSquare, title: "Live chat", body: "Chat with our team in-app. Available weekdays 9am–6pm UTC.", action: "Open chat", accent: "bg-sky-50 text-sky-600", btn: "bg-sky-50 text-sky-700" },
-  { icon: Mail, title: "Email support", body: "support@ieltsmock.com — we aim to reply within 4 hours.", action: "Send email", accent: "bg-violet-50 text-violet-600", btn: "bg-violet-50 text-violet-700" },
+  { icon: Mail, title: "Email support", body: "support@itestu.uz — we aim to reply within 4 hours.", action: "Send email", accent: "bg-violet-50 text-violet-600", btn: "bg-violet-50 text-violet-700" },
   { icon: Phone, title: "Call us", body: "For enterprise enquiries: +44 20 1234 5678 (Mon–Fri 9am–5pm UTC).", action: "Call now", accent: "bg-emerald-50 text-emerald-600", btn: "bg-emerald-50 text-emerald-700" },
   { icon: Globe, title: "Help centre", body: "Self-service documentation, video walkthroughs, and exam guides.", action: "Browse docs", accent: "bg-amber-50 text-amber-600", btn: "bg-amber-50 text-amber-700" },
 ];

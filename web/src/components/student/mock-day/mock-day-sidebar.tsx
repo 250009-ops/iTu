@@ -25,7 +25,7 @@ const dotTexture = {
 };
 
 const SUPPORT_PHONE = "+18004358701";
-const PROCTOR_EMAIL = "proctor@ielts-mock.com";
+const PROCTOR_EMAIL = "support@itestu.uz";
 
 export function MockDaySidebar() {
   const { data, refresh } = useStudentMockDayData();
@@ -108,7 +108,7 @@ export function MockDaySidebar() {
           {
             icon: Mail,
             label: "Email Proctor",
-            sub: "proctor@ielts-mock.com",
+            sub: "support@itestu.uz",
             action: "Email",
           },
         ].map((item) => (

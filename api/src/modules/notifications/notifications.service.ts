@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
+import { EmailDispatchService } from '../../common/mail/email-dispatch.service';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailDispatch: EmailDispatchService,
+  ) {}
 
   async list(user: RequestUser, unreadOnly = false) {
     const notifications = await this.prisma.notification.findMany({
@@ -51,8 +55,14 @@ export class NotificationsService {
     type: NotificationType = NotificationType.INFO,
     link?: string,
   ) {
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: { userId, title, body, type, link },
     });
+
+    void this.emailDispatch
+      .sendForNotification(userId, title, body, type, link)
+      .catch(() => undefined);
+
+    return notification;
   }
 }

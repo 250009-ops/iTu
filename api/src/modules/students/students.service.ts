@@ -505,7 +505,10 @@ export class StudentsService {
         subject: dto.subject,
         description: dto.message,
         type: ticketType,
+        userId: user.id,
         enrollmentId: dto.enrollmentId,
+        slaProgress: 0,
+        slaState: 'ON_TRACK',
       },
     });
 
@@ -537,6 +540,112 @@ export class StudentsService {
       id: ticket.id,
       ticketId: ticket.ticketCode,
       status: ticket.status.toLowerCase(),
+    };
+  }
+
+  async exportPersonalData(user: RequestUser) {
+    this.requireStudent(user);
+    const studentId = user.studentProfileId!;
+
+    const profile = await this.prisma.studentProfile.findUnique({
+      where: { id: studentId },
+      include: { user: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const [enrollments, orders, notifications, tickets] = await Promise.all([
+      this.prisma.enrollment.findMany({
+        where: { studentId },
+        include: {
+          package: true,
+          examSession: {
+            include: {
+              sectionAttempts: {
+                include: {
+                  writingSubmission: { include: { grade: true } },
+                  speakingSession: { include: { grade: true } },
+                },
+              },
+            },
+          },
+          writingTeacher: { include: { user: { select: { name: true } } } },
+          speakingTeacher: { include: { user: { select: { name: true } } } },
+        },
+        orderBy: { mockDate: 'desc' },
+      }),
+      this.prisma.order.findMany({
+        where: { studentId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.notification.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.supportTicket.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      account: {
+        email: profile.user.email,
+        name: profile.user.name,
+        createdAt: profile.user.createdAt,
+        totpEnabled: profile.user.totpEnabled,
+      },
+      profile: {
+        targetBand: profile.targetBand,
+        examType: profile.examType,
+        country: profile.country,
+        phone: profile.phone,
+        publishToLeaderboard: profile.publishToLeaderboard,
+        notificationPrefs: profile.notificationPrefs,
+        createdAt: profile.createdAt,
+      },
+      enrollments: enrollments.map((e) => ({
+        enrollmentCode: e.enrollmentCode,
+        package: e.package.title,
+        mockDate: e.mockDate,
+        mockTime: e.mockTime,
+        status: e.status,
+        resultsStatus: e.resultsStatus,
+        writingTeacher: e.writingTeacher?.user.name ?? null,
+        speakingTeacher: e.speakingTeacher?.user.name ?? null,
+        sections:
+          e.examSession?.sectionAttempts.map((a) => ({
+            skill: a.skill,
+            band: a.band,
+            rawScore: a.rawScore,
+            startedAt: a.startedAt,
+            submittedAt: a.submittedAt,
+          })) ?? [],
+      })),
+      orders: orders.map((o) => ({
+        orderCode: o.orderCode,
+        amount: o.amount,
+        status: o.status,
+        paymentMethod: o.paymentMethod,
+        createdAt: o.createdAt,
+      })),
+      notifications: notifications.map((n) => ({
+        title: n.title,
+        body: n.body,
+        type: n.type,
+        read: n.isRead,
+        createdAt: n.createdAt,
+      })),
+      supportTickets: tickets.map((t) => ({
+        ticketCode: t.ticketCode,
+        subject: t.subject,
+        type: t.type,
+        status: t.status,
+        createdAt: t.createdAt,
+      })),
     };
   }
 

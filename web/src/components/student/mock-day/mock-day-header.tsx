@@ -29,7 +29,7 @@ export function MockDayHeader() {
           ))}
         </div>
         <a
-          href={`mailto:proctor@ielts-mock.com?subject=Exam-day%20support%20-%20${mockId}`}
+          href={`mailto:support@itestu.uz?subject=Exam-day%20support%20-%20${mockId}`}
           className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
           style={{ fontSize: "13px" }}
         >

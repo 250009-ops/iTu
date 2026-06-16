@@ -5,12 +5,34 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useState,
   type ReactNode,
 } from "react";
-import { getContentTests, publishContentTest } from "@/lib/api/admin";
+import {
+  createContentTest,
+  getContentTests,
+  publishContentTest,
+  updateContentTest,
+} from "@/lib/api/admin";
 import { mapContentTests } from "@/lib/api/mappers/admin";
 import { useApiQuery } from "@/hooks/use-api-query";
-import type { ContentTest } from "@/lib/admin/types";
+import type { ContentModule, ContentTest } from "@/lib/admin/types";
+
+type CreateTestPayload = {
+  code: string;
+  title: string;
+  type: "LISTENING" | "READING" | "WRITING" | "SPEAKING";
+  content: object;
+  answerKey?: object;
+  durationMin?: number;
+};
+
+type UpdateTestPayload = {
+  title?: string;
+  content?: object;
+  answerKey?: object;
+  durationMin?: number;
+};
 
 type ContentValue = {
   loading: boolean;
@@ -18,13 +40,37 @@ type ContentValue = {
   tests: ContentTest[];
   moduleTabs: ReturnType<typeof mapContentTests>["moduleTabs"];
   summary: ReturnType<typeof mapContentTests>["summary"];
+  selectedTestId: string | null;
+  setSelectedTestId: (id: string | null) => void;
+  createTest: (payload: CreateTestPayload) => Promise<{ id: string; title: string }>;
+  updateTest: (id: string, payload: UpdateTestPayload) => Promise<void>;
   publishTest: (id: string) => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const AdminContentContext = createContext<ContentValue | null>(null);
 
 export function AdminContentProvider({ children }: { children: ReactNode }) {
   const { data, loading, error, refresh } = useApiQuery(getContentTests);
+  const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+
+  const createTest = useCallback(
+    async (payload: CreateTestPayload) => {
+      const created = await createContentTest(payload);
+      await refresh();
+      setSelectedTestId(created.id as string);
+      return { id: created.id as string, title: created.title as string };
+    },
+    [refresh],
+  );
+
+  const updateTest = useCallback(
+    async (id: string, payload: UpdateTestPayload) => {
+      await updateContentTest(id, payload);
+      await refresh();
+    },
+    [refresh],
+  );
 
   const publishTest = useCallback(
     async (id: string) => {
@@ -52,9 +98,23 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
         underReview: 0,
         drafts: 0,
       },
+      selectedTestId,
+      setSelectedTestId,
+      createTest,
+      updateTest,
       publishTest,
+      refresh,
     };
-  }, [data, loading, error, publishTest]);
+  }, [
+    data,
+    loading,
+    error,
+    selectedTestId,
+    createTest,
+    updateTest,
+    publishTest,
+    refresh,
+  ]);
 
   return (
     <AdminContentContext.Provider value={value}>

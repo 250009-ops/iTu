@@ -39,7 +39,7 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
               </Button>
             </Link>
             <a
-              href={`mailto:proctor@ielts-mock.com?subject=Results%20inquiry%20-%20${data.mockId}`}
+              href={`mailto:support@itestu.uz?subject=Results%20inquiry%20-%20${data.mockId}`}
               className="inline-flex items-center gap-2 text-sm font-semibold text-navy hover:underline"
             >
               <Headphones size={15} />

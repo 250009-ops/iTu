@@ -12,7 +12,7 @@ import { tmpdir } from "os";
 const VPS = {
   host: process.env.VPS_HOST || "170.168.6.42",
   username: process.env.VPS_USER || "root",
-  password: process.env.VPS_PASSWORD || "WpQnJrT0k8eKjOli",
+  password: process.env.VPS_PASSWORD || '',
   port: 22,
 };
 

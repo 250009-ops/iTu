@@ -207,6 +207,21 @@ async function main() {
     },
   });
 
+  const listeningAudioUrls = [
+    'https://actions.google.com/sounds/v1/alarms/beep_short.ogg',
+    'https://actions.google.com/sounds/v1/alarms/medium_bell_ringing_near.ogg',
+    'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg',
+    'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg',
+  ];
+  await prisma.mediaAsset.createMany({
+    data: listeningAudioUrls.map((url, i) => ({
+      testId: listeningTest.id,
+      key: `part-${i + 1}`,
+      url,
+      mimeType: 'audio/ogg',
+    })),
+  });
+
   const readingTest = await prisma.contentTest.create({
     data: {
       code: 'REA-ACAD-005',
@@ -451,7 +466,7 @@ async function main() {
         section: 'general',
         settings: {
           platformName: 'IELTS Mock ERP',
-          supportEmail: 'support@ielts-mock.example',
+          supportEmail: 'support@itestu.uz',
           timezone: 'UTC',
         },
       },

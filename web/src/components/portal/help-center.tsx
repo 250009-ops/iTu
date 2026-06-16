@@ -28,7 +28,7 @@ const channels = [
     id: "email",
     icon: Mail,
     title: "Email support",
-    detail: "support@ielts-mock.com",
+    detail: "support@itestu.uz",
     accent: "bg-violet-100 text-violet-600",
     action: "Send email",
   },
@@ -74,7 +74,7 @@ export function HelpCenter() {
 
   function handleChannel(id: string, title: string) {
     if (id === "email") {
-      window.location.href = "mailto:support@ielts-mock.com";
+      window.location.href = "mailto:support@itestu.uz";
       return;
     }
     if (id === "phone") {

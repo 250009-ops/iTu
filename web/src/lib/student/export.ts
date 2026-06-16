@@ -1,4 +1,5 @@
 import type { AttemptRow, StudentResultsData } from "@/lib/api/mappers/student";
+import { downloadResultPdf } from "@/lib/api/results";
 
 function triggerDownload(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -48,6 +49,11 @@ export function exportAttemptsCsv(attempts: AttemptRow[]) {
     `ielts-attempts-${new Date().toISOString().slice(0, 10)}.csv`,
     "text/csv;charset=utf-8",
   );
+}
+
+/** Download the official server-generated PDF band report. */
+export async function downloadResultsPdf(enrollmentCode: string) {
+  await downloadResultPdf(enrollmentCode);
 }
 
 /** Open the browser print dialog so the user can save the report as PDF. */

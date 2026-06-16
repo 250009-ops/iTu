@@ -7,7 +7,7 @@ export type AccentColor = "sky" | "emerald" | "violet" | "rose";
 
 export const SITE = {
   name: "itestu",
-  domain: "https://ieltsmock.com",
+  domain: "https://itestu.uz",
   tagline: "Real examiners. Real feedback. Real bands.",
   description:
     "Sit a realistic, IDP-style computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with same-day band results.",

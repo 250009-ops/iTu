@@ -11,6 +11,10 @@ import {
 import { getExamContent } from "@/lib/api/exam";
 import { getErrorMessage } from "@/lib/api/errors";
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const ALLOW_EXAM_FALLBACK =
+  process.env.NEXT_PUBLIC_ALLOW_EXAM_CONTENT_FALLBACK === "true";
+
 const FALLBACK: Record<ExamSkill, unknown> = {
   listening: listeningContent,
   reading: readingContent,
@@ -47,15 +51,25 @@ export function useExamContent<T = ListeningContent | ReadingContent | WritingCo
         if (hasUsableContent(skill, response.content)) {
           setContent(response.content as T);
           setSource("api");
+        } else if (IS_PRODUCTION && !ALLOW_EXAM_FALLBACK) {
+          setContent(null);
+          setError("Exam content is not available for this session.");
         } else {
           setContent(FALLBACK[skill] as T);
           setSource("fallback");
         }
       } catch (err) {
         if (!active) return;
-        setContent(FALLBACK[skill] as T);
-        setSource("fallback");
-        setError(getErrorMessage(err, "Using offline exam content"));
+        if (IS_PRODUCTION && !ALLOW_EXAM_FALLBACK) {
+          setContent(null);
+          setError(
+            getErrorMessage(err, "Exam content could not be loaded. Contact support."),
+          );
+        } else {
+          setContent(FALLBACK[skill] as T);
+          setSource("fallback");
+          setError(getErrorMessage(err, "Using offline exam content"));
+        }
       } finally {
         if (active) setLoading(false);
       }

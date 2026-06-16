@@ -15,3 +15,15 @@ export function createSupportTicket(body: {
     { method: "POST", body },
   );
 }
+
+export function submitContactInquiry(body: {
+  name: string;
+  email: string;
+  topic: "General" | "Technical" | "Billing" | "Examiner" | "Institution" | "Press";
+  message: string;
+}) {
+  return apiFetch<{ id: string; ticketId: string; status: string }>(
+    "/support/contact",
+    { method: "POST", body, auth: false },
+  );
+}

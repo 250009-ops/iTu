@@ -1,112 +1,147 @@
 "use client";
 
-import { Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CheckCircle2, Loader2, Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { listeningParts, questionTypes } from "@/lib/admin/constants";
+import { listeningParts } from "@/lib/admin/constants";
+import { ContentTestEditor } from "@/components/admin/content/content-test-editor";
+import { useAdminContent } from "@/contexts/admin-content-context";
+import { getContentTest, uploadListeningMedia } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
+
+type AssetMap = Record<string, { url: string; sizeBytes: number | null }>;
+
+function ListeningAudioUpload({ testId }: { testId: string }) {
+  const { toast } = useToast();
+  const [assets, setAssets] = useState<AssetMap>({});
+  const [loadingAssets, setLoadingAssets] = useState(false);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  useEffect(() => {
+    let active = true;
+    setLoadingAssets(true);
+    void getContentTest(testId)
+      .then((test) => {
+        if (!active) return;
+        const map: AssetMap = {};
+        for (const asset of test.mediaAssets) {
+          map[asset.key] = { url: asset.url, sizeBytes: asset.sizeBytes };
+        }
+        setAssets(map);
+      })
+      .catch(() => {
+        if (active) setAssets({});
+      })
+      .finally(() => {
+        if (active) setLoadingAssets(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [testId]);
+
+  const handleUpload = useCallback(
+    async (partLabel: string, partKey: string, file: File) => {
+      setUploadingKey(partKey);
+      try {
+        const result = await uploadListeningMedia(testId, partKey, file);
+        setAssets((prev) => ({
+          ...prev,
+          [partKey]: { url: result.url, sizeBytes: result.sizeBytes },
+        }));
+        toast(`${partLabel} uploaded`, { variant: "success" });
+      } catch (err) {
+        toast("Upload failed", {
+          description: getErrorMessage(err, "Check MEDIA_ROOT on the API server."),
+          variant: "error",
+        });
+      } finally {
+        setUploadingKey(null);
+      }
+    },
+    [testId, toast],
+  );
+
+  const uploadedCount = listeningParts.filter((_, i) =>
+    Boolean(assets[`part-${i + 1}`]),
+  ).length;
+
+  return (
+    <div className="space-y-3">
+      <Label className="text-xs font-semibold uppercase tracking-wide text-muted">
+        Audio files (VPS /media/)
+      </Label>
+      {loadingAssets ? (
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading audio…
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {listeningParts.map((part, index) => {
+            const partKey = `part-${index + 1}`;
+            const asset = assets[partKey];
+            const uploading = uploadingKey === partKey;
+
+            return (
+              <div key={partKey}>
+                <input
+                  ref={(el) => {
+                    fileInputs.current[partKey] = el;
+                  }}
+                  type="file"
+                  accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,.mp3,.wav,.ogg,.m4a"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleUpload(part, partKey, file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputs.current[partKey]?.click()}
+                  className={cn(
+                    "flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 transition-colors",
+                    asset
+                      ? "border-emerald-200 bg-emerald-50/60 hover:border-emerald-300"
+                      : "border-slate-200 bg-slate-50 hover:border-sky-300 hover:bg-sky-50/50",
+                  )}
+                >
+                  {uploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-sky-600" />
+                  ) : asset ? (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  ) : (
+                    <Upload className="h-5 w-5 text-muted" />
+                  )}
+                  <span className="text-sm font-semibold text-navy">{part}</span>
+                  <span className="text-center text-[10px] text-muted">
+                    {asset ? "Uploaded · replace" : "MP3 / WAV / OGG"}
+                  </span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-sm text-sky-800">
+        {uploadedCount}/4 parts uploaded — all four required before publish.
+      </p>
+    </div>
+  );
+}
 
 export function ListeningEditor() {
-  const { toast } = useToast();
+  const { selectedTestId } = useAdminContent();
+
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm">
-      <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
-        <div>
-          <h2 className="font-semibold text-navy">Listening Editor</h2>
-          <p className="mt-0.5 text-sm text-muted">New test — unsaved draft</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => toast("Draft saved", { variant: "success" })}
-          >
-            Save Draft
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              toast("Sent for review", {
-                description: "A senior author will review this test.",
-                variant: "success",
-              })
-            }
-          >
-            Send for Review
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700"
-            onClick={() =>
-              toast("Test published", {
-                description: "This listening test is now live for booking.",
-                variant: "success",
-              })
-            }
-          >
-            Publish
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-5 p-5 sm:p-6">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="test-title" className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Test Title
-            </Label>
-            <Input
-              id="test-title"
-              placeholder="e.g. Listening Test #14 — Airport Directions"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="question-type" className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Question Type
-            </Label>
-            <Select id="question-type" defaultValue={questionTypes[0]}>
-              {questionTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Audio Files
-          </Label>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {listeningParts.map((part) => (
-              <button
-                key={part}
-                type="button"
-                onClick={() =>
-                  toast(`Upload audio · ${part}`, {
-                    description: "Select an MP3 or WAV file to attach.",
-                    variant: "info",
-                  })
-                }
-                className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-8 transition-colors hover:border-sky-300 hover:bg-sky-50/50"
-              >
-                <Upload className="h-5 w-5 text-muted" />
-                <span className="text-sm font-semibold text-navy">{part}</span>
-                <span className="text-[10px] text-muted">MP3 / WAV</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          4 parts · 40 questions total · Preview available after saving audio
-        </div>
-      </div>
-    </div>
+    <ContentTestEditor module="listening" testId={selectedTestId}>
+      {selectedTestId ? <ListeningAudioUpload testId={selectedTestId} /> : null}
+    </ContentTestEditor>
   );
 }

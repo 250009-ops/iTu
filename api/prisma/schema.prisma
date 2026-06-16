@@ -174,6 +174,9 @@ model User {
   role                  UserRole
   passwordResetToken    String?   @map("password_reset_token")
   passwordResetExpires  DateTime? @map("password_reset_expires")
+  totpSecret            String?   @map("totp_secret")
+  totpPendingSecret     String?   @map("totp_pending_secret")
+  totpEnabled           Boolean   @default(false) @map("totp_enabled")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
@@ -215,6 +218,7 @@ model TeacherProfile {
   longBio        String?           @map("long_bio")
   avatarUrl      String?           @map("avatar_url")
   notificationPrefs Json?          @map("notification_prefs")
+  payoutDetails    Json?           @map("payout_details")
   credentials    Json?
   languages      Json              @default("[]")
   commissionRate Float             @default(0.25) @map("commission_rate")
@@ -339,6 +343,7 @@ model MediaAsset {
 
   test ContentTest? @relation(fields: [testId], references: [id], onDelete: SetNull)
 
+  @@unique([testId, key])
   @@map("media_assets")
 }
 
@@ -353,6 +358,7 @@ model Enrollment {
   mockTime         String           @map("mock_time")
   status           EnrollmentStatus @default(ENROLLED)
   resultsStatus    ResultsStatus    @default(PENDING) @map("results_status")
+  resultPdfUrl     String?          @map("result_pdf_url")
   writingTeacherId String?          @map("writing_teacher_id")
   speakingTeacherId String?         @map("speaking_teacher_id")
   speakingSlotId   String?          @map("speaking_slot_id")

@@ -86,10 +86,10 @@ function StepIcon({ icon }: { icon: Step["icon"] }) {
 }
 
 const INTERFACES: Array<{ skill: SkillId; url: string; label: string; caption: string }> = [
-  { skill: "listening", url: "app.ieltsmock.com/exam/listening", label: "Listening", caption: "Audio waveform strip, progress bar, question navigator. Audio plays exactly once — the play button is disabled after initial play." },
-  { skill: "reading", url: "app.ieltsmock.com/exam/reading", label: "Reading", caption: "Split-screen: passage on the left, questions on the right. Highlight tool, paragraph labels, and a sticky question navigator strip at the bottom." },
-  { skill: "writing", url: "app.ieltsmock.com/exam/writing", label: "Writing", caption: "Two tasks in one session. Task 1 prompt on the left, text area on the right. Live word counter always visible. Spell-check disabled." },
-  { skill: "speaking", url: "app.ieltsmock.com/exam/speaking", label: "Speaking", caption: "Live video call with your assigned examiner. Examiner view on the left, cue card (Part 2) displayed on screen. Preparation timer during Part 2." },
+  { skill: "listening", url: "app.itestu.uz/exam/listening", label: "Listening", caption: "Audio waveform strip, progress bar, question navigator. Audio plays exactly once — the play button is disabled after initial play." },
+  { skill: "reading", url: "app.itestu.uz/exam/reading", label: "Reading", caption: "Split-screen: passage on the left, questions on the right. Highlight tool, paragraph labels, and a sticky question navigator strip at the bottom." },
+  { skill: "writing", url: "app.itestu.uz/exam/writing", label: "Writing", caption: "Two tasks in one session. Task 1 prompt on the left, text area on the right. Live word counter always visible. Spell-check disabled." },
+  { skill: "speaking", url: "app.itestu.uz/exam/speaking", label: "Speaking", caption: "Live video call with your assigned examiner. Examiner view on the left, cue card (Part 2) displayed on screen. Preparation timer during Part 2." },
 ];
 
 const RULES = [

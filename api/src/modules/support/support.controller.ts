@@ -1,16 +1,26 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { ContactInquiryDto } from './dto/contact-inquiry.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { SupportService } from './support.service';
 
 @ApiTags('support')
-@ApiBearerAuth()
 @Controller('support')
 export class SupportController {
   constructor(private support: SupportService) {}
 
+  @Public()
+  @Throttle({ contact: { limit: 5, ttl: 60_000 } })
+  @Post('contact')
+  submitContact(@Body() dto: ContactInquiryDto) {
+    return this.support.submitContactInquiry(dto);
+  }
+
+  @ApiBearerAuth()
   @Post('tickets')
   createTicket(
     @CurrentUser() user: RequestUser,

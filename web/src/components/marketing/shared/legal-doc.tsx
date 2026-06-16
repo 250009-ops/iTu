@@ -13,7 +13,7 @@ export function LegalDoc({
   updated,
   intro,
   sections,
-  contactEmail = "support@ieltsmock.com",
+  contactEmail = "support@itestu.uz",
 }: {
   updated: string;
   intro: ReactNode;

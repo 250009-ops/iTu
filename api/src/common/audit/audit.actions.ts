@@ -1,0 +1,37 @@
+/** Canonical audit action names for M16 compliance trail. */
+export const AuditAction = {
+  AUTH_LOGIN_SUCCESS: 'auth.login.success',
+  AUTH_LOGIN_FAILURE: 'auth.login.failure',
+  AUTH_REGISTER: 'auth.register',
+  AUTH_PASSWORD_CHANGE: 'auth.password.change',
+  AUTH_PASSWORD_RESET: 'auth.password.reset',
+  AUTH_2FA_ENABLE: 'auth.2fa.enable',
+  AUTH_2FA_DISABLE: 'auth.2fa.disable',
+
+  BOOKING_CREATE: 'booking.create',
+  BOOKING_RESCHEDULE: 'booking.reschedule',
+
+  EXAM_CHECK_IN: 'exam.check_in',
+  EXAM_SECTION_START: 'exam.section.start',
+  EXAM_SECTION_SUBMIT: 'exam.section.submit',
+  EXAM_INTEGRITY_FLAG: 'exam.integrity.flag',
+  EXAM_INTEGRITY_REVIEW: 'exam.integrity.review',
+  EXAM_FORCE_SUBMIT: 'exam.force_submit',
+
+  CONTENT_TEST_CREATE: 'content.test.create',
+  CONTENT_TEST_PUBLISH: 'content.test.publish',
+  CONTENT_TEST_UPDATE: 'content.test.update',
+  CONTENT_MEDIA_UPLOAD: 'content.media.upload',
+
+  ADMIN_PACKAGE_CREATE: 'admin.package.create',
+  ADMIN_PACKAGE_UPDATE: 'admin.package.update',
+  ADMIN_PACKAGE_DELETE: 'admin.package.delete',
+  ADMIN_TEACHER_STATUS: 'admin.teacher.status',
+  ADMIN_ORDER_REFUND: 'admin.order.refund',
+  ADMIN_PAYOUT_UPDATE: 'admin.payout.update',
+  ADMIN_TICKET_UPDATE: 'admin.ticket.update',
+  ADMIN_BAND_TABLE_UPDATE: 'admin.band_table.update',
+  ADMIN_SETTINGS_UPDATE: 'admin.settings.update',
+} as const;
+
+export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];
