@@ -1,5 +1,7 @@
 import { ContentTestType } from '@prisma/client';
 
+export const LISTENING_FULL_AUDIO_KEY = 'full-audio';
+
 export function questionCountForTest(
   type: ContentTestType,
   content: unknown,
@@ -36,12 +38,32 @@ export function questionCountForTest(
 
 export function listeningAudioReady(
   content: unknown,
-  mediaAssetCount: number,
+  mediaAssets: { key: string }[],
 ): boolean {
-  if (mediaAssetCount >= 4) return true;
+  if (mediaAssets.some((a) => a.key === LISTENING_FULL_AUDIO_KEY)) {
+    return true;
+  }
+
+  const partKeys = new Set(
+    mediaAssets
+      .filter((a) => /^part-[1-4]$/.test(a.key))
+      .map((a) => a.key),
+  );
+  if (partKeys.size >= 4) return true;
+
   if (!content || typeof content !== 'object') return false;
-  const tracks = (content as { audioTracks?: unknown[] }).audioTracks;
-  return Array.isArray(tracks) && tracks.length >= 4;
+  const c = content as Record<string, unknown>;
+  const tracks = c.audioTracks;
+  if (Array.isArray(tracks) && tracks.length > 0) {
+    if (tracks.length === 1) {
+      const url = (tracks[0] as { url?: string }).url;
+      return typeof url === 'string' && url.trim().length > 0;
+    }
+    return tracks.length >= 4;
+  }
+
+  const audioUrl = c.audioUrl;
+  return typeof audioUrl === 'string' && audioUrl.trim().length > 0;
 }
 
 /** Detect scaffold keys (`answer1` … `answerN`) that must be replaced before publish. */

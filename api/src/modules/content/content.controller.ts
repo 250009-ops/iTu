@@ -131,7 +131,7 @@ export class ContentController {
     @CurrentUser() user: RequestUser,
   ) {
     if (!key?.trim()) {
-      throw new BadRequestException('Query parameter "key" is required (e.g. part-1)');
+      throw new BadRequestException('Query parameter "key" is required (e.g. full-audio)');
     }
     return this.content.uploadMedia(id, key.trim(), file, user.id);
   }

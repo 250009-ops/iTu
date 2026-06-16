@@ -651,14 +651,26 @@ export class ExamSessionsService {
     }
 
     if (skill === ExamSkill.LISTENING && test.mediaAssets.length > 0) {
-      const audioTracks = test.mediaAssets
-        .filter((asset) => asset.key.startsWith('part-'))
-        .map((asset) => ({
-          part: Number(asset.key.replace('part-', '')),
-          url: asset.url,
-        }))
-        .filter((track) => Number.isFinite(track.part))
-        .sort((a, b) => a.part - b.part);
+      const fullAudio = test.mediaAssets.find(
+        (asset) => asset.key === 'full-audio',
+      );
+
+      const audioTracks = fullAudio
+        ? [
+            {
+              part: 1,
+              url: fullAudio.url,
+              title: 'Listening',
+            },
+          ]
+        : test.mediaAssets
+            .filter((asset) => asset.key.startsWith('part-'))
+            .map((asset) => ({
+              part: Number(asset.key.replace('part-', '')),
+              url: asset.url,
+            }))
+            .filter((track) => Number.isFinite(track.part))
+            .sort((a, b) => a.part - b.part);
 
       const { mediaAssets: _assets, ...rest } = test;
       const content = {

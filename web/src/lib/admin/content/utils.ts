@@ -1,4 +1,8 @@
 import type { ContentModule } from "@/lib/admin/types";
+import {
+  listeningMediaReady,
+  type MediaAssetRef,
+} from "@/lib/admin/content/listening-media";
 import type {
   Gap,
   InlineNode,
@@ -120,7 +124,7 @@ export function buildPublishChecklist(
   module: ContentModule,
   content: object,
   answerKey: AnswerKeyMap | null | undefined,
-  mediaCount = 0,
+  mediaAssets: MediaAssetRef[] = [],
 ): ChecklistItem[] {
   const items: ChecklistItem[] = [];
   const c = content as Record<string, unknown>;
@@ -132,13 +136,11 @@ export function buildPublishChecklist(
       label: `${parts}/4 listening parts defined`,
       ok: parts >= 4,
     });
-    const audioTracks = c.audioTracks;
-    const audioInContent = Array.isArray(audioTracks) && audioTracks.length >= 4;
     items.push({
       id: "audio",
-      label: "All 4 audio parts uploaded or linked",
-      ok: mediaCount >= 4 || audioInContent,
-      hint: "Upload MP3/WAV/OGG for each part, or keep audioTracks in content.",
+      label: "Full listening audio uploaded",
+      ok: listeningMediaReady(mediaAssets),
+      hint: "Upload one MP3/WAV/OGG file covering all four parts.",
     });
   }
 

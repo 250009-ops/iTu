@@ -26,6 +26,7 @@ const AUDIO_MIME = new Set([
 ]);
 
 const PART_KEY = /^part-[1-4]$/;
+const FULL_AUDIO_KEY = 'full-audio';
 const MAP_KEY = /^map-[a-zA-Z0-9_-]+$/;
 
 const IMAGE_MIME = new Set([
@@ -281,7 +282,9 @@ export class ContentService {
   async publishTest(id: string, actorId: string) {
     const test = await this.prisma.contentTest.findUnique({
       where: { id },
-      include: { _count: { select: { mediaAssets: true } } },
+      include: {
+        mediaAssets: { select: { key: true } },
+      },
     });
     if (!test) throw new NotFoundException('Test not found');
 
@@ -295,11 +298,9 @@ export class ContentService {
     }
 
     if (test.type === ContentTestType.LISTENING) {
-      if (
-        !listeningAudioReady(test.content, test._count.mediaAssets)
-      ) {
+      if (!listeningAudioReady(test.content, test.mediaAssets)) {
         throw new BadRequestException(
-          'Upload all 4 listening audio parts (or include audioTracks in content) before publishing',
+          'Upload the full listening audio file (or legacy part-1..part-4 tracks) before publishing',
         );
       }
     }
@@ -377,12 +378,12 @@ export class ContentService {
     file: Express.Multer.File,
     actorId: string,
   ) {
-    const isAudio = PART_KEY.test(key);
+    const isAudio = PART_KEY.test(key) || key === FULL_AUDIO_KEY;
     const isMap = MAP_KEY.test(key);
 
     if (!isAudio && !isMap) {
       throw new BadRequestException(
-        'Media key must be part-1..part-4 (audio) or map-{id} (image)',
+        'Media key must be full-audio, part-1..part-4 (legacy audio), or map-{id} (image)',
       );
     }
     if (!file?.buffer?.length) {
@@ -432,6 +433,15 @@ export class ContentService {
         sizeBytes: file.size,
       },
     });
+
+    if (key === FULL_AUDIO_KEY) {
+      await this.prisma.mediaAsset.deleteMany({
+        where: {
+          testId,
+          key: { in: ['part-1', 'part-2', 'part-3', 'part-4'] },
+        },
+      });
+    }
 
     await this.audit.log({
       userId: actorId,

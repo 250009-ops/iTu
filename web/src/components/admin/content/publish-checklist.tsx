@@ -8,22 +8,23 @@ import {
 } from "@/lib/admin/content/utils";
 import type { ContentModule } from "@/lib/admin/types";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
+import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
 import { cn } from "@/lib/utils";
 
 type Props = {
   module: ContentModule;
   content: object;
   answerKey: AnswerKeyMap;
-  mediaCount?: number;
+  mediaAssets?: MediaAssetRef[];
 };
 
 export function PublishChecklist({
   module,
   content,
   answerKey,
-  mediaCount = 0,
+  mediaAssets = [],
 }: Props) {
-  const items = buildPublishChecklist(module, content, answerKey, mediaCount);
+  const items = buildPublishChecklist(module, content, answerKey, mediaAssets);
   const ready = allChecklistOk(items);
 
   return (
@@ -66,7 +67,7 @@ export function isPublishReady(
   module: ContentModule,
   content: object,
   answerKey: AnswerKeyMap,
-  mediaCount = 0,
+  mediaAssets: MediaAssetRef[] = [],
 ): boolean {
-  return allChecklistOk(buildPublishChecklist(module, content, answerKey, mediaCount));
+  return allChecklistOk(buildPublishChecklist(module, content, answerKey, mediaAssets));
 }

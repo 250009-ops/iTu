@@ -39,8 +39,8 @@ function ContentStudioContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <div className="min-h-0 pb-10 pt-4 lg:pt-6">
+        <div className="mx-auto max-w-7xl space-y-6 px-4 lg:px-6 xl:px-8">
           <ContentStudioHeader activeModule={activeModule} />
           <ContentSummaryCards />
           <ModuleTabs active={activeModule} onChange={setActiveModule} />

@@ -5,7 +5,6 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ListeningAudioUpload } from "@/components/admin/content/listening-editor";
 import { ListeningVisualEditor } from "@/components/admin/content/editors/listening-visual-editor";
 import { ReadingVisualEditor } from "@/components/admin/content/editors/reading-visual-editor";
 import { SpeakingVisualEditor } from "@/components/admin/content/editors/speaking-visual-editor";
@@ -18,6 +17,7 @@ import {
 import { moduleUsesAnswerKey } from "@/lib/admin/content-templates";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
+import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
 import { normalizeContent } from "@/lib/admin/content/normalize";
 import type { ContentModule } from "@/lib/admin/types";
 import { useAdminContent } from "@/contexts/admin-content-context";
@@ -59,7 +59,7 @@ export function ContentTestEditor({ module, testId }: Props) {
   const [answerKey, setAnswerKey] = useState<AnswerKeyMap>({});
   const [contentJson, setContentJson] = useState("{}");
   const [answerKeyJson, setAnswerKeyJson] = useState("{}");
-  const [mediaCount, setMediaCount] = useState(0);
+  const [mediaAssets, setMediaAssets] = useState<MediaAssetRef[]>([]);
   const [loadedTestId, setLoadedTestId] = useState<string | null>(null);
 
   const showAnswerKey = moduleUsesAnswerKey(module);
@@ -74,7 +74,7 @@ export function ContentTestEditor({ module, testId }: Props) {
       setAnswerKey({});
       setContentJson("{}");
       setAnswerKeyJson("{}");
-      setMediaCount(0);
+      setMediaAssets([]);
       setLoading(false);
       return;
     }
@@ -98,7 +98,12 @@ export function ContentTestEditor({ module, testId }: Props) {
         setAnswerKey(syncedKey);
         setContentJson(formatJson(c));
         setAnswerKeyJson(formatJson(syncedKey));
-        setMediaCount(test.mediaAssets?.length ?? 0);
+        setMediaAssets(
+          (test.mediaAssets ?? []).map((a) => ({
+            key: a.key,
+            url: a.url,
+          })),
+        );
         setLoadedTestId(testId);
       })
       .catch((err) => {
@@ -135,10 +140,15 @@ export function ContentTestEditor({ module, testId }: Props) {
     setAnswerKeyJson(formatJson(next));
   }
 
-  function refreshMediaCount() {
+  function refreshMediaAssets() {
     if (!testId) return;
     void getContentTest(testId).then((test) => {
-      setMediaCount(test.mediaAssets?.length ?? 0);
+      setMediaAssets(
+        (test.mediaAssets ?? []).map((a) => ({
+          key: a.key,
+          url: a.url,
+        })),
+      );
     });
   }
 
@@ -213,7 +223,7 @@ export function ContentTestEditor({ module, testId }: Props) {
 
   async function handlePublish() {
     if (!testId) return;
-    if (!isPublishReady(module, content, answerKey, mediaCount)) {
+    if (!isPublishReady(module, content, answerKey, mediaAssets)) {
       toast("Not ready to publish", {
         description: "Complete all checklist items before publishing.",
         variant: "warning",
@@ -283,7 +293,7 @@ export function ContentTestEditor({ module, testId }: Props) {
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
       <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div>
           <h2 className="font-semibold capitalize text-navy">{module} editor</h2>
@@ -353,7 +363,7 @@ export function ContentTestEditor({ module, testId }: Props) {
             module={module}
             content={content}
             answerKey={answerKey}
-            mediaCount={mediaCount}
+            mediaAssets={mediaAssets}
           />
 
           <div className="flex flex-wrap gap-1 border-b border-border pb-1">
@@ -375,42 +385,43 @@ export function ContentTestEditor({ module, testId }: Props) {
           </div>
 
           {tab === "visual" && (
-            <div className="space-y-5">
-              {module === "listening" && testId && (
-                <ListeningAudioUpload
-                  testId={testId}
-                  onMediaUpdated={refreshMediaCount}
-                />
-              )}
+            <div className="min-h-0 pb-2">
               {module === "reading" && (
-                <ReadingVisualEditor
+                <div className="space-y-5 pt-1">
+                  <ReadingVisualEditor
                   testId={testId}
                   content={content as ReadingContent}
                   answerKey={answerKey}
                   onContentChange={(c) => handleContentChange(c)}
                   onAnswerKeyChange={handleAnswerKeyChange}
                 />
+                </div>
               )}
               {module === "listening" && (
                 <ListeningVisualEditor
-                  testId={testId}
+                  testId={testId ?? undefined}
                   content={content as ListeningContent}
                   answerKey={answerKey}
                   onContentChange={(c) => handleContentChange(c)}
                   onAnswerKeyChange={handleAnswerKeyChange}
+                  onMediaUpdated={refreshMediaAssets}
                 />
               )}
               {module === "writing" && (
-                <WritingVisualEditor
+                <div className="space-y-5 pt-1">
+                  <WritingVisualEditor
                   content={content as WritingContent}
                   onContentChange={(c) => handleContentChange(c)}
                 />
+                </div>
               )}
               {module === "speaking" && (
-                <SpeakingVisualEditor
+                <div className="space-y-5 pt-1">
+                  <SpeakingVisualEditor
                   content={content as SpeakingContent}
                   onContentChange={(c) => handleContentChange(c)}
                 />
+                </div>
               )}
             </div>
           )}

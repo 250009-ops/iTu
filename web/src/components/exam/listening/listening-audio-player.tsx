@@ -28,7 +28,9 @@ export function ListeningAudioPlayer({
 
     startedRef.current = true;
     audio.src = tracks[0].url;
-    onStatusChange?.(`Playing Part ${tracks[0].part}`);
+    onStatusChange?.(
+      tracks.length === 1 ? "Playing listening audio…" : `Playing Part ${tracks[0].part}`,
+    );
     void audio.play().catch(() => {
       onStatusChange?.("Audio unavailable — contact support");
     });
