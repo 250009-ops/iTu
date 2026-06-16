@@ -28,7 +28,7 @@ echo "==> Building API..."
 cd "$APP_DIR/api"
 npm ci
 npx prisma generate
-npx prisma db push
+npx prisma db push --accept-data-loss
 npm run build
 
 echo "==> Building Web..."

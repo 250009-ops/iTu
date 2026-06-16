@@ -48,6 +48,11 @@ set -e
 cd /var/www/itestu/app
 tar -xzf /var/www/itestu/hotfix.tar.gz
 rm /var/www/itestu/hotfix.tar.gz
+if [ -f /var/www/itestu/app/deploy/deploy-rebuild.sh ]; then
+  cp /var/www/itestu/app/deploy/deploy-rebuild.sh /var/www/itestu/deploy/deploy-rebuild.sh
+  sed -i 's/\r$//' /var/www/itestu/deploy/deploy-rebuild.sh
+  chmod +x /var/www/itestu/deploy/deploy-rebuild.sh
+fi
 bash /var/www/itestu/deploy/deploy-rebuild.sh
 `);
 
