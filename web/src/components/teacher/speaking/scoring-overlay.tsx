@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Award, ChevronDown, ChevronUp, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
@@ -25,22 +25,26 @@ function ScoreRow({
   onChange: (score: number) => void;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-white/90">{label}</p>
-        <span className="text-sm font-bold text-sky-300">{value}</span>
+        <p className="text-[11px] font-medium leading-tight text-white/75">
+          {label}
+        </p>
+        <span className="text-sm font-bold tabular-nums text-sky-300">
+          {value}
+        </span>
       </div>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-0.5">
         {bandOptions.map((score) => (
           <button
             key={score}
             type="button"
             onClick={() => onChange(score)}
             className={cn(
-              "flex h-7 min-w-[1.75rem] items-center justify-center rounded-full px-1 text-[11px] font-semibold transition-colors",
+              "flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-0.5 text-[10px] font-semibold transition-colors",
               value === score
-                ? "bg-white text-navy"
-                : "bg-white/15 text-white/80 hover:bg-white/25",
+                ? "bg-sky-400/90 text-slate-950"
+                : "bg-white/10 text-white/70 hover:bg-white/20",
             )}
           >
             {score}
@@ -53,7 +57,6 @@ function ScoreRow({
 
 export function ScoringOverlay() {
   const { session, sessionId } = useTeacherSpeaking();
-  const [open, setOpen] = useState(false);
   const [scores, setScores] = useState(
     session?.defaultScores ?? {
       fluency: 7,
@@ -112,63 +115,61 @@ export function ScoringOverlay() {
 
   return (
     <>
-      <div className="absolute bottom-24 right-4 z-30 w-[min(100%,20rem)]">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex w-full items-center justify-between rounded-t-xl border border-white/20 bg-slate-900/90 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-md"
-        >
-          <span className="flex items-center gap-2">
-            <Award className="h-4 w-4 text-amber-400" />
-            Scoring · Band {overall.toFixed(1)}
-          </span>
-          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-        </button>
-
-        {open && (
-          <div className="max-h-[min(50vh,24rem)] overflow-y-auto rounded-b-xl border border-t-0 border-white/20 bg-slate-900/95 p-4 backdrop-blur-md">
-            <div className="space-y-4">
-              {session.criteria.map((criterion) => (
-                <ScoreRow
-                  key={criterion.id}
-                  label={criterion.label}
-                  value={scores[criterion.id]}
-                  onChange={(v) => setScore(criterion.id, v)}
-                />
-              ))}
-            </div>
-
-            <textarea
-              placeholder="Examiner notes…"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="mt-4 w-full resize-none rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder:text-white/40 focus:border-sky-400 focus:outline-none"
-            />
-
-            <Button
-              variant="danger"
-              size="sm"
-              className="mt-3 w-full"
-              loading={submitting}
-              onClick={() => setConfirmOpen(true)}
-            >
-              <Save className="h-3.5 w-3.5" />
-              Submit grade
-            </Button>
-
-            {session.recordingUrl && (
-              <a
-                href={session.recordingUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 block text-center text-xs text-sky-300 hover:underline"
-              >
-                Open recording
-              </a>
-            )}
+      <div
+        className="pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-[min(100%,15.5rem)] flex-col justify-center bg-gradient-to-l from-black/75 via-black/45 to-transparent px-3 py-6 sm:w-64 sm:px-4"
+        aria-label="Live band scoring"
+      >
+        <div className="ml-auto w-full max-w-[13.5rem] space-y-3 sm:max-w-none">
+          <div className="text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
+              Band score
+            </p>
+            <p className="text-3xl font-bold tabular-nums leading-none text-white">
+              {overall.toFixed(1)}
+            </p>
           </div>
-        )}
+
+          <div className="space-y-3 border-t border-white/10 pt-3">
+            {session.criteria.map((criterion) => (
+              <ScoreRow
+                key={criterion.id}
+                label={criterion.label}
+                value={scores[criterion.id]}
+                onChange={(v) => setScore(criterion.id, v)}
+              />
+            ))}
+          </div>
+
+          <textarea
+            placeholder="Examiner notes…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className="w-full resize-none rounded-md border-0 bg-white/8 px-2.5 py-2 text-[11px] text-white placeholder:text-white/35 focus:bg-white/12 focus:outline-none focus:ring-1 focus:ring-sky-400/40"
+          />
+
+          <Button
+            variant="danger"
+            size="sm"
+            className="h-8 w-full text-xs"
+            loading={submitting}
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Save className="h-3.5 w-3.5" />
+            Submit grade
+          </Button>
+
+          {session.recordingUrl && (
+            <a
+              href={session.recordingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block text-right text-[10px] text-sky-300/90 hover:text-sky-200 hover:underline"
+            >
+              Open recording
+            </a>
+          )}
+        </div>
       </div>
 
       <ConfirmDialog

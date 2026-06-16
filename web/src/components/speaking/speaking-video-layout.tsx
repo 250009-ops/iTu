@@ -98,6 +98,46 @@ function CameraTile({
   );
 }
 
+function RemoteVideoLayer({
+  trackRef,
+  label,
+  placeholder,
+  className,
+  videoClassName,
+}: {
+  trackRef: ReturnType<typeof useCameraTrackRef>;
+  label: string;
+  placeholder: string;
+  className?: string;
+  videoClassName?: string;
+}) {
+  const hasVideo =
+    trackRef?.publication?.track &&
+    !trackRef.publication.isMuted &&
+    trackRef.publication.isEnabled;
+
+  return (
+    <div className={cn("relative overflow-hidden bg-slate-900", className)}>
+      {hasVideo && trackRef ? (
+        <VideoTrack
+          trackRef={trackRef}
+          className={cn("h-full w-full object-cover", videoClassName)}
+        />
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-700 text-2xl font-bold text-white">
+            {placeholder}
+          </div>
+          <p className="text-sm">Waiting for participant…</p>
+        </div>
+      )}
+      <span className="absolute left-3 top-12 rounded bg-black/50 px-2 py-1 text-[11px] font-medium text-white">
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export function SpeakingVideoLayout({
   remoteLabel,
   localLabel,
@@ -105,6 +145,9 @@ export function SpeakingVideoLayout({
   localPlaceholder,
   overlay,
   className,
+  videoHeightRatio = 1,
+  letterboxBlur = false,
+  pipClassName,
 }: {
   remoteLabel: string;
   localLabel: string;
@@ -112,6 +155,10 @@ export function SpeakingVideoLayout({
   localPlaceholder: string;
   overlay?: React.ReactNode;
   className?: string;
+  /** 0–1 height of the sharp video strip; remainder shows blurred ambient fill. */
+  videoHeightRatio?: number;
+  letterboxBlur?: boolean;
+  pipClassName?: string;
 }) {
   const { remoteParticipant, isConnected } = useSpeakingRoom();
   const { localParticipant } = useLocalParticipant();
@@ -119,10 +166,13 @@ export function SpeakingVideoLayout({
   const remoteTrack = useCameraTrackRef(remoteParticipant);
   const localTrack = useCameraTrackRef(localParticipant);
 
+  const ratio = Math.min(1, Math.max(0.4, videoHeightRatio));
+  const letterboxed = letterboxBlur && ratio < 1;
+
   return (
     <div
       className={cn(
-        "relative flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl bg-navy lg:min-h-[480px]",
+        "relative flex min-h-[320px] flex-1 flex-col overflow-hidden bg-slate-950 lg:min-h-[480px]",
         className,
       )}
     >
@@ -136,8 +186,28 @@ export function SpeakingVideoLayout({
         )}
       </div>
 
-      <div className="absolute inset-0">
-        <CameraTile
+      {letterboxed && remoteTrack && (
+        <div className="absolute inset-0 overflow-hidden" aria-hidden>
+          <VideoTrack
+            trackRef={remoteTrack}
+            className="h-full w-full scale-[1.35] object-cover blur-3xl brightness-[0.45] saturate-150"
+          />
+          <div className="absolute inset-0 bg-slate-950/55" />
+          <div className="absolute inset-x-0 top-0 h-1/5 bg-gradient-to-b from-slate-950/80 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-1/5 bg-gradient-to-t from-slate-950/80 to-transparent" />
+        </div>
+      )}
+
+      <div
+        className={cn(
+          "absolute inset-x-0 z-[1] overflow-hidden shadow-2xl shadow-black/40",
+          letterboxed
+            ? "top-1/2 -translate-y-1/2"
+            : "inset-y-0",
+        )}
+        style={letterboxed ? { height: `${ratio * 100}%` } : undefined}
+      >
+        <RemoteVideoLayer
           trackRef={remoteTrack}
           label={remoteLabel}
           placeholder={remotePlaceholder}
@@ -145,7 +215,12 @@ export function SpeakingVideoLayout({
         />
       </div>
 
-      <div className="absolute bottom-4 right-4 z-10 h-28 w-40 overflow-hidden rounded-xl border-2 border-white/20 shadow-xl">
+      <div
+        className={cn(
+          "absolute z-10 h-28 w-40 overflow-hidden rounded-xl border-2 border-white/20 shadow-xl",
+          pipClassName ?? "bottom-4 right-4",
+        )}
+      >
         <CameraTile
           trackRef={localTrack}
           label={localLabel}
