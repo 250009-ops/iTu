@@ -92,6 +92,13 @@ export default function LoginForm() {
         data.rememberMe ?? false,
       );
     } catch (error) {
+      if (error instanceof ApiError && error.status === 429) {
+        setAuthError(
+          "Too many sign-in attempts. Please wait a minute and try again.",
+        );
+        return;
+      }
+
       if (error instanceof ApiError && error.status === 0) {
         setAuthError(
           "Cannot reach the server. Check your connection and try again, or contact support if the problem continues.",

@@ -3,6 +3,10 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import {
+  shouldSkipAuthThrottler,
+  shouldSkipContactThrottler,
+} from './common/throttler/throttler.utils';
 import { AppController } from './app.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -41,12 +45,14 @@ import { StorageModule } from './common/storage/storage.module';
       {
         name: 'auth',
         ttl: Number(process.env.AUTH_RATE_LIMIT_TTL_MS ?? 60_000),
-        limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 15),
+        limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 30),
+        skipIf: shouldSkipAuthThrottler,
       },
       {
         name: 'contact',
         ttl: Number(process.env.CONTACT_RATE_LIMIT_TTL_MS ?? 60_000),
         limit: Number(process.env.CONTACT_RATE_LIMIT_MAX ?? 5),
+        skipIf: shouldSkipContactThrottler,
       },
     ]),
     AuditModule,

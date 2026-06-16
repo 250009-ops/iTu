@@ -14,6 +14,9 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const isProduction = config.get('NODE_ENV') === 'production';
 
+  // Behind nginx — use X-Forwarded-For so rate limits apply per client IP.
+  app.set('trust proxy', 1);
+
   app.use(
     helmet({
       contentSecurityPolicy: isProduction ? undefined : false,
