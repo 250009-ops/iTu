@@ -25,26 +25,24 @@ function ScoreRow({
   onChange: (score: number) => void;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium leading-tight text-white/75">
-          {label}
-        </p>
-        <span className="text-sm font-bold tabular-nums text-sky-300">
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium leading-snug text-white/85">{label}</p>
+        <span className="shrink-0 text-lg font-bold tabular-nums text-sky-300">
           {value}
         </span>
       </div>
-      <div className="flex flex-wrap gap-0.5">
+      <div className="grid grid-cols-5 gap-1.5">
         {bandOptions.map((score) => (
           <button
             key={score}
             type="button"
             onClick={() => onChange(score)}
             className={cn(
-              "flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-0.5 text-[10px] font-semibold transition-colors",
+              "flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-colors",
               value === score
-                ? "bg-sky-400/90 text-slate-950"
-                : "bg-white/10 text-white/70 hover:bg-white/20",
+                ? "bg-sky-400 text-slate-950 shadow-sm"
+                : "bg-white/10 text-white/75 hover:bg-white/20",
             )}
           >
             {score}
@@ -55,7 +53,7 @@ function ScoreRow({
   );
 }
 
-export function ScoringOverlay() {
+export function ScoringSidebar() {
   const { session, sessionId } = useTeacherSpeaking();
   const [scores, setScores] = useState(
     session?.defaultScores ?? {
@@ -115,21 +113,21 @@ export function ScoringOverlay() {
 
   return (
     <>
-      <div
-        className="pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-[min(100%,15.5rem)] flex-col justify-center bg-gradient-to-l from-black/75 via-black/45 to-transparent px-3 py-6 sm:w-64 sm:px-4"
+      <aside
+        className="flex h-full min-w-0 flex-col border-l border-white/10 bg-slate-900/90"
         aria-label="Live band scoring"
       >
-        <div className="ml-auto w-full max-w-[13.5rem] space-y-3 sm:max-w-none">
-          <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
+        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-5">
+          <div className="rounded-xl bg-white/5 px-4 py-4 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
               Band score
             </p>
-            <p className="text-3xl font-bold tabular-nums leading-none text-white">
+            <p className="mt-1 text-5xl font-bold tabular-nums leading-none text-white">
               {overall.toFixed(1)}
             </p>
           </div>
 
-          <div className="space-y-3 border-t border-white/10 pt-3">
+          <div className="mt-5 space-y-5">
             {session.criteria.map((criterion) => (
               <ScoreRow
                 key={criterion.id}
@@ -141,36 +139,38 @@ export function ScoringOverlay() {
           </div>
 
           <textarea
-            placeholder="Examiner notes…"
+            placeholder="Examiner notes and observations…"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="w-full resize-none rounded-md border-0 bg-white/8 px-2.5 py-2 text-[11px] text-white placeholder:text-white/35 focus:bg-white/12 focus:outline-none focus:ring-1 focus:ring-sky-400/40"
+            rows={4}
+            className="mt-5 w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/35 focus:border-sky-400/50 focus:bg-white/8 focus:outline-none focus:ring-1 focus:ring-sky-400/30"
           />
-
-          <Button
-            variant="danger"
-            size="sm"
-            className="h-8 w-full text-xs"
-            loading={submitting}
-            onClick={() => setConfirmOpen(true)}
-          >
-            <Save className="h-3.5 w-3.5" />
-            Submit grade
-          </Button>
 
           {session.recordingUrl && (
             <a
               href={session.recordingUrl}
               target="_blank"
               rel="noreferrer"
-              className="block text-right text-[10px] text-sky-300/90 hover:text-sky-200 hover:underline"
+              className="mt-3 block text-center text-xs text-sky-300 hover:text-sky-200 hover:underline"
             >
-              Open recording
+              Open speaking recording
             </a>
           )}
         </div>
-      </div>
+
+        <div className="shrink-0 border-t border-white/10 px-4 py-4 sm:px-5">
+          <Button
+            variant="danger"
+            size="default"
+            className="h-11 w-full"
+            loading={submitting}
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Save className="h-4 w-4" />
+            Submit grade
+          </Button>
+        </div>
+      </aside>
 
       <ConfirmDialog
         open={confirmOpen}
@@ -183,3 +183,6 @@ export function ScoringOverlay() {
     </>
   );
 }
+
+/** @deprecated Use ScoringSidebar in the split live console layout. */
+export const ScoringOverlay = ScoringSidebar;

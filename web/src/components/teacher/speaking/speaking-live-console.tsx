@@ -10,7 +10,7 @@ import {
   Radio,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScoringOverlay } from "@/components/teacher/speaking/scoring-overlay";
+import { ScoringSidebar } from "@/components/teacher/speaking/scoring-overlay";
 import {
   LivekitSetupNotice,
   useSpeakingRoom,
@@ -129,24 +129,22 @@ export function SpeakingLiveConsole() {
         </div>
       </header>
 
-      <main className="relative min-h-0 flex-1">
+      <main className="flex min-h-0 flex-1">
         {!livekitConfigured ? (
-          <div className="flex h-full items-center justify-center p-8">
+          <div className="flex flex-1 items-center justify-center p-8">
             <LivekitSetupNotice />
           </div>
         ) : (
           <>
-            <SpeakingVideoLayout
-              remoteLabel={session.studentName}
-              localLabel="You"
-              remotePlaceholder={session.studentInitials}
-              localPlaceholder={session.studentInitials.slice(0, 1)}
-              className="h-full min-h-[280px]"
-              videoWidthRatio={0.6}
-              letterboxBlur
-              overlay={
-                <>
-                  <div className="pointer-events-none absolute inset-x-[20%] bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-28 pt-16 sm:px-8">
+            <div className="relative min-w-0 basis-[70%]">
+              <SpeakingVideoLayout
+                remoteLabel={session.studentName}
+                localLabel="You"
+                remotePlaceholder={session.studentInitials}
+                localPlaceholder={session.studentInitials.slice(0, 1)}
+                className="h-full min-h-[280px]"
+                overlay={
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-28 pt-16 sm:px-8">
                     {contentLoading ? (
                       <div className="flex items-center gap-2 text-white/70">
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -187,13 +185,15 @@ export function SpeakingLiveConsole() {
                       </>
                     )}
                   </div>
+                }
+              />
+              <div className="absolute bottom-4 left-4 z-20 hidden sm:block">
+                <SpeakingControlBar />
+              </div>
+            </div>
 
-                  <ScoringOverlay />
-                </>
-              }
-            />
-            <div className="absolute bottom-4 left-4 z-20 hidden sm:block">
-              <SpeakingControlBar />
+            <div className="min-w-0 basis-[30%]">
+              <ScoringSidebar />
             </div>
           </>
         )}
