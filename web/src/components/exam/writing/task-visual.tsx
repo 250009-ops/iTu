@@ -13,18 +13,32 @@ const SERIES = [
 const YEARS = ["2010", "2012", "2014", "2016", "2018", "2020", "2022", "2024"];
 
 export function TaskVisual({ visual }: { visual: Visual }) {
+  const alt =
+    visual.alt?.trim() ||
+    visual.caption?.trim() ||
+    `${visual.kind} chart for Writing Task 1`;
+
   return (
     <figure className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      {visual.kind === "line" ? (
+      {visual.imageUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={visual.imageUrl}
+          alt={alt}
+          className="mx-auto max-h-[min(420px,50vh)] w-full rounded-lg bg-white object-contain"
+        />
+      ) : visual.kind === "line" ? (
         <LineChart />
       ) : (
         <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-400">
           {visual.kind.toUpperCase()} visual
         </div>
       )}
-      <figcaption className="mt-3 text-center text-[12px] font-medium text-slate-500">
-        {visual.caption}
-      </figcaption>
+      {visual.caption?.trim() && (
+        <figcaption className="mt-3 text-center text-[12px] font-medium text-slate-500">
+          {visual.caption}
+        </figcaption>
+      )}
     </figure>
   );
 }
@@ -41,8 +55,7 @@ function LineChart() {
   const y = (v: number) => pad.t + plotH - (v / maxY) * plotH;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
-      {/* gridlines */}
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Sample line chart">
       {[0, 30, 60, 90].map((g) => (
         <g key={g}>
           <line
@@ -58,7 +71,6 @@ function LineChart() {
           </text>
         </g>
       ))}
-      {/* x labels */}
       {YEARS.map((yr, i) =>
         i % 2 === 0 ? (
           <text
@@ -73,7 +85,6 @@ function LineChart() {
           </text>
         ) : null,
       )}
-      {/* series */}
       {SERIES.map((s) => (
         <g key={s.name}>
           <polyline
@@ -88,7 +99,6 @@ function LineChart() {
           ))}
         </g>
       ))}
-      {/* legend */}
       {SERIES.map((s, i) => (
         <g key={s.name} transform={`translate(${pad.l + i * 92}, ${pad.t})`}>
           <rect width={8} height={8} y={-7} fill={s.color} rx={2} />

@@ -1,6 +1,7 @@
 import { ContentTestType } from '@prisma/client';
 
 export const LISTENING_FULL_AUDIO_KEY = 'full-audio';
+export const WRITING_TASK1_IMAGE_KEY = 'task-1-image';
 
 export function questionCountForTest(
   type: ContentTestType,
@@ -64,6 +65,28 @@ export function listeningAudioReady(
 
   const audioUrl = c.audioUrl;
   return typeof audioUrl === 'string' && audioUrl.trim().length > 0;
+}
+
+export function writingTask1ImageReady(
+  content: unknown,
+  mediaAssets: { key: string }[],
+): boolean {
+  if (mediaAssets.some((a) => a.key === WRITING_TASK1_IMAGE_KEY)) {
+    return true;
+  }
+  if (!content || typeof content !== 'object') return false;
+  const c = content as Record<string, unknown>;
+  const tasks = c.tasks;
+  if (!Array.isArray(tasks)) return false;
+  const task1 = tasks.find(
+    (t) =>
+      typeof t === 'object' &&
+      t !== null &&
+      (t as { taskNumber?: number }).taskNumber === 1,
+  ) as { visual?: { imageUrl?: string; kind?: string } } | undefined;
+  if (!task1?.visual?.kind) return true;
+  const url = task1.visual.imageUrl;
+  return typeof url === 'string' && url.trim().length > 0;
 }
 
 /** Detect scaffold keys (`answer1` … `answerN`) that must be replaced before publish. */

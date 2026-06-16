@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { PartitionBanner } from "@/components/admin/content/partition-banner";
 import { RichTextField } from "@/components/admin/content/forms/rich-text-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +12,17 @@ import {
   emptyReadingPassage,
   recomputeTotalQuestions,
 } from "@/lib/admin/content/factories";
+import {
+  collectOrderedNumbers,
+  defaultPartitionBlurb,
+  renumberReadingContent,
+  remapAnswerKeyByOrder,
+  validatePartitionGroups,
+  partitionStatusesForModule,
+} from "@/lib/admin/content/numbering";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
-import type { ReadingContent } from "@/lib/exam/types";
+import type { QuestionGroup, ReadingContent } from "@/lib/exam/types";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -50,14 +59,52 @@ export function ReadingVisualEditor({
     onAnswerKeyChange(syncAnswerKey("reading", next, answerKey));
   }
 
-  function updateGroups(groups: typeof passage.groups) {
-    updatePassage({ groups });
+  function updateGroups(groups: QuestionGroup[]) {
+    const oldNums = collectOrderedNumbers(passage.groups ?? []);
+    const newNums = collectOrderedNumbers(groups);
+    const remapped = remapAnswerKeyByOrder(answerKey, oldNums, newNums);
+    const nextPassages = [...passages];
+    nextPassages[activeIdx] = {
+      ...passage,
+      groups,
+      blurb: groups.length > 0 ? defaultPartitionBlurb("reading", passage.part) : passage.blurb,
+    };
+    const next = { ...content, passages: nextPassages };
+    recomputeTotalQuestions(next);
+    onContentChange(next);
+    onAnswerKeyChange(syncAnswerKey("reading", next, remapped));
   }
+
+  function renumberAll() {
+    const oldNums = collectOrderedNumbers(
+      passages.flatMap((p) => p.groups ?? []),
+    );
+    const renumbered = renumberReadingContent(content);
+    const newNums = collectOrderedNumbers(
+      renumbered.passages.flatMap((p) => p.groups ?? []),
+    );
+    const remapped = remapAnswerKeyByOrder(answerKey, oldNums, newNums);
+    recomputeTotalQuestions(renumbered);
+    onContentChange(renumbered);
+    onAnswerKeyChange(syncAnswerKey("reading", renumbered, remapped));
+  }
+
+  const partitionStatus = validatePartitionGroups(
+    "reading",
+    passage.part,
+    passage.groups ?? [],
+    answerKey,
+  );
+  const allPartitionStatuses = partitionStatusesForModule("reading", content, answerKey);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
-        {passages.map((p, idx) => (
+        {passages.map((p, idx) => {
+          const tabStatus = allPartitionStatuses.find((s) => s.part === p.part);
+          const tabCount = tabStatus?.count ?? 0;
+          const expected = tabStatus?.range.expectedCount ?? 13;
+          return (
           <button
             key={p.id}
             type="button"
@@ -70,8 +117,12 @@ export function ReadingVisualEditor({
             )}
           >
             Passage {p.part}
+            <span className="ml-1.5 text-xs font-normal opacity-80">
+              ({tabCount}/{expected})
+            </span>
           </button>
-        ))}
+          );
+        })}
         {passages.length < 3 && (
           <Button
             variant="secondary"
@@ -87,6 +138,14 @@ export function ReadingVisualEditor({
             <Plus className="h-3.5 w-3.5" /> Add passage
           </Button>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
+        <Button variant="secondary" size="sm" onClick={renumberAll}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          Renumber all
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -170,6 +229,7 @@ export function ReadingVisualEditor({
       <QuestionGroupsPanel
         groups={passage.groups}
         module="reading"
+        partNumber={passage.part}
         testId={testId}
         answerKey={answerKey}
         onGroupsChange={updateGroups}

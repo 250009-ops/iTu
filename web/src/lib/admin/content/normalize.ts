@@ -126,6 +126,9 @@ function repairSpeakingContent(raw: object): SpeakingContent {
       ...cueCard,
       bullets: asArray(cueCard.bullets, [""]),
     },
+    part1Questions: asArray(c.part1Questions),
+    part3Questions: asArray(c.part3Questions),
+    part2ExaminerNotes: asArray(c.part2ExaminerNotes),
   };
 }
 

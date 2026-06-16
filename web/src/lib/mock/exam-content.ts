@@ -671,4 +671,21 @@ export const speakingStudentContent = {
     prepSeconds: 60,
     speakSeconds: 120,
   },
+  part1Questions: [
+    "Can you tell me your full name, please?",
+    "Where are you from, and do you live in a house or a flat?",
+    "Let's talk about your work or studies. What do you do?",
+    "Do you enjoy your free time? What do you usually do?",
+  ],
+  part2ExaminerNotes: [
+    "Give the candidate 1 minute to prepare.",
+    "Ask them to speak for 1–2 minutes.",
+    "Ask one or two rounding-off questions afterwards.",
+  ],
+  part3Questions: [
+    "What skills do you think are most important for young people today?",
+    "Do you think some skills are becoming less useful over time?",
+    "How has technology changed the way people learn new skills?",
+    "Should governments invest more in skills training? Why?",
+  ],
 };

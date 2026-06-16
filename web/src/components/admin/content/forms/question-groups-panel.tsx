@@ -7,6 +7,10 @@ import {
   createQuestionGroup,
   QUESTION_TYPE_LABELS,
 } from "@/lib/admin/content/factories";
+import {
+  partitionForPart,
+  renumberPartitionGroups,
+} from "@/lib/admin/content/numbering";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type { QuestionGroup } from "@/lib/exam/types";
 
@@ -35,6 +39,8 @@ const LISTENING_TYPES: QuestionGroup["type"][] = [
 type Props = {
   groups: QuestionGroup[];
   module: "reading" | "listening";
+  /** 1-based part or passage number (IELTS partition). */
+  partNumber: number;
   testId?: string;
   answerKey: AnswerKeyMap;
   onGroupsChange: (groups: QuestionGroup[]) => void;
@@ -44,6 +50,7 @@ type Props = {
 export function QuestionGroupsPanel({
   groups: groupsProp,
   module,
+  partNumber,
   testId,
   answerKey,
   onGroupsChange,
@@ -51,28 +58,24 @@ export function QuestionGroupsPanel({
 }: Props) {
   const groups = groupsProp ?? [];
   const types = module === "reading" ? READING_TYPES : LISTENING_TYPES;
+  const partitionFrom = partitionForPart(module, partNumber).from;
 
-  function nextQuestionNumber(): number {
-    let max = 0;
-    for (const g of groups) {
-      if (g.to > max) max = g.to;
-    }
-    return max + 1;
+  function commitGroups(next: QuestionGroup[]) {
+    onGroupsChange(renumberPartitionGroups(next, partitionFrom));
   }
 
   function addGroup(type: QuestionGroup["type"]) {
-    const from = nextQuestionNumber();
-    onGroupsChange([...groups, createQuestionGroup(type, from)]);
+    commitGroups([...groups, createQuestionGroup(type, partitionFrom)]);
   }
 
   function updateGroup(index: number, group: QuestionGroup) {
     const next = [...groups];
     next[index] = group;
-    onGroupsChange(next);
+    commitGroups(next);
   }
 
   function removeGroup(index: number) {
-    onGroupsChange(groups.filter((_, i) => i !== index));
+    commitGroups(groups.filter((_, i) => i !== index));
   }
 
   return (

@@ -137,8 +137,14 @@ export interface WritingTask {
   minWords: number;
   instruction: string;
   prompt: string;
-  /** Optional visual asset rendered in the prompt pane (chart/diagram placeholder). */
-  visual?: { kind: "bar" | "line" | "pie" | "table" | "process" | "map"; caption: string };
+  /** Optional visual asset rendered in the prompt pane (chart/diagram). */
+  visual?: {
+    kind: "bar" | "line" | "pie" | "table" | "process" | "map";
+    caption: string;
+    /** Uploaded chart/diagram image URL (admin media library). */
+    imageUrl?: string;
+    alt?: string;
+  };
 }
 
 export interface ListeningContent {
@@ -187,6 +193,12 @@ export interface SpeakingContent {
   slot: string;
   parts: SpeakingPart[];
   cueCard: SpeakingCueCard;
+  /** Part 1 interviewer questions (examiner-only; not shown to student). */
+  part1Questions?: string[];
+  /** Part 3 discussion questions (examiner-only). */
+  part3Questions?: string[];
+  /** Optional examiner notes during Part 2 (prep/speak/rounding-off). */
+  part2ExaminerNotes?: string[];
 }
 
 export function isGap(node: InlineNode): node is Gap {

@@ -11,6 +11,59 @@ type Props = {
   onContentChange: (content: SpeakingContent) => void;
 };
 
+function QuestionListEditor({
+  label,
+  hint,
+  questions,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  questions: string[];
+  onChange: (questions: string[]) => void;
+}) {
+  const items = questions.length > 0 ? questions : [""];
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label className="text-xs font-semibold text-navy">{label}</Label>
+        <p className="text-xs text-muted">{hint}</p>
+      </div>
+      {items.map((q, idx) => (
+        <div key={idx} className="flex gap-2">
+          <span className="flex h-10 w-7 shrink-0 items-center justify-center text-xs font-bold text-muted">
+            {idx + 1}
+          </span>
+          <Input
+            value={q}
+            onChange={(e) => {
+              const next = [...items];
+              next[idx] = e.target.value;
+              onChange(next);
+            }}
+            placeholder={`Question ${idx + 1}`}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            className="shrink-0 text-red-600"
+            onClick={() => {
+              const next = items.filter((_, i) => i !== idx);
+              onChange(next.length ? next : [""]);
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+      <Button variant="secondary" size="sm" onClick={() => onChange([...items, ""])}>
+        <Plus className="h-3.5 w-3.5" /> Add question
+      </Button>
+    </div>
+  );
+}
+
 export function SpeakingVisualEditor({ content, onContentChange }: Props) {
   const parts = content.parts ?? [];
   const cueCard = content.cueCard ?? {
@@ -37,7 +90,7 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-navy">Speaking parts</h3>
+        <h3 className="text-sm font-semibold text-navy">Speaking parts (student sees titles only)</h3>
         {parts.map((part, idx) => (
           <div key={part.part} className="rounded-xl border border-border bg-slate-50 p-4">
             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted">
@@ -61,7 +114,7 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
                 />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label className="text-xs">Guidance (shown to student)</Label>
+                <Label className="text-xs">Guidance (minimal status text for student)</Label>
                 <Input
                   value={part.guidance}
                   onChange={(e) => updatePart(idx, { guidance: e.target.value })}
@@ -72,8 +125,17 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
         ))}
       </div>
 
+      <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-4">
+        <QuestionListEditor
+          label="Part 1 — Interviewer questions"
+          hint="Examiner-only. Shown in the live console prompt overlay — not visible to the student."
+          questions={content.part1Questions ?? [""]}
+          onChange={(part1Questions) => onContentChange({ ...content, part1Questions })}
+        />
+      </div>
+
       <div className="space-y-4 rounded-xl border border-rose-200 bg-rose-50/40 p-4">
-        <h3 className="text-sm font-semibold text-navy">Part 2 cue card</h3>
+        <h3 className="text-sm font-semibold text-navy">Part 2 cue card (released to student)</h3>
         <div className="space-y-2">
           <Label className="text-xs">Topic title</Label>
           <Input
@@ -101,7 +163,7 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
           </div>
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Bullet prompts</Label>
+          <Label className="text-xs">Bullet prompts (You should say…)</Label>
           {bullets.map((bullet, idx) => (
             <div key={idx} className="flex gap-2">
               <Input
@@ -134,6 +196,24 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
             <Plus className="h-3.5 w-3.5" /> Add bullet
           </Button>
         </div>
+
+        <QuestionListEditor
+          label="Part 2 — Examiner notes"
+          hint="Examiner-only reminders (prep timing, rounding-off questions)."
+          questions={content.part2ExaminerNotes ?? [""]}
+          onChange={(part2ExaminerNotes) =>
+            onContentChange({ ...content, part2ExaminerNotes })
+          }
+        />
+      </div>
+
+      <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4">
+        <QuestionListEditor
+          label="Part 3 — Discussion questions"
+          hint="Examiner-only. Shown in the live console — not visible to the student."
+          questions={content.part3Questions ?? [""]}
+          onChange={(part3Questions) => onContentChange({ ...content, part3Questions })}
+        />
       </div>
     </div>
   );

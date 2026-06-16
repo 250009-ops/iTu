@@ -177,6 +177,44 @@ export class SpeakingService {
     return this.toStateResponse(session);
   }
 
+  /** Full speaking bank content for the examiner console (includes Part 1/3 questions). */
+  async getExaminerContent(speakingSessionId: string, user: RequestUser) {
+    const session = await this.assertAccess(speakingSessionId, user);
+    const role = this.resolveRole(session, user);
+    if (role !== 'examiner' && role !== 'admin') {
+      throw new ForbiddenException('Examiner content is for teachers only');
+    }
+
+    const enrollment = session.sectionAttempt.session.enrollment;
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id: enrollment.packageId },
+      select: { speakingBankId: true, title: true },
+    });
+
+    if (!pkg?.speakingBankId) {
+      throw new NotFoundException(
+        'No speaking content bank configured for this package',
+      );
+    }
+
+    const bank = await this.prisma.contentTest.findUnique({
+      where: { id: pkg.speakingBankId },
+      select: { id: true, code: true, title: true, content: true },
+    });
+
+    if (!bank) {
+      throw new NotFoundException('Speaking content bank not found');
+    }
+
+    return {
+      bankId: bank.id,
+      code: bank.code,
+      title: bank.title,
+      packageTitle: pkg.title,
+      content: bank.content,
+    };
+  }
+
   async updateState(
     speakingSessionId: string,
     user: RequestUser,

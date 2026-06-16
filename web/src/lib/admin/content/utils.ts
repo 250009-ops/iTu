@@ -3,14 +3,22 @@ import {
   listeningMediaReady,
   type MediaAssetRef,
 } from "@/lib/admin/content/listening-media";
+import { writingTask1ImageReady } from "@/lib/admin/content/writing-media";
+import {
+  IELTS_TOTAL_QUESTIONS,
+  validateModuleNumbering,
+  partitionStatusesForModule,
+} from "@/lib/admin/content/numbering";
 import type {
   Gap,
   InlineNode,
+  ListeningContent,
   ListeningPart,
   QuestionGroup,
+  ReadingContent,
   ReadingPassage,
+  WritingContent,
 } from "@/lib/exam/types";
-import { questionNumbers } from "@/lib/exam/helpers";
 import { isPlaceholderAnswerKey } from "@/lib/mock/exam-answer-keys";
 
 export type AnswerKeyMap = Record<string, string | string[]>;
@@ -71,7 +79,9 @@ export function collectQuestionNumbers(
   if (module === "listening") {
     const parts = (Array.isArray(c.parts) ? c.parts : []) as ListeningPart[];
     for (const part of parts) {
-      nums.push(...questionNumbers(part.groups));
+      for (const g of part.groups ?? []) {
+        nums.push(...gapsInGroup(g));
+      }
     }
     return [...new Set(nums)].sort((a, b) => a - b);
   }
@@ -79,7 +89,9 @@ export function collectQuestionNumbers(
   if (module === "reading") {
     const passages = (Array.isArray(c.passages) ? c.passages : []) as ReadingPassage[];
     for (const passage of passages) {
-      nums.push(...questionNumbers(passage.groups));
+      for (const g of passage.groups ?? []) {
+        nums.push(...gapsInGroup(g));
+      }
     }
     return [...new Set(nums)].sort((a, b) => a - b);
   }
@@ -155,16 +167,33 @@ export function buildPublishChecklist(
 
   if (module === "writing") {
     const tasks = Array.isArray(c.tasks) ? c.tasks.length : 0;
+    const writingContent = content as unknown as WritingContent;
+    const task1 = writingContent.tasks?.find((t) => t.taskNumber === 1);
+    const hasVisualType = Boolean(task1?.visual?.kind);
     items.push({
       id: "tasks",
       label: `${tasks}/2 writing tasks defined`,
       ok: tasks >= 2,
     });
+    if (hasVisualType) {
+      items.push({
+        id: "task1-image",
+        label: "Task 1 chart/diagram image uploaded",
+        ok: writingTask1ImageReady(writingContent, mediaAssets),
+        hint: "Upload the chart, graph, map, or diagram for Task 1.",
+      });
+    }
   }
 
   if (module === "speaking") {
     const parts = Array.isArray(c.parts) ? c.parts.length : 0;
     const cueCard = c.cueCard as { title?: string } | undefined;
+    const p1 = Array.isArray(c.part1Questions)
+      ? (c.part1Questions as string[]).filter((q) => q.trim()).length
+      : 0;
+    const p3 = Array.isArray(c.part3Questions)
+      ? (c.part3Questions as string[]).filter((q) => q.trim()).length
+      : 0;
     items.push({
       id: "parts",
       label: `${parts}/3 speaking parts defined`,
@@ -175,15 +204,33 @@ export function buildPublishChecklist(
       label: "Part 2 cue card configured",
       ok: Boolean(cueCard?.title?.trim()),
     });
+    items.push({
+      id: "part1-questions",
+      label: `${p1} Part 1 interviewer questions`,
+      ok: p1 >= 3,
+      hint: "Add at least 3 Part 1 questions for the examiner console.",
+    });
+    items.push({
+      id: "part3-questions",
+      label: `${p3} Part 3 discussion questions`,
+      ok: p3 >= 3,
+      hint: "Add at least 3 Part 3 questions for the examiner console.",
+    });
   }
 
   if (module === "listening" || module === "reading") {
     const nums = collectQuestionNumbers(module, content);
     const key = answerKey ?? {};
+    const skillContent = content as unknown as ListeningContent | ReadingContent;
+
     items.push({
       id: "questions",
-      label: `${nums.length} questions numbered in content`,
-      ok: nums.length > 0,
+      label: `${nums.length}/${IELTS_TOTAL_QUESTIONS} questions numbered in content`,
+      ok: nums.length === IELTS_TOTAL_QUESTIONS,
+      hint:
+        nums.length !== IELTS_TOTAL_QUESTIONS
+          ? "Academic Listening and Reading tests use 40 questions."
+          : undefined,
     });
     items.push({
       id: "answers",
@@ -195,6 +242,34 @@ export function buildPublishChecklist(
       label: "Answer key is not placeholder scaffolding",
       ok: !isPlaceholderAnswerKey(key),
     });
+
+    const numberingIssues = validateModuleNumbering(
+      module,
+      skillContent,
+      key,
+    ).filter((i) => i.severity === "error");
+    items.push({
+      id: "numbering",
+      label:
+        numberingIssues.length === 0
+          ? "Question numbering has no gaps or overlaps"
+          : `${numberingIssues.length} numbering issue${numberingIssues.length === 1 ? "" : "s"}`,
+      ok: numberingIssues.length === 0,
+      hint: numberingIssues[0]?.message,
+    });
+
+    const partitions = partitionStatusesForModule(module, skillContent, key);
+    for (const status of partitions) {
+      const partitionOk =
+        status.count === status.range.expectedCount &&
+        !status.issues.some((i) => i.severity === "error");
+      items.push({
+        id: `partition-${status.part}`,
+        label: `${status.label}: ${status.count}/${status.range.expectedCount} questions (${status.range.from}–${status.range.to})`,
+        ok: partitionOk,
+        hint: status.issues.find((i) => i.severity === "error")?.message,
+      });
+    }
   }
 
   return items;

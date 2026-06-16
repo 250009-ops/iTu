@@ -31,6 +31,15 @@ export class SpeakingController {
     return this.speaking.joinSession(id, user);
   }
 
+  @Get('speaking-sessions/:id/content')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  getExaminerContent(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.speaking.getExaminerContent(id, user);
+  }
+
   @Get('speaking-sessions/:id/state')
   @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
   getState(@Param('id') id: string, @CurrentUser() user: RequestUser) {

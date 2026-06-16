@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSpeakingSession } from "@/lib/api/grading";
+import { getSpeakingExaminerContent } from "@/lib/api/speaking";
 import { getTeacherDashboard } from "@/lib/api/teachers";
 import {
   mapSpeakingSchedule,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/api/mappers/teacher";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuth } from "@/hooks/use-auth";
+import type { SpeakingContent } from "@/lib/exam/types";
 
 type TeacherSpeakingValue = {
   loading: boolean;
@@ -25,6 +27,9 @@ type TeacherSpeakingValue = {
   todaySessions: ReturnType<typeof mapSpeakingSchedule>;
   session: ReturnType<typeof mapSpeakingSession> | null;
   sessionId: string | null;
+  speakingContent: SpeakingContent | null;
+  contentLoading: boolean;
+  contentError: string | null;
 };
 
 const TeacherSpeakingContext = createContext<TeacherSpeakingValue | null>(null);
@@ -48,6 +53,12 @@ export function TeacherSpeakingProvider({ children }: { children: ReactNode }) {
 
   const speaking = useApiQuery(
     () => getSpeakingSession(resolvedId!),
+    [authSession?.accessToken, resolvedId],
+    { enabled: Boolean(resolvedId) },
+  );
+
+  const bank = useApiQuery(
+    () => getSpeakingExaminerContent(resolvedId!),
     [authSession?.accessToken, resolvedId],
     { enabled: Boolean(resolvedId) },
   );
@@ -80,8 +91,11 @@ export function TeacherSpeakingProvider({ children }: { children: ReactNode }) {
       todaySessions,
       sessionId: resolvedId,
       session,
+      speakingContent: bank.data?.content ?? null,
+      contentLoading: bank.loading,
+      contentError: bank.error,
     };
-  }, [resolvedId, urlSessionId, dashboard, speaking]);
+  }, [resolvedId, urlSessionId, dashboard, speaking, bank]);
 
   return (
     <TeacherSpeakingContext.Provider value={value}>

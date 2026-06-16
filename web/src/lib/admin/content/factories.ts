@@ -113,6 +113,21 @@ export function emptySpeakingContent(title = "Speaking"): SpeakingContent {
       prepSeconds: 60,
       speakSeconds: 120,
     },
+    part1Questions: [
+      "Can you tell me your full name, please?",
+      "Where are you from?",
+      "What do you do — work or study?",
+    ],
+    part3Questions: [
+      "Why do you think this topic is important?",
+      "Has this changed in recent years?",
+      "What might happen in the future?",
+    ],
+    part2ExaminerNotes: [
+      "Give the candidate 1 minute to prepare.",
+      "Ask them to speak for 1–2 minutes.",
+      "Ask one or two rounding-off questions.",
+    ],
   };
 }
 

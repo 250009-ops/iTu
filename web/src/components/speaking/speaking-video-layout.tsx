@@ -104,12 +104,14 @@ export function SpeakingVideoLayout({
   remotePlaceholder,
   localPlaceholder,
   overlay,
+  className,
 }: {
   remoteLabel: string;
   localLabel: string;
   remotePlaceholder: string;
   localPlaceholder: string;
   overlay?: React.ReactNode;
+  className?: string;
 }) {
   const { remoteParticipant, isConnected } = useSpeakingRoom();
   const { localParticipant } = useLocalParticipant();
@@ -118,7 +120,12 @@ export function SpeakingVideoLayout({
   const localTrack = useCameraTrackRef(localParticipant);
 
   return (
-    <div className="relative flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl bg-navy lg:min-h-[480px]">
+    <div
+      className={cn(
+        "relative flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl bg-navy lg:min-h-[480px]",
+        className,
+      )}
+    >
       <div className="absolute left-4 top-4 z-10 flex items-center gap-3">
         {localParticipant && <QualityBadge participant={localParticipant} />}
         {!isConnected && (

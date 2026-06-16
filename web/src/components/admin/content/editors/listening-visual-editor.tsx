@@ -1,14 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { PartitionBanner } from "@/components/admin/content/partition-banner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { ListeningAudioUpload } from "@/components/admin/content/listening-audio-upload";
 import { QuestionGroupsPanel } from "@/components/admin/content/forms/question-groups-panel";
 import { recomputeTotalQuestions } from "@/lib/admin/content/factories";
+import {
+  collectOrderedNumbers,
+  defaultPartitionBlurb,
+  renumberListeningContent,
+  remapAnswerKeyByOrder,
+  partitionStatusesForModule,
+  validatePartitionGroups,
+} from "@/lib/admin/content/numbering";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
-import type { ListeningContent } from "@/lib/exam/types";
+import type { ListeningContent, QuestionGroup } from "@/lib/exam/types";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -48,6 +59,43 @@ export function ListeningVisualEditor({
     commit({ ...content, parts: nextParts });
   }
 
+  function updateGroups(groups: QuestionGroup[]) {
+    const oldNums = collectOrderedNumbers(part.groups ?? []);
+    const newNums = collectOrderedNumbers(groups);
+    const remapped = remapAnswerKeyByOrder(answerKey, oldNums, newNums);
+    const nextPart = {
+      ...part,
+      groups,
+      blurb: groups.length > 0 ? defaultPartitionBlurb("listening", part.part) : part.blurb,
+    };
+    const nextParts = [...parts];
+    nextParts[activeIdx] = nextPart;
+    const next = { ...content, parts: nextParts };
+    recomputeTotalQuestions(next);
+    onContentChange(next);
+    onAnswerKeyChange(syncAnswerKey("listening", next, remapped));
+  }
+
+  function renumberAll() {
+    const oldNums = collectOrderedNumbers(parts.flatMap((p) => p.groups ?? []));
+    const renumbered = renumberListeningContent(content);
+    const newNums = collectOrderedNumbers(
+      renumbered.parts.flatMap((p) => p.groups ?? []),
+    );
+    const remapped = remapAnswerKeyByOrder(answerKey, oldNums, newNums);
+    recomputeTotalQuestions(renumbered);
+    onContentChange(renumbered);
+    onAnswerKeyChange(syncAnswerKey("listening", renumbered, remapped));
+  }
+
+  const partitionStatus = validatePartitionGroups(
+    "listening",
+    part.part,
+    part.groups ?? [],
+    answerKey,
+  );
+  const allPartitionStatuses = partitionStatusesForModule("listening", content, answerKey);
+
   return (
     <div className="min-h-0">
       <div className="sticky top-0 z-10 -mx-5 space-y-4 border-b border-border bg-white px-5 pb-4 pt-1 shadow-[0_1px_0_rgba(0,0,0,0.04)] sm:-mx-6 sm:px-6">
@@ -56,7 +104,11 @@ export function ListeningVisualEditor({
         )}
 
         <div className="flex flex-wrap gap-2">
-          {parts.map((p, idx) => (
+          {parts.map((p, idx) => {
+            const tabStatus = allPartitionStatuses.find((s) => s.part === p.part);
+            const tabCount = tabStatus?.count ?? 0;
+            const expected = tabStatus?.range.expectedCount ?? 10;
+            return (
             <button
               key={p.id}
               type="button"
@@ -69,12 +121,24 @@ export function ListeningVisualEditor({
               )}
             >
               Part {p.part}
+              <span className="ml-1.5 text-xs font-normal opacity-80">
+                ({tabCount}/{expected})
+              </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className="space-y-5 pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
+          <Button variant="secondary" size="sm" onClick={renumberAll}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Renumber all
+          </Button>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Part title</Label>
@@ -89,9 +153,10 @@ export function ListeningVisualEditor({
         <QuestionGroupsPanel
           groups={part.groups}
           module="listening"
+          partNumber={part.part}
           testId={testId}
           answerKey={answerKey}
-          onGroupsChange={(groups) => updatePart({ groups })}
+          onGroupsChange={updateGroups}
           onAnswerKeyChange={onAnswerKeyChange}
         />
       </div>

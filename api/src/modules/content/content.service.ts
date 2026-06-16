@@ -13,6 +13,8 @@ import {
   isPlaceholderAnswerKey,
   listeningAudioReady,
   questionCountForTest,
+  writingTask1ImageReady,
+  WRITING_TASK1_IMAGE_KEY,
 } from './content.utils';
 
 const AUDIO_MIME = new Set([
@@ -305,6 +307,14 @@ export class ContentService {
       }
     }
 
+    if (test.type === ContentTestType.WRITING) {
+      if (!writingTask1ImageReady(test.content, test.mediaAssets)) {
+        throw new BadRequestException(
+          'Upload a Task 1 chart/diagram image before publishing (required when a visual type is set)',
+        );
+      }
+    }
+
     if (
       test.type === ContentTestType.LISTENING ||
       test.type === ContentTestType.READING
@@ -380,10 +390,11 @@ export class ContentService {
   ) {
     const isAudio = PART_KEY.test(key) || key === FULL_AUDIO_KEY;
     const isMap = MAP_KEY.test(key);
+    const isWritingImage = key === WRITING_TASK1_IMAGE_KEY;
 
-    if (!isAudio && !isMap) {
+    if (!isAudio && !isMap && !isWritingImage) {
       throw new BadRequestException(
-        'Media key must be full-audio, part-1..part-4 (legacy audio), or map-{id} (image)',
+        'Media key must be full-audio, part-1..part-4 (legacy audio), map-{id} (image), or task-1-image (writing)',
       );
     }
     if (!file?.buffer?.length) {
@@ -394,10 +405,19 @@ export class ContentService {
       where: { id: testId },
     });
     if (!test) throw new NotFoundException('Test not found');
-    if (test.type !== ContentTestType.LISTENING) {
-      throw new BadRequestException(
-        'Media upload is only supported for listening tests',
-      );
+
+    if (isAudio || isMap) {
+      if (test.type !== ContentTestType.LISTENING) {
+        throw new BadRequestException(
+          'Audio and map media uploads are only supported for listening tests',
+        );
+      }
+    } else if (isWritingImage) {
+      if (test.type !== ContentTestType.WRITING) {
+        throw new BadRequestException(
+          'Task 1 image upload is only supported for writing tests',
+        );
+      }
     }
 
     if (isAudio && !AUDIO_MIME.has(file.mimetype)) {
@@ -405,14 +425,18 @@ export class ContentService {
         'Invalid audio type. Use MP3, WAV, or OGG.',
       );
     }
-    if (isMap && !IMAGE_MIME.has(file.mimetype)) {
+    if ((isMap || isWritingImage) && !IMAGE_MIME.has(file.mimetype)) {
       throw new BadRequestException(
         'Invalid image type. Use JPEG, PNG, or WebP.',
       );
     }
 
-    const ext = this.extensionForMime(file.mimetype, file.originalname, isMap);
-    const folder = isMap ? 'maps' : 'listening';
+    const ext = this.extensionForMime(
+      file.mimetype,
+      file.originalname,
+      isMap || isWritingImage,
+    );
+    const folder = isMap ? 'maps' : isWritingImage ? 'writing' : 'listening';
     const relativePath = `${folder}/${testId}/${key}${ext}`;
     const publicUrl = await this.storage.saveBuffer(relativePath, file.buffer);
 

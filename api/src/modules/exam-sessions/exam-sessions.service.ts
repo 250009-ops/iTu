@@ -681,6 +681,18 @@ export class ExamSessionsService {
       return { ...rest, content };
     }
 
+    if (skill === ExamSkill.SPEAKING) {
+      const raw = test.content as Record<string, unknown>;
+      const {
+        part1Questions: _p1,
+        part3Questions: _p3,
+        part2ExaminerNotes: _notes,
+        ...studentContent
+      } = raw;
+      const { mediaAssets: _assets, ...rest } = test;
+      return { ...rest, content: studentContent };
+    }
+
     const { mediaAssets: _assets, ...rest } = test;
     return rest;
   }

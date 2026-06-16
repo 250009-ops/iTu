@@ -410,8 +410,10 @@ export function ContentTestEditor({ module, testId }: Props) {
               {module === "writing" && (
                 <div className="space-y-5 pt-1">
                   <WritingVisualEditor
+                  testId={testId ?? undefined}
                   content={content as WritingContent}
                   onContentChange={(c) => handleContentChange(c)}
+                  onMediaUpdated={refreshMediaAssets}
                 />
                 </div>
               )}

@@ -58,3 +58,13 @@ export function updateSpeakingState(
     body,
   });
 }
+
+export function getSpeakingExaminerContent(speakingSessionId: string) {
+  return apiFetch<{
+    bankId: string;
+    code: string;
+    title: string;
+    packageTitle: string;
+    content: import("@/lib/exam/types").SpeakingContent;
+  }>(`/speaking-sessions/${speakingSessionId}/content`);
+}

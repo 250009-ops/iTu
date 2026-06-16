@@ -8,7 +8,7 @@ APP_ENV="/var/www/itestu/app/api/.env"
 DOMAIN="${DOMAIN:-itestu.uz}"
 
 echo "==> Ensuring local media storage on VPS..."
-mkdir -p "$MEDIA_DIR"/{listening,maps,recordings,results}
+mkdir -p "$MEDIA_DIR"/{listening,maps,writing,recordings,results}
 chmod -R 755 "$MEDIA_DIR"
 
 set_env() {

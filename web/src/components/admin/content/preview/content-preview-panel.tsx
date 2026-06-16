@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
+import { TaskVisual } from "@/components/exam/writing/task-visual";
 import { useExamState } from "@/lib/exam/use-exam-state";
 import type { ContentModule } from "@/lib/admin/types";
 import type {
@@ -162,15 +163,18 @@ function WritingPreview({ content }: { content: WritingContent }) {
         {task.prompt || "No prompt yet."}
       </p>
       {task.visual && (
-        <p className="mt-4 rounded-lg border border-dashed border-border bg-slate-50 p-3 text-xs text-muted">
-          Visual: {task.visual.kind} — {task.visual.caption || "No caption"}
-        </p>
+        <div className="mt-4">
+          <TaskVisual visual={task.visual} />
+        </div>
       )}
     </div>
   );
 }
 
 function SpeakingPreview({ content }: { content: SpeakingContent }) {
+  const p1 = content.part1Questions?.filter((q) => q.trim()) ?? [];
+  const p3 = content.part3Questions?.filter((q) => q.trim()) ?? [];
+
   return (
     <div className="space-y-4 rounded-xl border border-border bg-white p-6">
       {content.parts.map((part) => (
@@ -181,6 +185,16 @@ function SpeakingPreview({ content }: { content: SpeakingContent }) {
           <p className="mt-1 text-sm text-muted">{part.guidance}</p>
         </div>
       ))}
+      {p1.length > 0 && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
+          <p className="text-xs font-bold uppercase text-muted">Part 1 questions (examiner)</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+            {p1.map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ol>
+        </div>
+      )}
       <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
         <p className="font-semibold text-navy">{content.cueCard.title || "Cue card topic"}</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
@@ -189,6 +203,16 @@ function SpeakingPreview({ content }: { content: SpeakingContent }) {
           ))}
         </ul>
       </div>
+      {p3.length > 0 && (
+        <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+          <p className="text-xs font-bold uppercase text-muted">Part 3 questions (examiner)</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+            {p3.map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,16 +1,17 @@
 "use client";
 
 import { Suspense } from "react";
-import { LiveScoringPanel } from "@/components/teacher/speaking/live-scoring-panel";
-import { SessionControls } from "@/components/teacher/speaking/session-controls";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { SpeakingEmptyState } from "@/components/teacher/speaking/speaking-empty-state";
+import { SpeakingLiveConsole } from "@/components/teacher/speaking/speaking-live-console";
 import { SpeakingSessionHeader } from "@/components/teacher/speaking/session-header";
-import { VideoPanel } from "@/components/teacher/speaking/video-panel";
 import { SpeakingRoomProvider } from "@/contexts/speaking-room-context";
 import {
   TeacherSpeakingProvider,
   useTeacherSpeaking,
 } from "@/contexts/teacher-speaking-context";
+import { Button } from "@/components/ui/button";
 
 export function SpeakingConsoleView() {
   return (
@@ -58,20 +59,37 @@ function SpeakingContent() {
   return (
     <SpeakingRoomProvider speakingSessionId={sessionId} role="examiner">
       <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+        <div className="mx-auto max-w-3xl space-y-6">
           <SpeakingSessionHeader />
-
-          <div className="flex flex-col gap-6 lg:flex-row">
-            <div className="min-w-0 flex-1">
-              <VideoPanel />
-            </div>
-            <div className="flex flex-col gap-4 lg:w-80 lg:shrink-0">
-              <SessionControls />
-              <LiveScoringPanel />
-            </div>
+          <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-navy">Ready to examine?</h2>
+            <p className="mt-2 text-sm text-muted">
+              Open the full-screen live console to run the speaking test with
+              video, content-driven prompts from the published bank, and
+              in-call scoring.
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Student: <strong className="text-navy">{session.studentName}</strong>
+              {" · "}
+              {session.timeRange}
+            </p>
+            <Link
+              href={`/teacher/speaking?session=${sessionId}&live=1`}
+              className="mt-4 inline-block"
+            >
+              <Button size="lg">Enter live console</Button>
+            </Link>
           </div>
         </div>
       </div>
+      <LiveConsoleGate />
     </SpeakingRoomProvider>
   );
+}
+
+function LiveConsoleGate() {
+  const searchParams = useSearchParams();
+  const isLive = searchParams.get("live") === "1";
+  if (!isLive) return null;
+  return <SpeakingLiveConsole />;
 }
