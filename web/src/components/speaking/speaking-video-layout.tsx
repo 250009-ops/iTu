@@ -145,7 +145,7 @@ export function SpeakingVideoLayout({
   localPlaceholder,
   overlay,
   className,
-  videoHeightRatio = 1,
+  videoWidthRatio = 1,
   letterboxBlur = false,
   pipClassName,
 }: {
@@ -155,8 +155,8 @@ export function SpeakingVideoLayout({
   localPlaceholder: string;
   overlay?: React.ReactNode;
   className?: string;
-  /** 0–1 height of the sharp video strip; remainder shows blurred ambient fill. */
-  videoHeightRatio?: number;
+  /** 0–1 width of the sharp video strip; remainder shows blurred ambient fill on the sides. */
+  videoWidthRatio?: number;
   letterboxBlur?: boolean;
   pipClassName?: string;
 }) {
@@ -166,8 +166,9 @@ export function SpeakingVideoLayout({
   const remoteTrack = useCameraTrackRef(remoteParticipant);
   const localTrack = useCameraTrackRef(localParticipant);
 
-  const ratio = Math.min(1, Math.max(0.4, videoHeightRatio));
+  const ratio = Math.min(1, Math.max(0.4, videoWidthRatio));
   const letterboxed = letterboxBlur && ratio < 1;
+  const sideInset = letterboxed ? `${((1 - ratio) / 2) * 100}%` : undefined;
 
   return (
     <div
@@ -193,19 +194,17 @@ export function SpeakingVideoLayout({
             className="h-full w-full scale-[1.35] object-cover blur-3xl brightness-[0.45] saturate-150"
           />
           <div className="absolute inset-0 bg-slate-950/55" />
-          <div className="absolute inset-x-0 top-0 h-1/5 bg-gradient-to-b from-slate-950/80 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-1/5 bg-gradient-to-t from-slate-950/80 to-transparent" />
+          <div className="absolute inset-y-0 left-0 w-1/5 bg-gradient-to-r from-slate-950/80 to-transparent" />
+          <div className="absolute inset-y-0 right-0 w-1/5 bg-gradient-to-l from-slate-950/80 to-transparent" />
         </div>
       )}
 
       <div
         className={cn(
-          "absolute inset-x-0 z-[1] overflow-hidden shadow-2xl shadow-black/40",
-          letterboxed
-            ? "top-1/2 -translate-y-1/2"
-            : "inset-y-0",
+          "absolute inset-y-0 z-[1] overflow-hidden shadow-2xl shadow-black/40",
+          letterboxed ? "left-1/2 -translate-x-1/2" : "inset-x-0",
         )}
-        style={letterboxed ? { height: `${ratio * 100}%` } : undefined}
+        style={letterboxed ? { width: `${ratio * 100}%` } : undefined}
       >
         <RemoteVideoLayer
           trackRef={remoteTrack}
@@ -218,8 +217,16 @@ export function SpeakingVideoLayout({
       <div
         className={cn(
           "absolute z-10 h-28 w-40 overflow-hidden rounded-xl border-2 border-white/20 shadow-xl",
-          pipClassName ?? "bottom-4 right-4",
+          pipClassName ??
+            (letterboxed && sideInset
+              ? "bottom-4"
+              : "bottom-4 right-4"),
         )}
+        style={
+          letterboxed && sideInset && !pipClassName
+            ? { right: `calc(${sideInset} + 1rem)` }
+            : undefined
+        }
       >
         <CameraTile
           trackRef={localTrack}

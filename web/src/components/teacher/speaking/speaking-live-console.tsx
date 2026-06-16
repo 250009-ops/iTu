@@ -142,12 +142,11 @@ export function SpeakingLiveConsole() {
               remotePlaceholder={session.studentInitials}
               localPlaceholder={session.studentInitials.slice(0, 1)}
               className="h-full min-h-[280px]"
-              videoHeightRatio={0.6}
+              videoWidthRatio={0.6}
               letterboxBlur
-              pipClassName="bottom-[22%] left-4 sm:bottom-[24%] sm:left-6"
               overlay={
                 <>
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 max-w-[calc(100%-15.5rem)] bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-28 pt-16 sm:max-w-[calc(100%-16rem)] sm:px-8">
+                  <div className="pointer-events-none absolute inset-x-[20%] bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-28 pt-16 sm:px-8">
                     {contentLoading ? (
                       <div className="flex items-center gap-2 text-white/70">
                         <Loader2 className="h-5 w-5 animate-spin" />
