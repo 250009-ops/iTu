@@ -371,6 +371,26 @@ async function main() {
     ],
   });
 
+  await prisma.mockTestPackage.updateMany({
+    where: { slug: 'general-training-mock' },
+    data: {
+      listeningTestId: listeningTest.id,
+      readingTestId: readingTest.id,
+      writingTestId: writingTest.id,
+      speakingBankId: speakingBank.id,
+    },
+  });
+
+  await prisma.mockTestPackage.updateMany({
+    where: { slug: 'speaking-only' },
+    data: { speakingBankId: speakingBank.id },
+  });
+
+  await prisma.mockTestPackage.updateMany({
+    where: { slug: 'writing-only' },
+    data: { writingTestId: writingTest.id },
+  });
+
   await seedBandTables();
 
   await seedPayouts([

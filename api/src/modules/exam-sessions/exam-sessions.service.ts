@@ -26,6 +26,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { SaveAnswersDto, SubmitSectionDto } from './dto/exam-session.dto';
 import { ExamTimerService } from './exam-timer.service';
+import { resolvePackageContentTestId } from '../content/package-content.resolver';
 
 @Injectable()
 export class ExamSessionsService {
@@ -619,14 +620,11 @@ export class ExamSessionsService {
     await this.assertSessionAccess(session.enrollment.studentId, user);
 
     const pkg = session.enrollment.package;
-    const testIdMap: Record<ExamSkill, string | null | undefined> = {
-      LISTENING: pkg.listeningTestId,
-      READING: pkg.readingTestId,
-      WRITING: pkg.writingTestId,
-      SPEAKING: pkg.speakingBankId,
-    };
-
-    const testId = testIdMap[skill];
+    const testId = await resolvePackageContentTestId(
+      this.prisma,
+      pkg,
+      skill,
+    );
     if (!testId) {
       throw new NotFoundException(`No content configured for ${skill}`);
     }

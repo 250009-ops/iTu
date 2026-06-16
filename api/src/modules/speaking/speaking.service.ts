@@ -4,9 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { SpeakingSessionStatus } from '@prisma/client';
+import { SpeakingSessionStatus, ExamSkill } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import { StorageService } from '../../common/storage/storage.service';
+import { resolvePackageContentTestId } from '../content/package-content.resolver';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   SPEAKING_PHASES,
@@ -188,17 +189,24 @@ export class SpeakingService {
     const enrollment = session.sectionAttempt.session.enrollment;
     const pkg = await this.prisma.mockTestPackage.findUnique({
       where: { id: enrollment.packageId },
-      select: { speakingBankId: true, title: true },
     });
+    if (!pkg) {
+      throw new NotFoundException('Package not found for this session');
+    }
 
-    if (!pkg?.speakingBankId) {
+    const bankId = await resolvePackageContentTestId(
+      this.prisma,
+      pkg,
+      ExamSkill.SPEAKING,
+    );
+    if (!bankId) {
       throw new NotFoundException(
         'No speaking content bank configured for this package',
       );
     }
 
     const bank = await this.prisma.contentTest.findUnique({
-      where: { id: pkg.speakingBankId },
+      where: { id: bankId },
       select: { id: true, code: true, title: true, content: true },
     });
 
