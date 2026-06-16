@@ -1,39 +1,65 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ListeningAudioUpload } from "@/components/admin/content/listening-editor";
+import { ListeningVisualEditor } from "@/components/admin/content/editors/listening-visual-editor";
+import { ReadingVisualEditor } from "@/components/admin/content/editors/reading-visual-editor";
+import { SpeakingVisualEditor } from "@/components/admin/content/editors/speaking-visual-editor";
+import { WritingVisualEditor } from "@/components/admin/content/editors/writing-visual-editor";
+import { ContentPreviewPanel } from "@/components/admin/content/preview/content-preview-panel";
+import {
+  isPublishReady,
+  PublishChecklist,
+} from "@/components/admin/content/publish-checklist";
 import { moduleUsesAnswerKey } from "@/lib/admin/content-templates";
+import type { AnswerKeyMap } from "@/lib/admin/content/utils";
+import { syncAnswerKey } from "@/lib/admin/content/utils";
+import { normalizeContent } from "@/lib/admin/content/normalize";
 import type { ContentModule } from "@/lib/admin/types";
 import { useAdminContent } from "@/contexts/admin-content-context";
 import { getContentTest } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
+import type {
+  ListeningContent,
+  ReadingContent,
+  SpeakingContent,
+  WritingContent,
+} from "@/lib/exam/types";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
+
+type EditorTab = "visual" | "preview" | "advanced";
 
 type Props = {
   module: ContentModule;
   testId: string | null;
-  children?: ReactNode;
 };
 
 function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-export function ContentTestEditor({ module, testId, children }: Props) {
-  const { updateTest, publishTest } = useAdminContent();
+export function ContentTestEditor({ module, testId }: Props) {
+  const { updateTest, publishTest, submitForReview, revertToDraft } = useAdminContent();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [tab, setTab] = useState<EditorTab>("visual");
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("draft");
   const [durationMin, setDurationMin] = useState(60);
+  const [content, setContent] = useState<object>({});
+  const [answerKey, setAnswerKey] = useState<AnswerKeyMap>({});
   const [contentJson, setContentJson] = useState("{}");
   const [answerKeyJson, setAnswerKeyJson] = useState("{}");
+  const [mediaCount, setMediaCount] = useState(0);
 
   const showAnswerKey = moduleUsesAnswerKey(module);
 
@@ -42,8 +68,11 @@ export function ContentTestEditor({ module, testId, children }: Props) {
       setTitle("");
       setCode("");
       setStatus("draft");
+      setContent({});
+      setAnswerKey({});
       setContentJson("{}");
       setAnswerKeyJson("{}");
+      setMediaCount(0);
       return;
     }
 
@@ -56,8 +85,16 @@ export function ContentTestEditor({ module, testId, children }: Props) {
         setCode(test.code);
         setStatus(test.status);
         setDurationMin(test.durationMin ?? 60);
-        setContentJson(formatJson(test.content ?? {}));
-        setAnswerKeyJson(formatJson(test.answerKey ?? {}));
+        const c = normalizeContent(module, (test.content ?? {}) as object);
+        const k = (test.answerKey ?? {}) as AnswerKeyMap;
+        const syncedKey = moduleUsesAnswerKey(module)
+          ? syncAnswerKey(module, c, k)
+          : k;
+        setContent(c);
+        setAnswerKey(syncedKey);
+        setContentJson(formatJson(c));
+        setAnswerKeyJson(formatJson(syncedKey));
+        setMediaCount(test.mediaAssets?.length ?? 0);
       })
       .catch((err) => {
         if (!active) return;
@@ -73,7 +110,31 @@ export function ContentTestEditor({ module, testId, children }: Props) {
     return () => {
       active = false;
     };
-  }, [testId, toast]);
+  }, [testId, toast, module]);
+
+  function handleContentChange(next: object) {
+    setContent(next);
+    setContentJson(formatJson(next));
+    if (showAnswerKey) {
+      setAnswerKey((prev) => {
+        const synced = syncAnswerKey(module, next, prev);
+        setAnswerKeyJson(formatJson(synced));
+        return synced;
+      });
+    }
+  }
+
+  function handleAnswerKeyChange(next: AnswerKeyMap) {
+    setAnswerKey(next);
+    setAnswerKeyJson(formatJson(next));
+  }
+
+  function refreshMediaCount() {
+    if (!testId) return;
+    void getContentTest(testId).then((test) => {
+      setMediaCount(test.mediaAssets?.length ?? 0);
+    });
+  }
 
   if (!testId) {
     return (
@@ -83,38 +144,49 @@ export function ContentTestEditor({ module, testId, children }: Props) {
     );
   }
 
-  async function handleSave() {
-    if (!testId) return;
-    let content: object;
-    let answerKey: object | undefined;
+  async function handleSave(): Promise<boolean> {
+    if (!testId) return false;
+    let payloadContent: object;
+    let payloadAnswerKey: object | undefined;
 
-    try {
-      content = JSON.parse(contentJson) as object;
-      if (showAnswerKey) {
-        answerKey = JSON.parse(answerKeyJson) as object;
+    if (tab === "advanced") {
+      try {
+        payloadContent = JSON.parse(contentJson) as object;
+        if (showAnswerKey) {
+          payloadAnswerKey = JSON.parse(answerKeyJson) as object;
+        }
+      } catch {
+        toast("Invalid JSON", {
+          description: "Fix syntax errors in the content or answer key editor.",
+          variant: "error",
+        });
+        return false;
       }
-    } catch {
-      toast("Invalid JSON", {
-        description: "Fix syntax errors in the content or answer key editor.",
-        variant: "error",
-      });
-      return;
+    } else {
+      payloadContent = content;
+      payloadAnswerKey = showAnswerKey ? answerKey : undefined;
     }
 
     setSaving(true);
     try {
       await updateTest(testId, {
         title: title.trim(),
-        content,
-        answerKey,
+        content: payloadContent,
+        answerKey: payloadAnswerKey,
         durationMin,
       });
+      setContent(payloadContent);
+      if (payloadAnswerKey) {
+        setAnswerKey(payloadAnswerKey as AnswerKeyMap);
+      }
       toast("Draft saved", { variant: "success" });
+      return true;
     } catch (err) {
       toast("Save failed", {
         description: getErrorMessage(err, "Save failed"),
         variant: "error",
       });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -122,6 +194,15 @@ export function ContentTestEditor({ module, testId, children }: Props) {
 
   async function handlePublish() {
     if (!testId) return;
+    if (!isPublishReady(module, content, answerKey, mediaCount)) {
+      toast("Not ready to publish", {
+        description: "Complete all checklist items before publishing.",
+        variant: "warning",
+      });
+      return;
+    }
+    const saved = await handleSave();
+    if (!saved) return;
     setPublishing(true);
     try {
       await publishTest(testId);
@@ -140,6 +221,48 @@ export function ContentTestEditor({ module, testId, children }: Props) {
     }
   }
 
+  async function handleSubmitReview() {
+    if (!testId) return;
+    const saved = await handleSave();
+    if (!saved) return;
+    setReviewing(true);
+    try {
+      await submitForReview(testId);
+      setStatus("under_review");
+      toast("Submitted for review", { variant: "success" });
+    } catch (err) {
+      toast("Submit failed", {
+        description: getErrorMessage(err, "Submit failed"),
+        variant: "error",
+      });
+    } finally {
+      setReviewing(false);
+    }
+  }
+
+  async function handleRevertDraft() {
+    if (!testId) return;
+    setReviewing(true);
+    try {
+      await revertToDraft(testId);
+      setStatus("draft");
+      toast("Reverted to draft", { variant: "success" });
+    } catch (err) {
+      toast("Revert failed", {
+        description: getErrorMessage(err, "Revert failed"),
+        variant: "error",
+      });
+    } finally {
+      setReviewing(false);
+    }
+  }
+
+  const tabs: { id: EditorTab; label: string }[] = [
+    { id: "visual", label: "Visual editor" },
+    { id: "preview", label: "Preview" },
+    { id: "advanced", label: "Advanced JSON" },
+  ];
+
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
@@ -151,6 +274,26 @@ export function ContentTestEditor({ module, testId, children }: Props) {
           <Button variant="secondary" size="sm" loading={saving} onClick={() => void handleSave()}>
             Save draft
           </Button>
+          {status === "draft" && (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={reviewing}
+              onClick={() => void handleSubmitReview()}
+            >
+              Submit for review
+            </Button>
+          )}
+          {status === "under_review" && (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={reviewing}
+              onClick={() => void handleRevertDraft()}
+            >
+              Back to draft
+            </Button>
+          )}
           {status !== "published" && (
             <Button
               variant="primary"
@@ -193,29 +336,100 @@ export function ContentTestEditor({ module, testId, children }: Props) {
             </div>
           </div>
 
-          {children}
+          <PublishChecklist
+            module={module}
+            content={content}
+            answerKey={answerKey}
+            mediaCount={mediaCount}
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor="edit-content">Content JSON</Label>
-            <textarea
-              id="edit-content"
-              value={contentJson}
-              onChange={(e) => setContentJson(e.target.value)}
-              spellCheck={false}
-              className="min-h-[280px] w-full rounded-lg border border-border bg-slate-50 p-3 font-mono text-xs leading-relaxed text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
-            />
+          <div className="flex flex-wrap gap-1 border-b border-border pb-1">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "rounded-t-lg px-4 py-2 text-sm font-semibold transition",
+                  tab === t.id
+                    ? "border border-b-white border-border bg-white text-navy -mb-px"
+                    : "text-muted hover:text-navy",
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          {showAnswerKey && (
-            <div className="space-y-2">
-              <Label htmlFor="edit-answer-key">Answer key JSON</Label>
-              <textarea
-                id="edit-answer-key"
-                value={answerKeyJson}
-                onChange={(e) => setAnswerKeyJson(e.target.value)}
-                spellCheck={false}
-                className="min-h-[160px] w-full rounded-lg border border-border bg-slate-50 p-3 font-mono text-xs leading-relaxed text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
-              />
+          {tab === "visual" && (
+            <div className="space-y-5">
+              {module === "listening" && testId && (
+                <ListeningAudioUpload
+                  testId={testId}
+                  onMediaUpdated={refreshMediaCount}
+                />
+              )}
+              {module === "reading" && (
+                <ReadingVisualEditor
+                  testId={testId}
+                  content={content as ReadingContent}
+                  answerKey={answerKey}
+                  onContentChange={(c) => handleContentChange(c)}
+                  onAnswerKeyChange={handleAnswerKeyChange}
+                />
+              )}
+              {module === "listening" && (
+                <ListeningVisualEditor
+                  testId={testId}
+                  content={content as ListeningContent}
+                  answerKey={answerKey}
+                  onContentChange={(c) => handleContentChange(c)}
+                  onAnswerKeyChange={handleAnswerKeyChange}
+                />
+              )}
+              {module === "writing" && (
+                <WritingVisualEditor
+                  content={content as WritingContent}
+                  onContentChange={(c) => handleContentChange(c)}
+                />
+              )}
+              {module === "speaking" && (
+                <SpeakingVisualEditor
+                  content={content as SpeakingContent}
+                  onContentChange={(c) => handleContentChange(c)}
+                />
+              )}
+            </div>
+          )}
+
+          {tab === "preview" && (
+            <ContentPreviewPanel module={module} content={content} />
+          )}
+
+          {tab === "advanced" && (
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="edit-content">Content JSON</Label>
+                <textarea
+                  id="edit-content"
+                  value={contentJson}
+                  onChange={(e) => setContentJson(e.target.value)}
+                  spellCheck={false}
+                  className="min-h-[280px] w-full rounded-lg border border-border bg-slate-50 p-3 font-mono text-xs leading-relaxed text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
+                />
+              </div>
+              {showAnswerKey && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-answer-key">Answer key JSON</Label>
+                  <textarea
+                    id="edit-answer-key"
+                    value={answerKeyJson}
+                    onChange={(e) => setAnswerKeyJson(e.target.value)}
+                    spellCheck={false}
+                    className="min-h-[160px] w-full rounded-lg border border-border bg-slate-50 p-3 font-mono text-xs leading-relaxed text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

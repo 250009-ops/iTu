@@ -405,8 +405,55 @@ export function updateContentTest(
   });
 }
 
+export async function uploadContentMedia(
+  testId: string,
+  partKey: string,
+  file: File,
+) {
+  return uploadListeningMedia(testId, partKey, file);
+}
+
+export function submitContentTestForReview(id: string) {
+  return apiFetch(`/admin/content/tests/${id}/submit-review`, { method: "POST" });
+}
+
+export function revertContentTestToDraft(id: string) {
+  return apiFetch(`/admin/content/tests/${id}/revert-draft`, { method: "POST" });
+}
+
+export function importContentTest(payload: {
+  code: string;
+  title: string;
+  type: "LISTENING" | "READING" | "WRITING" | "SPEAKING";
+  content: object;
+  answerKey?: object;
+  durationMin?: number;
+}) {
+  return apiFetch<{ id: string; code: string; title: string }>(
+    "/admin/content/tests/import",
+    { method: "POST", body: payload },
+  );
+}
+
+export function importAnswerKeyCsv(testId: string, csv: string) {
+  return apiFetch(`/admin/content/tests/${testId}/import-answer-key`, {
+    method: "POST",
+    body: { csv },
+  });
+}
+
 export function publishContentTest(id: string) {
   return apiFetch(`/admin/content/tests/${id}/publish`, { method: "POST" });
+}
+
+export function cloneContentTest(
+  id: string,
+  payload: { code: string; title: string },
+) {
+  return apiFetch<{ id: string; code: string; title: string }>(
+    `/admin/content/tests/${id}/clone`,
+    { method: "POST", body: payload },
+  );
 }
 
 export function getAdminSettings() {

@@ -66,8 +66,8 @@ export function CreateTestDialog({ open, module, onClose }: Props) {
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <h2 className="text-lg font-bold text-navy">Create new test</h2>
         <p className="mt-1 text-sm text-muted">
-          Starts from the bundled {module} template. You can edit JSON and
-          publish when ready.
+          Creates a draft from the bundled {module} template. Edit sections in
+          the visual editor, preview, then publish.
         </p>
 
         <div className="mt-5 space-y-4">

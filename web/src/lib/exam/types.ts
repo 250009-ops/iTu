@@ -79,6 +79,8 @@ export interface TfngGroup extends BaseGroup {
 export interface MapLabelingGroup extends BaseGroup {
   type: "map_labeling";
   imageLabel: string;
+  /** Optional uploaded map image URL (from admin media library). */
+  imageUrl?: string;
   options: MatchOption[];
   /** Drop zones positioned as percentages over the image. */
   zones: { n: number; x: number; y: number; label: string }[];

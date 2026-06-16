@@ -51,28 +51,33 @@ export function MapLabeling({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Stylised map canvas */}
+        {/* Map canvas */}
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-[#eef3f8]">
-          <svg
-            viewBox="0 0 400 300"
-            className="absolute inset-0 h-full w-full"
-            preserveAspectRatio="none"
-          >
-            <rect width="400" height="300" fill="#eef3f8" />
-            {/* river */}
-            <path
-              d="M0 90 C80 110 120 60 200 80 S340 130 400 110 L400 150 C340 170 260 120 200 130 S80 160 0 140 Z"
-              fill="#bfdbfe"
+          {group.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={group.imageUrl}
+              alt={group.imageLabel}
+              className="absolute inset-0 h-full w-full object-contain"
             />
-            {/* lake */}
-            <ellipse cx="300" cy="220" rx="55" ry="38" fill="#bfdbfe" />
-            {/* paths */}
-            <path d="M40 40 L40 280 M40 200 L360 200" stroke="#cbd5e1" strokeWidth="3" strokeDasharray="6 6" fill="none" />
-            <path d="M160 20 L160 280" stroke="#cbd5e1" strokeWidth="3" strokeDasharray="6 6" fill="none" />
-            {/* greens */}
-            <rect x="60" y="220" width="70" height="55" rx="6" fill="#bbf7d0" />
-            <rect x="220" y="40" width="80" height="45" rx="6" fill="#bbf7d0" />
-          </svg>
+          ) : (
+            <svg
+              viewBox="0 0 400 300"
+              className="absolute inset-0 h-full w-full"
+              preserveAspectRatio="none"
+            >
+              <rect width="400" height="300" fill="#eef3f8" />
+              <path
+                d="M0 90 C80 110 120 60 200 80 S340 130 400 110 L400 150 C340 170 260 120 200 130 S80 160 0 140 Z"
+                fill="#bfdbfe"
+              />
+              <ellipse cx="300" cy="220" rx="55" ry="38" fill="#bfdbfe" />
+              <path d="M40 40 L40 280 M40 200 L360 200" stroke="#cbd5e1" strokeWidth="3" strokeDasharray="6 6" fill="none" />
+              <path d="M160 20 L160 280" stroke="#cbd5e1" strokeWidth="3" strokeDasharray="6 6" fill="none" />
+              <rect x="60" y="220" width="70" height="55" rx="6" fill="#bbf7d0" />
+              <rect x="220" y="40" width="80" height="45" rx="6" fill="#bbf7d0" />
+            </svg>
+          )}
 
           {group.zones.map((zone) => {
             const assignedId = answers[zone.n];

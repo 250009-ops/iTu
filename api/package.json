@@ -27,7 +27,8 @@
     "db:reset-student": "npx tsx prisma/reset-fresh-student.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
-    "sync:exam-content": "npx tsx -e \"import { listeningContent, readingContent, writingContent, speakingStudentContent } from '../web/src/lib/mock/exam-content.ts'; import * as fs from 'fs'; import * as path from 'path'; const dir=path.join('prisma','data'); fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(path.join(dir,'listening.json'), JSON.stringify(listeningContent)); fs.writeFileSync(path.join(dir,'reading.json'), JSON.stringify(readingContent)); fs.writeFileSync(path.join(dir,'writing.json'), JSON.stringify(writingContent)); fs.writeFileSync(path.join(dir,'speaking.json'), JSON.stringify(speakingStudentContent)); console.log('Exam content synced');\"",
+    "sync:exam-content": "npx tsx scripts/sync-exam-content.ts",
+    "content:patch": "npx tsx scripts/patch-content-tests.ts",
     "mail:test": "npx tsx scripts/test-smtp.ts",
     "load:test": "npx tsx scripts/load-test.ts",
     "hardening:smoke": "npm run e2e:smoke && npm run load:test"

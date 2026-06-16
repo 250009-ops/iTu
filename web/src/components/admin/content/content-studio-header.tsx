@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateTestDialog } from "@/components/admin/content/create-test-dialog";
+import { ImportContentDialog } from "@/components/admin/content/import-content-dialog";
 import type { ContentModule } from "@/lib/admin/types";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 
 export function ContentStudioHeader({ activeModule }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <>
@@ -24,11 +26,15 @@ export function ContentStudioHeader({ activeModule }: Props) {
             Content Studio
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Create drafts from templates, upload listening audio to VPS storage,
-            edit JSON, and publish to packages.
+            Build tests section-by-section in the visual editor, preview in the
+            student player, then publish to packages.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
           <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
             Create New Test
@@ -40,6 +46,12 @@ export function ContentStudioHeader({ activeModule }: Props) {
         open={createOpen}
         module={activeModule}
         onClose={() => setCreateOpen(false)}
+      />
+
+      <ImportContentDialog
+        open={importOpen}
+        module={activeModule}
+        onClose={() => setImportOpen(false)}
       />
     </>
   );

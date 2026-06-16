@@ -136,7 +136,8 @@ function normalizeTicketStatus(status: string): TicketStatus {
 }
 
 function normalizeTestStatus(status: string): TestStatus {
-  const s = status.toLowerCase();
+  const s = status.toLowerCase().replace(/-/g, "_");
+  if (s === "under_review") return "review";
   if (s === "published" || s === "draft" || s === "review") return s;
   if (s.includes("publish")) return "published";
   if (s.includes("review")) return "review";

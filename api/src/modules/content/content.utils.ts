@@ -43,3 +43,15 @@ export function listeningAudioReady(
   const tracks = (content as { audioTracks?: unknown[] }).audioTracks;
   return Array.isArray(tracks) && tracks.length >= 4;
 }
+
+/** Detect scaffold keys (`answer1` … `answerN`) that must be replaced before publish. */
+export function isPlaceholderAnswerKey(
+  key: Record<string, string | string[]> | null | undefined,
+): boolean {
+  if (!key || typeof key !== 'object') return true;
+  const entries = Object.entries(key);
+  if (entries.length === 0) return true;
+  return entries.every(
+    ([n, v]) => typeof v === 'string' && v === `answer${n}`,
+  );
+}

@@ -10,8 +10,13 @@ import {
 } from "react";
 import {
   createContentTest,
+  cloneContentTest,
   getContentTests,
+  importAnswerKeyCsv,
+  importContentTest,
   publishContentTest,
+  revertContentTestToDraft,
+  submitContentTestForReview,
   updateContentTest,
 } from "@/lib/api/admin";
 import { mapContentTests } from "@/lib/api/mappers/admin";
@@ -45,6 +50,11 @@ type ContentValue = {
   createTest: (payload: CreateTestPayload) => Promise<{ id: string; title: string }>;
   updateTest: (id: string, payload: UpdateTestPayload) => Promise<void>;
   publishTest: (id: string) => Promise<void>;
+  cloneTest: (id: string, code: string, title: string) => Promise<{ id: string }>;
+  submitForReview: (id: string) => Promise<void>;
+  revertToDraft: (id: string) => Promise<void>;
+  importTest: (payload: CreateTestPayload) => Promise<{ id: string; title: string }>;
+  importAnswerKey: (id: string, csv: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -80,6 +90,50 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const cloneTest = useCallback(
+    async (id: string, code: string, title: string) => {
+      const cloned = await cloneContentTest(id, { code, title });
+      await refresh();
+      setSelectedTestId(cloned.id);
+      return { id: cloned.id };
+    },
+    [refresh],
+  );
+
+  const submitForReview = useCallback(
+    async (id: string) => {
+      await submitContentTestForReview(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const revertToDraft = useCallback(
+    async (id: string) => {
+      await revertContentTestToDraft(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const importTest = useCallback(
+    async (payload: CreateTestPayload) => {
+      const created = await importContentTest(payload);
+      await refresh();
+      setSelectedTestId(created.id);
+      return { id: created.id, title: created.title };
+    },
+    [refresh],
+  );
+
+  const importAnswerKey = useCallback(
+    async (id: string, csv: string) => {
+      await importAnswerKeyCsv(id, csv);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const value = useMemo<ContentValue>(() => {
     const mapped = data ? mapContentTests(data) : null;
     return {
@@ -103,6 +157,11 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
       createTest,
       updateTest,
       publishTest,
+      cloneTest,
+      submitForReview,
+      revertToDraft,
+      importTest,
+      importAnswerKey,
       refresh,
     };
   }, [
@@ -113,6 +172,11 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     createTest,
     updateTest,
     publishTest,
+    cloneTest,
+    submitForReview,
+    revertToDraft,
+    importTest,
+    importAnswerKey,
     refresh,
   ]);
 

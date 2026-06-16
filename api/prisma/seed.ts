@@ -24,6 +24,14 @@ function loadExamJson(filename: string): object {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as object;
 }
 
+function loadAnswerKey(filename: string): Record<string, string | string[]> {
+  const filePath = path.join(__dirname, 'data', filename);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<
+    string,
+    string | string[]
+  >;
+}
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -200,10 +208,10 @@ async function main() {
       title: 'Listening — Academic Mock 005',
       type: ContentTestType.LISTENING,
       status: ContentTestStatus.PUBLISHED,
-      durationMin: 40,
+      durationMin: 32,
       publishedAt: new Date(),
       content: loadExamJson('listening.json'),
-      answerKey: buildListeningAnswerKey(),
+      answerKey: loadAnswerKey('listening-answer-key.json'),
     },
   });
 
@@ -231,7 +239,7 @@ async function main() {
       durationMin: 60,
       publishedAt: new Date(),
       content: loadExamJson('reading.json'),
-      answerKey: buildReadingAnswerKey(),
+      answerKey: loadAnswerKey('reading-answer-key.json'),
     },
   });
 
@@ -670,22 +678,6 @@ async function seedLeaderboardStudents(
 
     void overall;
   }
-}
-
-function buildListeningAnswerKey(): Record<string, string> {
-  const key: Record<string, string> = {};
-  for (let i = 1; i <= 40; i++) {
-    key[String(i)] = `answer${i}`;
-  }
-  return key;
-}
-
-function buildReadingAnswerKey(): Record<string, string> {
-  const key: Record<string, string> = {};
-  for (let i = 1; i <= 40; i++) {
-    key[String(i)] = `answer${i}`;
-  }
-  return key;
 }
 
 async function seedPayouts(teacherIds: string[]) {

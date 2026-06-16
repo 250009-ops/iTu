@@ -91,6 +91,7 @@ enum ExamSkill {
 
 enum ContentTestStatus {
   DRAFT
+  UNDER_REVIEW
   PUBLISHED
   ARCHIVED
 }

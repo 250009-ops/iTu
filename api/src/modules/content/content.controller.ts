@@ -63,6 +63,50 @@ export class ContentController {
     return this.content.publishTest(id, user.id);
   }
 
+  @Post('tests/:id/submit-review')
+  submitForReview(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.content.submitForReview(id, user.id);
+  }
+
+  @Post('tests/:id/revert-draft')
+  revertToDraft(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.content.revertToDraft(id, user.id);
+  }
+
+  @Post('tests/import')
+  importTest(
+    @Body()
+    body: {
+      code: string;
+      title: string;
+      type: ContentTestType;
+      content: object;
+      answerKey?: object;
+      durationMin?: number;
+    },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.content.importTest(body, user.id);
+  }
+
+  @Post('tests/:id/import-answer-key')
+  importAnswerKey(
+    @Param('id') id: string,
+    @Body() body: { csv: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.content.importAnswerKeyCsv(id, body.csv, user.id);
+  }
+
+  @Post('tests/:id/clone')
+  cloneTest(
+    @Param('id') id: string,
+    @Body() body: { code: string; title: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.content.cloneTest(id, body.code, body.title, user.id);
+  }
+
   @Patch('tests/:id')
   updateTest(
     @Param('id') id: string,

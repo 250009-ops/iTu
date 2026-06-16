@@ -1,0 +1,138 @@
+"use client";
+
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { WritingContent } from "@/lib/exam/types";
+import { cn } from "@/lib/utils";
+
+type Props = {
+  content: WritingContent;
+  onContentChange: (content: WritingContent) => void;
+};
+
+export function WritingVisualEditor({ content, onContentChange }: Props) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const task = content.tasks[activeIdx];
+
+  if (!task) {
+    return <p className="text-sm text-muted">No writing tasks defined.</p>;
+  }
+
+  function updateTask(patch: Partial<typeof task>) {
+    const tasks = [...content.tasks];
+    tasks[activeIdx] = { ...task, ...patch };
+    onContentChange({ ...content, tasks });
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2">
+        {content.tasks.map((t, idx) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setActiveIdx(idx)}
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-semibold transition",
+              activeIdx === idx
+                ? "bg-violet-600 text-white"
+                : "border border-border bg-white text-muted hover:text-navy",
+            )}
+          >
+            Task {t.taskNumber}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label>Minutes</Label>
+          <Input
+            type="number"
+            min={1}
+            value={task.minutes}
+            onChange={(e) => updateTask({ minutes: Number(e.target.value) })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Minimum words</Label>
+          <Input
+            type="number"
+            min={1}
+            value={task.minWords}
+            onChange={(e) => updateTask({ minWords: Number(e.target.value) })}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Instruction</Label>
+        <textarea
+          value={task.instruction}
+          onChange={(e) => updateTask({ instruction: e.target.value })}
+          rows={2}
+          className="w-full rounded-lg border border-border bg-slate-50 p-3 text-sm text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Prompt</Label>
+        <textarea
+          value={task.prompt}
+          onChange={(e) => updateTask({ prompt: e.target.value })}
+          rows={8}
+          className="w-full rounded-lg border border-border bg-slate-50 p-3 text-sm leading-relaxed text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
+          placeholder="Task prompt shown to students…"
+        />
+      </div>
+
+      {task.taskNumber === 1 && (
+        <div className="space-y-3 rounded-lg border border-border bg-slate-50 p-4">
+          <Label className="text-sm font-semibold text-navy">Task 1 visual (optional)</Label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs">Chart type</Label>
+              <select
+                value={task.visual?.kind ?? ""}
+                onChange={(e) => {
+                  const kind = e.target.value as NonNullable<typeof task.visual>["kind"] | "";
+                  updateTask({
+                    visual: kind
+                      ? {
+                          kind,
+                          caption: task.visual?.caption ?? "",
+                        }
+                      : undefined,
+                  });
+                }}
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm"
+              >
+                <option value="">None</option>
+                <option value="line">Line chart</option>
+                <option value="bar">Bar chart</option>
+                <option value="pie">Pie chart</option>
+                <option value="table">Table</option>
+                <option value="process">Process diagram</option>
+                <option value="map">Map</option>
+              </select>
+            </div>
+            {task.visual && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-xs">Caption</Label>
+                <Input
+                  value={task.visual.caption}
+                  onChange={(e) =>
+                    updateTask({
+                      visual: { ...task.visual!, caption: e.target.value },
+                    })
+                  }
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

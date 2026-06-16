@@ -14,6 +14,7 @@ import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
+import { isHtmlContent, sanitizePassageHtml } from "@/lib/admin/content/sanitize-html";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
@@ -166,7 +167,15 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
                       {para.marker}
                     </span>
                   )}
-                  {para.text}
+                  {isHtmlContent(para.text) ? (
+                    <span
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizePassageHtml(para.text),
+                      }}
+                    />
+                  ) : (
+                    para.text
+                  )}
                 </p>
               ))}
             </div>

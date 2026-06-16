@@ -73,6 +73,9 @@ if [ -f /var/www/itestu/app/deploy/deploy-rebuild.sh ]; then
   chmod +x /var/www/itestu/deploy/deploy-rebuild.sh
 fi
 bash /var/www/itestu/deploy/deploy-rebuild.sh
+cd /var/www/itestu/app/api
+npm run sync:exam-content
+npm run content:patch
 `);
 
   console.log('\\n==> Public checks...');

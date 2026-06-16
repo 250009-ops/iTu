@@ -10,6 +10,7 @@ import { StorageService } from '../../common/storage/storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateContentTestDto } from './dto/update-content-test.dto';
 import {
+  isPlaceholderAnswerKey,
   listeningAudioReady,
   questionCountForTest,
 } from './content.utils';
@@ -25,6 +26,14 @@ const AUDIO_MIME = new Set([
 ]);
 
 const PART_KEY = /^part-[1-4]$/;
+const MAP_KEY = /^map-[a-zA-Z0-9_-]+$/;
+
+const IMAGE_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
 
 @Injectable()
 export class ContentService {
@@ -139,6 +148,136 @@ export class ContentService {
     return updated;
   }
 
+  async submitForReview(id: string, actorId: string) {
+    const test = await this.prisma.contentTest.findUnique({ where: { id } });
+    if (!test) throw new NotFoundException('Test not found');
+    if (test.status !== ContentTestStatus.DRAFT) {
+      throw new BadRequestException('Only draft tests can be submitted for review');
+    }
+
+    const updated = await this.prisma.contentTest.update({
+      where: { id },
+      data: { status: ContentTestStatus.UNDER_REVIEW },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.CONTENT_TEST_SUBMIT_REVIEW,
+      entity: 'content_test',
+      entityId: id,
+      metadata: { code: updated.code },
+    });
+
+    return updated;
+  }
+
+  async revertToDraft(id: string, actorId: string) {
+    const test = await this.prisma.contentTest.findUnique({ where: { id } });
+    if (!test) throw new NotFoundException('Test not found');
+    if (test.status !== ContentTestStatus.UNDER_REVIEW) {
+      throw new BadRequestException('Only tests under review can be reverted to draft');
+    }
+
+    const updated = await this.prisma.contentTest.update({
+      where: { id },
+      data: { status: ContentTestStatus.DRAFT },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.CONTENT_TEST_UPDATE,
+      entity: 'content_test',
+      entityId: id,
+      metadata: { code: updated.code, revertedToDraft: true },
+    });
+
+    return updated;
+  }
+
+  async importTest(
+    data: {
+      code: string;
+      title: string;
+      type: ContentTestType;
+      content: object;
+      answerKey?: object;
+      durationMin?: number;
+    },
+    actorId: string,
+  ) {
+    const existing = await this.prisma.contentTest.findUnique({
+      where: { code: data.code },
+    });
+    if (existing) {
+      throw new BadRequestException('Test code already exists — use a unique code');
+    }
+
+    const created = await this.createTest(data, actorId);
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.CONTENT_TEST_IMPORT,
+      entity: 'content_test',
+      entityId: created.id,
+      metadata: { code: created.code, type: created.type },
+    });
+
+    return created;
+  }
+
+  async importAnswerKeyCsv(id: string, csvText: string, actorId: string) {
+    const test = await this.prisma.contentTest.findUnique({ where: { id } });
+    if (!test) throw new NotFoundException('Test not found');
+    if (
+      test.type !== ContentTestType.LISTENING &&
+      test.type !== ContentTestType.READING
+    ) {
+      throw new BadRequestException(
+        'Answer key import applies to listening/reading only',
+      );
+    }
+
+    const key: Record<string, string | string[]> = {};
+    const lines = csvText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      if (/^question/i.test(line) && line.includes(',')) continue;
+      const sep = line.includes('\t') ? '\t' : ',';
+      const [qRaw, ...rest] = line.split(sep);
+      const q = qRaw?.trim().replace(/^Q/i, '');
+      const answer = rest.join(sep).trim();
+      if (!q || !answer) continue;
+      key[q] = answer.includes('|')
+        ? answer.split('|').map((s) => s.trim())
+        : answer;
+    }
+
+    if (Object.keys(key).length === 0) {
+      throw new BadRequestException('No valid rows found in CSV');
+    }
+
+    const updated = await this.prisma.contentTest.update({
+      where: { id },
+      data: { answerKey: key, version: { increment: 1 } },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.CONTENT_TEST_UPDATE,
+      entity: 'content_test',
+      entityId: id,
+      metadata: {
+        code: updated.code,
+        importedAnswerKeys: Object.keys(key).length,
+      },
+    });
+
+    return updated;
+  }
+
   async publishTest(id: string, actorId: string) {
     const test = await this.prisma.contentTest.findUnique({
       where: { id },
@@ -146,12 +285,33 @@ export class ContentService {
     });
     if (!test) throw new NotFoundException('Test not found');
 
+    if (
+      test.status !== ContentTestStatus.DRAFT &&
+      test.status !== ContentTestStatus.UNDER_REVIEW
+    ) {
+      throw new BadRequestException(
+        'Only draft or under-review tests can be published',
+      );
+    }
+
     if (test.type === ContentTestType.LISTENING) {
       if (
         !listeningAudioReady(test.content, test._count.mediaAssets)
       ) {
         throw new BadRequestException(
           'Upload all 4 listening audio parts (or include audioTracks in content) before publishing',
+        );
+      }
+    }
+
+    if (
+      test.type === ContentTestType.LISTENING ||
+      test.type === ContentTestType.READING
+    ) {
+      const key = test.answerKey as Record<string, string | string[]> | null;
+      if (isPlaceholderAnswerKey(key)) {
+        throw new BadRequestException(
+          'Replace placeholder answer keys with real answers before publishing',
         );
       }
     }
@@ -175,22 +335,58 @@ export class ContentService {
     return updated;
   }
 
+  async cloneTest(id: string, code: string, title: string, actorId: string) {
+    const source = await this.prisma.contentTest.findUnique({
+      where: { id },
+    });
+    if (!source) throw new NotFoundException('Test not found');
+
+    const existing = await this.prisma.contentTest.findUnique({
+      where: { code },
+    });
+    if (existing) {
+      throw new BadRequestException('Test code already exists');
+    }
+
+    const cloned = await this.prisma.contentTest.create({
+      data: {
+        code,
+        title,
+        type: source.type,
+        content: source.content as object,
+        answerKey: source.answerKey as object | undefined,
+        durationMin: source.durationMin,
+        status: ContentTestStatus.DRAFT,
+      },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.CONTENT_TEST_CREATE,
+      entity: 'content_test',
+      entityId: cloned.id,
+      metadata: { code: cloned.code, clonedFrom: source.code },
+    });
+
+    return cloned;
+  }
+
   async uploadMedia(
     testId: string,
     key: string,
     file: Express.Multer.File,
     actorId: string,
   ) {
-    if (!PART_KEY.test(key)) {
-      throw new BadRequestException('Media key must be part-1 through part-4');
+    const isAudio = PART_KEY.test(key);
+    const isMap = MAP_KEY.test(key);
+
+    if (!isAudio && !isMap) {
+      throw new BadRequestException(
+        'Media key must be part-1..part-4 (audio) or map-{id} (image)',
+      );
     }
     if (!file?.buffer?.length) {
       throw new BadRequestException('No file uploaded');
-    }
-    if (!AUDIO_MIME.has(file.mimetype)) {
-      throw new BadRequestException(
-        'Invalid audio type. Use MP3, WAV, or OGG.',
-      );
     }
 
     const test = await this.prisma.contentTest.findUnique({
@@ -198,11 +394,25 @@ export class ContentService {
     });
     if (!test) throw new NotFoundException('Test not found');
     if (test.type !== ContentTestType.LISTENING) {
-      throw new BadRequestException('Media upload is only supported for listening tests');
+      throw new BadRequestException(
+        'Media upload is only supported for listening tests',
+      );
     }
 
-    const ext = this.extensionForMime(file.mimetype, file.originalname);
-    const relativePath = `listening/${testId}/${key}${ext}`;
+    if (isAudio && !AUDIO_MIME.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid audio type. Use MP3, WAV, or OGG.',
+      );
+    }
+    if (isMap && !IMAGE_MIME.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid image type. Use JPEG, PNG, or WebP.',
+      );
+    }
+
+    const ext = this.extensionForMime(file.mimetype, file.originalname, isMap);
+    const folder = isMap ? 'maps' : 'listening';
+    const relativePath = `${folder}/${testId}/${key}${ext}`;
     const publicUrl = await this.storage.saveBuffer(relativePath, file.buffer);
 
     const asset = await this.prisma.mediaAsset.upsert({
@@ -240,11 +450,28 @@ export class ContentService {
     };
   }
 
-  private extensionForMime(mime: string, originalName: string): string {
+  private extensionForMime(
+    mime: string,
+    originalName: string,
+    isImage = false,
+  ): string {
     const fromName = originalName.includes('.')
       ? originalName.slice(originalName.lastIndexOf('.')).toLowerCase()
       : '';
     if (fromName && /^\.[a-z0-9]+$/.test(fromName)) return fromName;
+
+    if (isImage) {
+      switch (mime) {
+        case 'image/png':
+          return '.png';
+        case 'image/webp':
+          return '.webp';
+        case 'image/gif':
+          return '.gif';
+        default:
+          return '.jpg';
+      }
+    }
 
     switch (mime) {
       case 'audio/wav':

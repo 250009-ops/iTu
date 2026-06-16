@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { contentModuleLabels } from "@/lib/admin/constants";
+import { defaultTestTitle, suggestTestCode } from "@/lib/admin/content-templates";
 import type { ContentModule, TestStatus } from "@/lib/admin/types";
 import { useAdminContent } from "@/contexts/admin-content-context";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -43,11 +44,19 @@ interface TestsTableProps {
 }
 
 export function TestsTable({ module }: TestsTableProps) {
-  const { tests: contentTests, publishTest, setSelectedTestId, selectedTestId } =
-    useAdminContent();
+  const {
+    tests: contentTests,
+    publishTest,
+    cloneTest,
+    submitForReview,
+    revertToDraft,
+    setSelectedTestId,
+    selectedTestId,
+  } = useAdminContent();
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [cloningId, setCloningId] = useState<string | null>(null);
   const moduleLabel = contentModuleLabels[module];
 
   async function handlePublish(id: string, name: string) {
@@ -60,6 +69,59 @@ export function TestsTable({ module }: TestsTableProps) {
       });
     } catch (err) {
       toast("Failed to publish test", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setPublishingId(null);
+    }
+  }
+
+  async function handleClone(id: string, name: string) {
+    setCloningId(id);
+    try {
+      const code = suggestTestCode(module);
+      const title = `${name.replace(/\s+\d+$/, "").trim()} Copy`;
+      await cloneTest(id, code, title || defaultTestTitle(module));
+      toast("Test duplicated", {
+        description: "A new draft was created from this test.",
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Could not duplicate test", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "error",
+      });
+    } finally {
+      setCloningId(null);
+    }
+  }
+
+  async function handleSubmitReview(id: string, name: string) {
+    setPublishingId(id);
+    try {
+      await submitForReview(id);
+      toast("Submitted for review", {
+        description: `${name} is ready for final approval.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Submit failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setPublishingId(null);
+    }
+  }
+
+  async function handleRevertDraft(id: string, name: string) {
+    setPublishingId(id);
+    try {
+      await revertToDraft(id);
+      toast("Reverted to draft", { description: name, variant: "success" });
+    } catch (err) {
+      toast("Revert failed", {
         description: getErrorMessage(err, "Please try again."),
         variant: "warning",
       });
@@ -161,20 +223,61 @@ export function TestsTable({ module }: TestsTableProps) {
                         >
                           Edit
                         </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 px-3"
+                          loading={cloningId === test.id}
+                          onClick={() => void handleClone(test.id, test.name)}
+                        >
+                          Duplicate
+                        </Button>
                         {test.status === "published" ? (
                           <span className="flex items-center text-xs font-medium text-muted">
                             Live
                           </span>
+                        ) : test.status === "review" ? (
+                          <>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 px-3"
+                              loading={publishingId === test.id}
+                              onClick={() => void handleRevertDraft(test.id, test.name)}
+                            >
+                              Draft
+                            </Button>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700"
+                              loading={publishingId === test.id}
+                              onClick={() => handlePublish(test.id, test.name)}
+                            >
+                              Publish
+                            </Button>
+                          </>
                         ) : (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-8 px-3"
-                            loading={publishingId === test.id}
-                            onClick={() => handlePublish(test.id, test.name)}
-                          >
-                            Publish
-                          </Button>
+                          <>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 px-3"
+                              loading={publishingId === test.id}
+                              onClick={() => void handleSubmitReview(test.id, test.name)}
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 px-3"
+                              loading={publishingId === test.id}
+                              onClick={() => handlePublish(test.id, test.name)}
+                            >
+                              Publish
+                            </Button>
+                          </>
                         )}
                       </div>
                     </td>

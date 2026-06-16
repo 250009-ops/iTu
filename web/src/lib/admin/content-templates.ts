@@ -1,3 +1,7 @@
+import {
+  listeningAnswerKey,
+  readingAnswerKey,
+} from "@/lib/mock/exam-answer-keys";
 import type { ContentModule } from "@/lib/admin/types";
 import {
   listeningContent,
@@ -14,7 +18,7 @@ const CODE_PREFIX: Record<ContentModule, string> = {
 };
 
 const DEFAULT_DURATION: Record<ContentModule, number> = {
-  listening: 40,
+  listening: 32,
   reading: 60,
   writing: 60,
   speaking: 20,
@@ -23,14 +27,6 @@ const DEFAULT_DURATION: Record<ContentModule, number> = {
 function stripTestId<T extends { testId?: string }>(value: T): Omit<T, "testId"> {
   const { testId: _id, ...rest } = value;
   return rest;
-}
-
-function placeholderAnswerKey(count: number): Record<string, string> {
-  const key: Record<string, string> = {};
-  for (let i = 1; i <= count; i++) {
-    key[String(i)] = `answer${i}`;
-  }
-  return key;
 }
 
 export function suggestTestCode(module: ContentModule): string {
@@ -52,13 +48,13 @@ export function getContentTemplate(module: ContentModule): {
     case "listening":
       return {
         content: stripTestId(listeningContent),
-        answerKey: placeholderAnswerKey(40),
+        answerKey: { ...listeningAnswerKey },
         durationMin: DEFAULT_DURATION.listening,
       };
     case "reading":
       return {
         content: stripTestId(readingContent),
-        answerKey: placeholderAnswerKey(40),
+        answerKey: { ...readingAnswerKey },
         durationMin: DEFAULT_DURATION.reading,
       };
     case "writing":

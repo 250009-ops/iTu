@@ -13,7 +13,15 @@ import { cn } from "@/lib/utils";
 
 type AssetMap = Record<string, { url: string; sizeBytes: number | null }>;
 
-function ListeningAudioUpload({ testId }: { testId: string }) {
+export function ListeningAudioUpload({
+  testId,
+  onUploaded,
+  onMediaUpdated,
+}: {
+  testId: string;
+  onUploaded?: () => void;
+  onMediaUpdated?: () => void;
+}) {
   const { toast } = useToast();
   const [assets, setAssets] = useState<AssetMap>({});
   const [loadingAssets, setLoadingAssets] = useState(false);
@@ -53,6 +61,8 @@ function ListeningAudioUpload({ testId }: { testId: string }) {
           [partKey]: { url: result.url, sizeBytes: result.sizeBytes },
         }));
         toast(`${partLabel} uploaded`, { variant: "success" });
+        onUploaded?.();
+        onMediaUpdated?.();
       } catch (err) {
         toast("Upload failed", {
           description: getErrorMessage(err, "Check MEDIA_ROOT on the API server."),
@@ -62,7 +72,7 @@ function ListeningAudioUpload({ testId }: { testId: string }) {
         setUploadingKey(null);
       }
     },
-    [testId, toast],
+    [testId, toast, onUploaded, onMediaUpdated],
   );
 
   const uploadedCount = listeningParts.filter((_, i) =>
@@ -138,10 +148,5 @@ function ListeningAudioUpload({ testId }: { testId: string }) {
 
 export function ListeningEditor() {
   const { selectedTestId } = useAdminContent();
-
-  return (
-    <ContentTestEditor module="listening" testId={selectedTestId}>
-      {selectedTestId ? <ListeningAudioUpload testId={selectedTestId} /> : null}
-    </ContentTestEditor>
-  );
+  return <ContentTestEditor module="listening" testId={selectedTestId} />;
 }
