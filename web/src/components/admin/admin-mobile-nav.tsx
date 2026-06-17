@@ -14,7 +14,8 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import { adminNav } from "@/lib/admin/nav";
+import { adminNav, type AdminNavItem } from "@/lib/admin/nav";
+import { useAdminNavBadges } from "@/contexts/admin-nav-badges-context";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -30,13 +31,24 @@ const iconMap = {
   settings: Settings,
 } as const;
 
+function navBadgeCount(
+  item: AdminNavItem,
+  badges: { liveSessions: number; openTickets: number },
+): number | null {
+  if (!item.badgeKey) return null;
+  const count = badges[item.badgeKey];
+  return count > 0 ? count : null;
+}
+
 export function AdminMobileNav() {
   const pathname = usePathname();
+  const badges = useAdminNavBadges();
 
   return (
     <nav className="flex gap-1 overflow-x-auto border-b border-border bg-white px-2 py-2 md:hidden">
       {adminNav.map((item) => {
         const Icon = iconMap[item.icon];
+        const badge = navBadgeCount(item, badges);
         const active =
           pathname === item.href || pathname.startsWith(`${item.href}/`);
 
@@ -51,9 +63,9 @@ export function AdminMobileNav() {
           >
             <Icon className="h-3.5 w-3.5" />
             {item.label}
-            {item.badge != null && (
+            {badge != null && (
               <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[9px] font-bold text-white">
-                {item.badge}
+                {badge}
               </span>
             )}
           </Link>

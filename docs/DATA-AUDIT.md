@@ -47,6 +47,8 @@
 
 | Page / section | Data source | Notes |
 |----------------|-------------|-------|
+| Dashboard KPIs, live sessions, revenue chart | `GET /admin/dashboard` | Dynamic — 6-month revenue, completion rates, sync timestamp |
+| Sidebar nav badges | `GET /admin/nav-badges` | Dynamic — live sessions & open tickets |
 | All main list pages | Admin API | Dynamic |
 | Content “new test” wizard | UI only | Feature not built — toast |
 | Reports full export | UI only | Feature not built — toast |
@@ -57,7 +59,6 @@
 - Marketing website (`lib/marketing/data.ts`)
 - Student browse FAQs and exam-rule highlights
 - Empty-state educational previews (results, mock-day, IELTS plan tips)
-- Portal search bar (“full search coming soon”)
 - Profile photo upload (coming soon toast)
 
 ## Fixes applied in this pass

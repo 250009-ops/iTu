@@ -165,7 +165,7 @@ export function mapAdminStats(data: Dashboard) {
       id: "active",
       label: "Active Exams",
       value: String(data.kpis.activeExams),
-      sub: "In progress now",
+      sub: "Live sessions now",
       tone: "emerald" as const,
       live: data.kpis.activeExams > 0,
     },
@@ -208,10 +208,43 @@ export function mapLiveSessions(sessions: LiveSessions): LiveSessionRow[] {
   });
 }
 
-export function mapMonthlyRevenueFromKpi(totalRevenue: number) {
-  const now = new Date();
-  const month = now.toLocaleDateString("en-US", { month: "short" });
-  return [{ month, amount: totalRevenue }];
+export function mapMonthlyRevenue(
+  monthlyRevenue: { month: string; amount: number }[],
+) {
+  return monthlyRevenue.map(({ month, amount }) => ({ month, amount }));
+}
+
+export function mapCompletionRates(
+  rates: {
+    skill: string;
+    pct: number;
+    color: "sky" | "emerald" | "violet" | "rose";
+  }[],
+) {
+  return rates.length > 0 ? rates : emptyCompletionRates;
+}
+
+export function formatDashboardSyncTime(syncedAt: string): string {
+  const synced = new Date(syncedAt);
+  if (Number.isNaN(synced.getTime())) return "Just now";
+  const diffSec = Math.floor((Date.now() - synced.getTime()) / 1000);
+  if (diffSec < 10) return "Just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  return synced.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function mapDashboardMeta(meta: { syncedAt: string; status: string }) {
+  const statusLabel =
+    meta.status === "operational" ? "Platform operational" : meta.status;
+  return {
+    status: statusLabel,
+    lastSync: formatDashboardSyncTime(meta.syncedAt),
+  };
 }
 
 export const emptyCompletionRates = [

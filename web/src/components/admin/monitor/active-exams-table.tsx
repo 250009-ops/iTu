@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LiveSkill } from "@/lib/admin/types";
 import { useAdminLiveMonitor } from "@/contexts/admin-live-monitor-context";
 import { SessionDetailDialog } from "@/components/admin/monitor/session-detail-dialog";
+import { SessionDeepLink } from "@/components/admin/monitor/session-deep-link";
 import { cn } from "@/lib/utils";
 
 const skillBadge: Record<LiveSkill, string> = {
@@ -16,11 +18,28 @@ const skillBadge: Record<LiveSkill, string> = {
 };
 
 export function ActiveExamsTable() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { liveSessions, refresh } = useAdminLiveMonitor();
   const [detailCode, setDetailCode] = useState<string | null>(null);
 
+  const openSession = useCallback(
+    (sessionCode: string) => {
+      setDetailCode(sessionCode);
+    },
+    [],
+  );
+
+  function closeSessionDetail() {
+    setDetailCode(null);
+    if (searchParams.get("session")) {
+      router.replace("/admin/sessions");
+    }
+  }
+
   return (
     <>
+      <SessionDeepLink onOpenSession={openSession} />
       <div className="rounded-xl border border-border bg-white shadow-sm">
         <div className="border-b border-border px-5 py-4 sm:px-6">
           <h2 className="font-semibold text-navy">Active Exams</h2>
@@ -143,7 +162,7 @@ export function ActiveExamsTable() {
         <SessionDetailDialog
           sessionCode={detailCode}
           open={Boolean(detailCode)}
-          onClose={() => setDetailCode(null)}
+          onClose={closeSessionDetail}
           onUpdated={() => void refresh()}
         />
       )}

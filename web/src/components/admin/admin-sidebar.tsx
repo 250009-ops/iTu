@@ -15,7 +15,8 @@ import {
   Users,
 } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
-import { adminNavGroups } from "@/lib/admin/nav";
+import { useAdminNavBadges } from "@/contexts/admin-nav-badges-context";
+import { adminNavGroups, type AdminNavItem } from "@/lib/admin/nav";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -31,9 +32,19 @@ const iconMap = {
   settings: Settings,
 } as const;
 
+function navBadgeCount(
+  item: AdminNavItem,
+  badges: { liveSessions: number; openTickets: number },
+): number | null {
+  if (!item.badgeKey) return null;
+  const count = badges[item.badgeKey];
+  return count > 0 ? count : null;
+}
+
 export function AdminSidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
+  const badges = useAdminNavBadges();
 
   return (
     <aside
@@ -53,6 +64,7 @@ export function AdminSidebar() {
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = iconMap[item.icon];
+                const badge = navBadgeCount(item, badges);
                 const active =
                   pathname === item.href ||
                   pathname.startsWith(`${item.href}/`);
@@ -87,14 +99,14 @@ export function AdminSidebar() {
                     {!collapsed && (
                       <>
                         <span className="flex-1">{item.label}</span>
-                        {item.badge != null && (
+                        {badge != null && (
                           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-red px-1.5 text-[10px] font-bold">
-                            {item.badge}
+                            {badge}
                           </span>
                         )}
                       </>
                     )}
-                    {collapsed && item.badge != null && (
+                    {collapsed && badge != null && (
                       <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-red" />
                     )}
                   </Link>

@@ -17,7 +17,7 @@ export function CompletionRatesCard() {
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
       <h2 className="font-semibold text-navy">Completion Rates</h2>
       <p className="mt-0.5 text-sm text-muted">
-        Exam module completion % this month
+        Among mocks scheduled this month
       </p>
 
       <ul className="mt-5 space-y-4">

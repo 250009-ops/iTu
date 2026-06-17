@@ -10,11 +10,13 @@ export type AdminNavIcon =
   | "bar-chart"
   | "settings";
 
+export type AdminNavBadgeKey = "liveSessions" | "openTickets";
+
 export type AdminNavItem = {
   label: string;
   href: string;
   icon: AdminNavIcon;
-  badge?: number;
+  badgeKey?: AdminNavBadgeKey;
 };
 
 export type AdminNavGroup = {
@@ -43,7 +45,7 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Live Monitor",
         href: "/admin/sessions",
         icon: "radio",
-        badge: 3,
+        badgeKey: "liveSessions",
       },
       { label: "Enrollments", href: "/admin/enrollments", icon: "users" },
       { label: "Orders", href: "/admin/orders", icon: "receipt" },
@@ -51,7 +53,7 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Disputes",
         href: "/admin/disputes",
         icon: "alert-triangle",
-        badge: 2,
+        badgeKey: "openTickets",
       },
     ],
   },

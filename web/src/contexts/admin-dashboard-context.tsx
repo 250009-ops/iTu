@@ -4,10 +4,11 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { getAdminDashboard } from "@/lib/api/admin";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
-  emptyCompletionRates,
   mapAdminStats,
+  mapCompletionRates,
+  mapDashboardMeta,
   mapLiveSessions,
-  mapMonthlyRevenueFromKpi,
+  mapMonthlyRevenue,
 } from "@/lib/api/mappers/admin";
 import type { LiveSessionRow } from "@/lib/admin/types";
 
@@ -16,8 +17,8 @@ type AdminDashboardValue = {
   error: string | null;
   adminStats: ReturnType<typeof mapAdminStats>;
   liveSessions: LiveSessionRow[];
-  monthlyRevenue: ReturnType<typeof mapMonthlyRevenueFromKpi>;
-  completionRates: typeof emptyCompletionRates;
+  monthlyRevenue: ReturnType<typeof mapMonthlyRevenue>;
+  completionRates: ReturnType<typeof mapCompletionRates>;
   meta: {
     date: string;
     status: string;
@@ -42,18 +43,19 @@ export function AdminDashboardProvider({ children }: { children: ReactNode }) {
       error,
       adminStats: data ? mapAdminStats(data) : [],
       liveSessions,
-      monthlyRevenue: data
-        ? mapMonthlyRevenueFromKpi(data.kpis.totalRevenue)
-        : [],
-      completionRates: emptyCompletionRates,
+      monthlyRevenue: data ? mapMonthlyRevenue(data.monthlyRevenue) : [],
+      completionRates: data
+        ? mapCompletionRates(data.completionRates)
+        : mapCompletionRates([]),
       meta: {
         date: new Date().toLocaleDateString("en-US", {
           month: "long",
           day: "numeric",
           year: "numeric",
         }),
-        status: "Platform operational",
-        lastSync: "Just now",
+        ...(data
+          ? mapDashboardMeta(data.meta)
+          : { status: "Platform operational", lastSync: "Just now" }),
         disputeAlert:
           openTickets > 0
             ? `${openTickets} dispute${openTickets > 1 ? "s" : ""} need attention`

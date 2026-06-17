@@ -38,6 +38,36 @@ const INTEGRITY_FLAG_EVENTS = new Set([
   'audio_seek_attempt',
 ]);
 
+const ACTIVE_EXAM_STATES = [
+  'LISTENING_ACTIVE',
+  'READING_ACTIVE',
+  'WRITING_ACTIVE',
+  'SPEAKING_ACTIVE',
+] as const;
+
+const DASHBOARD_SKILLS: {
+  skill: ExamSkill;
+  label: string;
+  color: 'sky' | 'emerald' | 'violet' | 'rose';
+}[] = [
+  { skill: ExamSkill.LISTENING, label: 'Listening', color: 'sky' },
+  { skill: ExamSkill.READING, label: 'Reading', color: 'emerald' },
+  { skill: ExamSkill.WRITING, label: 'Writing', color: 'violet' },
+  { skill: ExamSkill.SPEAKING, label: 'Speaking', color: 'rose' },
+];
+
+function monthStart(date = new Date()): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function monthEnd(date = new Date()): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+}
+
+function formatMonthShort(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short' });
+}
+
 function formatTimeLeft(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -60,18 +90,36 @@ export class AdminService {
     private audit: AuditService,
   ) {}
 
+  async getNavBadges() {
+    const [liveSessions, openTickets] = await Promise.all([
+      this.prisma.examSession.count({
+        where: { state: { in: [...ACTIVE_EXAM_STATES] } },
+      }),
+      this.prisma.supportTicket.count({
+        where: { status: { in: ['OPEN', 'IN_PROGRESS'] } },
+      }),
+    ]);
+
+    return { liveSessions, openTickets };
+  }
+
   async getDashboard() {
+    const syncedAt = new Date();
+    const currentMonthStart = monthStart(syncedAt);
+    const currentMonthEnd = monthEnd(syncedAt);
+    const revenueWindowStart = monthStart(
+      new Date(syncedAt.getFullYear(), syncedAt.getMonth() - 5, 1),
+    );
+
     const [
       totalEnrollments,
-      activeSessions,
       totalRevenue,
       openTickets,
       liveSessions,
+      monthlyOrders,
+      enrollmentsThisMonth,
     ] = await Promise.all([
       this.prisma.enrollment.count(),
-      this.prisma.enrollment.count({
-        where: { status: 'IN_PROGRESS' },
-      }),
       this.prisma.order.aggregate({
         where: { status: 'PAID' },
         _sum: { amount: true },
@@ -80,30 +128,100 @@ export class AdminService {
         where: { status: { in: ['OPEN', 'IN_PROGRESS'] } },
       }),
       this.getLiveSessions(),
+      this.prisma.order.findMany({
+        where: {
+          status: 'PAID',
+          createdAt: { gte: revenueWindowStart },
+        },
+        select: { amount: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.enrollment.findMany({
+        where: {
+          mockDate: { gte: currentMonthStart, lt: currentMonthEnd },
+        },
+        include: {
+          examSession: { include: { sectionAttempts: true } },
+        },
+      }),
     ]);
 
     return {
       kpis: {
         totalEnrollments,
-        activeExams: activeSessions,
+        activeExams: liveSessions.length,
         totalRevenue: totalRevenue._sum.amount ?? 0,
         openTickets,
       },
       liveSessions,
+      monthlyRevenue: this.buildMonthlyRevenue(monthlyOrders, syncedAt),
+      completionRates: this.buildCompletionRates(enrollmentsThisMonth),
+      meta: {
+        syncedAt: syncedAt.toISOString(),
+        status: 'operational',
+      },
+      navBadges: {
+        liveSessions: liveSessions.length,
+        openTickets,
+      },
     };
+  }
+
+  private buildMonthlyRevenue(
+    orders: { amount: number; createdAt: Date }[],
+    anchor: Date,
+  ) {
+    const buckets: { key: string; month: string; amount: number }[] = [];
+    for (let offset = 5; offset >= 0; offset -= 1) {
+      const d = new Date(anchor.getFullYear(), anchor.getMonth() - offset, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      buckets.push({ key, month: formatMonthShort(d), amount: 0 });
+    }
+
+    const bucketMap = new Map(buckets.map((b) => [b.key, b]));
+    for (const order of orders) {
+      const key = `${order.createdAt.getFullYear()}-${String(order.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = bucketMap.get(key);
+      if (bucket) {
+        bucket.amount += order.amount;
+      }
+    }
+
+    return buckets.map(({ month, amount }) => ({
+      month,
+      amount: Math.round(amount * 100) / 100,
+    }));
+  }
+
+  private buildCompletionRates(
+    enrollments: {
+      examSession: {
+        sectionAttempts: { skill: ExamSkill; submittedAt: Date | null }[];
+      } | null;
+    }[],
+  ) {
+    const total = enrollments.length;
+    return DASHBOARD_SKILLS.map(({ skill, label, color }) => {
+      if (total === 0) {
+        return { skill: label, pct: 0, color };
+      }
+      const completed = enrollments.filter((enrollment) =>
+        enrollment.examSession?.sectionAttempts.some(
+          (attempt) => attempt.skill === skill && attempt.submittedAt != null,
+        ),
+      ).length;
+      return {
+        skill: label,
+        pct: Math.round((completed / total) * 100),
+        color,
+      };
+    });
   }
 
   async getLiveSessions() {
     const sessions = await this.prisma.examSession.findMany({
       where: {
-        state: {
-          in: [
-            'LISTENING_ACTIVE',
-            'READING_ACTIVE',
-            'WRITING_ACTIVE',
-            'SPEAKING_ACTIVE',
-          ],
-        },
+        state: { in: [...ACTIVE_EXAM_STATES] },
       },
       include: {
         enrollment: {

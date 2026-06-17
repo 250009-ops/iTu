@@ -56,6 +56,12 @@ export function updateTicket(
   return apiFetch(`/admin/disputes/${id}`, { method: "PATCH", body: payload });
 }
 
+export function getAdminNavBadges() {
+  return apiFetch<{ liveSessions: number; openTickets: number }>(
+    "/admin/nav-badges",
+  );
+}
+
 export function getAdminDashboard() {
   return apiFetch<{
     kpis: {
@@ -76,6 +82,20 @@ export function getAdminDashboard() {
       integrity: string;
       flags: number;
     }[];
+    monthlyRevenue: { month: string; amount: number }[];
+    completionRates: {
+      skill: string;
+      pct: number;
+      color: "sky" | "emerald" | "violet" | "rose";
+    }[];
+    meta: {
+      syncedAt: string;
+      status: string;
+    };
+    navBadges: {
+      liveSessions: number;
+      openTickets: number;
+    };
   }>("/admin/dashboard");
 }
 

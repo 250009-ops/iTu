@@ -366,7 +366,7 @@ Page file `app/(student)/student/[[...view]]/page.tsx` is an anchor; routing is 
 
 | Route | Page |
 |-------|------|
-| `/admin/dashboard` | Dashboard, live sessions |
+| `/admin/dashboard` | KPIs, 6-month revenue trend, module completion rates, live sessions preview |
 | `/admin/content` | Content Studio |
 | `/admin/teachers` | Examiner roster |
 | `/admin/sessions` | Live Monitor |
@@ -384,7 +384,7 @@ Nav items are defined in dedicated config files (not hardcoded in sidebars):
 - `lib/teacher/nav.ts` — 6 items
 - `lib/admin/nav.ts` — grouped: Content, Management, Analytics
 
-Badges (e.g. Live Monitor `3`, Disputes `2`) are static in nav config for demo.
+Badges on **Live Monitor** and **Disputes** are loaded from `GET /admin/nav-badges` (live session count and open ticket count) via `AdminNavBadgesProvider` in the admin shell. Badges appear only when the count is greater than zero.
 
 **Note:** Portal switcher links (Student / Teacher / Admin) appear in sidebar footers for navigation between portals in the prototype. They are not a production multi-tenant switcher.
 
@@ -427,7 +427,7 @@ Register and forgot-password forms have `// TODO: wire to auth API` placeholders
 - Page padding: `p-4 lg:p-6 xl:p-8`, content `max-w-5xl` to `max-w-7xl`
 - Status pills: colored dot + rounded-full badge
 - Tables: uppercase column headers, hover rows, search + filter controls
-- Charts: hand-built SVG (no chart library)
+- Charts: Recharts for admin/teacher revenue and band charts; SVG for some legacy widgets
 
 **Branding rule:** UI text uses **"official computer-delivered IELTS"** / **"IELTS CBT"** — not third-party test-centre branding.
 
@@ -451,7 +451,7 @@ All screens import static fixtures from `lib/mock/*.ts`. No fetch layer, no Reac
 | `writing-grading.ts` | Grading queue |
 | `teacher-earnings.ts` | Charts, payout, transactions |
 | `teacher-profile.ts` | Credentials, performance |
-| `admin-dashboard.ts` | KPIs, revenue, live sessions |
+| `admin-dashboard-context.tsx` | KPIs, revenue trend, completion rates, live sessions, sync meta |
 | `live-monitor.ts` | Active exams, integrity alerts |
 | `content-studio.ts` | Tests table, listening editor |
 | `admin-teachers.ts` | Examiner roster |
@@ -705,7 +705,7 @@ API keys and webhook signing secrets are managed in Admin Settings → Integrati
 | Full content authoring UI | Admin wizard still stubbed; API create/publish exists |
 | Transactional email (beyond reset) | SMTP wired for password reset only |
 | Server PDF certificates | Client print/txt export only |
-| Portal global search | Toast placeholder |
+| Portal global search | `GET /search` — role-scoped (enrollments, orders, content, tickets, sessions) |
 | Phase 5 hardening | Load test, security audit, beta program |
 
 ---

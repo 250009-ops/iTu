@@ -38,6 +38,11 @@ export class AdminController {
     return this.admin.getDashboard();
   }
 
+  @Get('nav-badges')
+  getNavBadges() {
+    return this.admin.getNavBadges();
+  }
+
   @Get('enrollments')
   getEnrollments() {
     return this.admin.getEnrollments();
