@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
+import { ReadingHeadingsProvider } from "@/components/exam/reading/reading-headings-context";
+import { PassageWithHeadingZones } from "@/components/exam/reading/passage-with-heading-zones";
 import { TaskVisual } from "@/components/exam/writing/task-visual";
 import { useExamState } from "@/lib/exam/use-exam-state";
+import { matchingHeadingsForPassage } from "@/lib/exam/matching-headings";
 import type { ContentModule } from "@/lib/admin/types";
 import type {
   ListeningContent,
@@ -39,80 +42,98 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
   const [passageIdx, setPassageIdx] = useState(0);
   const passage = content.passages[passageIdx];
   const state = useExamState(passage?.id ?? "preview");
+  const hasMatchingHeadings =
+    passage && matchingHeadingsForPassage(passage.groups).length > 0;
 
   if (!passage) {
     return <EmptyPreview message="Add at least one passage to preview." />;
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white">
-      <div className="flex flex-wrap gap-2 border-b border-border bg-slate-50 px-4 py-3">
-        {content.passages.map((p, idx) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => setPassageIdx(idx)}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-semibold",
-              passageIdx === idx ? "bg-navy text-white" : "bg-white text-muted",
-            )}
-          >
-            Passage {p.part}
-          </button>
-        ))}
-      </div>
-      <div className="grid min-h-[420px] lg:grid-cols-2">
-        <div className="border-b border-border p-5 lg:border-b-0 lg:border-r">
-          <h3 className="mb-1 text-center text-lg font-bold text-navy">{passage.title}</h3>
-          {passage.subtitle?.trim() && (
-            <p className="mb-4 text-center text-sm italic text-slate-600">
-              {passage.subtitle}
-            </p>
-          )}
-          <div className="space-y-3 text-sm leading-relaxed text-slate-700">
-            {passage.paragraphs.map((para, i) => (
-              <p key={i}>
-                {para.marker && (
-                  <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-[10px] font-bold">
-                    {para.marker}
-                  </span>
-                )}
-                {para.text ? (
-                  isHtmlContent(para.text) ? (
-                    <span
-                      dangerouslySetInnerHTML={{
-                        __html: sanitizePassageHtml(para.text),
-                      }}
-                    />
-                  ) : (
-                    para.text
-                  )
-                ) : (
-                  <span className="italic text-muted">Empty paragraph</span>
-                )}
-              </p>
-            ))}
-          </div>
+    <ReadingHeadingsProvider>
+      <div className="overflow-hidden rounded-xl border border-border bg-white">
+        <div className="flex flex-wrap gap-2 border-b border-border bg-slate-50 px-4 py-3">
+          {content.passages.map((p, idx) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPassageIdx(idx)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                passageIdx === idx ? "bg-navy text-white" : "bg-white text-muted",
+              )}
+            >
+              Passage {p.part}
+            </button>
+          ))}
         </div>
-        <div className="space-y-6 bg-slate-50 p-5">
-          {passage.groups.length === 0 ? (
-            <p className="text-sm text-muted">No questions in this passage yet.</p>
-          ) : (
-            passage.groups.map((group) => (
-              <QuestionGroup
-                key={group.id}
-                group={group}
+        <div className="grid min-h-[420px] lg:grid-cols-2">
+          <div className="border-b border-border p-5 lg:border-b-0 lg:border-r">
+            {hasMatchingHeadings ? (
+              <PassageWithHeadingZones
+                passage={passage}
+                groups={passage.groups}
                 answers={state.answers}
                 current={state.current}
+                textSizeClass="text-sm"
                 onAnswer={state.setAnswer}
                 onFocus={state.focusQuestion}
-                passageParagraphs={passage.paragraphs}
               />
-            ))
-          )}
+            ) : (
+              <>
+                <h3 className="mb-1 text-center text-lg font-bold text-navy">{passage.title}</h3>
+                {passage.subtitle?.trim() && (
+                  <p className="mb-4 text-center text-sm italic text-slate-600">
+                    {passage.subtitle}
+                  </p>
+                )}
+                <div className="space-y-3 text-sm leading-relaxed text-slate-700">
+                  {passage.paragraphs.map((para, i) => (
+                    <p key={i}>
+                      {para.marker && (
+                        <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-[10px] font-bold">
+                          {para.marker}
+                        </span>
+                      )}
+                      {para.text ? (
+                        isHtmlContent(para.text) ? (
+                          <span
+                            dangerouslySetInnerHTML={{
+                              __html: sanitizePassageHtml(para.text),
+                            }}
+                          />
+                        ) : (
+                          para.text
+                        )
+                      ) : (
+                        <span className="italic text-muted">Empty paragraph</span>
+                      )}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="space-y-6 bg-slate-50 p-5">
+            {passage.groups.length === 0 ? (
+              <p className="text-sm text-muted">No questions in this passage yet.</p>
+            ) : (
+              passage.groups.map((group) => (
+                <QuestionGroup
+                  key={group.id}
+                  group={group}
+                  answers={state.answers}
+                  current={state.current}
+                  onAnswer={state.setAnswer}
+                  onFocus={state.focusQuestion}
+                  passageParagraphs={passage.paragraphs}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </ReadingHeadingsProvider>
   );
 }
 

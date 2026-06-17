@@ -12,8 +12,11 @@ import {
 } from "@/components/exam/shell/question-palette";
 import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
+import { ReadingHeadingsProvider } from "@/components/exam/reading/reading-headings-context";
+import { PassageWithHeadingZones } from "@/components/exam/reading/passage-with-heading-zones";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
+import { matchingHeadingsForPassage } from "@/lib/exam/matching-headings";
 import { isHtmlContent, sanitizePassageHtml } from "@/lib/admin/content/sanitize-html";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
@@ -102,6 +105,9 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
     content.passages.find((p) => p.id === state.activePart) ??
     content.passages[0];
 
+  const hasMatchingHeadings =
+    matchingHeadingsForPassage(activePassage.groups).length > 0;
+
   const goToQuestion = (n: number) => {
     const passage = content.passages.find((p) =>
       questionNumbers(p.groups).includes(n),
@@ -127,7 +133,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <>
+    <ReadingHeadingsProvider>
       <ExamTopBar
         testTakerId={sessionId}
         timer={<ExamTimer remainingSeconds={remaining} hidden={state.hideTimer} />}
@@ -152,40 +158,52 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
           className="min-h-0 overflow-y-auto bg-white px-6 py-6"
           style={{ width: `${leftPct}%` }}
         >
-          <div
-            className={`mx-auto max-w-prose ${TEXT_SIZE_CLASS[state.textSize]}`}
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-          >
-            <h2 className="mb-2 text-center text-xl font-bold text-navy">
-              {activePassage.title}
-            </h2>
-            {activePassage.subtitle?.trim() && (
-              <p className="mb-5 text-center text-[15px] italic leading-snug text-slate-600">
-                {activePassage.subtitle}
-              </p>
-            )}
-            {!activePassage.subtitle?.trim() && <div className="mb-4" />}
-            <div className="space-y-4 leading-7 text-slate-700">
-              {activePassage.paragraphs.map((para, i) => (
-                <p key={i}>
-                  {para.marker && (
-                    <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 align-text-bottom text-[12px] font-bold text-navy">
-                      {para.marker}
-                    </span>
-                  )}
-                  {isHtmlContent(para.text) ? (
-                    <span
-                      dangerouslySetInnerHTML={{
-                        __html: sanitizePassageHtml(para.text),
-                      }}
-                    />
-                  ) : (
-                    para.text
-                  )}
+          {hasMatchingHeadings ? (
+            <PassageWithHeadingZones
+              passage={activePassage}
+              groups={activePassage.groups}
+              answers={state.answers}
+              current={state.current}
+              textSizeClass={TEXT_SIZE_CLASS[state.textSize]}
+              onAnswer={state.setAnswer}
+              onFocus={state.focusQuestion}
+            />
+          ) : (
+            <div
+              className={`mx-auto max-w-prose ${TEXT_SIZE_CLASS[state.textSize]}`}
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            >
+              <h2 className="mb-2 text-center text-xl font-bold text-navy">
+                {activePassage.title}
+              </h2>
+              {activePassage.subtitle?.trim() && (
+                <p className="mb-5 text-center text-[15px] italic leading-snug text-slate-600">
+                  {activePassage.subtitle}
                 </p>
-              ))}
+              )}
+              {!activePassage.subtitle?.trim() && <div className="mb-4" />}
+              <div className="space-y-4 leading-7 text-slate-700">
+                {activePassage.paragraphs.map((para, i) => (
+                  <p key={i}>
+                    {para.marker && (
+                      <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 align-text-bottom text-[12px] font-bold text-navy">
+                        {para.marker}
+                      </span>
+                    )}
+                    {isHtmlContent(para.text) ? (
+                      <span
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizePassageHtml(para.text),
+                        }}
+                      />
+                    ) : (
+                      para.text
+                    )}
+                  </p>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div
@@ -240,6 +258,6 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
         onCancel={() => !expired && setSubmitOpen(false)}
         onConfirm={() => void handleSubmit()}
       />
-    </>
+    </ReadingHeadingsProvider>
   );
 }

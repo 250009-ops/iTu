@@ -438,12 +438,12 @@ export const readingContent: ReadingContent = {
             { id: "viii", label: "viii. Measuring rainfall in cities" },
           ],
           questions: [
-            { n: 14, prompt: "Section A" },
-            { n: 15, prompt: "Section B" },
-            { n: 16, prompt: "Section C" },
-            { n: 17, prompt: "Section D" },
-            { n: 18, prompt: "Section E" },
-            { n: 19, prompt: "Section F" },
+            { n: 14, prompt: "Section A", section: "A" },
+            { n: 15, prompt: "Section B", section: "B" },
+            { n: 16, prompt: "Section C", section: "C" },
+            { n: 17, prompt: "Section D", section: "D" },
+            { n: 18, prompt: "Section E", section: "E" },
+            { n: 19, prompt: "Section F", section: "F" },
           ],
         },
         {

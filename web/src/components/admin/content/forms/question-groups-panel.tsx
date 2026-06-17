@@ -44,6 +44,8 @@ type Props = {
   partNumber: number;
   testId?: string;
   answerKey: AnswerKeyMap;
+  /** Passage paragraph markers for matching_headings section mapping. */
+  passageParagraphs?: { marker?: string }[];
   onGroupsChange: (groups: QuestionGroup[]) => void;
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
 };
@@ -54,6 +56,7 @@ export function QuestionGroupsPanel({
   partNumber,
   testId,
   answerKey,
+  passageParagraphs,
   onGroupsChange,
   onAnswerKeyChange,
 }: Props) {
@@ -110,6 +113,7 @@ export function QuestionGroupsPanel({
             group={group}
             testId={testId}
             answerKey={answerKey}
+            passageParagraphs={passageParagraphs}
             onChange={(g) => updateGroup(idx, g)}
             onAnswerKeyChange={onAnswerKeyChange}
             onRemove={() => removeGroup(idx)}

@@ -250,6 +250,7 @@ export function ReadingVisualEditor({
         partNumber={passage.part}
         testId={testId}
         answerKey={answerKey}
+        passageParagraphs={passage.paragraphs}
         onGroupsChange={updateGroups}
         onAnswerKeyChange={onAnswerKeyChange}
       />

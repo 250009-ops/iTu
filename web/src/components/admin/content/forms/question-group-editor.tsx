@@ -16,7 +16,9 @@ import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import {
   formatSectionLabelsInput,
   parseSectionLabelsInput,
+  passageSectionLabels,
 } from "@/lib/exam/passage-sections";
+import { resolveMatchingSection } from "@/lib/exam/matching-headings";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
 import type { QuestionGroup } from "@/lib/exam/types";
 
@@ -24,6 +26,7 @@ type Props = {
   group: QuestionGroup;
   testId?: string;
   answerKey: AnswerKeyMap;
+  passageParagraphs?: { marker?: string }[];
   onChange: (group: QuestionGroup) => void;
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
   onRemove: () => void;
@@ -33,6 +36,7 @@ export function QuestionGroupEditor({
   group,
   testId,
   answerKey,
+  passageParagraphs,
   onChange,
   onAnswerKeyChange,
   onRemove,
@@ -81,7 +85,7 @@ export function QuestionGroupEditor({
         )}
       </div>
 
-      {renderBody(group, testId, answerKey, onChange, onAnswerKeyChange)}
+      {renderBody(group, testId, answerKey, passageParagraphs, onChange, onAnswerKeyChange)}
     </div>
   );
 }
@@ -90,6 +94,7 @@ function renderBody(
   group: QuestionGroup,
   testId: string | undefined,
   answerKey: AnswerKeyMap,
+  passageParagraphs: { marker?: string }[] | undefined,
   onChange: (g: QuestionGroup) => void,
   onAnswerKeyChange: (k: AnswerKeyMap) => void,
 ) {
@@ -187,8 +192,118 @@ function renderBody(
         </div>
       );
 
+    case "matching_headings": {
+      const sections = passageSectionLabels(passageParagraphs);
+      return (
+        <div className="space-y-3">
+          <p className="text-xs text-muted">
+            Students drag headings onto drop zones above each section in the passage.
+            Map each question to a passage section.
+          </p>
+          <div className="space-y-2">
+            <Label className="text-xs">Headings bank</Label>
+            {group.options.map((opt, idx) => (
+              <div key={opt.id} className="flex items-center gap-2">
+                <span className="w-8 text-xs font-bold">{opt.id}</span>
+                <Input
+                  value={opt.label}
+                  onChange={(e) => {
+                    const options = [...group.options];
+                    options[idx] = { ...opt, label: e.target.value };
+                    onChange({ ...group, options });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          {group.questions.map((q, idx) => {
+            const section =
+              q.section?.trim() ||
+              resolveMatchingSection(q, sections[idx]) ||
+              sections[0] ||
+              "A";
+            return (
+              <div
+                key={q.n}
+                className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
+                  {q.n}
+                </span>
+                <select
+                  value={section}
+                  onChange={(e) => {
+                    const questions = [...group.questions];
+                    const letter = e.target.value;
+                    questions[idx] = {
+                      ...q,
+                      section: letter,
+                      prompt: `Section ${letter}`,
+                    };
+                    onChange({ ...group, questions });
+                  }}
+                  className="h-9 rounded-md border border-border bg-white px-2 text-sm"
+                >
+                  {sections.map((s) => (
+                    <option key={s} value={s}>
+                      Section {s}
+                    </option>
+                  ))}
+                </select>
+                <AnswerKeyField
+                  questionNumber={q.n}
+                  answerKey={answerKey}
+                  onChange={onAnswerKeyChange}
+                  type="option"
+                  options={group.options.map((o) => o.id)}
+                />
+              </div>
+            );
+          })}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const n = group.to + 1;
+                const letter = sections[group.questions.length] ?? "A";
+                onChange({
+                  ...group,
+                  to: n,
+                  questions: [
+                    ...group.questions,
+                    { n, prompt: `Section ${letter}`, section: letter },
+                  ],
+                });
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add section
+            </Button>
+            {sections.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  onChange({
+                    ...group,
+                    questions: sections.map((s, i) => ({
+                      n: group.from + i,
+                      section: s,
+                      prompt: `Section ${s}`,
+                    })),
+                    to: group.from + sections.length - 1,
+                  });
+                }}
+              >
+                Sync from passage markers
+              </Button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     case "matching":
-    case "matching_headings":
       return (
         <div className="space-y-3">
           <div className="space-y-2">

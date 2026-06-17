@@ -210,7 +210,6 @@ export function createQuestionGroup(
         ],
       };
     case "matching":
-    case "matching_headings":
       return {
         id,
         type,
@@ -223,6 +222,27 @@ export function createQuestionGroup(
           { id: "B", label: "Option B" },
         ],
         questions: [{ n: from, prompt: "" }],
+      };
+    case "matching_headings":
+      return {
+        id,
+        type,
+        from,
+        to,
+        instruction:
+          "The text has six sections, A–F. Choose the correct heading for each section.",
+        hint: "Drag the correct heading into each section.",
+        options: [
+          { id: "i", label: "i. Heading one" },
+          { id: "ii", label: "ii. Heading two" },
+          { id: "iii", label: "iii. Heading three" },
+          { id: "iv", label: "iv. Heading four" },
+          { id: "v", label: "v. Heading five" },
+          { id: "vi", label: "vi. Heading six" },
+          { id: "vii", label: "vii. Extra heading" },
+          { id: "viii", label: "viii. Extra heading" },
+        ],
+        questions: [{ n: from, prompt: "Section A", section: "A" }],
       };
     case "matching_information":
       return {

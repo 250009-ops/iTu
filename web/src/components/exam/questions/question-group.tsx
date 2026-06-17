@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { GapInput } from "./gap-input";
 import { MatchingControl } from "./matching-control";
+import { MatchingHeadingsControl } from "./matching-headings-control";
 import { MatchingInformationControl } from "./matching-information-control";
 import { MapLabeling } from "./map-labeling";
 import { passageSectionLabels } from "@/lib/exam/passage-sections";
@@ -382,8 +383,24 @@ function GroupBody({
       );
     }
 
-    case "matching":
     case "matching_headings": {
+      const map: Record<number, string> = {};
+      group.questions.forEach((q) => {
+        const v = answers[q.n];
+        if (typeof v === "string") map[q.n] = v;
+      });
+      return (
+        <MatchingHeadingsControl
+          options={group.options}
+          questions={group.questions}
+          answers={map}
+          current={current}
+          onFocus={onFocus}
+        />
+      );
+    }
+
+    case "matching": {
       const map: Record<number, string> = {};
       group.questions.forEach((q) => {
         const v = answers[q.n];

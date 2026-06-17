@@ -83,7 +83,7 @@ export interface McqMultiGroup extends BaseGroup {
 export interface MatchingGroup extends BaseGroup {
   type: "matching" | "matching_headings";
   options: MatchOption[];
-  questions: { n: number; prompt: string }[];
+  questions: { n: number; prompt: string; /** Passage section letter for matching_headings */ section?: string }[];
 }
 
 /** Reading: which passage section (A–F) contains each statement — Cambridge dropdown UI. */
