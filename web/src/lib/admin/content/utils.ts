@@ -132,7 +132,9 @@ export function countAnswered(key: AnswerKeyMap, nums: number[]): number {
   return nums.filter((n) => {
     const v = key[String(n)];
     if (v == null) return false;
-    if (Array.isArray(v)) return v.length > 0;
+    if (Array.isArray(v)) {
+      return v.some((s) => String(s).trim().length > 0);
+    }
     return String(v).trim().length > 0;
   }).length;
 }

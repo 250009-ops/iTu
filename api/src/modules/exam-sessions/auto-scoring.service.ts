@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ExamSkill, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { matchAnswer } from './answer-matching';
 
 @Injectable()
 export class AutoScoringService {
@@ -32,19 +33,7 @@ export class AutoScoringService {
     submitted: Prisma.JsonValue,
     expected: string | string[],
   ): boolean {
-    const normalize = (v: string) => v.trim().toLowerCase();
-
-    if (Array.isArray(expected)) {
-      if (!Array.isArray(submitted)) return false;
-      const sortedExpected = [...expected].map(normalize).sort();
-      const sortedSubmitted = submitted.map((s) => normalize(String(s))).sort();
-      return JSON.stringify(sortedExpected) === JSON.stringify(sortedSubmitted);
-    }
-
-    const submittedStr = Array.isArray(submitted)
-      ? submitted.join(' ')
-      : String(submitted ?? '');
-    return normalize(submittedStr) === normalize(expected);
+    return matchAnswer(submitted, expected);
   }
 
   private async lookupBand(

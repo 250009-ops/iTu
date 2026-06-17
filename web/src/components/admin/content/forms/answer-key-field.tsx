@@ -1,7 +1,11 @@
 "use client";
 
+import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  commitTextAlternatives,
+  parseTextAlternatives,
+} from "@/lib/admin/content/answer-key-alternatives";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 
 type Props = {
@@ -10,7 +14,61 @@ type Props = {
   onChange: (key: AnswerKeyMap) => void;
   type?: "text" | "tfng" | "yng" | "option";
   options?: string[];
+  /** Allow multiple acceptable answers for text gaps (completion). Default true for type=text. */
+  allowAlternatives?: boolean;
 };
+
+function TextAnswerKeyField({
+  questionNumber,
+  answerKey,
+  onChange,
+}: Pick<Props, "questionNumber" | "answerKey" | "onChange">) {
+  const key = String(questionNumber);
+  const alts = parseTextAlternatives(answerKey[key]);
+
+  function update(next: string[]) {
+    onChange({ ...answerKey, [key]: commitTextAlternatives(next) });
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {alts.map((alt, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <Input
+            value={alt}
+            onChange={(e) => {
+              const next = [...alts];
+              next[i] = e.target.value;
+              update(next);
+            }}
+            placeholder={i === 0 ? "Correct answer" : "Alternative answer"}
+            className="h-8 flex-1 text-xs"
+          />
+          {alts.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => update(alts.filter((_, j) => j !== i))}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted hover:bg-red-50 hover:text-red-600"
+              aria-label="Remove alternative"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+      ))}
+      {alts.length < 5 ? (
+        <button
+          type="button"
+          onClick={() => update([...alts, ""])}
+          className="flex items-center gap-1 text-[11px] font-medium text-navy/70 hover:text-navy"
+        >
+          <Plus className="h-3 w-3" />
+          Add alternative answer
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 export function AnswerKeyField({
   questionNumber,
@@ -18,6 +76,7 @@ export function AnswerKeyField({
   onChange,
   type = "text",
   options,
+  allowAlternatives,
 }: Props) {
   const key = String(questionNumber);
   const value = answerKey[key] ?? "";
@@ -70,6 +129,17 @@ export function AnswerKeyField({
           </option>
         ))}
       </select>
+    );
+  }
+
+  const useAlternatives = allowAlternatives ?? type === "text";
+  if (useAlternatives) {
+    return (
+      <TextAnswerKeyField
+        questionNumber={questionNumber}
+        answerKey={answerKey}
+        onChange={onChange}
+      />
     );
   }
 
