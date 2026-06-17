@@ -7,6 +7,7 @@ import type {
   SpeakingContent,
   WritingContent,
 } from "@/lib/exam/types";
+import { defaultMatchOptions } from "@/lib/admin/content/match-editor-helpers";
 import { newId } from "@/lib/admin/content/utils";
 
 export function emptyReadingContent(title = "Reading"): ReadingContent {
@@ -218,12 +219,10 @@ export function createQuestionGroup(
         type,
         from,
         to,
-        instruction: "Match each item with the correct option.",
-        hint: "Drag the correct letter next to each question.",
-        options: [
-          { id: "A", label: "Option A" },
-          { id: "B", label: "Option B" },
-        ],
+        instruction:
+          "Look at the following statements and the list of options below.",
+        hint: "Drag the correct letter next to each question. NB You may use any letter more than once.",
+        options: defaultMatchOptions(5),
         questions: [{ n: from, prompt: "" }],
       };
     case "matching_headings":
@@ -360,14 +359,14 @@ export function createQuestionGroup(
         type,
         from,
         to,
-        instruction: "Look at the following statements and the list of features below.",
-        hint: "Match each statement with the correct feature, A–E.",
-        listTitle: "List of features",
-        options: [
-          { id: "A", label: "Feature A" },
-          { id: "B", label: "Feature B" },
-          { id: "C", label: "Feature C" },
-        ],
+        instruction:
+          "Look at the following statements and the list of people below.",
+        hint: "Match each statement with the correct person, A–G. NB You may use any letter more than once.",
+        listTitle: "List of people",
+        options: defaultMatchOptions(7).map((o) => ({
+          ...o,
+          label: `Person ${o.id}`,
+        })),
         questions: [{ n: from, prompt: "" }],
       };
   }

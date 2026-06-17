@@ -11,6 +11,11 @@ import {
 import { MapLabelingEditor } from "@/components/admin/content/forms/map-labeling-editor";
 import { TableCompletionEditor } from "@/components/admin/content/forms/table-completion-editor";
 import { CompletionLinesEditor } from "@/components/admin/content/forms/completion-lines-editor";
+import {
+  MatchOptionsBankEditor,
+  StatementListEditor,
+} from "@/components/admin/content/forms/matching-editor-parts";
+import { removeAnswerKeyEntry, removeQuestionAt } from "@/lib/admin/content/match-editor-helpers";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import {
@@ -102,47 +107,14 @@ function renderBody(
     case "tfng":
     case "yng":
       return (
-        <div className="space-y-3">
-          {group.questions.map((q, idx) => (
-            <div
-              key={q.n}
-              className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                {q.n}
-              </span>
-              <Input
-                value={q.prompt}
-                onChange={(e) => {
-                  const questions = [...group.questions];
-                  questions[idx] = { ...q, prompt: e.target.value };
-                  onChange({ ...group, questions });
-                }}
-                placeholder="Statement"
-              />
-              <AnswerKeyField
-                questionNumber={q.n}
-                answerKey={answerKey}
-                onChange={onAnswerKeyChange}
-                type={group.type === "tfng" ? "tfng" : "yng"}
-              />
-            </div>
-          ))}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const n = group.to + 1;
-              onChange({
-                ...group,
-                to: n,
-                questions: [...group.questions, { n, prompt: "" }],
-              });
-            }}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add statement
-          </Button>
-        </div>
+        <StatementListEditor
+          questions={group.questions}
+          answerKey={answerKey}
+          answerKeyType={group.type === "tfng" ? "tfng" : "yng"}
+          placeholder="Statement"
+          onQuestionsChange={(questions) => onChange({ ...group, questions })}
+          onAnswerKeyChange={onAnswerKeyChange}
+        />
       );
 
     case "mcq_single":
@@ -257,6 +229,22 @@ function renderBody(
                   type="option"
                   options={group.options.map((o) => o.id)}
                 />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
+                  disabled={group.questions.length <= 1}
+                  onClick={() => {
+                    const next = removeQuestionAt(group.questions, idx, 1);
+                    if (!next) return;
+                    onAnswerKeyChange(removeAnswerKeyEntry(answerKey, q.n));
+                    onChange({ ...group, questions: next });
+                  }}
+                  aria-label={`Remove section ${q.n}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             );
           })}
@@ -306,47 +294,18 @@ function renderBody(
     case "matching":
       return (
         <div className="space-y-3">
-          <div className="space-y-2">
-            <Label className="text-xs">Options bank</Label>
-            {group.options.map((opt, idx) => (
-              <div key={opt.id} className="flex items-center gap-2">
-                <span className="w-8 text-xs font-bold">{opt.id}</span>
-                <Input
-                  value={opt.label}
-                  onChange={(e) => {
-                    const options = [...group.options];
-                    options[idx] = { ...opt, label: e.target.value };
-                    onChange({ ...group, options });
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          {group.questions.map((q, idx) => (
-            <div
-              key={q.n}
-              className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                {q.n}
-              </span>
-              <Input
-                value={q.prompt}
-                onChange={(e) => {
-                  const questions = [...group.questions];
-                  questions[idx] = { ...q, prompt: e.target.value };
-                  onChange({ ...group, questions });
-                }}
-              />
-              <AnswerKeyField
-                questionNumber={q.n}
-                answerKey={answerKey}
-                onChange={onAnswerKeyChange}
-                type="option"
-                options={group.options.map((o) => o.id)}
-              />
-            </div>
-          ))}
+          <MatchOptionsBankEditor
+            options={group.options}
+            onChange={(options) => onChange({ ...group, options })}
+          />
+          <StatementListEditor
+            questions={group.questions}
+            answerKey={answerKey}
+            answerKeyType="option"
+            answerOptions={group.options.map((o) => o.id)}
+            onQuestionsChange={(questions) => onChange({ ...group, questions })}
+            onAnswerKeyChange={onAnswerKeyChange}
+          />
         </div>
       );
 
@@ -371,46 +330,15 @@ function renderBody(
               use markers from the passage at exam time.
             </p>
           </div>
-          {group.questions.map((q, idx) => (
-            <div
-              key={q.n}
-              className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                {q.n}
-              </span>
-              <Input
-                value={q.prompt}
-                onChange={(e) => {
-                  const questions = [...group.questions];
-                  questions[idx] = { ...q, prompt: e.target.value };
-                  onChange({ ...group, questions });
-                }}
-                placeholder="Statement to match to a section"
-              />
-              <AnswerKeyField
-                questionNumber={q.n}
-                answerKey={answerKey}
-                onChange={onAnswerKeyChange}
-                type="option"
-                options={labels}
-              />
-            </div>
-          ))}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const n = group.to + 1;
-              onChange({
-                ...group,
-                to: n,
-                questions: [...group.questions, { n, prompt: "" }],
-              });
-            }}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add statement
-          </Button>
+          <StatementListEditor
+            questions={group.questions}
+            answerKey={answerKey}
+            answerKeyType="option"
+            answerOptions={labels}
+            placeholder="Statement to match to a section"
+            onQuestionsChange={(questions) => onChange({ ...group, questions })}
+            onAnswerKeyChange={onAnswerKeyChange}
+          />
         </div>
       );
     }
@@ -469,31 +397,13 @@ function renderBody(
 
     case "short_answer":
       return (
-        <div className="space-y-3">
-          {group.questions.map((q, idx) => (
-            <div
-              key={q.n}
-              className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                {q.n}
-              </span>
-              <Input
-                value={q.prompt}
-                onChange={(e) => {
-                  const questions = [...group.questions];
-                  questions[idx] = { ...q, prompt: e.target.value };
-                  onChange({ ...group, questions });
-                }}
-              />
-              <AnswerKeyField
-                questionNumber={q.n}
-                answerKey={answerKey}
-                onChange={onAnswerKeyChange}
-              />
-            </div>
-          ))}
-        </div>
+        <StatementListEditor
+          questions={group.questions}
+          answerKey={answerKey}
+          answerKeyType="text"
+          onQuestionsChange={(questions) => onChange({ ...group, questions })}
+          onAnswerKeyChange={onAnswerKeyChange}
+        />
       );
 
     case "map_labeling":
@@ -676,61 +586,20 @@ function renderBody(
               placeholder="List of researchers"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Features / people</Label>
-            {group.options.map((opt, idx) => (
-              <div key={opt.id} className="flex items-center gap-2">
-                <span className="w-8 text-xs font-bold">{opt.id}</span>
-                <Input
-                  value={opt.label}
-                  onChange={(e) => {
-                    const options = [...group.options];
-                    options[idx] = { ...opt, label: e.target.value };
-                    onChange({ ...group, options });
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          {group.questions.map((q, idx) => (
-            <div
-              key={q.n}
-              className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                {q.n}
-              </span>
-              <Input
-                value={q.prompt}
-                onChange={(e) => {
-                  const questions = [...group.questions];
-                  questions[idx] = { ...q, prompt: e.target.value };
-                  onChange({ ...group, questions });
-                }}
-              />
-              <AnswerKeyField
-                questionNumber={q.n}
-                answerKey={answerKey}
-                onChange={onAnswerKeyChange}
-                type="option"
-                options={group.options.map((o) => o.id)}
-              />
-            </div>
-          ))}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const n = group.to + 1;
-              onChange({
-                ...group,
-                to: n,
-                questions: [...group.questions, { n, prompt: "" }],
-              });
-            }}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add statement
-          </Button>
+          <MatchOptionsBankEditor
+            label="Features / people"
+            options={group.options}
+            minOptions={2}
+            onChange={(options) => onChange({ ...group, options })}
+          />
+          <StatementListEditor
+            questions={group.questions}
+            answerKey={answerKey}
+            answerKeyType="option"
+            answerOptions={group.options.map((o) => o.id)}
+            onQuestionsChange={(questions) => onChange({ ...group, questions })}
+            onAnswerKeyChange={onAnswerKeyChange}
+          />
         </div>
       );
 

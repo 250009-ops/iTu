@@ -59,7 +59,12 @@ export function MatchingControl({
                   : "border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-sky-50",
               )}
             >
-              {opt.label}
+              <span className="font-bold">{opt.id}</span>
+              {opt.label.replace(/^[A-Z]\.?\s*/i, "").trim() && (
+                <span className="ml-1.5 font-normal">
+                  {opt.label.replace(/^[A-Z]\.?\s*/i, "")}
+                </span>
+              )}
             </button>
           );
         })}
@@ -73,8 +78,9 @@ export function MatchingControl({
           return (
             <li
               key={q.n}
+              id={`q-${q.n}`}
               className={cn(
-                "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+                "scroll-mt-20 flex items-center gap-3 rounded-xl border px-3 py-2.5 transition",
                 isActive ? "border-navy bg-sky-50" : "border-slate-200 bg-white",
               )}
             >
@@ -109,7 +115,9 @@ export function MatchingControl({
                 {assigned ? (
                   <>
                     <span className="truncate text-[13px] font-semibold text-emerald-800">
-                      {assigned.label}
+                      {assigned.id}
+                      {assigned.label.replace(/^[A-Z]\.?\s*/i, "").trim() &&
+                        ` — ${assigned.label.replace(/^[A-Z]\.?\s*/i, "")}`}
                     </span>
                     <button
                       type="button"
