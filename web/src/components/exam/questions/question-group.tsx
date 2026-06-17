@@ -18,7 +18,10 @@ import { GapInput } from "./gap-input";
 import { MatchingControl } from "./matching-control";
 import { MatchingHeadingsControl } from "./matching-headings-control";
 import { MatchingInformationControl } from "./matching-information-control";
+import { MatchingFeaturesControl } from "./matching-features-control";
+import { FlowchartCompletionControl } from "./flowchart-completion-control";
 import { MapLabeling } from "./map-labeling";
+import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import { passageSectionLabels } from "@/lib/exam/passage-sections";
 
 interface QuestionGroupProps {
@@ -214,9 +217,7 @@ function GroupBody({
                 )}
               >
                 <p className="mb-3 flex gap-2 text-[15px] font-medium text-slate-800">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-navy text-[12px] font-bold text-white">
-                    {q.n}
-                  </span>
+                  <QuestionNumberBadge n={q.n} active={current === q.n} />
                   {q.prompt}
                 </p>
                 <div className="space-y-2 pl-8">
@@ -336,49 +337,67 @@ function GroupBody({
               { id: "NOT_GIVEN", label: "Not Given" },
             ];
       return (
-        <div className="space-y-2">
-          {group.questions.map((q) => {
-            const value = answers[q.n] as string | null;
-            return (
-              <div
-                key={q.n}
-                className={cn(
-                  "flex flex-col gap-3 rounded-xl border p-3.5 transition lg:flex-row lg:items-center lg:justify-between",
-                  current === q.n ? "border-navy bg-sky-50/40" : "border-slate-200 bg-white",
-                )}
-              >
-                <p className="flex gap-2 text-[14px] text-slate-800">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-navy text-[12px] font-bold text-white">
-                    {q.n}
-                  </span>
-                  {q.prompt}
-                </p>
-                <div className="flex shrink-0 gap-1.5 pl-8 lg:pl-0">
-                  {choices.map((c) => {
-                    const selected = value === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          onFocus(q.n);
-                          onAnswer(q.n, c.id);
-                        }}
-                        className={cn(
-                          "rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition",
-                          selected
-                            ? "border-navy bg-navy text-white"
-                            : "border-slate-200 text-slate-600 hover:border-navy hover:bg-slate-50",
-                        )}
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-[12px] font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-2.5">Statement</th>
+                {choices.map((c) => (
+                  <th key={c.id} className="w-24 px-2 py-2.5 text-center">
+                    {c.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {group.questions.map((q) => {
+                const value = answers[q.n] as string | null;
+                const isActive = current === q.n;
+                return (
+                  <tr
+                    key={q.n}
+                    id={`q-${q.n}`}
+                    className={cn(
+                      "scroll-mt-20 border-b border-slate-100 transition last:border-0",
+                      isActive && "bg-sky-50/60",
+                    )}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2 text-[14px] text-slate-800">
+                        <QuestionNumberBadge n={q.n} active={isActive} />
+                        <span className="pt-0.5">{q.prompt}</span>
+                      </div>
+                    </td>
+                    {choices.map((c) => {
+                      const selected = value === c.id;
+                      return (
+                        <td key={c.id} className="px-2 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onFocus(q.n);
+                              onAnswer(q.n, c.id);
+                            }}
+                            className={cn(
+                              "mx-auto flex h-5 w-5 items-center justify-center rounded-full border-2 transition",
+                              selected
+                                ? "border-navy bg-navy"
+                                : "border-slate-300 bg-white hover:border-navy",
+                            )}
+                            aria-label={`${c.label} for question ${q.n}`}
+                          >
+                            {selected && (
+                              <span className="h-2 w-2 rounded-full bg-white" />
+                            )}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       );
     }
@@ -445,6 +464,55 @@ function GroupBody({
         />
       );
     }
+
+    case "matching_features": {
+      const map: Record<number, string> = {};
+      group.questions.forEach((q) => {
+        const v = answers[q.n];
+        if (typeof v === "string") map[q.n] = v;
+      });
+      return (
+        <MatchingFeaturesControl
+          listTitle={group.listTitle}
+          options={group.options}
+          questions={group.questions}
+          answers={map}
+          current={current}
+          onAssign={(n, id) => {
+            onFocus(n);
+            onAnswer(n, id);
+          }}
+          onFocus={onFocus}
+        />
+      );
+    }
+
+    case "flowchart_completion": {
+      const map: Record<number, string> = {};
+      for (const node of group.nodes) {
+        if (node.kind === "gap") {
+          const v = answers[node.n];
+          if (typeof v === "string") map[node.n] = v;
+        }
+      }
+      return (
+        <FlowchartCompletionControl
+          title={group.title}
+          nodes={group.nodes}
+          options={group.options}
+          answers={map}
+          current={current}
+          onAssign={(n, id) => {
+            onFocus(n);
+            onAnswer(n, id);
+          }}
+          onFocus={onFocus}
+        />
+      );
+    }
+
+    case "instruction_screen":
+      return null;
 
     case "map_labeling": {
       const map: Record<number, string> = {};

@@ -165,6 +165,9 @@ export const QUESTION_TYPE_LABELS: Record<QuestionGroup["type"], string> = {
   yng: "Yes / No / Not Given",
   map_labeling: "Map labeling",
   short_answer: "Short answer",
+  flowchart_completion: "Flow-chart completion",
+  instruction_screen: "Instruction screen",
+  matching_features: "Matching features",
 };
 
 export function createQuestionGroup(
@@ -320,6 +323,52 @@ export function createQuestionGroup(
         instruction: "Complete the table.",
         columns: ["Column 1", "Column 2"],
         rows: [[["", { n: from }], [""]]],
+      };
+    case "flowchart_completion":
+      return {
+        id,
+        type,
+        from,
+        to,
+        instruction: "Complete the flow-chart below.",
+        hint: "Choose SIX answers from the box and write the correct letter next to questions.",
+        title: "Process overview",
+        options: [
+          { id: "A", label: "A. Step one" },
+          { id: "B", label: "B. Step two" },
+          { id: "C", label: "C. Step three" },
+        ],
+        nodes: [
+          { kind: "text", text: "Start" },
+          { kind: "gap", n: from },
+          { kind: "text", text: "Finish" },
+        ],
+      };
+    case "instruction_screen":
+      return {
+        id,
+        type,
+        from: 0,
+        to: 0,
+        instruction: "Part instructions",
+        body: "You will hear a number of different recordings and you will have to answer questions on what you hear.\n\nThere will be time for you to read the questions and you will have a chance to check your work.\n\nAll the recordings will be played once only.",
+        buttonLabel: "Next",
+      };
+    case "matching_features":
+      return {
+        id,
+        type,
+        from,
+        to,
+        instruction: "Look at the following statements and the list of features below.",
+        hint: "Match each statement with the correct feature, A–E.",
+        listTitle: "List of features",
+        options: [
+          { id: "A", label: "Feature A" },
+          { id: "B", label: "Feature B" },
+          { id: "C", label: "Feature C" },
+        ],
+        questions: [{ n: from, prompt: "" }],
       };
   }
 }

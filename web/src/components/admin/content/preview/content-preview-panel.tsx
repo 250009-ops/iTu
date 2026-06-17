@@ -5,8 +5,10 @@ import { QuestionGroup } from "@/components/exam/questions/question-group";
 import { ReadingHeadingsProvider } from "@/components/exam/reading/reading-headings-context";
 import { PassageWithHeadingZones } from "@/components/exam/reading/passage-with-heading-zones";
 import { TaskVisual } from "@/components/exam/writing/task-visual";
+import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
 import { useExamState } from "@/lib/exam/use-exam-state";
 import { matchingHeadingsForPassage } from "@/lib/exam/matching-headings";
+import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import type { ContentModule } from "@/lib/admin/types";
 import type {
   ListeningContent,
@@ -44,6 +46,8 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
   const state = useExamState(passage?.id ?? "preview");
   const hasMatchingHeadings =
     passage && matchingHeadingsForPassage(passage.groups).length > 0;
+  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
+    useInstructionGate(passage?.groups ?? []);
 
   if (!passage) {
     return <EmptyPreview message="Add at least one passage to preview." />;
@@ -115,10 +119,10 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
             )}
           </div>
           <div className="space-y-6 bg-slate-50 p-5">
-            {passage.groups.length === 0 ? (
+            {questionGroups.length === 0 ? (
               <p className="text-sm text-muted">No questions in this passage yet.</p>
             ) : (
-              passage.groups.map((group) => (
+              questionGroups.map((group) => (
                 <QuestionGroup
                   key={group.id}
                   group={group}
@@ -132,6 +136,17 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
             )}
           </div>
         </div>
+        {blocking && (
+          <InstructionScreen
+            group={blocking}
+            overlay
+            onContinue={() => {
+              dismiss(blocking.id);
+              const next = nextQuestionAfter(blocking.id);
+              if (next != null) state.focusQuestion(next);
+            }}
+          />
+        )}
       </div>
     </ReadingHeadingsProvider>
   );
@@ -141,11 +156,13 @@ function ListeningPreview({ content }: { content: ListeningContent }) {
   const [partIdx, setPartIdx] = useState(0);
   const part = content.parts[partIdx];
   const state = useExamState(part?.id ?? "preview");
+  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
+    useInstructionGate(part?.groups ?? []);
 
   if (!part) return <EmptyPreview message="No listening parts to preview." />;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-white">
       <div className="flex flex-wrap gap-2 border-b border-border bg-slate-50 px-4 py-3">
         {content.parts.map((p, idx) => (
           <button
@@ -163,7 +180,7 @@ function ListeningPreview({ content }: { content: ListeningContent }) {
       </div>
       <div className="space-y-6 p-5">
         <p className="text-sm font-medium text-navy">{part.blurb}</p>
-        {part.groups.map((group) => (
+        {questionGroups.map((group) => (
           <QuestionGroup
             key={group.id}
             group={group}
@@ -174,6 +191,17 @@ function ListeningPreview({ content }: { content: ListeningContent }) {
           />
         ))}
       </div>
+      {blocking && (
+        <InstructionScreen
+          group={blocking}
+          overlay
+          onContinue={() => {
+            dismiss(blocking.id);
+            const next = nextQuestionAfter(blocking.id);
+            if (next != null) state.focusQuestion(next);
+          }}
+        />
+      )}
     </div>
   );
 }

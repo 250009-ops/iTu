@@ -3,12 +3,13 @@ import type {
   AnswerValue,
   QuestionGroup,
 } from "@/lib/exam/types";
+import { gapsInGroup } from "@/lib/admin/content/utils";
 
 /** Enumerate every question number covered by a list of groups, in order. */
 export function questionNumbers(groups: QuestionGroup[]): number[] {
   const nums: number[] = [];
   for (const g of groups) {
-    for (let n = g.from; n <= g.to; n++) nums.push(n);
+    nums.push(...gapsInGroup(g));
   }
   return nums;
 }

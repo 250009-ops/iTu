@@ -15,12 +15,14 @@ import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type { QuestionGroup } from "@/lib/exam/types";
 
 const READING_TYPES: QuestionGroup["type"][] = [
+  "instruction_screen",
   "tfng",
   "yng",
   "note_completion",
   "summary_completion",
   "matching_information",
   "matching_headings",
+  "matching_features",
   "matching",
   "mcq_single",
   "mcq_multi",
@@ -28,10 +30,12 @@ const READING_TYPES: QuestionGroup["type"][] = [
 ];
 
 const LISTENING_TYPES: QuestionGroup["type"][] = [
+  "instruction_screen",
   "form_completion",
   "note_completion",
   "mcq_single",
   "matching",
+  "flowchart_completion",
   "map_labeling",
   "table_completion",
   "short_answer",

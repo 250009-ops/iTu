@@ -524,6 +524,216 @@ function renderBody(
         />
       );
 
+    case "flowchart_completion":
+      return (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Flow-chart title</Label>
+            <Input
+              value={group.title ?? ""}
+              onChange={(e) => onChange({ ...group, title: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Options bank</Label>
+            {group.options.map((opt, idx) => (
+              <div key={opt.id} className="flex items-center gap-2">
+                <span className="w-8 text-xs font-bold">{opt.id}</span>
+                <Input
+                  value={opt.label}
+                  onChange={(e) => {
+                    const options = [...group.options];
+                    options[idx] = { ...opt, label: e.target.value };
+                    onChange({ ...group, options });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Flow nodes (top to bottom)</Label>
+            {group.nodes.map((node, idx) => (
+              <div
+                key={idx}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-white p-3"
+              >
+                <select
+                  value={node.kind}
+                  onChange={(e) => {
+                    const nodes = [...group.nodes];
+                    nodes[idx] =
+                      e.target.value === "text"
+                        ? { kind: "text", text: "" }
+                        : { kind: "gap", n: group.from + idx };
+                    onChange({ ...group, nodes });
+                  }}
+                  className="h-9 rounded-md border border-border px-2 text-sm"
+                >
+                  <option value="text">Fixed text</option>
+                  <option value="gap">Gap (question)</option>
+                </select>
+                {node.kind === "text" ? (
+                  <Input
+                    value={node.text}
+                    onChange={(e) => {
+                      const nodes = [...group.nodes];
+                      nodes[idx] = { kind: "text", text: e.target.value };
+                      onChange({ ...group, nodes });
+                    }}
+                    placeholder="Step label"
+                    className="flex-1"
+                  />
+                ) : (
+                  <>
+                    <span className="text-xs font-bold text-navy">Q{node.n}</span>
+                    <AnswerKeyField
+                      questionNumber={node.n}
+                      answerKey={answerKey}
+                      onChange={onAnswerKeyChange}
+                      type="option"
+                      options={group.options.map((o) => o.id)}
+                    />
+                  </>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 text-red-600"
+                  onClick={() =>
+                    onChange({
+                      ...group,
+                      nodes: group.nodes.filter((_, i) => i !== idx),
+                    })
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  onChange({
+                    ...group,
+                    nodes: [...group.nodes, { kind: "text", text: "" }],
+                  })
+                }
+              >
+                <Plus className="h-3.5 w-3.5" /> Add text step
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const n = group.to + 1;
+                  onChange({
+                    ...group,
+                    to: n,
+                    nodes: [...group.nodes, { kind: "gap", n }],
+                  });
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add gap
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+
+    case "instruction_screen":
+      return (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Instruction body</Label>
+            <textarea
+              value={group.body}
+              onChange={(e) => onChange({ ...group, body: e.target.value })}
+              rows={6}
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
+              placeholder="Multi-line instructions shown before questions…"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Continue button label</Label>
+            <Input
+              value={group.buttonLabel ?? "Next"}
+              onChange={(e) => onChange({ ...group, buttonLabel: e.target.value })}
+            />
+          </div>
+        </div>
+      );
+
+    case "matching_features":
+      return (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Feature list title</Label>
+            <Input
+              value={group.listTitle ?? ""}
+              onChange={(e) => onChange({ ...group, listTitle: e.target.value })}
+              placeholder="List of researchers"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Features / people</Label>
+            {group.options.map((opt, idx) => (
+              <div key={opt.id} className="flex items-center gap-2">
+                <span className="w-8 text-xs font-bold">{opt.id}</span>
+                <Input
+                  value={opt.label}
+                  onChange={(e) => {
+                    const options = [...group.options];
+                    options[idx] = { ...opt, label: e.target.value };
+                    onChange({ ...group, options });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          {group.questions.map((q, idx) => (
+            <div
+              key={q.n}
+              className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
+                {q.n}
+              </span>
+              <Input
+                value={q.prompt}
+                onChange={(e) => {
+                  const questions = [...group.questions];
+                  questions[idx] = { ...q, prompt: e.target.value };
+                  onChange({ ...group, questions });
+                }}
+              />
+              <AnswerKeyField
+                questionNumber={q.n}
+                answerKey={answerKey}
+                onChange={onAnswerKeyChange}
+                type="option"
+                options={group.options.map((o) => o.id)}
+              />
+            </div>
+          ))}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              const n = group.to + 1;
+              onChange({
+                ...group,
+                to: n,
+                questions: [...group.questions, { n, prompt: "" }],
+              });
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Add statement
+          </Button>
+        </div>
+      );
+
     default:
       return (
         <p className="text-xs text-muted">

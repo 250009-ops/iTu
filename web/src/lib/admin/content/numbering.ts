@@ -141,12 +141,26 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
       };
     case "matching":
     case "matching_headings":
+    case "matching_features":
       return {
         ...group,
         from,
         to,
         questions: group.questions.map((q) => ({ ...q, n: nums[i++]! })),
       };
+    case "flowchart_completion": {
+      const idx = { i: 0 };
+      return {
+        ...group,
+        from,
+        to,
+        nodes: group.nodes.map((node) =>
+          node.kind === "gap" ? { ...node, n: nums[idx.i++]! } : node,
+        ),
+      };
+    }
+    case "instruction_screen":
+      return { ...group, from: 0, to: 0 };
     case "matching_information":
       return {
         ...group,
@@ -201,12 +215,13 @@ export function renumberPartitionGroups(
 ): QuestionGroup[] {
   let next = partitionFrom;
   return groups.map((group) => {
+    if (group.type === "instruction_screen") {
+      return { ...group, from: 0, to: 0 };
+    }
     const nums = gapsInGroup(group);
     const count = nums.length;
     if (count === 0) {
-      const placeholder = [next];
-      next += 1;
-      return setGroupQuestionNumbers(group, placeholder);
+      return group;
     }
     const assigned = Array.from({ length: count }, (_, i) => next + i);
     next += count;

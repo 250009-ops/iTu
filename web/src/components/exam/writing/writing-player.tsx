@@ -8,6 +8,7 @@ import { ExamTopBar } from "@/components/exam/shell/exam-top-bar";
 import { ExamTimer } from "@/components/exam/shell/exam-timer";
 import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { TaskVisual } from "@/components/exam/writing/task-visual";
+import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
 import { countWords } from "@/lib/exam/helpers";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   const [started, setStarted] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [introDismissed, setIntroDismissed] = useState<Record<string, boolean>>({});
   const [essays, setEssays] = useState<Record<string, string>>({});
   const [leftPct, setLeftPct] = useState(46);
   const draggingRef = useRef(false);
@@ -114,6 +116,24 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
         hideTimer={state.hideTimer}
         onToggleTimer={state.setHideTimer}
       />
+
+      {activeTask.introScreen && !introDismissed[activeTask.id] && (
+        <InstructionScreen
+          group={{
+            id: `${activeTask.id}-intro`,
+            type: "instruction_screen",
+            from: 0,
+            to: 0,
+            instruction: activeTask.instruction,
+            body: activeTask.introScreen.body,
+            buttonLabel: activeTask.introScreen.buttonLabel,
+          }}
+          overlay
+          onContinue={() =>
+            setIntroDismissed((prev) => ({ ...prev, [activeTask.id]: true }))
+          }
+        />
+      )}
 
       <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5 py-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600 text-white">

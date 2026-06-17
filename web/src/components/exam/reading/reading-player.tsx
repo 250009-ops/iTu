@@ -14,9 +14,11 @@ import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
 import { ReadingHeadingsProvider } from "@/components/exam/reading/reading-headings-context";
 import { PassageWithHeadingZones } from "@/components/exam/reading/passage-with-heading-zones";
+import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
 import { matchingHeadingsForPassage } from "@/lib/exam/matching-headings";
+import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import { isHtmlContent, sanitizePassageHtml } from "@/lib/admin/content/sanitize-html";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
@@ -107,6 +109,9 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
 
   const hasMatchingHeadings =
     matchingHeadingsForPassage(activePassage.groups).length > 0;
+
+  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
+    useInstructionGate(activePassage.groups);
 
   const goToQuestion = (n: number) => {
     const passage = content.passages.find((p) =>
@@ -221,7 +226,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-6" data-exam-surface>
           <div className={`space-y-8 ${TEXT_SIZE_CLASS[state.textSize]}`}>
-            {activePassage.groups.map((group) => (
+            {questionGroups.map((group) => (
               <QuestionGroup
                 key={group.id}
                 group={group}
@@ -236,6 +241,18 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
           </div>
         </div>
       </div>
+
+      {blocking && (
+        <InstructionScreen
+          group={blocking}
+          overlay
+          onContinue={() => {
+            dismiss(blocking.id);
+            const next = nextQuestionAfter(blocking.id);
+            if (next != null) goToQuestion(next);
+          }}
+        />
+      )}
 
       <QuestionPalette
         parts={paletteParts}

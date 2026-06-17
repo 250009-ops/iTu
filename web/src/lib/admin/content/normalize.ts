@@ -31,11 +31,20 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
       };
     case "matching":
     case "matching_headings":
+    case "matching_features":
       return {
         ...g,
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
+    case "flowchart_completion":
+      return {
+        ...g,
+        options: asArray(g.options),
+        nodes: asArray(g.nodes),
+      };
+    case "instruction_screen":
+      return { ...g, body: g.body ?? g.instruction ?? "" };
     case "matching_information":
       return {
         ...g,

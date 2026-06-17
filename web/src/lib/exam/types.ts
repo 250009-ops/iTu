@@ -114,6 +114,34 @@ export interface ShortAnswerGroup extends BaseGroup {
   questions: { n: number; prompt: string }[];
 }
 
+/** Listening: vertical flow with drag-in option labels at gap nodes. */
+export type FlowchartNode =
+  | { kind: "text"; text: string }
+  | { kind: "gap"; n: number };
+
+export interface FlowchartCompletionGroup extends BaseGroup {
+  type: "flowchart_completion";
+  title?: string;
+  options: MatchOption[];
+  nodes: FlowchartNode[];
+}
+
+/** L/R/W interstitial — no question numbers or answers. */
+export interface InstructionScreenGroup extends BaseGroup {
+  type: "instruction_screen";
+  body: string;
+  buttonLabel?: string;
+}
+
+/** Reading: match statements to people/features via dropdown. */
+export interface MatchingFeaturesGroup extends BaseGroup {
+  type: "matching_features";
+  /** Heading above the feature/person list, e.g. "List of researchers". */
+  listTitle?: string;
+  options: MatchOption[];
+  questions: { n: number; prompt: string }[];
+}
+
 export type QuestionGroup =
   | NoteCompletionGroup
   | TableCompletionGroup
@@ -121,9 +149,12 @@ export type QuestionGroup =
   | McqMultiGroup
   | MatchingGroup
   | MatchingInformationGroup
+  | MatchingFeaturesGroup
   | TfngGroup
   | MapLabelingGroup
-  | ShortAnswerGroup;
+  | ShortAnswerGroup
+  | FlowchartCompletionGroup
+  | InstructionScreenGroup;
 
 /** ---- Section structure ---- */
 
@@ -162,6 +193,8 @@ export interface WritingTask {
   minutes: number;
   minWords: number;
   instruction: string;
+  /** Optional full-screen intro before the task (writing instruction interstitial). */
+  introScreen?: { body: string; buttonLabel?: string };
   prompt: string;
   /** Optional visual asset rendered in the prompt pane (chart/diagram). */
   visual?: {

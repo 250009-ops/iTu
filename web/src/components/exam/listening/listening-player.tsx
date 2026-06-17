@@ -12,9 +12,11 @@ import {
 } from "@/components/exam/shell/question-palette";
 import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
+import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
 import { ListeningAudioPlayer } from "@/components/exam/listening/listening-audio-player";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
+import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
@@ -85,6 +87,9 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const activePart =
     content.parts.find((p) => p.id === state.activePart) ?? content.parts[0];
 
+  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
+    useInstructionGate(activePart.groups);
+
   const goToQuestion = (n: number) => {
     const part = content.parts.find((p) =>
       questionNumbers(p.groups).includes(n),
@@ -142,7 +147,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         <div
           className={`mx-auto max-w-3xl space-y-8 px-5 py-6 ${TEXT_SIZE_CLASS[state.textSize]}`}
         >
-          {activePart.groups.map((group) => (
+          {questionGroups.map((group) => (
             <QuestionGroup
               key={group.id}
               group={group}
@@ -155,6 +160,18 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
           ))}
         </div>
       </main>
+
+      {blocking && (
+        <InstructionScreen
+          group={blocking}
+          overlay
+          onContinue={() => {
+            dismiss(blocking.id);
+            const next = nextQuestionAfter(blocking.id);
+            if (next != null) goToQuestion(next);
+          }}
+        />
+      )}
 
       <QuestionPalette
         parts={paletteParts}

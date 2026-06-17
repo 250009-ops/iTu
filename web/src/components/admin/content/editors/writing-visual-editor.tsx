@@ -101,6 +101,43 @@ export function WritingVisualEditor({
           />
         </div>
 
+        <div className="space-y-2 rounded-lg border border-dashed border-border bg-white p-4">
+          <Label>Intro screen (optional)</Label>
+          <p className="text-xs text-muted">
+            Full-screen instructions shown before the task — click Next to continue.
+          </p>
+          <textarea
+            value={task.introScreen?.body ?? ""}
+            onChange={(e) =>
+              updateTask({
+                introScreen: e.target.value.trim()
+                  ? {
+                      body: e.target.value,
+                      buttonLabel: task.introScreen?.buttonLabel ?? "Next",
+                    }
+                  : undefined,
+              })
+            }
+            rows={4}
+            placeholder="Task instructions shown before the prompt…"
+            className="w-full rounded-lg border border-border bg-slate-50 p-3 text-sm text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
+          />
+          {task.introScreen && (
+            <Input
+              value={task.introScreen.buttonLabel ?? "Next"}
+              onChange={(e) =>
+                updateTask({
+                  introScreen: {
+                    ...task.introScreen!,
+                    buttonLabel: e.target.value,
+                  },
+                })
+              }
+              placeholder="Button label"
+            />
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label>Prompt</Label>
           <textarea

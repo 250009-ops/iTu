@@ -49,6 +49,15 @@ export const listeningContent: ListeningContent = {
       blurb: "Listen and answer questions 1–10.",
       groups: [
         {
+          id: "l1-intro",
+          type: "instruction_screen",
+          from: 0,
+          to: 0,
+          instruction: "Part 1 instructions",
+          body: "You will hear a woman asking about membership at a community centre.\n\nFirst you have some time to look at questions 1–10.",
+          buttonLabel: "Next",
+        },
+        {
           id: "l1-form",
           type: "form_completion",
           from: 1,
@@ -137,57 +146,33 @@ export const listeningContent: ListeningContent = {
           ],
         },
         {
-          id: "l2-mcq",
-          type: "mcq_single",
+          id: "l2-flow",
+          type: "flowchart_completion",
           from: 16,
           to: 20,
-          instruction: "Choose the correct letter, A, B or C.",
-          questions: [
-            {
-              n: 16,
-              prompt: "Guided walks are offered",
-              options: [
-                { id: "A", label: "every weekday." },
-                { id: "B", label: "at weekends only." },
-                { id: "C", label: "on request for groups." },
-              ],
-            },
-            {
-              n: 17,
-              prompt: "The park is best known for its",
-              options: [
-                { id: "A", label: "ancient oak trees." },
-                { id: "B", label: "rare wildflowers." },
-                { id: "C", label: "migratory birds." },
-              ],
-            },
-            {
-              n: 18,
-              prompt: "Dogs must be kept on a lead near the",
-              options: [
-                { id: "A", label: "lake." },
-                { id: "B", label: "meadow." },
-                { id: "C", label: "car park." },
-              ],
-            },
-            {
-              n: 19,
-              prompt: "The new visitor facilities were funded by",
-              options: [
-                { id: "A", label: "a national lottery grant." },
-                { id: "B", label: "local business donations." },
-                { id: "C", label: "council tax revenue." },
-              ],
-            },
-            {
-              n: 20,
-              prompt: "Volunteers are mainly needed for",
-              options: [
-                { id: "A", label: "leading school visits." },
-                { id: "B", label: "maintaining footpaths." },
-                { id: "C", label: "running the café." },
-              ],
-            },
+          instruction: "Complete the flow-chart below.",
+          hint: "Choose FIVE answers from the box and write the correct letter, A–G, next to questions 16–20.",
+          title: "Planning a visit to Riverside Park",
+          options: [
+            { id: "A", label: "A. Check opening times" },
+            { id: "B", label: "B. Book a guided walk" },
+            { id: "C", label: "C. Visit the bird hide" },
+            { id: "D", label: "D. Collect a map" },
+            { id: "E", label: "E. Register at the café" },
+            { id: "F", label: "F. Join a volunteer day" },
+            { id: "G", label: "G. Hire a boat" },
+          ],
+          nodes: [
+            { kind: "text", text: "Arrive at the park" },
+            { kind: "gap", n: 16 },
+            { kind: "text", text: "Walk to the lake" },
+            { kind: "gap", n: 17 },
+            { kind: "text", text: "Explore the meadow" },
+            { kind: "gap", n: 18 },
+            { kind: "text", text: "Visit new facilities" },
+            { kind: "gap", n: 19 },
+            { kind: "text", text: "Leave the park" },
+            { kind: "gap", n: 20 },
           ],
         },
       ],
@@ -556,27 +541,28 @@ export const readingContent: ReadingContent = {
           ],
         },
         {
-          id: "r3-matching",
-          type: "matching",
+          id: "r3-features",
+          type: "matching_features",
           from: 31,
           to: 35,
           instruction:
-            "Match each concept with the correct description.",
-          hint: "Drag the correct letter, A–F, next to questions 31–35.",
+            "Look at the following statements and the list of concepts below.",
+          hint: "Match each statement with the correct concept, A–F.",
+          listTitle: "List of concepts",
           options: [
-            { id: "A", label: "works only with a clear recommendation" },
-            { id: "B", label: "relies on surface cues" },
-            { id: "C", label: "involves careful scrutiny" },
-            { id: "D", label: "is quickly discounted if self-interested" },
-            { id: "E", label: "assumes purely rational weighing" },
-            { id: "F", label: "strengthens once a source is forgotten" },
+            { id: "A", label: "Moderate fear" },
+            { id: "B", label: "The fast route" },
+            { id: "C", label: "The slow route" },
+            { id: "D", label: "Source credibility" },
+            { id: "E", label: "Early models" },
+            { id: "F", label: "The sleeper effect" },
           ],
           questions: [
-            { n: 31, prompt: "The fast route to persuasion" },
-            { n: 32, prompt: "The slow route to persuasion" },
-            { n: 33, prompt: "Source credibility" },
-            { n: 34, prompt: "The earliest models" },
-            { n: 35, prompt: "Moderate fear" },
+            { n: 31, prompt: "Works only with a clear recommendation" },
+            { n: 32, prompt: "Relies on surface cues such as speaker attractiveness" },
+            { n: 33, prompt: "Involves careful scrutiny of arguments" },
+            { n: 34, prompt: "Assumes people weigh arguments purely rationally" },
+            { n: 35, prompt: "Becomes stronger once the source is forgotten" },
           ],
         },
         {
@@ -617,6 +603,10 @@ export const writingContent: WritingContent = {
       minWords: 150,
       instruction:
         "You should spend about 20 minutes on this task. Write at least 150 words.",
+      introScreen: {
+        body: "You should spend about 20 minutes on this task.\n\nWrite at least 150 words.\n\nClick Next when you are ready to see the task.",
+        buttonLabel: "Next",
+      },
       prompt:
         "The chart below shows the percentage of households in three countries using renewable energy between 2010 and 2024.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.",
       visual: {

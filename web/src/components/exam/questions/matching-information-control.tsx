@@ -1,5 +1,7 @@
 "use client";
 
+import { ExamSelect } from "@/components/exam/ui/exam-select";
+import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -34,35 +36,21 @@ export function MatchingInformationControl({
               isActive && "bg-sky-50/50",
             )}
           >
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[13px] font-bold text-white sm:mt-0">
-              {q.n}
-            </span>
+            <QuestionNumberBadge n={q.n} active={isActive} className="mt-0.5 sm:mt-0" />
             <p className="min-w-0 flex-1 text-[14px] leading-snug text-slate-800">
               {q.prompt}
             </p>
-            <select
+            <ExamSelect
               value={value}
+              active={isActive}
               onFocus={() => onFocus(q.n)}
-              onChange={(e) => {
+              onChange={(v) => {
                 onFocus(q.n);
-                onAssign(q.n, e.target.value || null);
+                onAssign(q.n, v || null);
               }}
-              className={cn(
-                "h-9 w-[7.5rem] shrink-0 cursor-pointer rounded-md border bg-white px-2.5 text-[14px] text-slate-700 shadow-sm transition",
-                value
-                  ? "border-slate-400 font-medium text-navy"
-                  : "border-slate-300 text-slate-500",
-                isActive && "ring-2 ring-navy/20",
-              )}
+              options={sectionLabels.map((label) => ({ value: label, label }))}
               aria-label={`Select section for question ${q.n}`}
-            >
-              <option value="">Select</option>
-              {sectionLabels.map((label) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            />
           </li>
         );
       })}

@@ -61,7 +61,14 @@ export function gapsInGroup(group: QuestionGroup): number[] {
     case "matching":
     case "matching_headings":
     case "matching_information":
+    case "matching_features":
       return group.questions.map((q) => q.n);
+    case "flowchart_completion":
+      return group.nodes
+        .filter((node) => node.kind === "gap")
+        .map((node) => node.n);
+    case "instruction_screen":
+      return [];
     case "tfng":
     case "yng":
       return group.questions.map((q) => q.n);
