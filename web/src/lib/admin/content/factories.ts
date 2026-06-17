@@ -235,7 +235,7 @@ export function createQuestionGroup(
         instruction: "Complete the notes below.",
         hint: "Choose ONE WORD ONLY from the text for each answer.",
         title: "",
-        lines: [["", { n: from }]],
+        lines: [{ style: "normal", nodes: ["", { n: from }] }],
       };
     case "mcq_multi":
       return {

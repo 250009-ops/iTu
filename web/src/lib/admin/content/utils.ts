@@ -10,6 +10,7 @@ import {
   partitionStatusesForModule,
 } from "@/lib/admin/content/numbering";
 import type {
+  CompletionLine,
   Gap,
   InlineNode,
   ListeningContent,
@@ -19,6 +20,7 @@ import type {
   ReadingPassage,
   WritingContent,
 } from "@/lib/exam/types";
+import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import { isPlaceholderAnswerKey } from "@/lib/mock/exam-answer-keys";
 
 export type AnswerKeyMap = Record<string, string | string[]>;
@@ -27,16 +29,18 @@ export function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}`;
 }
 
-export function gapsInLines(lines: InlineNode[][]): number[] {
+export function gapsInInlineNodes(nodes: InlineNode[]): number[] {
   const nums: number[] = [];
-  for (const line of lines) {
-    for (const node of line) {
-      if (typeof node === "object" && node !== null && "n" in node) {
-        nums.push(node.n);
-      }
+  for (const node of nodes) {
+    if (typeof node === "object" && node !== null && "n" in node && !("type" in node)) {
+      nums.push((node as Gap).n);
     }
   }
   return nums;
+}
+
+export function gapsInLines(lines: CompletionLine[]): number[] {
+  return gapsInCompletionLines(lines);
 }
 
 export function gapsInGroup(group: QuestionGroup): number[] {
@@ -48,7 +52,7 @@ export function gapsInGroup(group: QuestionGroup): number[] {
       return gapsInLines(group.lines);
     case "table_completion":
       return group.rows.flatMap((row) =>
-        row.flatMap((cell) => gapsInLines([cell])),
+        row.flatMap((cell) => gapsInInlineNodes(cell)),
       );
     case "mcq_single":
       return group.questions.map((q) => q.n);

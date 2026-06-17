@@ -2,13 +2,13 @@ import type { ContentModule } from "@/lib/admin/types";
 import { gapsInGroup, type AnswerKeyMap } from "@/lib/admin/content/utils";
 import type {
   Gap,
-  InlineNode,
   ListeningContent,
   ListeningPart,
   QuestionGroup,
   ReadingContent,
   ReadingPassage,
 } from "@/lib/exam/types";
+import { renumberCompletionLines } from "@/lib/exam/inline-content";
 
 export type PartitionRange = {
   from: number;
@@ -97,10 +97,14 @@ export function countAnsweredInPartition(
   }).length;
 }
 
-function renumberInlineNodes(nodes: InlineNode[], nums: number[], idx: { i: number }): InlineNode[] {
+function renumberInlineNodes(
+  nodes: import("@/lib/exam/types").InlineNode[],
+  nums: number[],
+  idx: { i: number },
+): import("@/lib/exam/types").InlineNode[] {
   return nodes.map((node) => {
-    if (typeof node === "object" && node !== null && "n" in node) {
-      const n = nums[idx.i] ?? node.n;
+    if (typeof node === "object" && node !== null && "n" in node && !("type" in node)) {
+      const n = nums[idx.i] ?? (node as Gap).n;
       idx.i += 1;
       return { ...node, n };
     }
@@ -166,7 +170,7 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
         ...group,
         from,
         to,
-        lines: group.lines.map((line) => renumberInlineNodes(line, nums, idx)),
+        lines: renumberCompletionLines(group.lines, nums, idx),
       };
     }
     case "table_completion": {

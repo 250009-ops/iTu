@@ -10,9 +10,11 @@ import {
 } from "@/components/admin/content/forms/answer-key-field";
 import { MapLabelingEditor } from "@/components/admin/content/forms/map-labeling-editor";
 import { TableCompletionEditor } from "@/components/admin/content/forms/table-completion-editor";
+import { CompletionLinesEditor } from "@/components/admin/content/forms/completion-lines-editor";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
+import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
-import type { Gap, InlineNode, QuestionGroup } from "@/lib/exam/types";
+import type { QuestionGroup } from "@/lib/exam/types";
 
 type Props = {
   group: QuestionGroup;
@@ -239,9 +241,7 @@ function renderBody(
           answerKey={answerKey}
           onAnswerKeyChange={onAnswerKeyChange}
           onChange={(lines) => {
-            const nums = lines.flatMap((line) =>
-              line.filter((n): n is Gap => typeof n === "object").map((g) => g.n),
-            );
+            const nums = gapsInCompletionLines(lines);
             onChange({
               ...group,
               lines,
@@ -347,69 +347,4 @@ function renderBody(
         </p>
       );
   }
-}
-
-function CompletionLinesEditor({
-  lines,
-  answerKey,
-  onChange,
-  onAnswerKeyChange,
-}: {
-  lines: InlineNode[][];
-  answerKey: AnswerKeyMap;
-  onChange: (lines: InlineNode[][]) => void;
-  onAnswerKeyChange: (k: AnswerKeyMap) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      {lines.map((line, lineIdx) => {
-        const gaps = line.filter((n): n is Gap => typeof n === "object");
-        const textParts = line.filter((n): n is string => typeof n === "string");
-        const lineText = textParts.join(" ");
-
-        return (
-          <div key={lineIdx} className="rounded-lg border border-border bg-white p-3">
-            <Label className="text-xs">Line text (gaps below)</Label>
-            <Input
-              value={lineText}
-              onChange={(e) => {
-                const next = [...lines];
-                const rebuilt: InlineNode[] = [e.target.value];
-                for (const g of gaps) rebuilt.push(g);
-                next[lineIdx] = rebuilt;
-                onChange(next);
-              }}
-              className="mb-2"
-            />
-            {gaps.map((gap) => (
-              <div key={gap.n} className="mt-2 flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                  {gap.n}
-                </span>
-                <AnswerKeyField
-                  questionNumber={gap.n}
-                  answerKey={answerKey}
-                  onChange={onAnswerKeyChange}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      })}
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => {
-          const maxN =
-            lines
-              .flatMap((l) => l.filter((n): n is Gap => typeof n === "object"))
-              .at(-1)?.n ?? 0;
-          const n = maxN + 1;
-          onChange([...lines, ["New line ", { n }]]);
-        }}
-      >
-        <Plus className="h-3.5 w-3.5" /> Add line with gap
-      </Button>
-    </div>
-  );
 }

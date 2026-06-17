@@ -4,9 +4,15 @@ import { isGap } from "@/lib/exam/types";
 import type {
   AnswerMap,
   AnswerValue,
+  CompletionLine,
   InlineNode,
   QuestionGroup as Group,
 } from "@/lib/exam/types";
+import {
+  isTextSpan,
+  normalizeCompletionLines,
+  completionLineClass,
+} from "@/lib/exam/inline-content";
 import { cn } from "@/lib/utils";
 import { GapInput } from "./gap-input";
 import { MatchingControl } from "./matching-control";
@@ -59,6 +65,25 @@ export function QuestionGroup({
   );
 }
 
+function renderTextNode(node: InlineNode, key: string) {
+  if (isTextSpan(node)) {
+    return (
+      <span
+        key={key}
+        className={cn(node.bold && "font-bold text-navy")}
+      >
+        {node.value}
+      </span>
+    );
+  }
+  if (typeof node === "string") {
+    const trimmed = node.trim();
+    if (!trimmed) return null;
+    return <span key={key}>{node}</span>;
+  }
+  return null;
+}
+
 function renderInline(
   nodes: InlineNode[],
   answers: AnswerMap,
@@ -83,7 +108,7 @@ function renderInline(
         />
       );
     }
-    return <span key={`t-${i}`}>{node}</span>;
+    return renderTextNode(node, `t-${i}`);
   });
 }
 
@@ -100,6 +125,7 @@ function GroupBody({
     case "form_completion":
     case "summary_completion":
     case "sentence_completion": {
+      const lines = normalizeCompletionLines(group.lines) as CompletionLine[];
       return (
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           {group.title && (
@@ -107,10 +133,17 @@ function GroupBody({
               {group.title}
             </h4>
           )}
-          <div className="space-y-2.5 leading-9 text-[15px] text-slate-700">
-            {group.lines.map((line, i) => (
-              <p key={i} className="flex flex-wrap items-center">
-                {renderInline(line, answers, current, onAnswer, onFocus, onPasteBlocked)}
+          <div className="space-y-1">
+            {lines.map((line, i) => (
+              <p key={i} className={completionLineClass(line.style)}>
+                {renderInline(
+                  line.nodes,
+                  answers,
+                  current,
+                  onAnswer,
+                  onFocus,
+                  onPasteBlocked,
+                )}
               </p>
             ))}
           </div>

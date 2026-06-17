@@ -14,6 +14,7 @@ import type {
   SpeakingContent,
   WritingContent,
 } from "@/lib/exam/types";
+import { normalizeCompletionLines } from "@/lib/exam/inline-content";
 
 function asArray<T>(value: unknown, fallback: T[] = []): T[] {
   return Array.isArray(value) ? value : fallback;
@@ -51,7 +52,7 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "form_completion":
     case "summary_completion":
     case "sentence_completion":
-      return { ...g, lines: asArray(g.lines) };
+      return { ...g, lines: normalizeCompletionLines(g.lines) };
     case "table_completion":
       return {
         ...g,

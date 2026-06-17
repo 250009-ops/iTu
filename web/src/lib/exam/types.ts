@@ -11,8 +11,23 @@ export interface Gap {
   placeholder?: string;
 }
 
-/** Inline content can be plain text or a numbered gap. */
-export type InlineNode = string | Gap;
+/** Rich inline text with optional bold (plain strings remain valid for legacy content). */
+export interface TextSpan {
+  type: "text";
+  value: string;
+  bold?: boolean;
+}
+
+/** Inline content can be plain text, formatted text, or a numbered gap. */
+export type InlineNode = string | Gap | TextSpan;
+
+export type CompletionLineStyle = "normal" | "heading" | "subheading" | "bullet";
+
+/** One row in a note/form/summary block — optional IELTS-style label or bullet. */
+export interface CompletionLine {
+  style?: CompletionLineStyle;
+  nodes: InlineNode[];
+}
 
 export interface Option {
   id: string;
@@ -40,8 +55,8 @@ export interface NoteCompletionGroup extends BaseGroup {
   type: "note_completion" | "form_completion" | "summary_completion" | "sentence_completion";
   /** Optional title shown above the note block. */
   title?: string;
-  /** Each line is a sequence of text + gaps. */
-  lines: InlineNode[][];
+  /** Structured lines — legacy `InlineNode[][]` is normalized on load. */
+  lines: CompletionLine[];
 }
 
 export interface TableCompletionGroup extends BaseGroup {
@@ -202,5 +217,5 @@ export interface SpeakingContent {
 }
 
 export function isGap(node: InlineNode): node is Gap {
-  return typeof node === "object" && node !== null && "n" in node;
+  return typeof node === "object" && node !== null && "n" in node && !("type" in node);
 }

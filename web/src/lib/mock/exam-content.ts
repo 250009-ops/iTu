@@ -1,8 +1,14 @@
 import type {
+  CompletionLine,
+  InlineNode,
   ListeningContent,
   ReadingContent,
   WritingContent,
 } from "@/lib/exam/types";
+
+function completionLines(...rows: InlineNode[][]): CompletionLine[] {
+  return rows.map((nodes) => ({ style: "normal", nodes }));
+}
 
 /* ------------------------------------------------------------------ *
  *  LISTENING — 4 parts · 40 questions · ~32 min                       *
@@ -50,7 +56,7 @@ export const listeningContent: ListeningContent = {
           instruction: "Complete the form below.",
           hint: "Write ONE WORD AND/OR A NUMBER for each answer.",
           title: "Greenfield Community Centre — Membership Enquiry",
-          lines: [
+          lines: completionLines(
             ["Name: Laura ", { n: 1, placeholder: "surname" }],
             ["Address: 14 ", { n: 2, placeholder: "street" }, " Road, Eastbourne"],
             ["Postcode: ", { n: 3 }],
@@ -58,7 +64,7 @@ export const listeningContent: ListeningContent = {
             ["Preferred class: ", { n: 5, placeholder: "activity" }],
             ["Membership type: ", { n: 6 }, " (annual)"],
             ["Discount available for: ", { n: 7 }, " and full-time students"],
-          ],
+          ),
         },
         {
           id: "l1-mcq",
@@ -283,7 +289,7 @@ export const listeningContent: ListeningContent = {
           instruction: "Complete the notes below.",
           hint: "Write ONE WORD ONLY for each answer.",
           title: "The History of Urban Beekeeping",
-          lines: [
+          lines: completionLines(
             ["Early cities kept bees mainly for ", { n: 31 }, " and wax."],
             ["Hives were often placed on ", { n: 32 }, " to save space."],
             ["In the 19th century, beekeeping declined due to ", { n: 33 }, "."],
@@ -294,7 +300,7 @@ export const listeningContent: ListeningContent = {
             ["The main threat to urban bees is loss of ", { n: 38 }, "."],
             ["Some councils now plant wild ", { n: 39 }, " along roadsides."],
             ["Experts predict beekeeping will become a school ", { n: 40 }, "."],
-          ],
+          ),
         },
       ],
     },
@@ -368,7 +374,7 @@ export const readingContent: ReadingContent = {
           instruction: "Complete the notes below.",
           hint: "Choose ONE WORD ONLY from the text for each answer.",
           title: "Wild apples of the Tien Shan",
-          lines: [
+          lines: completionLines(
             ["Believed to be the ", { n: 7 }, " of all cultivated apples."],
             ["Vavilov travelled near the city of ", { n: 8 }, "."],
             ["He argued crop ", { n: 9 }, " is greatest at a plant's origin."],
@@ -376,7 +382,7 @@ export const readingContent: ReadingContent = {
             ["Some tolerate drought or extreme ", { n: 11 }, "."],
             ["Both grazing and new ", { n: 12 }, " threaten the woodland."],
             ["Samples are now stored in seed ", { n: 13 }, "."],
-          ],
+          ),
         },
       ],
     },
@@ -466,13 +472,13 @@ export const readingContent: ReadingContent = {
           instruction: "Complete the summary below.",
           hint: "Choose ONE WORD ONLY from the text for each answer.",
           title: "Keeping cities cool",
-          lines: [
+          lines: completionLines(
             ["Cities trap heat because ", { n: 22 }, " and asphalt absorb it during the day."],
             ["Street trees cool the air through ", { n: 23 }, ", much like sweating."],
             ["Pale roof coatings reduce the need for ", { n: 24 }, " conditioning."],
             ["Fountains and streams cool surroundings by ", { n: 25 }, "."],
             ["The hottest districts are often the ", { n: 26 }, " and receive little investment."],
-          ],
+          ),
         },
       ],
     },
