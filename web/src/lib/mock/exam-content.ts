@@ -390,6 +390,7 @@ export const readingContent: ReadingContent = {
       id: "r-passage-2",
       part: 2,
       title: "Designing Cities for the Heat",
+      subtitle: "How urban planners are adapting to rising temperatures",
       blurb: "Read the text and answer questions 14–26.",
       paragraphs: [
         {

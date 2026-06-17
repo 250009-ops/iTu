@@ -149,19 +149,37 @@ export function ReadingVisualEditor({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
+        <div className="space-y-2 sm:col-span-2">
           <Label>Passage title</Label>
           <Input
             value={passage.title}
             onChange={(e) => updatePassage({ title: e.target.value })}
+            placeholder="The discovery of a baby mammoth"
           />
         </div>
-        <div className="space-y-2">
-          <Label>Blurb</Label>
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Subtitle (optional)</Label>
+          <Input
+            value={passage.subtitle ?? ""}
+            onChange={(e) =>
+              updatePassage({ subtitle: e.target.value.trim() || undefined })
+            }
+            placeholder="A near-perfect frozen mammoth offers clues to a great vanished species"
+          />
+          <p className="text-xs text-muted">
+            Shown in italics under the title in the exam — like the Cambridge reading tagline.
+          </p>
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Instructions blurb</Label>
           <Input
             value={passage.blurb}
             onChange={(e) => updatePassage({ blurb: e.target.value })}
+            placeholder="Read the text and answer questions 14–26."
           />
+          <p className="text-xs text-muted">
+            Shown in the part header bar, not in the passage pane.
+          </p>
         </div>
       </div>
 

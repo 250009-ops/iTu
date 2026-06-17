@@ -138,6 +138,8 @@ export interface ReadingPassage {
   id: string;
   part: number;
   title: string;
+  /** Optional tagline shown in italics below the title (IELTS reading style). */
+  subtitle?: string;
   blurb: string;
   /** Passage paragraphs; each paragraph may carry a section marker (A, B, …). */
   paragraphs: { marker?: string; text: string }[];

@@ -63,7 +63,12 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
       </div>
       <div className="grid min-h-[420px] lg:grid-cols-2">
         <div className="border-b border-border p-5 lg:border-b-0 lg:border-r">
-          <h3 className="mb-3 text-lg font-bold text-navy">{passage.title}</h3>
+          <h3 className="mb-1 text-center text-lg font-bold text-navy">{passage.title}</h3>
+          {passage.subtitle?.trim() && (
+            <p className="mb-4 text-center text-sm italic text-slate-600">
+              {passage.subtitle}
+            </p>
+          )}
           <div className="space-y-3 text-sm leading-relaxed text-slate-700">
             {passage.paragraphs.map((para, i) => (
               <p key={i}>

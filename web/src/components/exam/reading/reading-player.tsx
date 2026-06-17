@@ -156,9 +156,15 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
             className={`mx-auto max-w-prose ${TEXT_SIZE_CLASS[state.textSize]}`}
             style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
           >
-            <h2 className="mb-4 text-xl font-bold text-navy">
+            <h2 className="mb-2 text-center text-xl font-bold text-navy">
               {activePassage.title}
             </h2>
+            {activePassage.subtitle?.trim() && (
+              <p className="mb-5 text-center text-[15px] italic leading-snug text-slate-600">
+                {activePassage.subtitle}
+              </p>
+            )}
+            {!activePassage.subtitle?.trim() && <div className="mb-4" />}
             <div className="space-y-4 leading-7 text-slate-700">
               {activePassage.paragraphs.map((para, i) => (
                 <p key={i}>
