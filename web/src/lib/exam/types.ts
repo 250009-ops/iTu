@@ -86,6 +86,14 @@ export interface MatchingGroup extends BaseGroup {
   questions: { n: number; prompt: string }[];
 }
 
+/** Reading: which passage section (A–F) contains each statement — Cambridge dropdown UI. */
+export interface MatchingInformationGroup extends BaseGroup {
+  type: "matching_information";
+  questions: { n: number; prompt: string }[];
+  /** Dropdown values; defaults to passage paragraph markers when omitted. */
+  sectionLabels?: string[];
+}
+
 export interface TfngGroup extends BaseGroup {
   type: "tfng" | "yng";
   questions: { n: number; prompt: string }[];
@@ -112,6 +120,7 @@ export type QuestionGroup =
   | McqSingleGroup
   | McqMultiGroup
   | MatchingGroup
+  | MatchingInformationGroup
   | TfngGroup
   | MapLabelingGroup
   | ShortAnswerGroup;

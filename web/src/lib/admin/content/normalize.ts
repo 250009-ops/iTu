@@ -36,6 +36,12 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
+    case "matching_information":
+      return {
+        ...g,
+        questions: asArray(g.questions),
+        sectionLabels: asArray(g.sectionLabels),
+      };
     case "mcq_single":
       return { ...g, questions: asArray(g.questions) } as QuestionGroup;
     case "short_answer":

@@ -16,7 +16,9 @@ import {
 import { cn } from "@/lib/utils";
 import { GapInput } from "./gap-input";
 import { MatchingControl } from "./matching-control";
+import { MatchingInformationControl } from "./matching-information-control";
 import { MapLabeling } from "./map-labeling";
+import { passageSectionLabels } from "@/lib/exam/passage-sections";
 
 interface QuestionGroupProps {
   group: Group;
@@ -25,6 +27,8 @@ interface QuestionGroupProps {
   onAnswer: (n: number, value: AnswerValue) => void;
   onFocus: (n: number) => void;
   onPasteBlocked?: () => void;
+  /** Passage paragraph markers for matching_information dropdowns. */
+  passageParagraphs?: { marker?: string }[];
 }
 
 export function QuestionGroup({
@@ -34,6 +38,7 @@ export function QuestionGroup({
   onAnswer,
   onFocus,
   onPasteBlocked,
+  passageParagraphs,
 }: QuestionGroupProps) {
   return (
     <section className="scroll-mt-4" id={`group-${group.id}`}>
@@ -60,6 +65,7 @@ export function QuestionGroup({
         onAnswer={onAnswer}
         onFocus={onFocus}
         onPasteBlocked={onPasteBlocked}
+        passageParagraphs={passageParagraphs}
       />
     </section>
   );
@@ -119,6 +125,7 @@ function GroupBody({
   onAnswer,
   onFocus,
   onPasteBlocked,
+  passageParagraphs,
 }: QuestionGroupProps) {
   switch (group.type) {
     case "note_completion":
@@ -391,6 +398,31 @@ function GroupBody({
           onAssign={(n, id) => {
             onFocus(n);
             onAnswer(n, id);
+          }}
+          onFocus={onFocus}
+        />
+      );
+    }
+
+    case "matching_information": {
+      const labels = passageSectionLabels(
+        passageParagraphs,
+        group.sectionLabels,
+      );
+      const map: Record<number, string> = {};
+      group.questions.forEach((q) => {
+        const v = answers[q.n];
+        if (typeof v === "string") map[q.n] = v;
+      });
+      return (
+        <MatchingInformationControl
+          questions={group.questions}
+          sectionLabels={labels}
+          answers={map}
+          current={current}
+          onAssign={(n, section) => {
+            onFocus(n);
+            onAnswer(n, section);
           }}
           onFocus={onFocus}
         />

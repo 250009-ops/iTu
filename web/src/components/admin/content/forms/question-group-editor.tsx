@@ -13,6 +13,10 @@ import { TableCompletionEditor } from "@/components/admin/content/forms/table-co
 import { CompletionLinesEditor } from "@/components/admin/content/forms/completion-lines-editor";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { gapsInCompletionLines } from "@/lib/exam/inline-content";
+import {
+  formatSectionLabelsInput,
+  parseSectionLabelsInput,
+} from "@/lib/exam/passage-sections";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
 import type { QuestionGroup } from "@/lib/exam/types";
 
@@ -230,6 +234,71 @@ function renderBody(
           ))}
         </div>
       );
+
+    case "matching_information": {
+      const labels = group.sectionLabels ?? ["A", "B", "C", "D", "E", "F"];
+      return (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Section labels (dropdown options)</Label>
+            <Input
+              value={formatSectionLabelsInput(group.sectionLabels)}
+              onChange={(e) =>
+                onChange({
+                  ...group,
+                  sectionLabels: parseSectionLabelsInput(e.target.value),
+                })
+              }
+              placeholder="A, B, C, D, E, F"
+            />
+            <p className="text-xs text-muted">
+              Usually matches passage paragraph markers (A, B, C…). Leave blank to
+              use markers from the passage at exam time.
+            </p>
+          </div>
+          {group.questions.map((q, idx) => (
+            <div
+              key={q.n}
+              className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
+                {q.n}
+              </span>
+              <Input
+                value={q.prompt}
+                onChange={(e) => {
+                  const questions = [...group.questions];
+                  questions[idx] = { ...q, prompt: e.target.value };
+                  onChange({ ...group, questions });
+                }}
+                placeholder="Statement to match to a section"
+              />
+              <AnswerKeyField
+                questionNumber={q.n}
+                answerKey={answerKey}
+                onChange={onAnswerKeyChange}
+                type="option"
+                options={labels}
+              />
+            </div>
+          ))}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              const n = group.to + 1;
+              onChange({
+                ...group,
+                to: n,
+                questions: [...group.questions, { n, prompt: "" }],
+              });
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Add statement
+          </Button>
+        </div>
+      );
+    }
 
     case "note_completion":
     case "form_completion":

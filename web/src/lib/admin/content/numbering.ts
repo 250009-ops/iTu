@@ -147,6 +147,13 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
         to,
         questions: group.questions.map((q) => ({ ...q, n: nums[i++]! })),
       };
+    case "matching_information":
+      return {
+        ...group,
+        from,
+        to,
+        questions: group.questions.map((q) => ({ ...q, n: nums[i++]! })),
+      };
     case "mcq_multi":
       return {
         ...group,

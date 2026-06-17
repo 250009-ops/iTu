@@ -212,6 +212,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
                 onAnswer={state.setAnswer}
                 onFocus={state.focusQuestion}
                 onPasteBlocked={logPaste}
+                passageParagraphs={activePassage.paragraphs}
               />
             ))}
           </div>

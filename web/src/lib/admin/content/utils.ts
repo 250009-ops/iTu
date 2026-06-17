@@ -60,6 +60,7 @@ export function gapsInGroup(group: QuestionGroup): number[] {
       return group.numbers;
     case "matching":
     case "matching_headings":
+    case "matching_information":
       return group.questions.map((q) => q.n);
     case "tfng":
     case "yng":

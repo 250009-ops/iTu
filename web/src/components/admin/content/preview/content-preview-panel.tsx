@@ -106,6 +106,7 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
                 current={state.current}
                 onAnswer={state.setAnswer}
                 onFocus={state.focusQuestion}
+                passageParagraphs={passage.paragraphs}
               />
             ))
           )}

@@ -160,6 +160,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionGroup["type"], string> = {
   mcq_multi: "Multiple choice (choose two)",
   matching: "Matching",
   matching_headings: "Matching headings",
+  matching_information: "Matching information",
   tfng: "True / False / Not Given",
   yng: "Yes / No / Not Given",
   map_labeling: "Map labeling",
@@ -221,6 +222,18 @@ export function createQuestionGroup(
           { id: "A", label: "Option A" },
           { id: "B", label: "Option B" },
         ],
+        questions: [{ n: from, prompt: "" }],
+      };
+    case "matching_information":
+      return {
+        id,
+        type,
+        from,
+        to,
+        instruction:
+          "The text has six sections. Which section contains the following information?",
+        hint: "Choose the correct section, A–F, for each question.",
+        sectionLabels: ["A", "B", "C", "D", "E", "F"],
         questions: [{ n: from, prompt: "" }],
       };
     case "note_completion":
