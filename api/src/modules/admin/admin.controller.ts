@@ -144,6 +144,11 @@ export class AdminController {
     return this.admin.deletePackage(id, user.id);
   }
 
+  @Post('packages/:id/clone')
+  clonePackage(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.admin.clonePackage(id, user.id);
+  }
+
   @Get('reports/summary')
   getReports() {
     return this.admin.getReports();

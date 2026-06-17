@@ -43,7 +43,7 @@ The **IELTS Mock Exam ERP** is a multi-role platform that delivers realistic **o
 | **Redis** | Exam section timers and per-session distributed locks |
 | **Payments** | Mock card booking (Stripe deferred to Phase H) |
 
-The codebase is a **working full-stack ERP**. Remaining gaps (content studio UI, Stripe, email automation, etc.) are tracked in the implementation roadmap (§12).
+The codebase is a **working full-stack ERP**. Remaining gaps (Stripe, email automation, etc.) are tracked in the implementation roadmap (§12).
 
 ---
 
@@ -367,7 +367,7 @@ Page file `app/(student)/student/[[...view]]/page.tsx` is an anchor; routing is 
 | Route | Page |
 |-------|------|
 | `/admin/dashboard` | KPIs, 6-month revenue trend, module completion rates, live sessions preview |
-| `/admin/content` | Content Studio |
+| `/admin/content` | Content Studio — visual editors, preview, publish workflow, import/clone/delete |
 | `/admin/teachers` | Examiner roster |
 | `/admin/sessions` | Live Monitor |
 | `/admin/enrollments` | Enrollment lifecycle |
@@ -702,7 +702,7 @@ API keys and webhook signing secrets are managed in Admin Settings → Integrati
 | Area | Notes |
 |------|-------|
 | Real Stripe payments | Mock card flow until Phase H |
-| Full content authoring UI | Admin wizard still stubbed; API create/publish exists |
+| Full content authoring UI | **Built** — Content Studio with visual editors, preview, publish checklist, media upload, import/clone |
 | Transactional email (beyond reset) | SMTP wired for password reset only |
 | Server PDF certificates | Client print/txt export only |
 | Portal global search | `GET /search` — role-scoped (enrollments, orders, content, tickets, sessions) |
@@ -723,7 +723,7 @@ Aligned with specification §17, updated for current progress:
 - ✅ CBT players + session control engine
 - ✅ Redis-backed timers & locks (Phase A)
 - ✅ Audit trail (Phase A)
-- ⏳ Admin content authoring (full UI)
+- ⏳ Admin content authoring (full UI) — **Content Studio shipped**; ongoing polish
 
 ### Phase 2 — Commerce + Writing
 

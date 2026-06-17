@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ContentTestStatus,
   EnrollmentStatus,
   ExamSkill,
   NotificationType,
@@ -506,6 +507,13 @@ export class AdminService {
   }
 
   async createPackage(dto: CreatePackageDto, actorId: string) {
+    await this.assertPublishedTestIds([
+      dto.listeningTestId,
+      dto.readingTestId,
+      dto.writingTestId,
+      dto.speakingBankId,
+    ]);
+
     const slug = await this.resolveSlug(dto.title, dto.slug);
 
     const created = await this.prisma.mockTestPackage.create({
@@ -518,6 +526,7 @@ export class AdminService {
         examType: dto.examType ?? 'ACADEMIC',
         mostPopular: dto.mostPopular ?? false,
         rating: dto.rating ?? null,
+        reviewCount: dto.reviewCount ?? 0,
         skills: (dto.skills ?? SKILL_ACCENTS) as Prisma.InputJsonValue,
         included: (dto.included ?? []) as Prisma.InputJsonValue,
         rules: (dto.rules ?? []) as Prisma.InputJsonValue,
@@ -537,7 +546,43 @@ export class AdminService {
       metadata: { slug: created.slug, title: created.title },
     });
 
+    if (created.mostPopular) {
+      await this.ensureExclusiveMostPopular(created.id);
+    }
+
     return created;
+  }
+
+  async clonePackage(id: string, actorId: string) {
+    const source = await this.prisma.mockTestPackage.findUnique({
+      where: { id },
+    });
+    if (!source) throw new NotFoundException('Package not found');
+
+    const title = `${source.title} Copy`;
+    const slug = await this.resolveSlug(title);
+
+    return this.createPackage(
+      {
+        title,
+        slug,
+        description: source.description ?? undefined,
+        price: source.price,
+        currency: source.currency,
+        examType: source.examType,
+        mostPopular: false,
+        rating: source.rating ?? undefined,
+        reviewCount: source.reviewCount,
+        included: (source.included as string[]) ?? [],
+        rules: (source.rules as string[]) ?? [],
+        listeningTestId: source.listeningTestId ?? undefined,
+        readingTestId: source.readingTestId ?? undefined,
+        writingTestId: source.writingTestId ?? undefined,
+        speakingBankId: source.speakingBankId ?? undefined,
+        isActive: false,
+      },
+      actorId,
+    );
   }
 
   async updatePackage(id: string, dto: UpdatePackageDto, actorId: string) {
@@ -545,6 +590,37 @@ export class AdminService {
       where: { id },
     });
     if (!existing) throw new NotFoundException('Package not found');
+
+    const newlyLinkedIds: string[] = [];
+    if (
+      dto.listeningTestId !== undefined &&
+      dto.listeningTestId !== existing.listeningTestId &&
+      dto.listeningTestId
+    ) {
+      newlyLinkedIds.push(dto.listeningTestId);
+    }
+    if (
+      dto.readingTestId !== undefined &&
+      dto.readingTestId !== existing.readingTestId &&
+      dto.readingTestId
+    ) {
+      newlyLinkedIds.push(dto.readingTestId);
+    }
+    if (
+      dto.writingTestId !== undefined &&
+      dto.writingTestId !== existing.writingTestId &&
+      dto.writingTestId
+    ) {
+      newlyLinkedIds.push(dto.writingTestId);
+    }
+    if (
+      dto.speakingBankId !== undefined &&
+      dto.speakingBankId !== existing.speakingBankId &&
+      dto.speakingBankId
+    ) {
+      newlyLinkedIds.push(dto.speakingBankId);
+    }
+    await this.assertPublishedTestIds(newlyLinkedIds);
 
     const data: Prisma.MockTestPackageUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
@@ -561,6 +637,7 @@ export class AdminService {
     if (dto.examType !== undefined) data.examType = dto.examType;
     if (dto.mostPopular !== undefined) data.mostPopular = dto.mostPopular;
     if (dto.rating !== undefined) data.rating = dto.rating;
+    if (dto.reviewCount !== undefined) data.reviewCount = dto.reviewCount;
     if (dto.skills !== undefined) data.skills = dto.skills as Prisma.InputJsonValue;
     if (dto.included !== undefined)
       data.included = dto.included as Prisma.InputJsonValue;
@@ -593,7 +670,41 @@ export class AdminService {
       metadata: { fields: Object.keys(dto) },
     });
 
+    if (dto.mostPopular === true) {
+      await this.ensureExclusiveMostPopular(id);
+    }
+
     return updated;
+  }
+
+  private async ensureExclusiveMostPopular(packageId: string) {
+    await this.prisma.mockTestPackage.updateMany({
+      where: { id: { not: packageId }, mostPopular: true },
+      data: { mostPopular: false },
+    });
+  }
+
+  private async assertPublishedTestIds(
+    ids: (string | null | undefined)[],
+  ) {
+    const linked = ids.filter((id): id is string => Boolean(id));
+    if (linked.length === 0) return;
+
+    const tests = await this.prisma.contentTest.findMany({
+      where: { id: { in: linked } },
+      select: { id: true, code: true, status: true },
+    });
+
+    if (tests.length !== linked.length) {
+      throw new BadRequestException('One or more linked content tests were not found');
+    }
+
+    const unpublished = tests.filter((t) => t.status !== ContentTestStatus.PUBLISHED);
+    if (unpublished.length > 0) {
+      throw new BadRequestException(
+        `Only published tests can be linked to packages (${unpublished.map((t) => t.code).join(', ')})`,
+      );
+    }
   }
 
   async deletePackage(id: string, actorId: string) {

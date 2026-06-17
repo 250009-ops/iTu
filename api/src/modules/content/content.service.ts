@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ContentTestStatus, ContentTestType } from '@prisma/client';
@@ -40,6 +41,8 @@ const IMAGE_MIME = new Set([
 
 @Injectable()
 export class ContentService {
+  private readonly logger = new Logger(ContentService.name);
+
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
@@ -65,6 +68,49 @@ export class ContentService {
       },
     });
 
+    const testIds = tests.map((t) => t.id);
+    const [createAudits, packages] = await Promise.all([
+      testIds.length
+        ? this.prisma.auditLog.findMany({
+            where: {
+              entity: 'content_test',
+              action: AuditAction.CONTENT_TEST_CREATE,
+              entityId: { in: testIds },
+            },
+            include: { user: { select: { name: true } } },
+            orderBy: { createdAt: 'desc' },
+          })
+        : [],
+      this.prisma.mockTestPackage.findMany({
+        select: {
+          listeningTestId: true,
+          readingTestId: true,
+          writingTestId: true,
+          speakingBankId: true,
+        },
+      }),
+    ]);
+
+    const authorByTest = new Map<string, string>();
+    for (const row of createAudits) {
+      if (row.entityId && !authorByTest.has(row.entityId)) {
+        authorByTest.set(row.entityId, row.user?.name ?? 'Admin');
+      }
+    }
+
+    const packageLinks = new Map<string, number>();
+    for (const pkg of packages) {
+      for (const testId of [
+        pkg.listeningTestId,
+        pkg.readingTestId,
+        pkg.writingTestId,
+        pkg.speakingBankId,
+      ]) {
+        if (!testId) continue;
+        packageLinks.set(testId, (packageLinks.get(testId) ?? 0) + 1);
+      }
+    }
+
     return tests.map((t) => ({
       id: t.id,
       code: t.code,
@@ -77,6 +123,8 @@ export class ContentService {
       publishedAt: t.publishedAt,
       mediaCount: t._count.mediaAssets,
       questionCount: questionCountForTest(t.type, t.content),
+      authorName: authorByTest.get(t.id) ?? 'Admin',
+      linkedPackages: packageLinks.get(t.id) ?? 0,
     }));
   }
 
@@ -349,6 +397,7 @@ export class ContentService {
   async cloneTest(id: string, code: string, title: string, actorId: string) {
     const source = await this.prisma.contentTest.findUnique({
       where: { id },
+      include: { mediaAssets: true },
     });
     if (!source) throw new NotFoundException('Test not found');
 
@@ -371,6 +420,8 @@ export class ContentService {
       },
     });
 
+    await this.copyTestMedia(source.id, cloned.id, source.mediaAssets);
+
     await this.audit.log({
       userId: actorId,
       action: AuditAction.CONTENT_TEST_CREATE,
@@ -380,6 +431,99 @@ export class ContentService {
     });
 
     return cloned;
+  }
+
+  async deleteTest(id: string, actorId: string) {
+    const test = await this.prisma.contentTest.findUnique({
+      where: { id },
+      include: { mediaAssets: true },
+    });
+    if (!test) throw new NotFoundException('Test not found');
+
+    if (test.status === ContentTestStatus.PUBLISHED) {
+      throw new BadRequestException(
+        'Published tests cannot be deleted. Unpublish is not supported — duplicate and retire instead.',
+      );
+    }
+
+    const linkedPackages = await this.prisma.mockTestPackage.count({
+      where: {
+        OR: [
+          { listeningTestId: id },
+          { readingTestId: id },
+          { writingTestId: id },
+          { speakingBankId: id },
+        ],
+      },
+    });
+    if (linkedPackages > 0) {
+      throw new BadRequestException(
+        `This test is linked to ${linkedPackages} package(s). Remove it from packages before deleting.`,
+      );
+    }
+
+    for (const asset of test.mediaAssets) {
+      const relative = this.storage.relativePathFromPublicUrl(asset.url);
+      if (relative) {
+        await this.storage.deleteFile(relative);
+      }
+    }
+
+    await this.prisma.mediaAsset.deleteMany({ where: { testId: id } });
+    await this.prisma.contentTest.delete({ where: { id } });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.CONTENT_TEST_DELETE,
+      entity: 'content_test',
+      entityId: id,
+      metadata: { code: test.code, type: test.type },
+    });
+
+    return { deleted: true, id };
+  }
+
+  private async copyTestMedia(
+    sourceTestId: string,
+    targetTestId: string,
+    assets: {
+      key: string;
+      url: string;
+      mimeType: string;
+      sizeBytes: number | null;
+    }[],
+  ) {
+    for (const asset of assets) {
+      const relative = this.storage.relativePathFromPublicUrl(asset.url);
+      if (!relative) continue;
+
+      const targetRelative = relative.includes(sourceTestId)
+        ? relative.replace(sourceTestId, targetTestId)
+        : relative.replace(
+            /^(listening|maps|writing)\/[^/]+/,
+            `$1/${targetTestId}`,
+          );
+
+      try {
+        const buffer = await this.storage.readBuffer(relative);
+        const newUrl = await this.storage.saveBuffer(targetRelative, buffer);
+        await this.prisma.mediaAsset.create({
+          data: {
+            testId: targetTestId,
+            key: asset.key,
+            url: newUrl,
+            mimeType: asset.mimeType,
+            sizeBytes: asset.sizeBytes,
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Could not copy media ${asset.key} for test ${targetTestId}: ${
+            err instanceof Error ? err.message : err
+          }`,
+        );
+      }
+    }
   }
 
   async uploadMedia(

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -24,6 +25,8 @@ type FormState = {
   examType: ExamTypeValue;
   mostPopular: boolean;
   isActive: boolean;
+  rating: string;
+  reviewCount: string;
   included: string;
   rules: string;
   listeningTestId: string;
@@ -41,6 +44,8 @@ const emptyForm: FormState = {
   examType: "ACADEMIC",
   mostPopular: false,
   isActive: true,
+  rating: "",
+  reviewCount: "",
   included: "",
   rules: "",
   listeningTestId: "",
@@ -49,9 +54,13 @@ const emptyForm: FormState = {
   speakingBankId: "",
 };
 
-const labelCls = "text-xs font-bold uppercase tracking-wide text-muted";
+const labelCls = "text-xs font-semibold text-navy";
 const textareaCls =
-  "flex w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy/20 focus-visible:border-navy";
+  "flex w-full resize-y rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy/20 focus-visible:border-navy min-h-[6rem]";
+
+function isPublishedStatus(status: string) {
+  return status.toLowerCase().replace(/-/g, "_") === "published";
+}
 
 function TestSelect({
   label,
@@ -67,17 +76,33 @@ function TestSelect({
   onChange: (v: string) => void;
 }) {
   const filtered = options.filter((o) => o.type === type);
+  const selectable = filtered.filter(
+    (o) => isPublishedStatus(o.status) || o.id === value,
+  );
+  const selected = filtered.find((o) => o.id === value);
+
   return (
     <div className="space-y-1.5">
       <label className={labelCls}>{label}</label>
-      <Select value={value} onChange={(e) => onChange(e.target.value)} className="h-10">
+      <Select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-full"
+      >
         <option value="">Not linked</option>
-        {filtered.map((o) => (
+        {selectable.map((o) => (
           <option key={o.id} value={o.id}>
-            {o.title} ({o.code})
+            {o.code} · {o.title}
+            {!isPublishedStatus(o.status) ? " (draft)" : ""}
           </option>
         ))}
       </Select>
+      {selected && (
+        <p className="text-xs text-muted">
+          {selected.code} · {selected.title}
+          {!isPublishedStatus(selected.status) ? " · draft (legacy link)" : ""}
+        </p>
+      )}
     </div>
   );
 }
@@ -103,6 +128,8 @@ export function PackageEditorDialog() {
         examType: pkg.examType,
         mostPopular: pkg.mostPopular,
         isActive: pkg.isActive,
+        rating: pkg.rating != null ? String(pkg.rating) : "",
+        reviewCount: String(pkg.reviewCount ?? 0),
         included: (pkg.included ?? []).join("\n"),
         rules: (pkg.rules ?? []).join("\n"),
         listeningTestId: pkg.listeningTestId ?? "",
@@ -119,15 +146,35 @@ export function PackageEditorDialog() {
     setForm((f) => ({ ...f, [key]: value }));
 
   const priceValue = useMemo(() => Number(form.price), [form.price]);
+  const ratingValue = useMemo(
+    () => (form.rating.trim() === "" ? null : Number(form.rating)),
+    [form.rating],
+  );
+  const reviewCountValue = useMemo(
+    () => Number(form.reviewCount || "0"),
+    [form.reviewCount],
+  );
+
   const priceInvalid = form.price.trim() === "" || Number.isNaN(priceValue) || priceValue < 0;
   const titleInvalid = form.title.trim() === "";
+  const ratingInvalid =
+    form.rating.trim() !== "" &&
+    (Number.isNaN(ratingValue) || ratingValue! < 0 || ratingValue! > 5);
+  const reviewCountInvalid =
+    form.reviewCount.trim() !== "" &&
+    (Number.isNaN(reviewCountValue) || reviewCountValue < 0);
+
+  const previewSlug = form.slug.trim() || pkg?.slug;
+  const siteHref = previewSlug
+    ? `/mock-exams?package=${encodeURIComponent(previewSlug)}`
+    : "/mock-exams";
 
   if (!editor.open) return null;
 
   async function handleSave() {
-    if (titleInvalid || priceInvalid) {
+    if (titleInvalid || priceInvalid || ratingInvalid || reviewCountInvalid) {
       toast("Check the form", {
-        description: "A title and a valid price are required.",
+        description: "Fix required fields and numeric ranges before saving.",
         variant: "warning",
       });
       return;
@@ -143,6 +190,8 @@ export function PackageEditorDialog() {
         examType: form.examType,
         mostPopular: form.mostPopular,
         isActive: form.isActive,
+        rating: ratingValue,
+        reviewCount: reviewCountValue,
         included: form.included
           .split("\n")
           .map((l) => l.trim())
@@ -177,10 +226,10 @@ export function PackageEditorDialog() {
       onClick={closeEditor}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex max-h-[min(90vh,880px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-navy">
               {isEdit ? "Edit Package" : "New Package"}
@@ -199,7 +248,7 @@ export function PackageEditorDialog() {
           </button>
         </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
           <div className="space-y-1.5">
             <label className={labelCls}>Title</label>
             <Input
@@ -211,7 +260,20 @@ export function PackageEditorDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <label className={labelCls}>Slug (optional)</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className={labelCls}>Slug (optional)</label>
+              {previewSlug && (
+                <Link
+                  href={siteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-navy hover:underline"
+                >
+                  View on site
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
             <Input
               value={form.slug}
               onChange={(e) => set("slug", e.target.value)}
@@ -224,7 +286,7 @@ export function PackageEditorDialog() {
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
-              rows={2}
+              rows={3}
               className={textareaCls}
               placeholder="All four skills in one day, graded by certified examiners."
             />
@@ -254,7 +316,7 @@ export function PackageEditorDialog() {
               <Select
                 value={form.currency}
                 onChange={(e) => set("currency", e.target.value)}
-                className="h-10"
+                className="h-10 w-full"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -263,11 +325,11 @@ export function PackageEditorDialog() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className={labelCls}>Exam Type</label>
+              <label className={labelCls}>Exam type</label>
               <Select
                 value={form.examType}
                 onChange={(e) => set("examType", e.target.value as ExamTypeValue)}
-                className="h-10"
+                className="h-10 w-full"
               >
                 <option value="ACADEMIC">Academic</option>
                 <option value="GENERAL_TRAINING">General Training</option>
@@ -276,10 +338,38 @@ export function PackageEditorDialog() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className={labelCls}>Rating (0–5, optional)</label>
+              <Input
+                type="number"
+                min={0}
+                max={5}
+                step="0.1"
+                value={form.rating}
+                error={ratingInvalid}
+                onChange={(e) => set("rating", e.target.value)}
+                placeholder="4.8"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelCls}>Review count</label>
+              <Input
+                type="number"
+                min={0}
+                step="1"
+                value={form.reviewCount}
+                error={reviewCountInvalid}
+                onChange={(e) => set("reviewCount", e.target.value)}
+                placeholder="120"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-navy">Most popular</p>
-                <p className="text-xs text-muted">Highlight on the site.</p>
+                <p className="text-xs text-muted">Only one package can be highlighted.</p>
               </div>
               <Switch
                 checked={form.mostPopular}
@@ -306,7 +396,7 @@ export function PackageEditorDialog() {
               <textarea
                 value={form.included}
                 onChange={(e) => set("included", e.target.value)}
-                rows={4}
+                rows={5}
                 className={textareaCls}
                 placeholder={"Pick your examiner\nSame-day band results"}
               />
@@ -316,16 +406,21 @@ export function PackageEditorDialog() {
               <textarea
                 value={form.rules}
                 onChange={(e) => set("rules", e.target.value)}
-                rows={4}
+                rows={5}
                 className={textareaCls}
                 placeholder={"No pause or rewind\nServer-authoritative timers"}
               />
             </div>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-border bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-navy">Linked exam content</p>
-            <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-4 rounded-lg border border-border bg-slate-50 p-4 pb-5">
+            <div>
+              <p className="text-sm font-semibold text-navy">Linked exam content</p>
+              <p className="text-xs text-muted">
+                Only published tests appear in the picker. Existing draft links stay until you change them.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
               <TestSelect
                 label="Listening test"
                 type="LISTENING"
@@ -358,7 +453,7 @@ export function PackageEditorDialog() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+        <div className="flex shrink-0 justify-end gap-2 border-t border-border px-6 py-4">
           <Button variant="secondary" size="sm" onClick={closeEditor} disabled={saving}>
             Cancel
           </Button>

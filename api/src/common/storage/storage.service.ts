@@ -56,6 +56,22 @@ export class StorageService implements OnModuleInit {
     return `${this.publicBaseUrl}/${safe.replace(/\\/g, '/')}`;
   }
 
+  getPublicBaseUrl(): string {
+    return this.publicBaseUrl;
+  }
+
+  relativePathFromPublicUrl(url: string): string | null {
+    if (!this.publicBaseUrl || !url.startsWith(`${this.publicBaseUrl}/`)) {
+      return null;
+    }
+    const relative = url.slice(this.publicBaseUrl.length + 1);
+    try {
+      return this.assertSafeRelativePath(relative);
+    } catch {
+      return null;
+    }
+  }
+
   async saveBuffer(relativePath: string, data: Buffer): Promise<string> {
     if (!this.isConfigured()) {
       throw new BadRequestException(

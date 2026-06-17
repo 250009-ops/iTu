@@ -23,6 +23,7 @@ export const AuditAction = {
   CONTENT_TEST_UPDATE: 'content.test.update',
   CONTENT_TEST_SUBMIT_REVIEW: 'content.test.submit_review',
   CONTENT_TEST_IMPORT: 'content.test.import',
+  CONTENT_TEST_DELETE: 'content.test.delete',
   CONTENT_MEDIA_UPLOAD: 'content.media.upload',
 
   ADMIN_PACKAGE_CREATE: 'admin.package.create',

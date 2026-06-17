@@ -11,21 +11,7 @@ export class CatalogService {
       orderBy: [{ mostPopular: 'desc' }, { price: 'desc' }],
     });
 
-    return packages.map((pkg) => ({
-      id: pkg.id,
-      slug: pkg.slug,
-      title: pkg.title,
-      description: pkg.description,
-      price: pkg.price,
-      currency: pkg.currency,
-      examType: pkg.examType,
-      mostPopular: pkg.mostPopular,
-      rating: pkg.rating,
-      reviewCount: pkg.reviewCount,
-      skills: pkg.skills,
-      included: pkg.included,
-      rules: pkg.rules,
-    }));
+    return packages.map((pkg) => this.toCatalogPackage(pkg));
   }
 
   async getPackage(slug: string) {
@@ -39,8 +25,34 @@ export class CatalogService {
       },
     });
 
-    if (!pkg) return null;
+    if (!pkg || !pkg.isActive) return null;
 
+    return {
+      ...this.toCatalogPackage(pkg),
+      tests: {
+        listening: pkg.listeningTest,
+        reading: pkg.readingTest,
+        writing: pkg.writingTest,
+        speaking: pkg.speakingBank,
+      },
+    };
+  }
+
+  private toCatalogPackage(pkg: {
+    id: string;
+    slug: string;
+    title: string;
+    description: string | null;
+    price: number;
+    currency: string;
+    examType: string;
+    mostPopular: boolean;
+    rating: number | null;
+    reviewCount: number;
+    skills: unknown;
+    included: unknown;
+    rules: unknown;
+  }) {
     return {
       id: pkg.id,
       slug: pkg.slug,
@@ -48,15 +60,13 @@ export class CatalogService {
       description: pkg.description,
       price: pkg.price,
       currency: pkg.currency,
+      examType: pkg.examType,
+      mostPopular: pkg.mostPopular,
+      rating: pkg.rating,
+      reviewCount: pkg.reviewCount,
       skills: pkg.skills,
       included: pkg.included,
       rules: pkg.rules,
-      tests: {
-        listening: pkg.listeningTest,
-        reading: pkg.readingTest,
-        writing: pkg.writingTest,
-        speaking: pkg.speakingBank,
-      },
     };
   }
 }

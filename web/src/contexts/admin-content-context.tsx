@@ -11,6 +11,7 @@ import {
 import {
   createContentTest,
   cloneContentTest,
+  deleteContentTest,
   getContentTests,
   importAnswerKeyCsv,
   importContentTest,
@@ -51,6 +52,7 @@ type ContentValue = {
   updateTest: (id: string, payload: UpdateTestPayload) => Promise<void>;
   publishTest: (id: string) => Promise<void>;
   cloneTest: (id: string, code: string, title: string) => Promise<{ id: string }>;
+  deleteTest: (id: string) => Promise<void>;
   submitForReview: (id: string) => Promise<void>;
   revertToDraft: (id: string) => Promise<void>;
   importTest: (payload: CreateTestPayload) => Promise<{ id: string; title: string }>;
@@ -96,6 +98,15 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
       await refresh();
       setSelectedTestId(cloned.id);
       return { id: cloned.id };
+    },
+    [refresh],
+  );
+
+  const deleteTest = useCallback(
+    async (id: string) => {
+      await deleteContentTest(id);
+      setSelectedTestId((current) => (current === id ? null : current));
+      await refresh();
     },
     [refresh],
   );
@@ -158,6 +169,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
       updateTest,
       publishTest,
       cloneTest,
+      deleteTest,
       submitForReview,
       revertToDraft,
       importTest,
@@ -173,6 +185,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     updateTest,
     publishTest,
     cloneTest,
+    deleteTest,
     submitForReview,
     revertToDraft,
     importTest,

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  clonePackage,
   createPackage,
   deletePackage,
   getAdminPackages,
@@ -38,6 +39,7 @@ type PackagesValue = {
   closeEditor: () => void;
   savePackage: (id: string | null, payload: AdminPackagePayload) => Promise<void>;
   removePackage: (id: string) => Promise<{ archived?: boolean; deleted?: boolean }>;
+  duplicatePackage: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -96,6 +98,14 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const duplicatePackage = useCallback(
+    async (id: string) => {
+      await clonePackage(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const value = useMemo<PackagesValue>(
     () => ({
       loading,
@@ -108,6 +118,7 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
       closeEditor,
       savePackage,
       removePackage,
+      duplicatePackage,
       refresh,
     }),
     [
@@ -121,6 +132,7 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
       closeEditor,
       savePackage,
       removePackage,
+      duplicatePackage,
       refresh,
     ],
   );

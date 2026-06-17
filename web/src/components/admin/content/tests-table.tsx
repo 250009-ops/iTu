@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -41,9 +42,11 @@ const moduleBadge: Record<ContentModule, string> = {
 
 interface TestsTableProps {
   module: ContentModule;
+  onPreviewTest?: () => void;
+  onEditTest?: () => void;
 }
 
-export function TestsTable({ module }: TestsTableProps) {
+export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProps) {
   const {
     tests: contentTests,
     publishTest,
@@ -84,7 +87,7 @@ export function TestsTable({ module }: TestsTableProps) {
       const title = `${name.replace(/\s+\d+$/, "").trim()} Copy`;
       await cloneTest(id, code, title || defaultTestTitle(module));
       toast("Test duplicated", {
-        description: "A new draft was created from this test.",
+        description: "Draft created with content and media copied.",
         variant: "success",
       });
     } catch (err) {
@@ -208,6 +211,11 @@ export function TestsTable({ module }: TestsTableProps) {
                     </td>
                     <td className="px-5 py-4 text-muted sm:px-6">
                       {test.questions}
+                      {test.mediaCount > 0 && (
+                        <span className="ml-1 text-xs text-slate-400">
+                          · {test.mediaCount} media
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-muted sm:px-6">
                       {test.lastUpdated}
@@ -219,7 +227,10 @@ export function TestsTable({ module }: TestsTableProps) {
                           variant={isSelected ? "primary" : "secondary"}
                           size="sm"
                           className="h-8 px-3"
-                          onClick={() => setSelectedTestId(test.id)}
+                          onClick={() => {
+                            onEditTest?.();
+                            setSelectedTestId(test.id);
+                          }}
                         >
                           Edit
                         </Button>
@@ -233,9 +244,28 @@ export function TestsTable({ module }: TestsTableProps) {
                           Duplicate
                         </Button>
                         {test.status === "published" ? (
-                          <span className="flex items-center text-xs font-medium text-muted">
-                            Live
-                          </span>
+                          <>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 px-3"
+                              onClick={() => {
+                                onPreviewTest?.();
+                                setSelectedTestId(test.id);
+                              }}
+                            >
+                              Preview
+                            </Button>
+                            {test.linkedPackages > 0 && (
+                              <Link
+                                href="/admin/packages"
+                                className="flex h-8 items-center px-2 text-xs font-semibold text-sky-600 hover:text-sky-700"
+                              >
+                                {test.linkedPackages} pkg
+                                {test.linkedPackages > 1 ? "s" : ""}
+                              </Link>
+                            )}
+                          </>
                         ) : test.status === "review" ? (
                           <>
                             <Button

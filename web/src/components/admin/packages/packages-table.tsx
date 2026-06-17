@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Search, Sparkles, Trash2 } from "lucide-react";
+import { Pencil, Copy, Search, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
@@ -17,7 +17,7 @@ const examTypeLabels: Record<AdminPackage["examType"], string> = {
 };
 
 export function PackagesTable() {
-  const { packages, openEditor, removePackage } = useAdminPackages();
+  const { packages, openEditor, removePackage, duplicatePackage } = useAdminPackages();
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("all");
@@ -50,6 +50,21 @@ export function PackagesTable() {
       });
     } catch (err) {
       toast("Failed to delete package", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    }
+  }
+
+  async function handleDuplicate(pkg: AdminPackage) {
+    try {
+      await duplicatePackage(pkg.id);
+      toast("Package duplicated", {
+        description: `${pkg.title} Copy was created as inactive — review and activate when ready.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Failed to duplicate package", {
         description: getErrorMessage(err, "Please try again."),
         variant: "warning",
       });
@@ -93,7 +108,7 @@ export function PackagesTable() {
               <th className="px-5 py-3 sm:px-6">Exam Type</th>
               <th className="px-5 py-3 sm:px-6">Price</th>
               <th className="px-5 py-3 sm:px-6">Status</th>
-              <th className="px-5 py-3 sm:px-6">Enrollments</th>
+              <th className="px-5 py-3 sm:px-6">Enrollments / Orders</th>
               <th className="px-5 py-3 text-right sm:px-6">Actions</th>
             </tr>
           </thead>
@@ -145,7 +160,13 @@ export function PackagesTable() {
                     </span>
                   </td>
                   <td className="px-5 py-4 tabular-nums text-muted sm:px-6">
-                    {pkg.enrollmentCount.toLocaleString()}
+                    <span>{pkg.enrollmentCount.toLocaleString()}</span>
+                    {pkg.orderCount > 0 && (
+                      <span className="text-xs text-slate-400">
+                        {" "}
+                        · {pkg.orderCount.toLocaleString()} orders
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-4 sm:px-6">
                     <div className="flex items-center justify-end gap-2">
@@ -157,6 +178,15 @@ export function PackagesTable() {
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
                       </Button>
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicate(pkg)}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:bg-slate-50 hover:text-navy"
+                        aria-label={`Duplicate ${pkg.title}`}
+                        title="Duplicate package"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => setPendingDelete(pkg)}

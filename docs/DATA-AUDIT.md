@@ -49,8 +49,8 @@
 |----------------|-------------|-------|
 | Dashboard KPIs, live sessions, revenue chart | `GET /admin/dashboard` | Dynamic — 6-month revenue, completion rates, sync timestamp |
 | Sidebar nav badges | `GET /admin/nav-badges` | Dynamic — live sessions & open tickets |
+| Content Studio | `GET/POST/PATCH/DELETE /admin/content/tests/*` | Dynamic — create, edit, preview, publish, import, clone (with media), delete drafts |
 | All main list pages | Admin API | Dynamic |
-| Content “new test” wizard | UI only | Feature not built — toast |
 | Reports full export | UI only | Feature not built — toast |
 | Help | Shared `HelpCenter` | **Fixed** — `/support/tickets` |
 

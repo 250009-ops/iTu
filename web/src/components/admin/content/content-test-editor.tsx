@@ -37,20 +37,23 @@ type EditorTab = "visual" | "preview" | "advanced";
 type Props = {
   module: ContentModule;
   testId: string | null;
+  initialTab?: EditorTab;
 };
 
 function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-export function ContentTestEditor({ module, testId }: Props) {
-  const { updateTest, publishTest, submitForReview, revertToDraft } = useAdminContent();
+export function ContentTestEditor({ module, testId, initialTab = "visual" }: Props) {
+  const { updateTest, publishTest, submitForReview, revertToDraft, deleteTest } =
+    useAdminContent();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [reviewing, setReviewing] = useState(false);
-  const [tab, setTab] = useState<EditorTab>("visual");
+  const [deleting, setDeleting] = useState(false);
+  const [tab, setTab] = useState<EditorTab>(initialTab);
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("draft");
@@ -63,6 +66,10 @@ export function ContentTestEditor({ module, testId }: Props) {
   const [loadedTestId, setLoadedTestId] = useState<string | null>(null);
 
   const showAnswerKey = moduleUsesAnswerKey(module);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab, testId]);
 
   useEffect(() => {
     if (!testId) {
@@ -286,6 +293,29 @@ export function ContentTestEditor({ module, testId }: Props) {
     }
   }
 
+  async function handleDelete() {
+    if (!testId) return;
+    if (
+      !window.confirm(
+        "Delete this draft permanently? Media files will also be removed.",
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteTest(testId);
+      toast("Test deleted", { variant: "success" });
+    } catch (err) {
+      toast("Delete failed", {
+        description: getErrorMessage(err, "Delete failed"),
+        variant: "error",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const tabs: { id: EditorTab; label: string }[] = [
     { id: "visual", label: "Visual editor" },
     { id: "preview", label: "Preview" },
@@ -332,6 +362,16 @@ export function ContentTestEditor({ module, testId }: Props) {
               onClick={() => void handlePublish()}
             >
               Publish
+            </Button>
+          )}
+          {status !== "published" && (
+            <Button
+              variant="danger"
+              size="sm"
+              loading={deleting}
+              onClick={() => void handleDelete()}
+            >
+              Delete
             </Button>
           )}
         </div>

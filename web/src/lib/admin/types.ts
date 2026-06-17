@@ -129,6 +129,7 @@ export type ContentTest = {
   mediaCount: number;
   lastUpdated: string;
   author: string;
+  linkedPackages: number;
 };
 
 export type ExamTypeValue = "ACADEMIC" | "GENERAL_TRAINING";

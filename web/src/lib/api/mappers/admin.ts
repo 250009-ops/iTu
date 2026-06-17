@@ -585,7 +585,8 @@ export function mapContentTests(tests: ContentTests) {
     questions: t.questionCount ?? 0,
     mediaCount: t.mediaCount ?? 0,
     lastUpdated: formatShortDate(t.updatedAt),
-    author: "Admin",
+    author: t.authorName ?? "Admin",
+    linkedPackages: t.linkedPackages ?? 0,
   }));
 
   const counts = {

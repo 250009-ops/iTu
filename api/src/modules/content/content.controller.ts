@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -114,6 +115,11 @@ export class ContentController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.content.updateTest(id, body, user.id);
+  }
+
+  @Delete('tests/:id')
+  deleteTest(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.content.deleteTest(id, user.id);
   }
 
   @Post('tests/:id/media')

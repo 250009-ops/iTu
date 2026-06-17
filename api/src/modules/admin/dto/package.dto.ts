@@ -49,6 +49,11 @@ export class CreatePackageDto {
   rating?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  reviewCount?: number;
+
+  @IsOptional()
   @IsArray()
   skills?: unknown[];
 
@@ -119,6 +124,11 @@ export class UpdatePackageDto {
   @IsOptional()
   @IsNumber()
   rating?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  reviewCount?: number;
 
   @IsOptional()
   @IsArray()

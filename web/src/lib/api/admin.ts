@@ -14,6 +14,7 @@ export type AdminPackagePayload = {
   examType?: ExamTypeValue;
   mostPopular?: boolean;
   rating?: number | null;
+  reviewCount?: number;
   included?: string[];
   rules?: string[];
   listeningTestId?: string | null;
@@ -43,6 +44,10 @@ export function deletePackage(id: string) {
     `/admin/packages/${id}`,
     { method: "DELETE" },
   );
+}
+
+export function clonePackage(id: string) {
+  return apiFetch("/admin/packages/" + id + "/clone", { method: "POST" });
 }
 
 export function updateTicket(
@@ -320,6 +325,8 @@ export function getContentTests(type?: string) {
       publishedAt: string | null;
       mediaCount?: number;
       questionCount?: number;
+      authorName?: string;
+      linkedPackages?: number;
     }[]
   >(`/admin/content/tests${q}`);
 }
@@ -473,6 +480,13 @@ export function cloneContentTest(
   return apiFetch<{ id: string; code: string; title: string }>(
     `/admin/content/tests/${id}/clone`,
     { method: "POST", body: payload },
+  );
+}
+
+export function deleteContentTest(id: string) {
+  return apiFetch<{ deleted: boolean; id: string }>(
+    `/admin/content/tests/${id}`,
+    { method: "DELETE" },
   );
 }
 

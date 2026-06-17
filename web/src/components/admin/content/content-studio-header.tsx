@@ -26,8 +26,8 @@ export function ContentStudioHeader({ activeModule }: Props) {
             Content Studio
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Build tests section-by-section in the visual editor, preview in the
-            student player, then publish to packages.
+            Build tests in the visual editor, preview inline, then publish and
+            link them to packages.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

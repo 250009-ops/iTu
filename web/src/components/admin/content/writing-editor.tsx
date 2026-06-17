@@ -3,7 +3,9 @@
 import { ContentTestEditor } from "@/components/admin/content/content-test-editor";
 import { useAdminContent } from "@/contexts/admin-content-context";
 
-export function WritingEditor() {
+export function WritingEditor({ initialTab }: { initialTab?: "visual" | "preview" | "advanced" }) {
   const { selectedTestId } = useAdminContent();
-  return <ContentTestEditor module="writing" testId={selectedTestId} />;
+  return (
+    <ContentTestEditor module="writing" testId={selectedTestId} initialTab={initialTab} />
+  );
 }
