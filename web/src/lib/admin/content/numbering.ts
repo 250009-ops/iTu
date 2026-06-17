@@ -185,6 +185,7 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
     case "note_completion":
     case "form_completion":
     case "summary_completion":
+    case "summary_completion_list":
     case "sentence_completion": {
       const idx = { i: 0 };
       return {

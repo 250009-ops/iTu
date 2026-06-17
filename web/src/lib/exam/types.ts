@@ -126,6 +126,14 @@ export interface FlowchartCompletionGroup extends BaseGroup {
   nodes: FlowchartNode[];
 }
 
+/** Reading: summary paragraph with inline gaps filled from a lettered word bank. */
+export interface SummaryCompletionListGroup extends BaseGroup {
+  type: "summary_completion_list";
+  title?: string;
+  lines: CompletionLine[];
+  options: MatchOption[];
+}
+
 /** L/R/W interstitial — no question numbers or answers. */
 export interface InstructionScreenGroup extends BaseGroup {
   type: "instruction_screen";
@@ -154,6 +162,7 @@ export type QuestionGroup =
   | MapLabelingGroup
   | ShortAnswerGroup
   | FlowchartCompletionGroup
+  | SummaryCompletionListGroup
   | InstructionScreenGroup;
 
 /** ---- Section structure ---- */

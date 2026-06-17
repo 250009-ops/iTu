@@ -84,11 +84,11 @@ export const readingAnswerKey: ExamAnswerKey = {
   "33": "C",
   "34": "E",
   "35": "F",
-  "36": "NO",
-  "37": "YES",
-  "38": "NO",
-  "39": "NOT_GIVEN",
-  "40": "YES",
+  "36": "A",
+  "37": "B",
+  "38": "H",
+  "39": "C",
+  "40": "D",
 };
 
 /** Detect scaffold keys generated for empty drafts (`answer1` … `answerN`). */

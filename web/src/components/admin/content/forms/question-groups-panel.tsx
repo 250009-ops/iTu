@@ -20,6 +20,7 @@ const READING_TYPES: QuestionGroup["type"][] = [
   "yng",
   "note_completion",
   "summary_completion",
+  "summary_completion_list",
   "matching_information",
   "matching_headings",
   "matching_features",

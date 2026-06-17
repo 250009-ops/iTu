@@ -48,6 +48,7 @@ export function gapsInGroup(group: QuestionGroup): number[] {
     case "note_completion":
     case "form_completion":
     case "summary_completion":
+    case "summary_completion_list":
     case "sentence_completion":
       return gapsInLines(group.lines);
     case "table_completion":

@@ -12,6 +12,7 @@ import {
   isTextSpan,
   normalizeCompletionLines,
   completionLineClass,
+  gapsInCompletionLines,
 } from "@/lib/exam/inline-content";
 import { cn } from "@/lib/utils";
 import { GapInput } from "./gap-input";
@@ -20,6 +21,7 @@ import { MatchingHeadingsControl } from "./matching-headings-control";
 import { MatchingInformationControl } from "./matching-information-control";
 import { MatchingFeaturesControl } from "./matching-features-control";
 import { FlowchartCompletionControl } from "./flowchart-completion-control";
+import { SummaryCompletionListControl } from "./summary-completion-list-control";
 import { MapLabeling } from "./map-labeling";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import { passageSectionLabels } from "@/lib/exam/passage-sections";
@@ -499,6 +501,28 @@ function GroupBody({
         <FlowchartCompletionControl
           title={group.title}
           nodes={group.nodes}
+          options={group.options}
+          answers={map}
+          current={current}
+          onAssign={(n, id) => {
+            onFocus(n);
+            onAnswer(n, id);
+          }}
+          onFocus={onFocus}
+        />
+      );
+    }
+
+    case "summary_completion_list": {
+      const map: Record<number, string> = {};
+      for (const n of gapsInCompletionLines(group.lines)) {
+        const v = answers[n];
+        if (typeof v === "string") map[n] = v;
+      }
+      return (
+        <SummaryCompletionListControl
+          title={group.title}
+          lines={group.lines}
           options={group.options}
           answers={map}
           current={current}

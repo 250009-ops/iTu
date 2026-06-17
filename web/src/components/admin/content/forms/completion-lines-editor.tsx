@@ -23,6 +23,9 @@ type Props = {
   answerKey: AnswerKeyMap;
   onChange: (lines: CompletionLine[]) => void;
   onAnswerKeyChange: (k: AnswerKeyMap) => void;
+  /** When "option", gap answer keys are letters from the word bank. */
+  gapAnswerKeyType?: "text" | "option";
+  gapAnswerKeyOptions?: string[];
 };
 
 export function CompletionLinesEditor({
@@ -30,6 +33,8 @@ export function CompletionLinesEditor({
   answerKey,
   onChange,
   onAnswerKeyChange,
+  gapAnswerKeyType = "text",
+  gapAnswerKeyOptions,
 }: Props) {
   function updateLine(lineIdx: number, patch: Partial<CompletionLine>) {
     const next = [...lines];
@@ -98,6 +103,8 @@ export function CompletionLinesEditor({
                 }}
                 answerKey={answerKey}
                 onAnswerKeyChange={onAnswerKeyChange}
+                gapAnswerKeyType={gapAnswerKeyType}
+                gapAnswerKeyOptions={gapAnswerKeyOptions}
               />
             ))}
           </div>
@@ -161,12 +168,16 @@ function SegmentRow({
   onRemove,
   answerKey,
   onAnswerKeyChange,
+  gapAnswerKeyType = "text",
+  gapAnswerKeyOptions,
 }: {
   node: InlineNode;
   onChange: (node: InlineNode) => void;
   onRemove: () => void;
   answerKey: AnswerKeyMap;
   onAnswerKeyChange: (k: AnswerKeyMap) => void;
+  gapAnswerKeyType?: "text" | "option";
+  gapAnswerKeyOptions?: string[];
 }) {
   if (isGapNode(node)) {
     return (
@@ -182,6 +193,9 @@ function SegmentRow({
             questionNumber={node.n}
             answerKey={answerKey}
             onChange={onAnswerKeyChange}
+            type={gapAnswerKeyType === "option" ? "option" : "text"}
+            options={gapAnswerKeyOptions}
+            allowAlternatives={gapAnswerKeyType !== "option"}
           />
         </div>
         <Button

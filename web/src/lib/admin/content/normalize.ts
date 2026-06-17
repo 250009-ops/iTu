@@ -43,6 +43,12 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         options: asArray(g.options),
         nodes: asArray(g.nodes),
       };
+    case "summary_completion_list":
+      return {
+        ...g,
+        options: asArray(g.options),
+        lines: normalizeCompletionLines(g.lines),
+      };
     case "instruction_screen":
       return { ...g, body: g.body ?? g.instruction ?? "" };
     case "matching_information":

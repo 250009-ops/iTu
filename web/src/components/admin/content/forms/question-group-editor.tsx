@@ -364,6 +364,42 @@ function renderBody(
         />
       );
 
+    case "summary_completion_list":
+      return (
+        <div className="space-y-3 rounded-lg border border-border bg-white p-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Summary title</Label>
+            <Input
+              value={group.title ?? ""}
+              onChange={(e) => onChange({ ...group, title: e.target.value })}
+              placeholder="e.g. Mozart"
+            />
+          </div>
+          <MatchOptionsBankEditor
+            label="Word bank (A, B, C…)"
+            options={group.options}
+            minOptions={2}
+            onChange={(options) => onChange({ ...group, options })}
+          />
+          <CompletionLinesEditor
+            lines={group.lines}
+            answerKey={answerKey}
+            onAnswerKeyChange={onAnswerKeyChange}
+            gapAnswerKeyType="option"
+            gapAnswerKeyOptions={group.options.map((o) => o.id)}
+            onChange={(lines) => {
+              const nums = gapsInCompletionLines(lines);
+              onChange({
+                ...group,
+                lines,
+                from: nums[0] ?? group.from,
+                to: nums[nums.length - 1] ?? group.to,
+              });
+            }}
+          />
+        </div>
+      );
+
     case "mcq_multi":
       return (
         <div className="space-y-3 rounded-lg border border-border bg-white p-3">

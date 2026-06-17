@@ -155,6 +155,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionGroup["type"], string> = {
   note_completion: "Note completion",
   form_completion: "Form completion",
   summary_completion: "Summary completion",
+  summary_completion_list: "Summary completion (from list)",
   sentence_completion: "Sentence completion",
   table_completion: "Table completion",
   mcq_single: "Multiple choice (single)",
@@ -257,6 +258,36 @@ export function createQuestionGroup(
         hint: "Choose the correct section, A–F, for each question.",
         sectionLabels: ["A", "B", "C", "D", "E", "F"],
         questions: [{ n: from, prompt: "" }],
+      };
+    case "summary_completion_list":
+      return {
+        id,
+        type,
+        from,
+        to: from + 4,
+        instruction: "Complete the summary below.",
+        hint: "Choose the correct letter from the list for each answer.",
+        title: "Summary title",
+        options: defaultMatchOptions(10).map((o) => ({
+          ...o,
+          label: o.id === "A" ? "popular" : o.id === "B" ? "artistic" : `Option ${o.id}`,
+        })),
+        lines: [
+          {
+            style: "heading",
+            nodes: ["Summary title"],
+          },
+          {
+            style: "normal",
+            nodes: [
+              "The writer points out that ",
+              { n: from },
+              " is important, and that ",
+              { n: from + 1 },
+              " may also play a role.",
+            ],
+          },
+        ],
       };
     case "note_completion":
     case "form_completion":
