@@ -151,7 +151,7 @@ export function buildPublishChecklist(
     items.push({
       id: "audio",
       label: "Full listening audio uploaded",
-      ok: listeningMediaReady(mediaAssets),
+      ok: listeningMediaReady(mediaAssets, content),
       hint: "Upload one MP3/WAV/OGG file covering all four parts.",
     });
   }

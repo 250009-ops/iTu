@@ -16,6 +16,7 @@ type Props = {
   content: object;
   answerKey: AnswerKeyMap;
   mediaAssets?: MediaAssetRef[];
+  published?: boolean;
 };
 
 export function PublishChecklist({
@@ -23,6 +24,7 @@ export function PublishChecklist({
   content,
   answerKey,
   mediaAssets = [],
+  published = false,
 }: Props) {
   const items = buildPublishChecklist(module, content, answerKey, mediaAssets);
   const ready = allChecklistOk(items);
@@ -31,17 +33,27 @@ export function PublishChecklist({
     <div
       className={cn(
         "rounded-xl border p-4",
-        ready ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/40",
+        published
+          ? "border-emerald-200 bg-emerald-50/50"
+          : ready
+            ? "border-emerald-200 bg-emerald-50/50"
+            : "border-amber-200 bg-amber-50/40",
       )}
     >
       <p className="text-sm font-semibold text-navy">
-        {ready ? "Ready to publish" : "Before you publish"}
+        {published
+          ? "Published — live for packages"
+          : ready
+            ? "Ready to publish"
+            : "Before you publish"}
       </p>
-      <ul className="mt-3 space-y-2">
-        {items.map((item) => (
-          <ChecklistRow key={item.id} item={item} />
-        ))}
-      </ul>
+      {!published && (
+        <ul className="mt-3 space-y-2">
+          {items.map((item) => (
+            <ChecklistRow key={item.id} item={item} />
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

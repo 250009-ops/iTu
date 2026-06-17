@@ -6,9 +6,17 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { contentModuleLabels } from "@/lib/admin/constants";
-import { defaultTestTitle, suggestTestCode } from "@/lib/admin/content-templates";
+import {
+  defaultTestTitle,
+  moduleUsesAnswerKey,
+  suggestTestCode,
+} from "@/lib/admin/content-templates";
+import { normalizeContent } from "@/lib/admin/content/normalize";
+import { syncAnswerKey, type AnswerKeyMap } from "@/lib/admin/content/utils";
+import { isPublishReady } from "@/components/admin/content/publish-checklist";
 import type { ContentModule, TestStatus } from "@/lib/admin/types";
 import { useAdminContent } from "@/contexts/admin-content-context";
+import { getContentTest } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +73,24 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
   async function handlePublish(id: string, name: string) {
     setPublishingId(id);
     try {
+      const test = await getContentTest(id);
+      const content = normalizeContent(module, (test.content ?? {}) as object);
+      const answerKey = moduleUsesAnswerKey(module)
+        ? syncAnswerKey(module, content, (test.answerKey ?? {}) as AnswerKeyMap)
+        : ((test.answerKey ?? {}) as AnswerKeyMap);
+      const mediaAssets = (test.mediaAssets ?? []).map((a) => ({
+        key: a.key,
+        url: a.url,
+      }));
+
+      if (!isPublishReady(module, content, answerKey, mediaAssets)) {
+        toast("Not ready to publish", {
+          description: "Open the editor and complete the checklist before publishing.",
+          variant: "warning",
+        });
+        return;
+      }
+
       await publishTest(id);
       toast("Test published", {
         description: `${name} is now live for packages.`,

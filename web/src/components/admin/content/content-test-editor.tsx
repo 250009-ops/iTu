@@ -32,6 +32,16 @@ import type {
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
+export type EditorTestStatus = "draft" | "under_review" | "published" | "archived";
+
+export function normalizeEditorTestStatus(status: string): EditorTestStatus {
+  const s = status.toLowerCase().replace(/-/g, "_");
+  if (s === "published") return "published";
+  if (s === "under_review" || s === "review") return "under_review";
+  if (s === "archived") return "archived";
+  return "draft";
+}
+
 type EditorTab = "visual" | "preview" | "advanced";
 
 type Props = {
@@ -45,7 +55,7 @@ function formatJson(value: unknown): string {
 }
 
 export function ContentTestEditor({ module, testId, initialTab = "visual" }: Props) {
-  const { updateTest, publishTest, submitForReview, revertToDraft, deleteTest } =
+  const { updateTest, publishTest, submitForReview, revertToDraft, deleteTest, tests } =
     useAdminContent();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -56,7 +66,7 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
   const [tab, setTab] = useState<EditorTab>(initialTab);
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
-  const [status, setStatus] = useState("draft");
+  const [status, setStatus] = useState<EditorTestStatus>("draft");
   const [durationMin, setDurationMin] = useState(60);
   const [content, setContent] = useState<object>({});
   const [answerKey, setAnswerKey] = useState<AnswerKeyMap>({});
@@ -94,7 +104,7 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
         if (!active) return;
         setTitle(test.title);
         setCode(test.code);
-        setStatus(test.status);
+        setStatus(normalizeEditorTestStatus(test.status));
         setDurationMin(test.durationMin ?? 60);
         const c = normalizeContent(module, (test.content ?? {}) as object);
         const k = (test.answerKey ?? {}) as AnswerKeyMap;
@@ -129,6 +139,12 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
       active = false;
     };
   }, [testId, toast, module]);
+
+  const listStatus = tests.find((t) => t.id === testId)?.status;
+  useEffect(() => {
+    if (!testId || !listStatus) return;
+    setStatus(normalizeEditorTestStatus(listStatus));
+  }, [testId, listStatus]);
 
   function handleContentChange(next: object) {
     setContent(next);
@@ -404,6 +420,7 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
             content={content}
             answerKey={answerKey}
             mediaAssets={mediaAssets}
+            published={status === "published"}
           />
 
           <div className="flex flex-wrap gap-1 border-b border-border pb-1">
