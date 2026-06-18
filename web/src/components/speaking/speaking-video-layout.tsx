@@ -144,6 +144,7 @@ export function SpeakingVideoLayout({
   remotePlaceholder,
   localPlaceholder,
   overlay,
+  sideContent,
   className,
   videoWidthRatio = 1,
   letterboxBlur = false,
@@ -155,14 +156,20 @@ export function SpeakingVideoLayout({
   remotePlaceholder: string;
   localPlaceholder: string;
   overlay?: React.ReactNode;
+  /**
+   * Rendered beside the remote video (in a centered flex row) instead of over
+   * it. When present, the video shifts left to make room; when removed, the
+   * video re-centers. Only applies when remoteFit is "contain".
+   */
+  sideContent?: React.ReactNode;
   className?: string;
   /** 0–1 width of the sharp video strip; remainder shows blurred ambient fill on the sides. */
   videoWidthRatio?: number;
   letterboxBlur?: boolean;
   /**
    * "contain" keeps the remote participant's whole frame visible (no cropping)
-   * inside the rectangular stage, with a blurred ambient fill behind it.
-   * "cover" zooms the feed to fill the stage.
+   * inside a rectangular stage sized by height, with a blurred ambient fill
+   * behind it. "cover" zooms the feed to fill the stage.
    */
   remoteFit?: "cover" | "contain";
   pipClassName?: string;
@@ -208,21 +215,39 @@ export function SpeakingVideoLayout({
         </div>
       )}
 
-      <div
-        className={cn(
-          "absolute inset-y-0 z-[1] overflow-hidden shadow-2xl shadow-black/40",
-          letterboxed ? "left-1/2 -translate-x-1/2" : "inset-x-0",
-        )}
-        style={letterboxed ? { width: `${ratio * 100}%` } : undefined}
-      >
-        <RemoteVideoLayer
-          trackRef={remoteTrack}
-          label={remoteLabel}
-          placeholder={remotePlaceholder}
-          className="h-full w-full bg-transparent"
-          videoClassName={contain ? "object-contain" : undefined}
-        />
-      </div>
+      {contain ? (
+        <div className="absolute inset-0 z-[1] flex items-center justify-center gap-3 p-3 sm:gap-4 sm:p-4">
+          <div className="relative aspect-video h-full min-w-0 max-h-full max-w-full shrink overflow-hidden rounded-xl shadow-2xl shadow-black/40">
+            <RemoteVideoLayer
+              trackRef={remoteTrack}
+              label={remoteLabel}
+              placeholder={remotePlaceholder}
+              className="h-full w-full bg-slate-900"
+              videoClassName="object-contain"
+            />
+          </div>
+          {sideContent && (
+            <div className="flex h-full max-w-[min(420px,42%)] shrink-0 items-center">
+              {sideContent}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "absolute inset-y-0 z-[1] overflow-hidden shadow-2xl shadow-black/40",
+            letterboxed ? "left-1/2 -translate-x-1/2" : "inset-x-0",
+          )}
+          style={letterboxed ? { width: `${ratio * 100}%` } : undefined}
+        >
+          <RemoteVideoLayer
+            trackRef={remoteTrack}
+            label={remoteLabel}
+            placeholder={remotePlaceholder}
+            className="h-full w-full bg-transparent"
+          />
+        </div>
+      )}
 
       <div
         className={cn(

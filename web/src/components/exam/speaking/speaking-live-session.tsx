@@ -89,24 +89,21 @@ export function SpeakingLiveSession({
           remotePlaceholder={examinerInitials}
           localPlaceholder={studentInitials}
           remoteFit="contain"
+          sideContent={
+            showCueCard ? (
+              <CueCardController
+                content={content}
+                phase={phase === "part2-prep" ? "prep" : "speak"}
+              />
+            ) : undefined
+          }
           overlay={
-            <>
-              {showCueCard && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-                  <CueCardController
-                    content={content}
-                    phase={phase === "part2-prep" ? "prep" : "speak"}
-                  />
-                </div>
-              )}
-
-              <div className="absolute left-4 top-4 z-20 w-52 rounded-xl border border-white/10 bg-slate-800/80 p-3 backdrop-blur">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Progress
-                </p>
-                <SessionProgress content={content} phase={phase} />
-              </div>
-            </>
+            <div className="absolute left-4 top-4 z-20 w-52 rounded-xl border border-white/10 bg-slate-800/80 p-3 backdrop-blur">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Progress
+              </p>
+              <SessionProgress content={content} phase={phase} />
+            </div>
           }
         />
       </main>
