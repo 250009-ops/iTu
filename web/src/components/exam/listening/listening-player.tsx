@@ -81,15 +81,17 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   );
   const answered = answeredCount(state.answers, allNumbers);
 
-  if (loading || !content) {
+  const activePart =
+    content?.parts.find((p) => p.id === state.activePart) ?? content?.parts[0];
+
+  // Hooks must run on every render, before any early return, or React throws
+  // "rendered fewer hooks than expected" (#310) once content finishes loading.
+  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
+    useInstructionGate(activePart?.groups ?? []);
+
+  if (loading || !content || !activePart) {
     return <ApiDataShell loading={loading} error={error} />;
   }
-
-  const activePart =
-    content.parts.find((p) => p.id === state.activePart) ?? content.parts[0];
-
-  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
-    useInstructionGate(activePart.groups);
 
   const goToQuestion = (n: number) => {
     const part = content.parts.find((p) =>

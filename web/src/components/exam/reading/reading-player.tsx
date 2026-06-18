@@ -100,19 +100,21 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
     };
   }, [onMouseMove, stopDrag]);
 
-  if (loading || !content) {
+  const activePassage =
+    content?.passages.find((p) => p.id === state.activePart) ??
+    content?.passages[0];
+
+  // Hooks must run on every render, before any early return, or React throws
+  // "rendered fewer hooks than expected" (#310) once content finishes loading.
+  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
+    useInstructionGate(activePassage?.groups ?? []);
+
+  if (loading || !content || !activePassage) {
     return <ApiDataShell loading={loading} error={error} />;
   }
 
-  const activePassage =
-    content.passages.find((p) => p.id === state.activePart) ??
-    content.passages[0];
-
   const hasMatchingHeadings =
     matchingHeadingsForPassage(activePassage.groups).length > 0;
-
-  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
-    useInstructionGate(activePassage.groups);
 
   const goToQuestion = (n: number) => {
     const passage = content.passages.find((p) =>
