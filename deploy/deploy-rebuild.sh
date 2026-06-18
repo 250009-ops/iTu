@@ -47,11 +47,15 @@ cd "$APP_DIR"
 pm2 restart itestu-api itestu-web || pm2 start ecosystem.config.cjs
 pm2 save
 
-if [[ -f "$SCRIPT_DIR/nginx/itestu.uz.conf" ]]; then
+if [[ -f "$DEPLOY_DIR/nginx/itestu.uz.conf" ]]; then
+  echo "==> Updating nginx upload limits..."
+  cp -f "$DEPLOY_DIR/nginx/itestu.uz.conf" "/etc/nginx/sites-available/${DOMAIN}"
+  nginx -t && systemctl reload nginx
+elif [[ -f "$APP_DIR/deploy/nginx/itestu.uz.conf" ]]; then
   echo "==> Updating nginx upload limits..."
   mkdir -p "$DEPLOY_DIR/nginx"
-  cp "$SCRIPT_DIR/nginx/itestu.uz.conf" "$DEPLOY_DIR/nginx/itestu.uz.conf"
-  cp "$DEPLOY_DIR/nginx/itestu.uz.conf" "/etc/nginx/sites-available/${DOMAIN}"
+  cp -f "$APP_DIR/deploy/nginx/itestu.uz.conf" "$DEPLOY_DIR/nginx/itestu.uz.conf"
+  cp -f "$DEPLOY_DIR/nginx/itestu.uz.conf" "/etc/nginx/sites-available/${DOMAIN}"
   nginx -t && systemctl reload nginx
 fi
 
