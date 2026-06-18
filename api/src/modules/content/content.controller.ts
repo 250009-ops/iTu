@@ -20,8 +20,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { ContentService } from './content.service';
 import { UpdateContentTestDto } from './dto/update-content-test.dto';
-
-const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
+import { MAX_LISTENING_AUDIO_BYTES } from './content-media.limits';
 
 @ApiTags('content')
 @ApiBearerAuth()
@@ -127,7 +126,7 @@ export class ContentController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: MAX_AUDIO_BYTES },
+      limits: { fileSize: MAX_LISTENING_AUDIO_BYTES },
     }),
   )
   uploadMedia(

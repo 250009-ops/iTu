@@ -32,7 +32,7 @@ async function main() {
   assertVpsCredentials();
   const tarPath = join(tmpdir(), "itestu-hotfix.tar.gz");
   execSync(
-    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=deploy/node_modules --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh`,
+    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=deploy/node_modules --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh deploy/nginx/itestu.uz.conf`,
     { stdio: "inherit" },
   );
 
@@ -52,6 +52,10 @@ if [ -f /var/www/itestu/app/deploy/deploy-rebuild.sh ]; then
   cp /var/www/itestu/app/deploy/deploy-rebuild.sh /var/www/itestu/deploy/deploy-rebuild.sh
   sed -i 's/\r$//' /var/www/itestu/deploy/deploy-rebuild.sh
   chmod +x /var/www/itestu/deploy/deploy-rebuild.sh
+fi
+if [ -f /var/www/itestu/app/deploy/nginx/itestu.uz.conf ]; then
+  mkdir -p /var/www/itestu/deploy/nginx
+  cp /var/www/itestu/app/deploy/nginx/itestu.uz.conf /var/www/itestu/deploy/nginx/itestu.uz.conf
 fi
 bash /var/www/itestu/deploy/deploy-rebuild.sh
 `);

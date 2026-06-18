@@ -47,6 +47,14 @@ cd "$APP_DIR"
 pm2 restart itestu-api itestu-web || pm2 start ecosystem.config.cjs
 pm2 save
 
+if [[ -f "$SCRIPT_DIR/nginx/itestu.uz.conf" ]]; then
+  echo "==> Updating nginx upload limits..."
+  mkdir -p "$DEPLOY_DIR/nginx"
+  cp "$SCRIPT_DIR/nginx/itestu.uz.conf" "$DEPLOY_DIR/nginx/itestu.uz.conf"
+  cp "$DEPLOY_DIR/nginx/itestu.uz.conf" "/etc/nginx/sites-available/${DOMAIN}"
+  nginx -t && systemctl reload nginx
+fi
+
 echo "==> Health checks..."
 sleep 3
 curl -sf "http://127.0.0.1:3001/api/v1/health" | head -c 200 || echo "API health failed"

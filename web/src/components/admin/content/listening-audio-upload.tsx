@@ -8,8 +8,12 @@ import {
   LISTENING_FULL_AUDIO_KEY,
   type MediaAssetRef,
 } from "@/lib/admin/content/listening-media";
+import {
+  isListeningAudioWithinLimit,
+  MAX_LISTENING_AUDIO_MB,
+} from "@/lib/admin/content/listening-upload-limits";
 import { getContentTest, uploadListeningMedia } from "@/lib/api/admin";
-import { getErrorMessage } from "@/lib/api/errors";
+import { getErrorMessage, ApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +65,14 @@ export function ListeningAudioUpload({
 
   const handleUpload = useCallback(
     async (file: File) => {
+      if (!isListeningAudioWithinLimit(file.size)) {
+        toast("File too large", {
+          description: `Maximum size is ${MAX_LISTENING_AUDIO_MB} MB. Compress the audio or export at a lower bitrate.`,
+          variant: "error",
+        });
+        return;
+      }
+
       setUploading(true);
       try {
         const result = await uploadListeningMedia(
@@ -89,8 +101,12 @@ export function ListeningAudioUpload({
         onUploaded?.();
         onMediaUpdated?.();
       } catch (err) {
+        const description =
+          err instanceof ApiError && err.status === 413
+            ? `The file exceeds the server upload limit (${MAX_LISTENING_AUDIO_MB} MB). Try compressing the audio.`
+            : getErrorMessage(err, "Check MEDIA_ROOT on the API server.");
         toast("Upload failed", {
-          description: getErrorMessage(err, "Check MEDIA_ROOT on the API server."),
+          description,
           variant: "error",
         });
       } finally {
@@ -115,7 +131,8 @@ export function ListeningAudioUpload({
             Listening audio (single file)
           </Label>
           <p className="mt-0.5 text-xs text-muted">
-            Upload one MP3/WAV/OGG containing all four parts. Stored on VPS at{" "}
+            Upload one MP3, M4A, WAV, or OGG (up to ~45 min, max{" "}
+            {MAX_LISTENING_AUDIO_MB} MB). Stored on VPS at{" "}
             <code className="rounded bg-slate-100 px-1">/media/</code>.
           </p>
         </div>
@@ -168,7 +185,7 @@ export function ListeningAudioUpload({
             <p className="mt-0.5 text-sm text-muted">
               {audioAsset
                 ? `${hasFullAudio ? "Replace file" : "Upload full-audio to replace legacy parts"}${formatFileSize(audioAsset.sizeBytes) ? ` · ${formatFileSize(audioAsset.sizeBytes)}` : ""}`
-                : "One continuous recording for Parts 1–4 (~30 min)"}
+                : `One continuous recording for Parts 1–4 (up to ~45 min, max ${MAX_LISTENING_AUDIO_MB} MB)`}
             </p>
           </div>
         </button>
