@@ -642,7 +642,7 @@ function renderBody(
     default:
       return (
         <p className="text-xs text-muted">
-          Visual editing for this question type is limited — use the Advanced JSON tab.
+          Visual editing for this question type is limited in Content Studio.
         </p>
       );
   }

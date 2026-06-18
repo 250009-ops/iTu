@@ -42,17 +42,13 @@ export function normalizeEditorTestStatus(status: string): EditorTestStatus {
   return "draft";
 }
 
-type EditorTab = "visual" | "preview" | "advanced";
+type EditorTab = "visual" | "preview";
 
 type Props = {
   module: ContentModule;
   testId: string | null;
   initialTab?: EditorTab;
 };
-
-function formatJson(value: unknown): string {
-  return JSON.stringify(value, null, 2);
-}
 
 export function ContentTestEditor({ module, testId, initialTab = "visual" }: Props) {
   const { updateTest, publishTest, submitForReview, revertToDraft, deleteTest, tests } =
@@ -70,8 +66,6 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
   const [durationMin, setDurationMin] = useState(60);
   const [content, setContent] = useState<object>({});
   const [answerKey, setAnswerKey] = useState<AnswerKeyMap>({});
-  const [contentJson, setContentJson] = useState("{}");
-  const [answerKeyJson, setAnswerKeyJson] = useState("{}");
   const [mediaAssets, setMediaAssets] = useState<MediaAssetRef[]>([]);
   const [loadedTestId, setLoadedTestId] = useState<string | null>(null);
 
@@ -89,8 +83,6 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
       setStatus("draft");
       setContent({});
       setAnswerKey({});
-      setContentJson("{}");
-      setAnswerKeyJson("{}");
       setMediaAssets([]);
       setLoading(false);
       return;
@@ -113,8 +105,6 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
           : k;
         setContent(c);
         setAnswerKey(syncedKey);
-        setContentJson(formatJson(c));
-        setAnswerKeyJson(formatJson(syncedKey));
         setMediaAssets(
           (test.mediaAssets ?? []).map((a) => ({
             key: a.key,
@@ -148,19 +138,13 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
 
   function handleContentChange(next: object) {
     setContent(next);
-    setContentJson(formatJson(next));
     if (showAnswerKey) {
-      setAnswerKey((prev) => {
-        const synced = syncAnswerKey(module, next, prev);
-        setAnswerKeyJson(formatJson(synced));
-        return synced;
-      });
+      setAnswerKey((prev) => syncAnswerKey(module, next, prev));
     }
   }
 
   function handleAnswerKeyChange(next: AnswerKeyMap) {
     setAnswerKey(next);
-    setAnswerKeyJson(formatJson(next));
   }
 
   function refreshMediaAssets() {
@@ -170,10 +154,18 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
         (test.mediaAssets ?? []).map((a) => ({
           key: a.key,
           url: a.url,
+          sizeBytes: a.sizeBytes,
         })),
       );
     });
   }
+
+  useEffect(() => {
+    if (tab === "preview" && testId && module === "listening") {
+      refreshMediaAssets();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when opening preview
+  }, [tab, testId, module]);
 
   if (!testId) {
     return (
@@ -198,39 +190,15 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
 
   async function handleSave(): Promise<boolean> {
     if (!testId) return false;
-    let payloadContent: object;
-    let payloadAnswerKey: object | undefined;
-
-    if (tab === "advanced") {
-      try {
-        payloadContent = JSON.parse(contentJson) as object;
-        if (showAnswerKey) {
-          payloadAnswerKey = JSON.parse(answerKeyJson) as object;
-        }
-      } catch {
-        toast("Invalid JSON", {
-          description: "Fix syntax errors in the content or answer key editor.",
-          variant: "error",
-        });
-        return false;
-      }
-    } else {
-      payloadContent = content;
-      payloadAnswerKey = showAnswerKey ? answerKey : undefined;
-    }
 
     setSaving(true);
     try {
       await updateTest(testId, {
         title: title.trim(),
-        content: payloadContent,
-        answerKey: payloadAnswerKey,
+        content,
+        answerKey: showAnswerKey ? answerKey : undefined,
         durationMin,
       });
-      setContent(payloadContent);
-      if (payloadAnswerKey) {
-        setAnswerKey(payloadAnswerKey as AnswerKeyMap);
-      }
       toast("Draft saved", { variant: "success" });
       return true;
     } catch (err) {
@@ -335,7 +303,6 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
   const tabs: { id: EditorTab; label: string }[] = [
     { id: "visual", label: "Visual editor" },
     { id: "preview", label: "Preview" },
-    { id: "advanced", label: "Advanced JSON" },
   ];
 
   return (
@@ -484,34 +451,11 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
           )}
 
           {tab === "preview" && (
-            <ContentPreviewPanel module={module} content={content} />
-          )}
-
-          {tab === "advanced" && (
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="edit-content">Content JSON</Label>
-                <textarea
-                  id="edit-content"
-                  value={contentJson}
-                  onChange={(e) => setContentJson(e.target.value)}
-                  spellCheck={false}
-                  className="min-h-[280px] w-full rounded-lg border border-border bg-slate-50 p-3 font-mono text-xs leading-relaxed text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
-                />
-              </div>
-              {showAnswerKey && (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-answer-key">Answer key JSON</Label>
-                  <textarea
-                    id="edit-answer-key"
-                    value={answerKeyJson}
-                    onChange={(e) => setAnswerKeyJson(e.target.value)}
-                    spellCheck={false}
-                    className="min-h-[160px] w-full rounded-lg border border-border bg-slate-50 p-3 font-mono text-xs leading-relaxed text-navy focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
-                  />
-                </div>
-              )}
-            </div>
+            <ContentPreviewPanel
+              module={module}
+              content={content}
+              mediaAssets={mediaAssets}
+            />
           )}
         </div>
     </div>

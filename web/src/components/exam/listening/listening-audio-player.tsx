@@ -7,14 +7,22 @@ import { logIntegrity } from "@/lib/api/exam";
 type Props = {
   tracks: ListeningAudioTrack[];
   sessionId: string;
+  /** When false, caller must mount the player to start (admin preview). Default true for exam. */
+  autoPlay?: boolean;
+  /** Skip integrity API calls (admin preview). */
+  logIntegrity?: boolean;
   onStatusChange?: (status: string) => void;
+  onComplete?: () => void;
 };
 
-/** Plays listening audio once per track with seek/rewind disabled. */
+/** Plays listening audio once per track with seek/rewind/pause disabled (IELTS rules). */
 export function ListeningAudioPlayer({
   tracks,
   sessionId,
+  autoPlay = true,
+  logIntegrity: logIntegrityEnabled = true,
   onStatusChange,
+  onComplete,
 }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -22,19 +30,25 @@ export function ListeningAudioPlayer({
   const startedRef = useRef(false);
 
   useEffect(() => {
-    if (!tracks.length || startedRef.current) return;
+    if (!autoPlay || !tracks.length || startedRef.current) return;
     const audio = audioRef.current;
     if (!audio) return;
 
     startedRef.current = true;
-    audio.src = tracks[0].url;
+    audio.src = tracks[0]!.url;
     onStatusChange?.(
-      tracks.length === 1 ? "Playing listening audio…" : `Playing Part ${tracks[0].part}`,
+      tracks.length === 1 ? "Playing listening audio…" : `Playing Part ${tracks[0]!.part}`,
     );
     void audio.play().catch(() => {
       onStatusChange?.("Audio unavailable — contact support");
     });
-  }, [tracks, onStatusChange]);
+  }, [tracks, onStatusChange, autoPlay]);
+
+  function reportSeek() {
+    if (logIntegrityEnabled) {
+      void logIntegrity(sessionId, "audio_seek_attempt");
+    }
+  }
 
   function handleTimeUpdate() {
     const audio = audioRef.current;
@@ -42,7 +56,7 @@ export function ListeningAudioPlayer({
 
     if (audio.currentTime > maxTimeRef.current + 0.75) {
       audio.currentTime = maxTimeRef.current;
-      void logIntegrity(sessionId, "audio_seek_attempt");
+      reportSeek();
       return;
     }
     maxTimeRef.current = Math.max(maxTimeRef.current, audio.currentTime);
@@ -52,6 +66,7 @@ export function ListeningAudioPlayer({
     const next = trackIndex + 1;
     if (next >= tracks.length) {
       onStatusChange?.("Audio complete");
+      onComplete?.();
       return;
     }
 
@@ -59,9 +74,9 @@ export function ListeningAudioPlayer({
     if (!audio) return;
 
     maxTimeRef.current = 0;
-    audio.src = tracks[next].url;
+    audio.src = tracks[next]!.url;
     setTrackIndex(next);
-    onStatusChange?.(`Playing Part ${tracks[next].part}`);
+    onStatusChange?.(`Playing Part ${tracks[next]!.part}`);
     void audio.play().catch(() => {
       onStatusChange?.("Audio playback interrupted");
     });
@@ -74,16 +89,23 @@ export function ListeningAudioPlayer({
       ref={audioRef}
       preload="auto"
       controls={false}
+      controlsList="nodownload noplaybackrate nofullscreen"
       onTimeUpdate={handleTimeUpdate}
       onEnded={handleEnded}
+      onPause={() => {
+        const audio = audioRef.current;
+        if (!audio || audio.ended) return;
+        void audio.play();
+      }}
       onSeeking={() => {
         const audio = audioRef.current;
         if (!audio) return;
         if (audio.currentTime < maxTimeRef.current) {
           audio.currentTime = maxTimeRef.current;
-          void logIntegrity(sessionId, "audio_seek_attempt");
+          reportSeek();
         }
       }}
+      onContextMenu={(e) => e.preventDefault()}
       className="sr-only"
       aria-hidden
     />

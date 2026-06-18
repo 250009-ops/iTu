@@ -5,7 +5,7 @@ import { useAdminContent } from "@/contexts/admin-content-context";
 
 export { ListeningAudioUpload } from "@/components/admin/content/listening-audio-upload";
 
-export function ListeningEditor({ initialTab }: { initialTab?: "visual" | "preview" | "advanced" }) {
+export function ListeningEditor({ initialTab }: { initialTab?: "visual" | "preview" }) {
   const { selectedTestId } = useAdminContent();
   return (
     <ContentTestEditor module="listening" testId={selectedTestId} initialTab={initialTab} />

@@ -10,6 +10,9 @@ import { useExamState } from "@/lib/exam/use-exam-state";
 import { matchingHeadingsForPassage } from "@/lib/exam/matching-headings";
 import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import type { ContentModule } from "@/lib/admin/types";
+import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
+import { buildListeningAudioTracks } from "@/lib/exam/listening-audio-tracks";
+import { ListeningPreviewAudioBar } from "@/components/admin/content/preview/listening-preview-audio-bar";
 import type {
   ListeningContent,
   ReadingContent,
@@ -22,14 +25,20 @@ import { isHtmlContent, sanitizePassageHtml } from "@/lib/admin/content/sanitize
 type Props = {
   module: ContentModule;
   content: object;
+  mediaAssets?: MediaAssetRef[];
 };
 
-export function ContentPreviewPanel({ module, content }: Props) {
+export function ContentPreviewPanel({ module, content, mediaAssets = [] }: Props) {
   if (module === "reading") {
     return <ReadingPreview content={content as ReadingContent} />;
   }
   if (module === "listening") {
-    return <ListeningPreview content={content as ListeningContent} />;
+    return (
+      <ListeningPreview
+        content={content as ListeningContent}
+        mediaAssets={mediaAssets}
+      />
+    );
   }
   if (module === "writing") {
     return <WritingPreview content={content as WritingContent} />;
@@ -152,17 +161,25 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
   );
 }
 
-function ListeningPreview({ content }: { content: ListeningContent }) {
+function ListeningPreview({
+  content,
+  mediaAssets,
+}: {
+  content: ListeningContent;
+  mediaAssets: MediaAssetRef[];
+}) {
   const [partIdx, setPartIdx] = useState(0);
   const part = content.parts[partIdx];
   const state = useExamState(part?.id ?? "preview");
   const { blocking, dismiss, questionGroups, nextQuestionAfter } =
     useInstructionGate(part?.groups ?? []);
+  const audioTracks = buildListeningAudioTracks(content, mediaAssets);
 
   if (!part) return <EmptyPreview message="No listening parts to preview." />;
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-border bg-white">
+      <ListeningPreviewAudioBar tracks={audioTracks} />
       <div className="flex flex-wrap gap-2 border-b border-border bg-slate-50 px-4 py-3">
         {content.parts.map((p, idx) => (
           <button

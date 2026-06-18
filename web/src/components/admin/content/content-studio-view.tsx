@@ -18,7 +18,7 @@ import {
 } from "@/contexts/admin-content-context";
 import type { ContentModule } from "@/lib/admin/types";
 
-type EditorTab = "visual" | "preview" | "advanced";
+type EditorTab = "visual" | "preview";
 
 const moduleEditors: Record<
   ContentModule,
