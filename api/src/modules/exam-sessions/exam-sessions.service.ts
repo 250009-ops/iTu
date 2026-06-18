@@ -58,6 +58,12 @@ export class ExamSessionsService {
     const session = await this.findSessionOrThrow(sessionCode);
     await this.assertSessionAccess(session.enrollment.studentId, user);
 
+    // Idempotent: a refresh or double-click on "Begin" must not fail when the
+    // student already completed check-in (CHECK_IN_OPEN → CHECK_IN_OPEN).
+    if (session.state === ExamSessionState.CHECK_IN_OPEN) {
+      return this.toSessionResponse(session);
+    }
+
     assertTransition(session.state, ExamSessionState.CHECK_IN_OPEN);
 
     const updated = await this.prisma.examSession.update({

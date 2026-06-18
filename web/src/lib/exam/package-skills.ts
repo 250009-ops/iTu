@@ -49,6 +49,62 @@ export function nextExamSkill(
  * Computes where to navigate after submitting `current`, honoring the package's
  * actual skill set (supports section-only and arbitrary skill subsets).
  */
+/** Where to send the student when resuming from check-in (or after Begin). */
+export function examResumeRoute(
+  sessionId: string,
+  state: string | undefined,
+  skills: unknown,
+): string {
+  const first = checkInDestination(skills);
+
+  if (!state || state === "enrolled") {
+    return `/exam/${sessionId}/${first}`;
+  }
+  if (state === "check_in_open") {
+    return `/exam/${sessionId}/${first}`;
+  }
+
+  const activeByState: Record<string, ExamSkill> = {
+    listening_active: "listening",
+    reading_active: "reading",
+    writing_active: "writing",
+    speaking_active: "speaking",
+  };
+  const active = activeByState[state];
+  if (active) {
+    return `/exam/${sessionId}/${examSkillPath(active)}`;
+  }
+
+  if (state === "speaking_scheduled") {
+    return `/exam/${sessionId}/waiting-speaking`;
+  }
+
+  if (state === "break") {
+    const ordered = packageExamSkills(skills);
+    const from = ordered[0] ?? "listening";
+    const next = nextExamSkill(skills, from);
+    if (!next) return `/mock-day`;
+    return `/exam/${sessionId}/break?from=${from}&next=${next}`;
+  }
+
+  const submittedByState: Record<string, ExamSkill> = {
+    listening_submitted: "listening",
+    reading_submitted: "reading",
+    writing_submitted: "writing",
+    speaking_submitted: "speaking",
+  };
+  const from = submittedByState[state];
+  if (from) {
+    return examRouteAfterSection(sessionId, skills, from);
+  }
+
+  if (state === "awaiting_grading" || state === "results_released") {
+    return "/mock-day";
+  }
+
+  return `/exam/${sessionId}/${first}`;
+}
+
 export function examRouteAfterSection(
   sessionId: string,
   skills: unknown,

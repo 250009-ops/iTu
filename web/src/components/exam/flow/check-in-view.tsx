@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BadgeCheck,
@@ -15,7 +15,10 @@ import {
 import { ExamInterstitialHeader } from "@/components/exam/flow/exam-interstitial-header";
 import { useExamSessionContext } from "@/contexts/exam-session-context";
 import { useAuth, getInitials } from "@/hooks/use-auth";
-import { checkInDestination, packageExamSkills } from "@/lib/exam/package-skills";
+import {
+  examResumeRoute,
+  packageExamSkills,
+} from "@/lib/exam/package-skills";
 import { requestExamFullscreen } from "@/hooks/use-exam-integrity";
 import { cn } from "@/lib/utils";
 
@@ -59,17 +62,33 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
   const packageSkills = packageExamSkills(session?.enrollment.package.skills);
   const isSpeakingOnly =
     packageSkills.length === 1 && packageSkills[0] === "speaking";
-  const firstSection = checkInDestination(session?.enrollment.package.skills);
   const packageTitle = session?.enrollment.package.title ?? "Mock exam";
   const examRules = isSpeakingOnly ? SPEAKING_ONLY_RULES : FULL_MOCK_RULES;
+  const alreadyCheckedIn =
+    session?.state != null && session.state !== "enrolled";
+
+  // After a refresh the server may already be past check-in; restore the UI.
+  useEffect(() => {
+    if (!alreadyCheckedIn) return;
+    setIdentity(true);
+    setRulesAck(true);
+    setDevices(true);
+  }, [alreadyCheckedIn]);
 
   async function handleBegin() {
+    if (checkingIn) return;
     setCheckingIn(true);
     // Enter fullscreen from the user gesture (browsers block this in effects).
     requestExamFullscreen();
     try {
-      await performCheckIn();
-      router.push(`/exam/${sessionId}/${firstSection}`);
+      let currentState = session?.state;
+      if (currentState === "enrolled") {
+        const updated = await performCheckIn();
+        currentState = updated.state;
+      }
+      router.push(
+        examResumeRoute(sessionId, currentState, session?.enrollment.package.skills),
+      );
     } finally {
       setCheckingIn(false);
     }
