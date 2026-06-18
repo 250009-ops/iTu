@@ -88,6 +88,7 @@ export function SpeakingLiveSession({
           localLabel="You"
           remotePlaceholder={examinerInitials}
           localPlaceholder={studentInitials}
+          remoteFit="contain"
           overlay={
             <>
               {showCueCard && (

@@ -147,6 +147,7 @@ export function SpeakingVideoLayout({
   className,
   videoWidthRatio = 1,
   letterboxBlur = false,
+  remoteFit = "cover",
   pipClassName,
 }: {
   remoteLabel: string;
@@ -158,6 +159,12 @@ export function SpeakingVideoLayout({
   /** 0–1 width of the sharp video strip; remainder shows blurred ambient fill on the sides. */
   videoWidthRatio?: number;
   letterboxBlur?: boolean;
+  /**
+   * "contain" keeps the remote participant's whole frame visible (no cropping)
+   * inside the rectangular stage, with a blurred ambient fill behind it.
+   * "cover" zooms the feed to fill the stage.
+   */
+  remoteFit?: "cover" | "contain";
   pipClassName?: string;
 }) {
   const { remoteParticipant, isConnected } = useSpeakingRoom();
@@ -166,8 +173,10 @@ export function SpeakingVideoLayout({
   const remoteTrack = useCameraTrackRef(remoteParticipant);
   const localTrack = useCameraTrackRef(localParticipant);
 
+  const contain = remoteFit === "contain";
   const ratio = Math.min(1, Math.max(0.4, videoWidthRatio));
   const letterboxed = letterboxBlur && ratio < 1;
+  const showAmbient = letterboxed || contain;
   const sideInset = letterboxed ? `${((1 - ratio) / 2) * 100}%` : undefined;
 
   return (
@@ -187,7 +196,7 @@ export function SpeakingVideoLayout({
         )}
       </div>
 
-      {letterboxed && remoteTrack && (
+      {showAmbient && remoteTrack && (
         <div className="absolute inset-0 overflow-hidden" aria-hidden>
           <VideoTrack
             trackRef={remoteTrack}
@@ -210,7 +219,8 @@ export function SpeakingVideoLayout({
           trackRef={remoteTrack}
           label={remoteLabel}
           placeholder={remotePlaceholder}
-          className="h-full w-full"
+          className="h-full w-full bg-transparent"
+          videoClassName={contain ? "object-contain" : undefined}
         />
       </div>
 
