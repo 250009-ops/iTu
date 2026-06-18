@@ -346,7 +346,7 @@ export function mapMockDayHub(data: MockDayApi) {
     sessionCode: enrollment.sessionCode,
     dateLabel: formatLongDate(mockDate),
     dateShort: formatMonthDay(mockDate),
-    examTitle: "Full Academic Mock",
+    examTitle: enrollment.packageTitle ?? "Mock Exam",
     mockId: enrollment.enrollmentCode,
     mockDateIso:
       typeof enrollment.mockDate === "string"

@@ -35,6 +35,8 @@ export const AuditAction = {
   ADMIN_TICKET_UPDATE: 'admin.ticket.update',
   ADMIN_BAND_TABLE_UPDATE: 'admin.band_table.update',
   ADMIN_SETTINGS_UPDATE: 'admin.settings.update',
+  ADMIN_TEACHER_REASSIGN: 'admin.teacher.reassign',
+  ADMIN_GRADE_REOPEN: 'admin.grade.reopen',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];

@@ -303,6 +303,7 @@ model MockTestPackage {
   readingTest   ContentTest? @relation("PackageReading", fields: [readingTestId], references: [id])
   writingTest   ContentTest? @relation("PackageWriting", fields: [writingTestId], references: [id])
   speakingBank  ContentTest? @relation("PackageSpeaking", fields: [speakingBankId], references: [id])
+  contentPool   PackageContentTest[]
   enrollments   Enrollment[]
   orders        Order[]
   reviews       Review[]
@@ -329,8 +330,27 @@ model ContentTest {
   packageWriting   MockTestPackage[] @relation("PackageWriting")
   packageSpeaking  MockTestPackage[] @relation("PackageSpeaking")
   mediaAssets      MediaAsset[]
+  poolEntries      PackageContentTest[] @relation("PoolTest")
+  sectionAttempts  SectionAttempt[]     @relation("AttemptContent")
 
   @@map("content_tests")
+}
+
+/// Pool of eligible content tests per package + skill, enabling rotation so a
+/// student who re-buys a package does not receive a test they already took.
+model PackageContentTest {
+  id        String    @id @default(cuid())
+  packageId String    @map("package_id")
+  testId    String    @map("test_id")
+  skill     ExamSkill
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  package MockTestPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  test    ContentTest     @relation("PoolTest", fields: [testId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, testId])
+  @@index([packageId, skill])
+  @@map("package_content_tests")
 }
 
 model MediaAsset {
@@ -462,10 +482,12 @@ model SectionAttempt {
   rawScore      Int?      @map("raw_score")
   band          Float?
   timeRemaining Int?      @map("time_remaining")
+  contentTestId String?   @map("content_test_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   session            ExamSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  contentTest        ContentTest?        @relation("AttemptContent", fields: [contentTestId], references: [id])
   answers            Answer[]
   writingSubmission  WritingSubmission?
   speakingSession    SpeakingSession?

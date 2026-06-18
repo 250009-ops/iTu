@@ -490,8 +490,9 @@ function GroupBody({
     }
 
     case "flowchart_completion": {
+      const nodes = Array.isArray(group.nodes) ? group.nodes : [];
       const map: Record<number, string> = {};
-      for (const node of group.nodes) {
+      for (const node of nodes) {
         if (node.kind === "gap") {
           const v = answers[node.n];
           if (typeof v === "string") map[node.n] = v;
@@ -500,8 +501,8 @@ function GroupBody({
       return (
         <FlowchartCompletionControl
           title={group.title}
-          nodes={group.nodes}
-          options={group.options}
+          nodes={nodes}
+          options={group.options ?? []}
           answers={map}
           current={current}
           onAssign={(n, id) => {

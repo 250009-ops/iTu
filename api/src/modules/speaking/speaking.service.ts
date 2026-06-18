@@ -194,11 +194,14 @@ export class SpeakingService {
       throw new NotFoundException('Package not found for this session');
     }
 
-    const bankId = await resolvePackageContentTestId(
-      this.prisma,
-      pkg,
-      ExamSkill.SPEAKING,
-    );
+    // Prefer the speaking bank pinned to this attempt; fall back to package.
+    const bankId =
+      session.sectionAttempt.contentTestId ??
+      (await resolvePackageContentTestId(
+        this.prisma,
+        pkg,
+        ExamSkill.SPEAKING,
+      ));
     if (!bankId) {
       throw new NotFoundException(
         'No speaking content bank configured for this package',

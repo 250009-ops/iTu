@@ -17,6 +17,11 @@ import {
   writingTask1ImageReady,
   WRITING_TASK1_IMAGE_KEY,
 } from './content.utils';
+import {
+  findContentStructureErrors,
+  normalizeContentForType,
+} from './content-normalize';
+import { Prisma } from '@prisma/client';
 
 const AUDIO_MIME = new Set([
   'audio/mpeg',
@@ -177,11 +182,21 @@ export class ContentService {
     });
     if (!existing) throw new NotFoundException('Test not found');
 
+    // Repair structural shape on save so we never persist content that can
+    // crash the student player (e.g. a question group with non-array `nodes`).
+    const normalizedContent =
+      dto.content !== undefined
+        ? (normalizeContentForType(
+            existing.type,
+            dto.content,
+          ) as Prisma.InputJsonValue)
+        : undefined;
+
     const updated = await this.prisma.contentTest.update({
       where: { id },
       data: {
         title: dto.title,
-        content: dto.content,
+        content: normalizedContent,
         answerKey: dto.answerKey,
         durationMin: dto.durationMin,
         version: { increment: 1 },
@@ -373,11 +388,30 @@ export class ContentService {
           'Replace placeholder answer keys with real answers before publishing',
         );
       }
+
+      const structureErrors = findContentStructureErrors(
+        test.type,
+        test.content,
+      );
+      if (structureErrors.length > 0) {
+        throw new BadRequestException(
+          `Cannot publish — fix malformed question groups: ${structureErrors
+            .slice(0, 5)
+            .join('; ')}`,
+        );
+      }
     }
+
+    // Persist a normalized copy so published content is always render-safe.
+    const safeContent = normalizeContentForType(
+      test.type,
+      test.content,
+    ) as Prisma.InputJsonValue;
 
     const updated = await this.prisma.contentTest.update({
       where: { id },
       data: {
+        content: safeContent,
         status: ContentTestStatus.PUBLISHED,
         publishedAt: new Date(),
       },

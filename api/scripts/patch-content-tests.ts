@@ -70,6 +70,17 @@ async function linkPackages(ids: {
   writingId?: string;
   speakingId?: string;
 }) {
+  const listeningWithAudio = await prisma.contentTest.findFirst({
+    where: {
+      type: ContentTestType.LISTENING,
+      status: ContentTestStatus.PUBLISHED,
+      mediaAssets: { some: { key: 'full-audio' } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    select: { id: true },
+  });
+  const listeningId = listeningWithAudio?.id ?? ids.listeningId;
+
   const packages = await prisma.mockTestPackage.findMany();
   let linked = 0;
 
@@ -77,8 +88,8 @@ async function linkPackages(ids: {
     const skills = packageSkills(pkg);
     const data: Record<string, string> = {};
 
-    if (skills.includes('listening') && !pkg.listeningTestId && ids.listeningId) {
-      data.listeningTestId = ids.listeningId;
+    if (skills.includes('listening') && listeningId) {
+      data.listeningTestId = listeningId;
     }
     if (skills.includes('reading') && !pkg.readingTestId && ids.readingId) {
       data.readingTestId = ids.readingId;

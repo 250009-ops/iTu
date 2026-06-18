@@ -43,6 +43,11 @@ export function gapsInLines(lines: CompletionLine[]): number[] {
   return gapsInCompletionLines(lines);
 }
 
+/** Defensive array coercion so malformed content can never throw at runtime. */
+function arr<T>(value: T[] | undefined | null): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export function gapsInGroup(group: QuestionGroup): number[] {
   switch (group.type) {
     case "note_completion":
@@ -50,33 +55,33 @@ export function gapsInGroup(group: QuestionGroup): number[] {
     case "summary_completion":
     case "summary_completion_list":
     case "sentence_completion":
-      return gapsInLines(group.lines);
+      return gapsInLines(arr(group.lines));
     case "table_completion":
-      return group.rows.flatMap((row) =>
-        row.flatMap((cell) => gapsInInlineNodes(cell)),
+      return arr(group.rows).flatMap((row) =>
+        arr(row).flatMap((cell) => gapsInInlineNodes(arr(cell))),
       );
     case "mcq_single":
-      return group.questions.map((q) => q.n);
+      return arr(group.questions).map((q) => q.n);
     case "mcq_multi":
-      return group.numbers;
+      return arr(group.numbers);
     case "matching":
     case "matching_headings":
     case "matching_information":
     case "matching_features":
-      return group.questions.map((q) => q.n);
+      return arr(group.questions).map((q) => q.n);
     case "flowchart_completion":
-      return group.nodes
+      return arr(group.nodes)
         .filter((node) => node.kind === "gap")
         .map((node) => node.n);
     case "instruction_screen":
       return [];
     case "tfng":
     case "yng":
-      return group.questions.map((q) => q.n);
+      return arr(group.questions).map((q) => q.n);
     case "map_labeling":
-      return group.zones.map((z) => z.n);
+      return arr(group.zones).map((z) => z.n);
     case "short_answer":
-      return group.questions.map((q) => q.n);
+      return arr(group.questions).map((q) => q.n);
     default:
       return [];
   }

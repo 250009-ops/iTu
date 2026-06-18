@@ -17,6 +17,7 @@ import { useServerTimer } from "@/hooks/use-server-timer";
 import { useWritingAutosave } from "@/hooks/use-writing-autosave";
 import { useExamIntegrity } from "@/hooks/use-exam-integrity";
 import { startSection, submitSection, submitWriting } from "@/lib/api/exam";
+import { examRouteAfterSection } from "@/lib/exam/package-skills";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 
 export function WritingPlayer({ sessionId }: { sessionId: string }) {
@@ -99,8 +100,14 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
     setSubmitting(true);
     try {
       await submitWriting(sessionId, task1Text, task2Text);
-      await submitSection(sessionId, "writing");
-      router.push(`/exam/${sessionId}/waiting-speaking`);
+      const updated = await submitSection(sessionId, "writing");
+      router.push(
+        examRouteAfterSection(
+          sessionId,
+          updated.enrollment.package.skills,
+          "writing",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }

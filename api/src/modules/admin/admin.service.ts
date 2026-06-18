@@ -6,9 +6,11 @@ import {
 import {
   ContentTestStatus,
   EnrollmentStatus,
+  ExamSessionState,
   ExamSkill,
   NotificationType,
   Prisma,
+  ResultsStatus,
   SlotStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -538,6 +540,10 @@ export class AdminService {
       },
     });
 
+    if (dto.contentPool && dto.contentPool.length > 0) {
+      await this.syncContentPool(created.id, dto.contentPool);
+    }
+
     await this.audit.log({
       userId: actorId,
       action: AuditAction.ADMIN_PACKAGE_CREATE,
@@ -662,6 +668,10 @@ export class AdminService {
 
     const updated = await this.prisma.mockTestPackage.update({ where: { id }, data });
 
+    if (dto.contentPool !== undefined) {
+      await this.syncContentPool(id, dto.contentPool);
+    }
+
     await this.audit.log({
       userId: actorId,
       action: AuditAction.ADMIN_PACKAGE_UPDATE,
@@ -682,6 +692,64 @@ export class AdminService {
       where: { id: { not: packageId }, mostPopular: true },
       data: { mostPopular: false },
     });
+  }
+
+  private static readonly POOL_SKILL_TYPE: Record<
+    'listening' | 'reading' | 'writing' | 'speaking',
+    'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING'
+  > = {
+    listening: 'LISTENING',
+    reading: 'READING',
+    writing: 'WRITING',
+    speaking: 'SPEAKING',
+  };
+
+  /** Replaces a package's rotation pool, validating each test's type + status. */
+  private async syncContentPool(
+    packageId: string,
+    pool: { skill: 'listening' | 'reading' | 'writing' | 'speaking'; testIds: string[] }[],
+  ) {
+    const allIds = [...new Set(pool.flatMap((p) => p.testIds))];
+    if (allIds.length > 0) {
+      const tests = await this.prisma.contentTest.findMany({
+        where: { id: { in: allIds } },
+        select: { id: true, type: true, status: true, code: true },
+      });
+      const byId = new Map(tests.map((t) => [t.id, t]));
+      for (const entry of pool) {
+        const expected = AdminService.POOL_SKILL_TYPE[entry.skill];
+        for (const testId of entry.testIds) {
+          const test = byId.get(testId);
+          if (!test) {
+            throw new BadRequestException(`Pool test ${testId} not found`);
+          }
+          if (test.status !== ContentTestStatus.PUBLISHED) {
+            throw new BadRequestException(
+              `Pool test ${test.code} must be published before adding to a package`,
+            );
+          }
+          if (test.type !== expected) {
+            throw new BadRequestException(
+              `Pool test ${test.code} is not a ${entry.skill} test`,
+            );
+          }
+        }
+      }
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.packageContentTest.deleteMany({ where: { packageId } }),
+      this.prisma.packageContentTest.createMany({
+        data: pool.flatMap((entry) =>
+          entry.testIds.map((testId) => ({
+            packageId,
+            testId,
+            skill: AdminService.POOL_SKILL_TYPE[entry.skill] as ExamSkill,
+          })),
+        ),
+        skipDuplicates: true,
+      }),
+    ]);
   }
 
   private async assertPublishedTestIds(
@@ -782,6 +850,168 @@ export class AdminService {
     });
 
     return updated;
+  }
+
+  /** Reassign the writing grader for an enrollment (no-show / unavailable ops). */
+  async reassignWritingTeacher(
+    enrollmentId: string,
+    teacherId: string,
+    actorId: string,
+  ) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        examSession: {
+          include: { sectionAttempts: { include: { writingSubmission: true } } },
+        },
+      },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+
+    const teacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: teacherId },
+      include: { user: true },
+    });
+    if (!teacher) throw new NotFoundException('Teacher not found');
+    if (teacher.status !== 'APPROVED') {
+      throw new BadRequestException('Teacher must be approved to be assigned');
+    }
+
+    const writingAttempt = enrollment.examSession?.sectionAttempts.find(
+      (a) => a.skill === ExamSkill.WRITING,
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: { writingTeacherId: teacherId },
+      });
+      if (writingAttempt?.writingSubmission) {
+        await tx.writingSubmission.update({
+          where: { id: writingAttempt.writingSubmission.id },
+          data: {
+            teacherId,
+            slaDueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+          },
+        });
+      }
+    });
+
+    await this.notifications.create(
+      teacher.userId,
+      'Writing submission assigned',
+      'You have been assigned a writing submission to grade.',
+      NotificationType.GRADING,
+      '/teacher/writing',
+    );
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_TEACHER_REASSIGN,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: { skill: 'writing', teacherId },
+    });
+
+    return { reassigned: true };
+  }
+
+  /**
+   * Reopens a graded Writing/Speaking section for re-grading (dispute outcome):
+   * deletes the existing grade, resets the section status, pulls results back to
+   * PENDING, and re-notifies the assigned teacher.
+   */
+  async reopenForRegrade(
+    enrollmentId: string,
+    skill: 'writing' | 'speaking',
+    actorId: string,
+    reason?: string,
+  ) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        examSession: {
+          include: {
+            sectionAttempts: {
+              include: {
+                writingSubmission: { include: { grade: true, teacher: true } },
+                speakingSession: { include: { grade: true, teacher: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!enrollment?.examSession) throw new NotFoundException('Enrollment not found');
+
+    const targetSkill =
+      skill === 'writing' ? ExamSkill.WRITING : ExamSkill.SPEAKING;
+    const attempt = enrollment.examSession.sectionAttempts.find(
+      (a) => a.skill === targetSkill,
+    );
+    if (!attempt) throw new BadRequestException(`No ${skill} section to regrade`);
+
+    let teacherUserId: string | null = null;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (skill === 'writing' && attempt.writingSubmission) {
+        teacherUserId = attempt.writingSubmission.teacher?.userId ?? null;
+        if (attempt.writingSubmission.grade) {
+          await tx.grade.delete({
+            where: { id: attempt.writingSubmission.grade.id },
+          });
+        }
+        await tx.writingSubmission.update({
+          where: { id: attempt.writingSubmission.id },
+          data: {
+            status: 'IN_REVIEW',
+            slaDueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+          },
+        });
+      } else if (skill === 'speaking' && attempt.speakingSession) {
+        teacherUserId = attempt.speakingSession.teacher?.userId ?? null;
+        if (attempt.speakingSession.grade) {
+          await tx.grade.delete({
+            where: { id: attempt.speakingSession.grade.id },
+          });
+        }
+      }
+
+      await tx.sectionAttempt.update({
+        where: { id: attempt.id },
+        data: { band: null },
+      });
+
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: { resultsStatus: ResultsStatus.PENDING },
+      });
+
+      await tx.examSession.update({
+        where: { id: enrollment.examSession!.id },
+        data: { state: ExamSessionState.AWAITING_GRADING },
+      });
+    });
+
+    if (teacherUserId) {
+      await this.notifications.create(
+        teacherUserId,
+        'Re-grade requested',
+        `A ${skill} section must be re-graded${reason ? `: ${reason}` : '.'}`,
+        NotificationType.GRADING,
+        skill === 'writing' ? '/teacher/writing' : '/teacher/speaking',
+      );
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_GRADE_REOPEN,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: { skill, reason },
+    });
+
+    return { reopened: true };
   }
 
   // ─── Orders & Refunds ────────────────────────────────────────────────────

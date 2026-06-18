@@ -20,6 +20,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+import {
+  assignContentTests,
+  remainingUniqueAttempts,
+} from '../content/content-assignment';
 
 @Injectable()
 export class BookingsService {
@@ -184,6 +188,17 @@ export class BookingsService {
         },
       });
 
+      // Pin a content test per skill, preferring tests the student has not yet
+      // taken so re-purchasing the same package serves fresh content.
+      const assignments = await assignContentTests(
+        tx,
+        user.studentProfileId!,
+        pkg,
+      );
+      const testBySkill = new Map(
+        assignments.map((a) => [a.skill, a.testId]),
+      );
+
       let speakingSession: { id: string } | null = null;
 
       for (const skill of skills) {
@@ -192,6 +207,7 @@ export class BookingsService {
           data: {
             sessionId: session.id,
             skill: examSkill,
+            contentTestId: testBySkill.get(examSkill) ?? null,
           },
         });
 
@@ -409,6 +425,46 @@ export class BookingsService {
       mockDate: result.updated.mockDate,
       mockTime: result.updated.mockTime,
       status: 'rescheduled',
+    };
+  }
+
+  /**
+   * Tells the booking UI how many unique (never-seen) tests remain for this
+   * student on a package, so re-purchase can be guided or discouraged.
+   */
+  async getContentAvailability(packageId: string, user: RequestUser) {
+    if (!user.studentProfileId) {
+      throw new ForbiddenException('Only students can view content availability');
+    }
+
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id: packageId },
+    });
+    if (!pkg) throw new NotFoundException('Package not found');
+
+    const perSkill = await remainingUniqueAttempts(
+      this.prisma,
+      user.studentProfileId,
+      pkg,
+    );
+
+    const freshAvailable = perSkill.every((s) => s.remaining > 0);
+    const anyExhausted = perSkill.some((s) => s.total > 0 && s.remaining === 0);
+
+    return {
+      packageId,
+      perSkill: perSkill.map((s) => ({
+        skill: s.skill.toLowerCase(),
+        total: s.total,
+        remaining: s.remaining,
+      })),
+      freshAvailable,
+      anyExhausted,
+      message: anyExhausted
+        ? 'You have already taken all available tests for at least one skill. Re-purchasing may repeat content for that skill.'
+        : freshAvailable
+          ? 'Fresh, never-seen tests are available for every skill in this package.'
+          : 'Content availability is limited for this package.',
     };
   }
 

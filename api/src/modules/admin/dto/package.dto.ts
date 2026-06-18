@@ -2,14 +2,26 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ExamType } from '@prisma/client';
+
+export class PackageContentPoolEntryDto {
+  @IsIn(['listening', 'reading', 'writing', 'speaking'])
+  skill: 'listening' | 'reading' | 'writing' | 'speaking';
+
+  @IsArray()
+  @IsString({ each: true })
+  testIds: string[];
+}
 
 export class CreatePackageDto {
   @IsString()
@@ -80,6 +92,12 @@ export class CreatePackageDto {
   @IsOptional()
   @IsString()
   speakingBankId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PackageContentPoolEntryDto)
+  contentPool?: PackageContentPoolEntryDto[];
 
   @IsOptional()
   @IsBoolean()
@@ -157,6 +175,12 @@ export class UpdatePackageDto {
   @IsOptional()
   @IsString()
   speakingBankId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PackageContentPoolEntryDto)
+  contentPool?: PackageContentPoolEntryDto[];
 
   @IsOptional()
   @IsBoolean()

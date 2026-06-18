@@ -117,6 +117,24 @@ export class AdminController {
     return this.admin.updateTicket(id, body, user.id);
   }
 
+  @Post('enrollments/:id/reassign-writing-teacher')
+  reassignWritingTeacher(
+    @Param('id') id: string,
+    @Body() body: { teacherId: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.reassignWritingTeacher(id, body.teacherId, user.id);
+  }
+
+  @Post('enrollments/:id/regrade')
+  reopenForRegrade(
+    @Param('id') id: string,
+    @Body() body: { skill: 'writing' | 'speaking'; reason?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.reopenForRegrade(id, body.skill, user.id, body.reason);
+  }
+
   @Get('packages')
   getPackages() {
     return this.admin.getPackages();

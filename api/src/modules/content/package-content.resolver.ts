@@ -5,6 +5,7 @@ import {
   type MockTestPackage,
   PrismaClient,
 } from '@prisma/client';
+import { packageIncludesExamSkill } from './package-skills';
 
 type PackageContentFields = Pick<
   MockTestPackage,
@@ -36,9 +37,7 @@ export function packageIncludesSkill(
   skills: unknown,
   skill: ExamSkill,
 ): boolean {
-  if (!Array.isArray(skills)) return false;
-  const want = skill.toLowerCase();
-  return skills.some((s) => String(s).toLowerCase() === want);
+  return packageIncludesExamSkill(skills, skill);
 }
 
 export function explicitPackageContentTestId(
@@ -54,16 +53,10 @@ export function explicitPackageContentTestId(
  * Uses explicit package FK when set; otherwise falls back to the latest
  * published test of that type when the package includes the skill.
  */
-export async function resolvePackageContentTestId(
+async function latestPublishedTestId(
   prisma: PrismaClient,
-  pkg: PackageContentFields,
   skill: ExamSkill,
 ): Promise<string | null> {
-  const explicit = explicitPackageContentTestId(pkg, skill);
-  if (explicit) return explicit;
-
-  if (!packageIncludesSkill(pkg.skills, skill)) return null;
-
   const test = await prisma.contentTest.findFirst({
     where: {
       type: SKILL_TO_TYPE[skill],
@@ -72,6 +65,30 @@ export async function resolvePackageContentTestId(
     orderBy: { updatedAt: 'desc' },
     select: { id: true },
   });
-
   return test?.id ?? null;
+}
+
+export async function resolvePackageContentTestId(
+  prisma: PrismaClient,
+  pkg: PackageContentFields,
+  skill: ExamSkill,
+): Promise<string | null> {
+  const skillIncluded =
+    packageIncludesSkill(pkg.skills, skill) ||
+    explicitPackageContentTestId(pkg, skill) != null;
+
+  if (!skillIncluded) return null;
+
+  const explicit = explicitPackageContentTestId(pkg, skill);
+  if (explicit) {
+    const linked = await prisma.contentTest.findUnique({
+      where: { id: explicit },
+      select: { id: true, status: true },
+    });
+    if (linked?.status === ContentTestStatus.PUBLISHED) {
+      return linked.id;
+    }
+  }
+
+  return latestPublishedTestId(prisma, skill);
 }

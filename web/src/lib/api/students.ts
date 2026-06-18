@@ -131,6 +131,8 @@ export function getMockDayHub() {
       mockTime: string;
       sessionCode: string;
       state: string;
+      packageTitle?: string;
+      packageSkills?: string[];
     } | null;
     sections: { skill: string; completed: boolean; active: boolean }[];
     speaking: { scheduledAt?: string; examiner?: string };

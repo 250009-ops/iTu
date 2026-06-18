@@ -18,8 +18,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AutoScoringService } from './auto-scoring.service';
 import {
   assertTransition,
+  assertStartTransition,
   getActiveStateForSkill,
   getSubmittedStateForSkill,
+  nextStateAfterSubmit,
   skillForActiveState,
 } from './exam-state-machine';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -27,6 +29,12 @@ import { SettingsService } from '../settings/settings.service';
 import { SaveAnswersDto, SubmitSectionDto } from './dto/exam-session.dto';
 import { ExamTimerService } from './exam-timer.service';
 import { resolvePackageContentTestId } from '../content/package-content.resolver';
+import {
+  packageExamSkills,
+  packageIncludesExamSkill,
+} from '../content/package-skills';
+import { normalizeContentForType } from '../content/content-normalize';
+import { ResultsReleaseService } from '../results/results-release.service';
 
 @Injectable()
 export class ExamSessionsService {
@@ -36,6 +44,7 @@ export class ExamSessionsService {
     private settings: SettingsService,
     private notifications: NotificationsService,
     private examTimer: ExamTimerService,
+    private resultsRelease: ResultsReleaseService,
     private audit: AuditService,
   ) {}
 
@@ -77,8 +86,11 @@ export class ExamSessionsService {
       const session = await this.findSessionOrThrow(sessionCode);
       await this.assertSessionAccess(session.enrollment.studentId, user);
 
+      // Package-aware: the skill being started must be the next expected skill
+      // in this package's ordered skill list (supports section-only packages).
+      const packageSkills = packageExamSkills(session.enrollment.package.skills);
+      assertStartTransition(session.state, skill, packageSkills);
       const nextState = getActiveStateForSkill(skill);
-      assertTransition(session.state, nextState);
 
       const durations = await this.settings.getSectionDurationsSec();
       const duration = durations[skill];
@@ -227,10 +239,11 @@ export class ExamSessionsService {
         dto.skill === ExamSkill.READING
       ) {
         const pkg = session.enrollment.package;
-        const testId =
-          dto.skill === ExamSkill.LISTENING
-            ? pkg.listeningTestId
-            : pkg.readingTestId;
+        const testId = await resolvePackageContentTestId(
+          this.prisma,
+          pkg,
+          dto.skill,
+        );
         const test = testId
           ? await this.prisma.contentTest.findUnique({ where: { id: testId } })
           : null;
@@ -247,7 +260,8 @@ export class ExamSessionsService {
       }
 
       const now = new Date();
-      const nextState = this.getNextStateAfterSubmit(dto.skill);
+      const packageSkills = packageExamSkills(session.enrollment.package.skills);
+      const nextState = nextStateAfterSubmit(packageSkills, dto.skill);
 
       const updated = await this.prisma.$transaction(async (tx) => {
         await tx.sectionAttempt.update({
@@ -279,17 +293,32 @@ export class ExamSessionsService {
                 where: { id: session.enrollment.speakingSlotId },
               })
             : null;
-          await tx.speakingSession.upsert({
+          // The live examiner flow (speaking.service) owns the session
+          // lifecycle. Here we only ensure a record exists and is marked
+          // COMPLETED — never clobbering an examiner-set endedAt/recording.
+          const existingSpeaking = await tx.speakingSession.findUnique({
             where: { sectionAttemptId: attempt.id },
-            create: {
-              sectionAttemptId: attempt.id,
-              teacherId: session.enrollment.speakingTeacherId ?? undefined,
-              status: 'COMPLETED',
-              scheduledAt: slot?.startsAt,
-              endedAt: now,
-            },
-            update: { status: 'COMPLETED', endedAt: now },
+            select: { id: true, endedAt: true },
           });
+          if (existingSpeaking) {
+            await tx.speakingSession.update({
+              where: { sectionAttemptId: attempt.id },
+              data: {
+                status: 'COMPLETED',
+                endedAt: existingSpeaking.endedAt ?? now,
+              },
+            });
+          } else {
+            await tx.speakingSession.create({
+              data: {
+                sectionAttemptId: attempt.id,
+                teacherId: session.enrollment.speakingTeacherId ?? undefined,
+                status: 'COMPLETED',
+                scheduledAt: slot?.startsAt,
+                endedAt: now,
+              },
+            });
+          }
         }
 
         return tx.examSession.update({
@@ -309,6 +338,12 @@ export class ExamSessionsService {
           where: { id: session.enrollmentId },
           data: { status: EnrollmentStatus.AWAITING_RESULTS },
         });
+        // CBT-only packages (e.g. Listening-only) have no teacher grading step,
+        // so attempt release immediately now that auto-scoring has run.
+        await this.resultsRelease.tryRelease(
+          session.enrollmentId,
+          session.enrollment.student.userId,
+        );
       }
 
       if (dto.skill === ExamSkill.WRITING) {
@@ -620,11 +655,22 @@ export class ExamSessionsService {
     await this.assertSessionAccess(session.enrollment.studentId, user);
 
     const pkg = session.enrollment.package;
-    const testId = await resolvePackageContentTestId(
-      this.prisma,
-      pkg,
-      skill,
-    );
+    if (!packageIncludesExamSkill(pkg.skills, skill)) {
+      throw new NotFoundException(
+        `${skill} is not included in your mock package`,
+      );
+    }
+
+    // Prefer the test pinned to this attempt at booking time (rotation-aware);
+    // fall back to package resolution for legacy enrollments.
+    const pinned = await this.prisma.sectionAttempt.findUnique({
+      where: { sessionId_skill: { sessionId: session.id, skill } },
+      select: { contentTestId: true },
+    });
+
+    const testId =
+      pinned?.contentTestId ??
+      (await resolvePackageContentTestId(this.prisma, pkg, skill));
     if (!testId) {
       throw new NotFoundException(`No content configured for ${skill}`);
     }
@@ -647,6 +693,10 @@ export class ExamSessionsService {
     if (!test) {
       throw new NotFoundException('Content test not found');
     }
+
+    // Repair structural shape before serving so the player can never crash on
+    // a malformed question group (defense-in-depth alongside save/publish).
+    const safeContent = normalizeContentForType(test.type, test.content);
 
     if (skill === ExamSkill.LISTENING && test.mediaAssets.length > 0) {
       const fullAudio = test.mediaAssets.find(
@@ -672,7 +722,7 @@ export class ExamSessionsService {
 
       const { mediaAssets: _assets, ...rest } = test;
       const content = {
-        ...(rest.content as Record<string, unknown>),
+        ...safeContent,
         audioTracks,
       };
 
@@ -680,34 +730,18 @@ export class ExamSessionsService {
     }
 
     if (skill === ExamSkill.SPEAKING) {
-      const raw = test.content as Record<string, unknown>;
       const {
         part1Questions: _p1,
         part3Questions: _p3,
         part2ExaminerNotes: _notes,
         ...studentContent
-      } = raw;
+      } = safeContent;
       const { mediaAssets: _assets, ...rest } = test;
       return { ...rest, content: studentContent };
     }
 
     const { mediaAssets: _assets, ...rest } = test;
-    return rest;
-  }
-
-  private getNextStateAfterSubmit(skill: ExamSkill): ExamSessionState {
-    switch (skill) {
-      case ExamSkill.LISTENING:
-        return ExamSessionState.LISTENING_SUBMITTED;
-      case ExamSkill.READING:
-        return ExamSessionState.READING_SUBMITTED;
-      case ExamSkill.WRITING:
-        return ExamSessionState.SPEAKING_SCHEDULED;
-      case ExamSkill.SPEAKING:
-        return ExamSessionState.AWAITING_GRADING;
-      default:
-        return ExamSessionState.AWAITING_GRADING;
-    }
+    return { ...rest, content: safeContent };
   }
 
   private async findSessionOrThrow(sessionCode: string) {
@@ -765,6 +799,11 @@ export class ExamSessionsService {
         mockDate: session.enrollment.mockDate,
         status: session.enrollment.status.toLowerCase(),
         resultsStatus: session.enrollment.resultsStatus.toLowerCase(),
+        package: {
+          slug: session.enrollment.package.slug,
+          title: session.enrollment.package.title,
+          skills: session.enrollment.package.skills,
+        },
       },
       sections: session.sectionAttempts.map((a) => ({
         skill: a.skill.toLowerCase(),

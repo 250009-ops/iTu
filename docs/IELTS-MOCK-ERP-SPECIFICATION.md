@@ -337,15 +337,26 @@ Writing does not require a live slot. The selected Writing teacher receives the 
 
 ### 9.2 Results Release Policy
 
-> **All scores remain hidden until the Speaking section is completed and graded.**
+> **All scores remain hidden until every skill *included in the purchased package* has been graded.**
 
-| Milestone | Student sees |
+Release is **package-aware** (see §22). Results are released the moment all
+required sections for that package reach a graded state — not a fixed count of
+four. Examples:
+
+| Package | Releases when |
+|---------|---------------|
+| Full Mock (L/R/W/S) | All four graded (Speaking last) |
+| Writing-Only | Writing graded by teacher |
+| Speaking-Only | Speaking graded by examiner |
+| Listening + Reading | Both auto-scored on submit (immediate) |
+
+| Milestone (full mock) | Student sees |
 |-----------|--------------|
 | After Listening | Progress only ("Listening complete") |
 | After Reading | Progress only |
 | After Writing | Progress only |
 | After Speaking | "Results processing" |
-| All grading complete | **Full report**: L/R/W/S bands + overall + PDF |
+| All required grading complete | **Full report**: bands + overall + PDF |
 
 ### 9.3 Results Report Contents
 
@@ -894,6 +905,79 @@ THEN enrollment.results_status = 'released'
 - Load testing, security audit
 - Dispute workflow (M15)
 - Beta with pilot teachers and students
+
+---
+
+## 17.5 Launch Hardening Addendum (v1.1)
+
+This addendum records behaviors added during pre-launch hardening. It amends
+§4 (catalog), §5.3 (state machine), §6 (booking/assignment), and §9 (release).
+
+### 17.5.1 Content Pool & Rotation (No-Repeat)
+
+- A package may define a **content pool per skill** (`PackageContentTest`) in
+  addition to the legacy single-test foreign keys. Each pool entry references a
+  **published** content test of the matching type.
+- At booking time, an **assignment engine** pins one test per skill onto each
+  `SectionAttempt` (`SectionAttempt.contentTestId`), preferring tests the
+  student has **never taken** before.
+- Selection order: pool entries (oldest first) → explicit package FK →
+  any published test of the type (legacy fallback).
+- **Exhaustion policy:** if every eligible test has been seen, the engine
+  **recycles** the test taken longest ago (rather than failing the purchase).
+- `getExamContent` and speaking-bank resolution read the **pinned** test, so
+  the student always sees exactly what was assigned at purchase.
+
+### 17.5.2 Re-Purchase Policy
+
+- Re-buying the same package is allowed and **guarantees different content**
+  while unseen tests remain in the pool.
+- `GET /bookings/packages/:id/content-availability` reports, per skill,
+  `total` eligible and `remaining` unseen tests, plus `freshAvailable` /
+  `anyExhausted` flags so the booking wizard can guide or warn the student.
+
+### 17.5.3 Package-Aware Orchestration
+
+- The exam **state machine** derives the next section from the package's
+  ordered skill set (`orderedPackageSkills`). Section-only and arbitrary
+  subsets (Listening-only, Writing-only, L+R, etc.) are first-class.
+- `assertStartTransition` validates that the skill being started is the next
+  expected skill for the package; `nextStateAfterSubmit` computes the next
+  state (next skill / Speaking scheduling / `AWAITING_GRADING`).
+- The student player computes the next route via `examRouteAfterSection`
+  rather than hardcoded `listening → reading → writing` URLs.
+
+### 17.5.4 Results Release (Package-Aware)
+
+- A single `ResultsReleaseService.tryRelease()` is the **source of truth** for
+  release. It requires **every skill the package includes** to be graded — not
+  a hardcoded count of four.
+- CBT-only packages release immediately after auto-scoring; partial packages
+  (Writing-Only, Speaking-Only) release as soon as their section is graded.
+
+### 17.5.5 Grading SLA, Reassignment & Re-grade
+
+- **SLA monitor** (`GradingSlaService`, hourly): ungraded Writing past
+  `slaDueAt` and Speaking ungraded > 48h past `endedAt` trigger a teacher
+  reminder and an admin breach alert.
+- **Reassignment** (`POST /admin/enrollments/:id/reassign-writing-teacher`):
+  admin moves a writing submission to another approved teacher and resets SLA.
+- **Re-grade** (`POST /admin/enrollments/:id/regrade`): admin reopens a graded
+  Writing/Speaking section — deletes the grade, returns results to `PENDING`,
+  session to `AWAITING_GRADING`, and re-notifies the teacher. Re-release runs
+  automatically once re-graded.
+- **Band validation** (server-side): every criterion and the overall band must
+  be 0–9 in 0.5 steps; the overall must be within one band of the criteria
+  average (guards against typos).
+
+### 17.5.6 Runtime Stability
+
+- Content JSON is **structurally normalized** on save, on publish, and in
+  `getExamContent` so malformed question groups can never crash the player.
+- Publish is **blocked** when any L/R question group has non-array
+  `nodes`/`lines`/`rows`.
+- The student exam routes have an **error boundary** (graceful recovery UI),
+  and fullscreen is requested from the check-in **user gesture**.
 
 ---
 

@@ -22,6 +22,7 @@ import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
 import { useExamIntegrity } from "@/hooks/use-exam-integrity";
 import { startSection, submitSection, logIntegrity } from "@/lib/api/exam";
+import { examRouteAfterSection } from "@/lib/exam/package-skills";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 
 export function ListeningPlayer({ sessionId }: { sessionId: string }) {
@@ -106,8 +107,14 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   async function handleSubmit() {
     setSubmitting(true);
     try {
-      await submitSection(sessionId, "listening");
-      router.push(`/exam/${sessionId}/break?from=listening&next=reading`);
+      const updated = await submitSection(sessionId, "listening");
+      router.push(
+        examRouteAfterSection(
+          sessionId,
+          updated.enrollment.package.skills,
+          "listening",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }

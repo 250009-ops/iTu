@@ -16,6 +16,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { packageExamSkills } from '../content/package-skills';
+import { selectMockDayEnrollment } from './mock-day-enrollment';
 
 const TICKET_TYPE_MAP: Record<
   NonNullable<CreateSupportTicketDto['type']>,
@@ -221,19 +223,20 @@ export class StudentsService {
   async getMockDayHub(user: RequestUser) {
     this.requireStudent(user);
 
-    const enrollment = await this.prisma.enrollment.findFirst({
-      where: {
-        studentId: user.studentProfileId,
-        status: { in: ['ENROLLED', 'IN_PROGRESS'] },
-      },
-      include: {
-        package: true,
-        examSession: { include: { sectionAttempts: true } },
-        speakingSlot: true,
-        speakingTeacher: { include: { user: true } },
-      },
-      orderBy: { mockDate: 'asc' },
-    });
+    const enrollment = selectMockDayEnrollment(
+      await this.prisma.enrollment.findMany({
+        where: {
+          studentId: user.studentProfileId,
+          status: { in: ['ENROLLED', 'IN_PROGRESS'] },
+        },
+        include: {
+          package: true,
+          examSession: { include: { sectionAttempts: true } },
+          speakingSlot: true,
+          speakingTeacher: { include: { user: true } },
+        },
+      }),
+    );
 
     if (!enrollment?.examSession) {
       return { enrollment: null };
@@ -244,6 +247,8 @@ export class StudentsService {
       .filter((a) => a.submittedAt)
       .map((a) => a.skill.toLowerCase());
 
+    const packageSkills = packageExamSkills(enrollment.package.skills);
+
     return {
       enrollment: {
         id: enrollment.id,
@@ -252,12 +257,19 @@ export class StudentsService {
         mockTime: enrollment.mockTime,
         sessionCode: session.sessionCode,
         state: session.state.toLowerCase(),
+        packageTitle: enrollment.package.title,
+        packageSkills: packageSkills.map((s) => s.toLowerCase()),
       },
-      sections: ['listening', 'reading', 'writing', 'speaking'].map((skill) => ({
-        skill,
-        completed: completedSkills.includes(skill),
-        active: session.state.toLowerCase().includes(skill) && !completedSkills.includes(skill),
-      })),
+      sections: packageSkills.map((skill) => {
+        const key = skill.toLowerCase();
+        return {
+          skill: key,
+          completed: completedSkills.includes(key),
+          active:
+            session.state.toLowerCase().includes(key) &&
+            !completedSkills.includes(key),
+        };
+      }),
       speaking: {
         scheduledAt: enrollment.speakingSlot?.startsAt,
         examiner: enrollment.speakingTeacher?.user.name,

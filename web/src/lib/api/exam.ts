@@ -14,6 +14,11 @@ export type ExamSessionResponse = {
     mockDate: string;
     status: string;
     resultsStatus: string;
+    package: {
+      slug: string;
+      title: string;
+      skills: unknown;
+    };
   };
   sections: {
     skill: string;

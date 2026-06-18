@@ -3,17 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  EnrollmentStatus,
-  ExamSessionState,
-  NotificationType,
-  ResultsStatus,
-} from '@prisma/client';
+import { NotificationType } from '@prisma/client';
 import { accrueTeacherGradingEarning } from '../../common/teacher-earnings';
+import { validateBandScores } from './band-validation';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { ResultsPdfService } from '../results/results-pdf.service';
+import { ResultsReleaseService } from '../results/results-release.service';
 import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
@@ -22,7 +18,7 @@ export class GradingService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private settings: SettingsService,
-    private resultsPdf: ResultsPdfService,
+    private resultsRelease: ResultsReleaseService,
   ) {}
 
   async getWritingQueue(user: RequestUser) {
@@ -127,6 +123,8 @@ export class GradingService {
       throw new ForbiddenException('Teacher profile required');
     }
 
+    validateBandScores('writing', body.criteriaScores, body.overallBand);
+
     const submission = await this.prisma.writingSubmission.findUnique({
       where: { id: submissionId },
       include: {
@@ -199,7 +197,7 @@ export class GradingService {
       '/student/results',
     );
 
-    await this.tryReleaseResults(enrollment.id, studentUserId);
+    await this.resultsRelease.tryRelease(enrollment.id, studentUserId);
     return { graded: true, overallBand: body.overallBand };
   }
 
@@ -260,6 +258,8 @@ export class GradingService {
     if (!user.teacherProfileId) {
       throw new ForbiddenException('Teacher profile required');
     }
+
+    validateBandScores('speaking', body.criteriaScores, body.overallBand);
 
     const session = await this.prisma.speakingSession.findUnique({
       where: { id: sessionId },
@@ -335,68 +335,7 @@ export class GradingService {
       '/student/results',
     );
 
-    await this.tryReleaseResults(enrollment.id, studentUserId);
+    await this.resultsRelease.tryRelease(enrollment.id, studentUserId);
     return { graded: true, overallBand: body.overallBand };
-  }
-
-  private async tryReleaseResults(
-    enrollmentId: string,
-    studentUserId?: string,
-  ) {
-    const enrollment = await this.prisma.enrollment.findUnique({
-      where: { id: enrollmentId },
-      include: {
-        examSession: {
-          include: {
-            sectionAttempts: {
-              include: {
-                writingSubmission: { include: { grade: true } },
-                speakingSession: { include: { grade: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!enrollment?.examSession) return;
-
-    const attempts = enrollment.examSession.sectionAttempts;
-    const allGraded = attempts.every((a) => {
-      if (a.skill === 'WRITING') return !!a.writingSubmission?.grade;
-      if (a.skill === 'SPEAKING') return !!a.speakingSession?.grade;
-      if (a.skill === 'LISTENING' || a.skill === 'READING') {
-        return a.submittedAt != null && (a.band != null || a.rawScore != null);
-      }
-      return a.band !== null;
-    });
-
-    if (!allGraded || attempts.length < 4) return;
-
-    await this.prisma.$transaction([
-      this.prisma.enrollment.update({
-        where: { id: enrollmentId },
-        data: {
-          status: EnrollmentStatus.COMPLETED,
-          resultsStatus: ResultsStatus.RELEASED,
-        },
-      }),
-      this.prisma.examSession.update({
-        where: { id: enrollment.examSession.id },
-        data: { state: ExamSessionState.RESULTS_RELEASED },
-      }),
-    ]);
-
-    if (studentUserId) {
-      await this.notifications.create(
-        studentUserId,
-        'Results released',
-        'Your full mock exam results are now available.',
-        NotificationType.RESULT,
-        '/student/results',
-      );
-    }
-
-    void this.resultsPdf.generateForEnrollment(enrollmentId);
   }
 }

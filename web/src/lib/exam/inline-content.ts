@@ -57,8 +57,8 @@ export function completionLineNodes(line: CompletionLine | InlineNode[]): Inline
 
 export function gapsInCompletionLines(lines: CompletionLine[]): number[] {
   const nums: number[] = [];
-  for (const line of lines) {
-    for (const node of line.nodes) {
+  for (const line of Array.isArray(lines) ? lines : []) {
+    for (const node of Array.isArray(line?.nodes) ? line.nodes : []) {
       if (isGapNode(node)) nums.push(node.n);
     }
   }

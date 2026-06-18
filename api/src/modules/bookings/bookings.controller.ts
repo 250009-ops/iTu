@@ -38,6 +38,16 @@ export class BookingsController {
   }
 
   @ApiBearerAuth()
+  @Get('packages/:packageId/content-availability')
+  @Roles(UserRole.STUDENT)
+  getContentAvailability(
+    @Param('packageId') packageId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.bookings.getContentAvailability(packageId, user);
+  }
+
+  @ApiBearerAuth()
   @Post()
   @Roles(UserRole.STUDENT)
   createBooking(
