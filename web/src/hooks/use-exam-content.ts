@@ -27,6 +27,9 @@ function hasUsableContent(skill: ExamSkill, content: unknown): boolean {
   const c = content as Record<string, unknown>;
   if (skill === "writing") return Array.isArray(c.tasks) && c.tasks.length > 0;
   if (skill === "speaking") return Array.isArray(c.parts) || !!c.intro;
+  // Reading content is organized into `passages`; Listening into `parts`.
+  if (skill === "reading")
+    return Array.isArray(c.passages) && (c.passages as unknown[]).length > 0;
   return Array.isArray(c.parts) && (c.parts as unknown[]).length > 0;
 }
 

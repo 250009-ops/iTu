@@ -1,14 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  HelpCircle,
-  Menu,
-  Settings,
-  Volume2,
-  Wifi,
-  X,
-} from "lucide-react";
+import { HelpCircle, Settings, Volume2, Wifi, X } from "lucide-react";
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { cn } from "@/lib/utils";
 
@@ -111,14 +104,6 @@ export function ExamTopBar({
           aria-label="Help"
         >
           <HelpCircle size={18} />
-        </button>
-
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-slate-300 transition hover:bg-white/10 hover:text-white"
-          aria-label="Menu"
-        >
-          <Menu size={18} />
         </button>
       </div>
 

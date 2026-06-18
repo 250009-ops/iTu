@@ -92,11 +92,19 @@ export class ExamSessionsService {
       const session = await this.findSessionOrThrow(sessionCode);
       await this.assertSessionAccess(session.enrollment.studentId, user);
 
+      const nextState = getActiveStateForSkill(skill);
+
+      // Idempotent: the break screen starts the section, then the section page
+      // requests it again on mount. If this skill is already active, return the
+      // current session instead of failing the (redundant) second call.
+      if (session.state === nextState) {
+        return this.toSessionResponse(session);
+      }
+
       // Package-aware: the skill being started must be the next expected skill
       // in this package's ordered skill list (supports section-only packages).
       const packageSkills = packageExamSkills(session.enrollment.package.skills);
       assertStartTransition(session.state, skill, packageSkills);
-      const nextState = getActiveStateForSkill(skill);
 
       const durations = await this.settings.getSectionDurationsSec();
       const duration = durations[skill];
