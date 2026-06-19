@@ -211,6 +211,9 @@ export function mapMockDayHub(data: MockDayApi) {
   }
 
   const { enrollment, sections = [], speaking } = data;
+  const hasSpeaking =
+    (enrollment.packageSkills ?? []).includes("speaking") ||
+    sections.some((s) => s.skill === "speaking");
   const completedCount = sections.filter((s) => s.completed).length;
   const totalModules = sections.length || 4;
   const activeSection = sections.find((s) => s.active);
@@ -386,6 +389,7 @@ export function mapMockDayHub(data: MockDayApi) {
     rules: defaultExamRules,
     schedule: scheduleItems,
     sections: cbtSections,
+    hasSpeaking,
     speaking: {
       status: (sections.find((s) => s.skill === "speaking")?.completed
         ? "completed"

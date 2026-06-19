@@ -32,8 +32,8 @@ export function MockDaySidebar() {
   const { toast } = useToast();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   if (!data) return null;
-  const { checkIn, speakingTip, sessionCode } = data;
-  const canReschedule = data.state === "enrolled";
+  const { checkIn, speakingTip, sessionCode, hasSpeaking } = data;
+  const canReschedule = data.state === "enrolled" && hasSpeaking;
   const speakingDone = data.speaking.status === "completed";
 
   const supportActions: Record<string, () => void> = {
@@ -143,37 +143,39 @@ export function MockDaySidebar() {
         ))}
       </div>
 
-      <div
-        className="relative overflow-hidden rounded-2xl p-5 text-white"
-        style={{ background: navyGradient }}
-      >
-        <div className="absolute inset-0 opacity-[0.04]" style={dotTexture} />
-        <div className="relative">
-          <div className="mb-2 flex items-center gap-2">
-            <Zap size={16} className="text-amber-400" />
-            <span
-              className="font-bold tracking-wider text-amber-400"
-              style={{ fontSize: "10px" }}
+      {hasSpeaking && (
+        <div
+          className="relative overflow-hidden rounded-2xl p-5 text-white"
+          style={{ background: navyGradient }}
+        >
+          <div className="absolute inset-0 opacity-[0.04]" style={dotTexture} />
+          <div className="relative">
+            <div className="mb-2 flex items-center gap-2">
+              <Zap size={16} className="text-amber-400" />
+              <span
+                className="font-bold tracking-wider text-amber-400"
+                style={{ fontSize: "10px" }}
+              >
+                SPEAKING TIP
+              </span>
+            </div>
+            <p style={{ fontSize: "13px", lineHeight: 1.6 }}>{speakingTip}</p>
+            <button
+              type="button"
+              onClick={() =>
+                toast("Speaking tips", {
+                  description: "More practice tips are on the way.",
+                  variant: "info",
+                })
+              }
+              className="mt-3 font-semibold text-blue-300 hover:text-white"
+              style={{ fontSize: "12px" }}
             >
-              SPEAKING TIP
-            </span>
+              More tips &gt;
+            </button>
           </div>
-          <p style={{ fontSize: "13px", lineHeight: 1.6 }}>{speakingTip}</p>
-          <button
-            type="button"
-            onClick={() =>
-              toast("Speaking tips", {
-                description: "More practice tips are on the way.",
-                variant: "info",
-              })
-            }
-            className="mt-3 font-semibold text-blue-300 hover:text-white"
-            style={{ fontSize: "12px" }}
-          >
-            More tips &gt;
-          </button>
         </div>
-      </div>
+      )}
 
       {rescheduleOpen && (
         <RescheduleDialog

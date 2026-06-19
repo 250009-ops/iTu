@@ -37,10 +37,13 @@ export function getTeacherAvailability() {
 export function updateTeacherAvailability(
   slots: { dayOfWeek: number; startTime: string; endTime: string }[],
 ) {
-  return apiFetch<{ updated: number }>("/teachers/availability", {
-    method: "PUT",
-    body: { slots },
-  });
+  return apiFetch<{ updated: number; slotsGenerated?: number }>(
+    "/teachers/availability",
+    {
+      method: "PUT",
+      body: { slots },
+    },
+  );
 }
 
 export function blockTeacherSlot(slotId: string) {

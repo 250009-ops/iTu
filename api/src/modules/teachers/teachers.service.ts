@@ -135,7 +135,97 @@ export class TeachersService {
       })),
     });
 
-    return { updated: slots.length };
+    const generated = await this.regenerateSlots(teacher.id, slots);
+
+    return { updated: slots.length, slotsGenerated: generated };
+  }
+
+  /**
+   * Turn the teacher's weekly working-hour templates into concrete bookable
+   * slots for the next few weeks. Existing BOOKED/BLOCKED slots are preserved;
+   * only stale future AVAILABLE slots are cleared and rebuilt so the booking
+   * wizard always reflects the latest working hours.
+   */
+  private async regenerateSlots(
+    teacherId: string,
+    weekly: { dayOfWeek: number; startTime: string; endTime: string }[],
+    horizonDays = 28,
+    slotDuration = 30,
+  ): Promise<number> {
+    const now = new Date();
+
+    await this.prisma.teacherSlot.deleteMany({
+      where: {
+        teacherId,
+        status: SlotStatus.AVAILABLE,
+        startsAt: { gte: now },
+      },
+    });
+
+    const windowsByDay = new Map<number, { start: string; end: string }[]>();
+    for (const w of weekly) {
+      const list = windowsByDay.get(w.dayOfWeek) ?? [];
+      list.push({ start: w.startTime, end: w.endTime });
+      windowsByDay.set(w.dayOfWeek, list);
+    }
+
+    const slotMs = slotDuration * 60 * 1000;
+    const data: {
+      teacherId: string;
+      startsAt: Date;
+      endsAt: Date;
+      status: SlotStatus;
+    }[] = [];
+
+    const baseDay = new Date();
+    baseDay.setHours(0, 0, 0, 0);
+
+    for (let offset = 0; offset <= horizonDays; offset += 1) {
+      const day = new Date(baseDay);
+      day.setDate(baseDay.getDate() + offset);
+      const windows = windowsByDay.get(day.getDay());
+      if (!windows) continue;
+
+      for (const win of windows) {
+        const [startHour, startMin] = win.start.split(':').map(Number);
+        const [endHour, endMin] = win.end.split(':').map(Number);
+        if (
+          [startHour, startMin, endHour, endMin].some((v) => Number.isNaN(v))
+        ) {
+          continue;
+        }
+
+        const windowStart = new Date(day);
+        windowStart.setHours(startHour, startMin, 0, 0);
+        const windowEnd = new Date(day);
+        windowEnd.setHours(endHour, endMin, 0, 0);
+
+        let cursor = windowStart.getTime();
+        while (cursor + slotMs <= windowEnd.getTime()) {
+          const startsAt = new Date(cursor);
+          const endsAt = new Date(cursor + slotMs);
+          if (startsAt.getTime() > now.getTime()) {
+            data.push({
+              teacherId,
+              startsAt,
+              endsAt,
+              status: SlotStatus.AVAILABLE,
+            });
+          }
+          cursor += slotMs;
+        }
+      }
+    }
+
+    if (data.length === 0) return 0;
+
+    // skipDuplicates avoids colliding with preserved BOOKED/BLOCKED slots that
+    // share the same [teacherId, startsAt] unique key.
+    const created = await this.prisma.teacherSlot.createMany({
+      data,
+      skipDuplicates: true,
+    });
+    return created.count;
   }
 
   async blockSlot(user: RequestUser, slotId: string) {

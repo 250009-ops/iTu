@@ -59,7 +59,7 @@ export function SectionCards() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (!data) return null;
-  const { sections, speaking, sessionCode } = data;
+  const { sections, speaking, sessionCode, hasSpeaking } = data;
   const speakingDone = speaking.status === "completed";
 
   return (
@@ -194,6 +194,7 @@ export function SectionCards() {
         );
       })}
 
+      {hasSpeaking && (
       <div
         className={cn(
           "overflow-hidden rounded-2xl border-2 bg-white shadow-md",
@@ -348,6 +349,7 @@ export function SectionCards() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
