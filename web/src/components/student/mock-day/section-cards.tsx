@@ -171,13 +171,13 @@ export function SectionCards() {
                     Locked
                   </span>
                 ) : (
-                  <Link
-                    href={`/exam/${sessionCode}/${section.id}`}
-                    className="rounded-xl border border-gray-200 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                  <span
+                    className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 font-semibold text-emerald-700"
                     style={{ fontSize: "13px" }}
                   >
-                    Review
-                  </Link>
+                    <CheckCircle size={13} />
+                    Completed
+                  </span>
                 )}
                 <button
                   type="button"
