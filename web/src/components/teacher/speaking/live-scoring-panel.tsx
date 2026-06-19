@@ -8,6 +8,7 @@ import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
 import {
   bandOptions,
   computeOverall,
+  toSpeakingCriteriaPayload,
   type ScoringCriterion,
 } from "@/lib/speaking/scoring";
 import { scoreSpeaking } from "@/lib/api/grading";
@@ -86,11 +87,8 @@ export function LiveScoringPanel() {
     setConfirmOpen(false);
     setSubmitting(true);
     try {
-      const criteriaScores = Object.fromEntries(
-        session.criteria.map((c) => [c.label, scores[c.id]]),
-      );
       await scoreSpeaking(sessionId, {
-        criteriaScores,
+        criteriaScores: toSpeakingCriteriaPayload(scores),
         overallBand: overall,
         feedback: notes.trim() || undefined,
         teacherNotes: notes.trim() || undefined,

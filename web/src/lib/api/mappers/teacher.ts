@@ -7,6 +7,7 @@ import type {
 } from "@/lib/api/teachers";
 import type { getWritingQueue } from "@/lib/api/grading";
 import {
+  fromSpeakingCriteriaPayload,
   speakingCriteria,
   type ScoringCriterion,
   type SpeakingPart,
@@ -506,11 +507,7 @@ export function mapSpeakingSession(data: SpeakingSession) {
   };
 
   if (data.grade?.criteriaScores) {
-    for (const [key, value] of Object.entries(data.grade.criteriaScores)) {
-      if (key in defaultScores) {
-        defaultScores[key as ScoringCriterion] = value;
-      }
-    }
+    Object.assign(defaultScores, fromSpeakingCriteriaPayload(data.grade.criteriaScores));
   }
 
   let timeRange = "TBD";

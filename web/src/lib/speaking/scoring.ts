@@ -28,3 +28,44 @@ export const speakingCriteria = [
   { id: "grammar" as ScoringCriterion, label: "Grammatical Range & Accuracy" },
   { id: "pronunciation" as ScoringCriterion, label: "Pronunciation" },
 ];
+
+/** API keys expected by POST /grading/speaking/:id/score */
+export const speakingCriteriaApiKeys: Record<ScoringCriterion, string> = {
+  fluency: "fluencyCoherence",
+  lexical: "lexicalResource",
+  grammar: "grammar",
+  pronunciation: "pronunciation",
+};
+
+const speakingApiKeyToCriterion: Record<string, ScoringCriterion> = {
+  fluencyCoherence: "fluency",
+  lexicalResource: "lexical",
+  grammar: "grammar",
+  pronunciation: "pronunciation",
+  fluency: "fluency",
+  lexical: "lexical",
+};
+
+export function toSpeakingCriteriaPayload(
+  scores: Record<ScoringCriterion, number>,
+): Record<string, number> {
+  return Object.fromEntries(
+    (Object.keys(speakingCriteriaApiKeys) as ScoringCriterion[]).map((id) => [
+      speakingCriteriaApiKeys[id],
+      scores[id],
+    ]),
+  );
+}
+
+export function fromSpeakingCriteriaPayload(
+  criteriaScores: Record<string, number>,
+): Partial<Record<ScoringCriterion, number>> {
+  const mapped: Partial<Record<ScoringCriterion, number>> = {};
+  for (const [key, value] of Object.entries(criteriaScores)) {
+    const id = speakingApiKeyToCriterion[key];
+    if (id != null && typeof value === "number") {
+      mapped[id] = value;
+    }
+  }
+  return mapped;
+}

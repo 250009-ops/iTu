@@ -141,8 +141,8 @@ export async function gradeSpeakingForStudent(
   }
   await api("POST", `/grading/speaking/${session.id}/score`, teacherToken, {
     criteriaScores: {
-      fluency: 7,
-      lexical: 7,
+      fluencyCoherence: 7,
+      lexicalResource: 7,
       grammar: 7,
       pronunciation: 7,
     },
