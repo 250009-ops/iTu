@@ -32,9 +32,10 @@ export function MockDaySidebar() {
   const { toast } = useToast();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   if (!data) return null;
-  const { checkIn, speakingTip, sessionCode, hasSpeaking } = data;
-  const canReschedule = data.state === "enrolled" && hasSpeaking;
+  const { checkIn, speakingTip, sessionCode, hasSpeaking, checkInCompleted } = data;
+  const canReschedule = data.state === "enrolled";
   const speakingDone = data.speaking.status === "completed";
+  const showCheckIn = !checkInCompleted || (hasSpeaking && !speakingDone);
 
   const supportActions: Record<string, () => void> = {
     "Open Chat": () =>
@@ -52,7 +53,7 @@ export function MockDaySidebar() {
 
   return (
     <div className="space-y-4">
-      {!speakingDone && (
+      {showCheckIn && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
           <div className="flex gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-white">
@@ -182,6 +183,7 @@ export function MockDaySidebar() {
           enrollmentId={data.enrollmentId}
           currentDateIso={data.mockDateIso}
           currentTime={data.mockTime}
+          hasSpeaking={hasSpeaking}
           onClose={() => setRescheduleOpen(false)}
           onDone={refresh}
         />

@@ -59,7 +59,7 @@ export function createBooking(body: CreateBookingBody) {
 
 export function rescheduleBooking(
   enrollmentId: string,
-  body: { mockDate: string; mockTime: string; speakingSlotId: string },
+  body: { mockDate: string; mockTime: string; speakingSlotId?: string },
 ) {
   return apiFetch<{
     enrollmentId: string;

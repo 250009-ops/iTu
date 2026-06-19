@@ -19,7 +19,7 @@ import {
 import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
 import { cn } from "@/lib/utils";
 
-type SectionStatus = "completed" | "in_progress" | "locked";
+type SectionStatus = "completed" | "in_progress" | "locked" | "ready";
 
 function StatusBadge({ status }: { status: SectionStatus }) {
   if (status === "completed") {
@@ -41,6 +41,16 @@ function StatusBadge({ status }: { status: SectionStatus }) {
       >
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
         In progress
+      </span>
+    );
+  }
+  if (status === "ready") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700"
+        style={{ fontSize: "11px" }}
+      >
+        Ready
       </span>
     );
   }
@@ -163,6 +173,15 @@ export function SectionCards() {
                   >
                     <Play size={13} fill="white" />
                     Resume
+                  </Link>
+                ) : section.status === "ready" ? (
+                  <Link
+                    href={`/exam/${sessionCode}/${section.id}`}
+                    className="flex items-center gap-2 rounded-xl bg-[#1B2A4A] px-4 py-2 font-semibold text-white hover:bg-[#243660]"
+                    style={{ fontSize: "13px" }}
+                  >
+                    <Play size={13} fill="white" />
+                    Start
                   </Link>
                 ) : section.status === "locked" ? (
                   <span

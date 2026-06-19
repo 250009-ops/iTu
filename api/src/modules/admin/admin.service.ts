@@ -34,6 +34,9 @@ const SKILL_ACCENTS = [
   { id: 'speaking', name: 'Speaking', detail: 'Live · 11–14 min', badge: 'Teacher-graded', color: 'rose' },
 ];
 
+/** Canonical skill ids stored on packages — never use SKILL_ACCENTS objects here. */
+const DEFAULT_PACKAGE_SKILLS = ['listening', 'reading', 'writing', 'speaking'];
+
 const INTEGRITY_FLAG_EVENTS = new Set([
   'tab_switch',
   'paste_attempt',
@@ -529,7 +532,7 @@ export class AdminService {
         mostPopular: dto.mostPopular ?? false,
         rating: dto.rating ?? null,
         reviewCount: dto.reviewCount ?? 0,
-        skills: (dto.skills ?? SKILL_ACCENTS) as Prisma.InputJsonValue,
+        skills: (dto.skills ?? DEFAULT_PACKAGE_SKILLS) as Prisma.InputJsonValue,
         included: (dto.included ?? []) as Prisma.InputJsonValue,
         rules: (dto.rules ?? []) as Prisma.InputJsonValue,
         listeningTestId: dto.listeningTestId || null,
@@ -562,13 +565,33 @@ export class AdminService {
   async clonePackage(id: string, actorId: string) {
     const source = await this.prisma.mockTestPackage.findUnique({
       where: { id },
+      include: { contentPool: true },
     });
     if (!source) throw new NotFoundException('Package not found');
 
     const title = `${source.title} Copy`;
     const slug = await this.resolveSlug(title);
 
-    return this.createPackage(
+    const poolBySkill = new Map<
+      'listening' | 'reading' | 'writing' | 'speaking',
+      string[]
+    >();
+    for (const row of source.contentPool) {
+      const skill = row.skill.toLowerCase() as
+        | 'listening'
+        | 'reading'
+        | 'writing'
+        | 'speaking';
+      const list = poolBySkill.get(skill) ?? [];
+      list.push(row.testId);
+      poolBySkill.set(skill, list);
+    }
+    const contentPool = [...poolBySkill.entries()].map(([skill, testIds]) => ({
+      skill,
+      testIds,
+    }));
+
+    const cloned = await this.createPackage(
       {
         title,
         slug,
@@ -579,6 +602,7 @@ export class AdminService {
         mostPopular: false,
         rating: source.rating ?? undefined,
         reviewCount: source.reviewCount,
+        skills: (source.skills as string[]) ?? DEFAULT_PACKAGE_SKILLS,
         included: (source.included as string[]) ?? [],
         rules: (source.rules as string[]) ?? [],
         listeningTestId: source.listeningTestId ?? undefined,
@@ -586,9 +610,12 @@ export class AdminService {
         writingTestId: source.writingTestId ?? undefined,
         speakingBankId: source.speakingBankId ?? undefined,
         isActive: false,
+        contentPool,
       },
       actorId,
     );
+
+    return cloned;
   }
 
   async updatePackage(id: string, dto: UpdatePackageDto, actorId: string) {

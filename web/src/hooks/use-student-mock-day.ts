@@ -13,8 +13,8 @@ export function useStudentMockDay() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const response = await getMockDayHub();
@@ -22,13 +22,21 @@ export function useStudentMockDay() {
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load mock day hub"));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!data || data.state === "results_released") return;
+    const id = setInterval(() => {
+      void refresh(true);
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [data, refresh]);
 
   return { data, loading, error, refresh };
 }

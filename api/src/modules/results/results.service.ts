@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
+import { packageExamSkills } from '../content/package-skills';
 import { ResultsPdfService } from './results-pdf.service';
 
 @Injectable()
@@ -94,6 +95,10 @@ export class ResultsService {
 
     if (!enrollment) return null;
 
+    const moduleCount = packageExamSkills(enrollment.package.skills).length;
+    const moduleLabel =
+      moduleCount === 1 ? 'module' : `${moduleCount} modules`;
+
     return {
       enrollmentCode: enrollment.enrollmentCode,
       mockDate: enrollment.mockDate,
@@ -102,7 +107,7 @@ export class ResultsService {
       message:
         enrollment.status === 'AWAITING_RESULTS' ||
         enrollment.resultsStatus === 'PARTIAL'
-          ? 'Your examiner is finishing grading. Full results will appear here when all four modules are complete.'
+          ? `Your examiner is finishing grading. Full results will appear here when all ${moduleLabel} are complete.`
           : 'Complete all exam sections to unlock your full band report.',
     };
   }

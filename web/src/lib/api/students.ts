@@ -34,6 +34,7 @@ export type StudentDashboardResponse = {
     hoursUntil: number;
     minutesUntil: number;
     skills: { name: string; status: string }[];
+    packageSkills?: string[];
   } | null;
   bandProgress: { month: string; band: number | null }[];
   pastMocks: {
@@ -133,9 +134,17 @@ export function getMockDayHub() {
       state: string;
       packageTitle?: string;
       packageSkills?: string[];
+      checkInCompleted?: boolean;
     } | null;
-    sections: { skill: string; completed: boolean; active: boolean }[];
-    speaking: { scheduledAt?: string; examiner?: string };
+    sections: {
+      skill: string;
+      completed: boolean;
+      active: boolean;
+      unlocked?: boolean;
+      band?: number | null;
+      rawScore?: number | null;
+    }[];
+    speaking: { scheduledAt?: string; examiner?: string } | null;
   }>("/students/mock-day");
 }
 

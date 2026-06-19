@@ -171,11 +171,39 @@ function normalizeIncludedItems(items: string[]) {
   });
 }
 
+function parsePackageSkillIds(skills: unknown): SkillId[] {
+  if (!Array.isArray(skills)) return [];
+  const order: SkillId[] = ["listening", "reading", "writing", "speaking"];
+  const found = new Set<SkillId>();
+  for (const entry of skills) {
+    let id: string | null = null;
+    if (typeof entry === "string") id = entry.toLowerCase();
+    else if (entry && typeof entry === "object" && "id" in entry) {
+      id = String((entry as { id: unknown }).id).toLowerCase();
+    }
+    if (id && order.includes(id as SkillId)) found.add(id as SkillId);
+  }
+  return order.filter((id) => found.has(id));
+}
+
+function packageDescriptionFallback(skillIds: SkillId[]) {
+  if (skillIds.length === 1 && skillIds[0] === "writing") {
+    return "Writing tasks · 60-minute window · Human-graded by your examiner";
+  }
+  if (skillIds.length === 1 && skillIds[0] === "speaking") {
+    return "Live speaking session · Certified examiner · Criteria feedback";
+  }
+  if (skillIds.length === 2) {
+    return `${skillIds.length}-skill mock · Computer-delivered format`;
+  }
+  return "Complete 4-skill exam · Computer-delivered IELTS format · Human-graded W & S";
+}
+
 export function mapBrowseProduct(pkg: CatalogPackage) {
-  const skillIds = pkg.skills.map((skill) => skill.toLowerCase() as SkillId);
+  const skillIds = parsePackageSkillIds(pkg.skills);
   const description =
     normalizePackageDescription(pkg.description) ??
-    "Complete 4-skill exam · Computer-delivered IELTS format · Human-graded W & S";
+    packageDescriptionFallback(skillIds);
 
   return {
     id: pkg.id,
@@ -222,9 +250,18 @@ export function mapMockDayHub(data: MockDayApi) {
     : null;
   const mockDate = new Date(enrollment.mockDate);
   const now = Date.now();
-  const secondsUntilSpeaking = speakingScheduled
-    ? Math.max(0, Math.floor((speakingScheduled.getTime() - now) / 1000))
-    : 0;
+  const checkInCompleted = Boolean(enrollment.checkInCompleted);
+  const mockStart = new Date(`${enrollment.mockDate}T${enrollment.mockTime}:00`);
+  const countdownTarget =
+    hasSpeaking && speakingScheduled ? speakingScheduled : mockStart;
+  const secondsUntilTarget = Math.max(
+    0,
+    Math.floor((countdownTarget.getTime() - now) / 1000),
+  );
+  const countdownLabel =
+    hasSpeaking && speakingScheduled
+      ? "TIME UNTIL SPEAKING"
+      : "TIME UNTIL MOCK START";
 
   const moduleRail = sections.map((s) => {
     const skill = s.skill as SkillId;
@@ -256,7 +293,7 @@ export function mapMockDayHub(data: MockDayApi) {
       title: "Check-in",
       detail: "Identity verification",
       time: enrollment.mockTime,
-      status: completedCount > 0 ? "completed" : "current",
+      status: checkInCompleted ? "completed" : "current",
       isBreak: false,
     },
     ...sections.flatMap((s, i) => {
@@ -324,7 +361,9 @@ export function mapMockDayHub(data: MockDayApi) {
         ? "completed"
         : s.active
           ? "in_progress"
-          : "locked";
+          : s.unlocked
+            ? "ready"
+            : "locked";
       return {
         id: skill,
         name: SKILL_META[skill]?.name ?? s.skill,
@@ -333,10 +372,19 @@ export function mapMockDayHub(data: MockDayApi) {
         timeRange: enrollment.mockTime,
         color: SKILL_COLORS[skill] ?? "#2563EB",
         result: s.completed
-          ? { score: "—", label: "Complete" }
+          ? s.band != null
+            ? { score: s.band.toFixed(1), label: "Band score" }
+            : s.rawScore != null
+              ? { score: String(s.rawScore), label: "Raw score" }
+              : { score: "—", label: "Complete" }
           : s.active
             ? { status: "In progress", sub: "Active now" }
-            : { status: "Locked", sub: "Not started" },
+            : s.unlocked
+              ? { status: "Ready", sub: "Start when ready" }
+              : {
+                  status: "Locked",
+                  sub: checkInCompleted ? "Complete prior sections" : "Check in first",
+                },
       };
     });
 
@@ -360,30 +408,42 @@ export function mapMockDayHub(data: MockDayApi) {
     modulesComplete: completedCount,
     totalModules,
     speakingExaminer: speaking?.examiner ?? "Your examiner",
+    countdownLabel,
     countdown: {
-      hours: Math.floor(secondsUntilSpeaking / 3600),
-      minutes: Math.floor((secondsUntilSpeaking % 3600) / 60),
-      seconds: secondsUntilSpeaking % 60,
+      hours: Math.floor(secondsUntilTarget / 3600),
+      minutes: Math.floor((secondsUntilTarget % 3600) / 60),
+      seconds: secondsUntilTarget % 60,
     },
+    checkInCompleted,
     currentPhase: {
       label: activeSection
         ? SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill
         : completedCount === totalModules
           ? "Complete"
-          : "Break",
+          : checkInCompleted
+            ? "Break"
+            : "Check-in",
       badge: activeSection
         ? `${(activeSection.skill as string).toUpperCase()} · ACTIVE`
-        : "MOCK DAY · IN PROGRESS",
+        : checkInCompleted
+          ? "MOCK DAY · IN PROGRESS"
+          : "CHECK-IN REQUIRED",
       headline: activeSection
         ? `${SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill} in progress`
-        : speakingScheduled
-          ? `Speaking starts at ${formatTime(speakingScheduled)} · ${speaking?.examiner ?? "Your examiner"}`
-          : "Continue your mock exam",
+        : completedCount === totalModules
+          ? "All modules complete"
+          : hasSpeaking && speakingScheduled
+            ? `Speaking starts at ${formatTime(speakingScheduled)} · ${speaking?.examiner ?? "Your examiner"}`
+            : checkInCompleted
+              ? "Continue your mock exam"
+              : "Complete check-in to begin",
       message: activeSection
         ? "Stay in fullscreen and follow the on-screen instructions for this section."
-        : speakingScheduled
+        : hasSpeaking && speakingScheduled
           ? "Return to this hub before your speaking slot. Ensure microphone and webcam are active."
-          : "Follow the schedule and complete each section in order.",
+          : checkInCompleted
+            ? "Follow the schedule and complete each section in order."
+            : "Verify your identity and device setup before starting your first section.",
     },
     moduleRail,
     rules: defaultExamRules,
@@ -404,18 +464,20 @@ export function mapMockDayHub(data: MockDayApi) {
       examiner: speaking?.examiner ?? "Your examiner",
       examinerTitle: "Speaking Examiner · IELTS Certified",
       checklist: [
-        { label: "Identity verified", done: completedCount > 0 },
-        { label: "Diagnostics passed", done: completedCount > 0 },
-        { label: "Rules acknowledged", done: completedCount > 0 },
-        { label: "Mic & camera ready", done: true },
+        { label: "Identity verified", done: checkInCompleted },
+        { label: "Diagnostics passed", done: checkInCompleted },
+        { label: "Rules acknowledged", done: checkInCompleted },
+        { label: "Mic & camera ready", done: checkInCompleted },
       ],
     },
     checkIn: {
-      title: "Check-in Required",
-      description: speakingScheduled
-        ? `Complete before ${formatTime(new Date(speakingScheduled.getTime() - 15 * 60 * 1000))} to access the speaking session.`
-        : "Complete check-in before your first section.",
-      actionLabel: "Start Check-in",
+      title: checkInCompleted ? "Check-in Complete" : "Check-in Required",
+      description: checkInCompleted
+        ? "You are cleared to start your exam sections."
+        : hasSpeaking && speakingScheduled
+          ? `Complete before ${formatTime(new Date(speakingScheduled.getTime() - 15 * 60 * 1000))} to access the speaking session.`
+          : "Complete check-in before your first section.",
+      actionLabel: checkInCompleted ? "Review Check-in" : "Start Check-in",
     },
     speakingTip,
     state: enrollment.state,

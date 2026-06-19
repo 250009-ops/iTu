@@ -50,7 +50,9 @@ export function UpcomingMockCard() {
 
       <h2 className="mt-4 text-xl font-bold sm:text-2xl">{label}</h2>
       <p className="mt-1 text-sm text-slate-400">
-        All 4 skills · Computer-delivered IELTS format
+        {upcoming.packageSkills?.length
+          ? `${upcoming.packageSkills.length} skill${upcoming.packageSkills.length === 1 ? "" : "s"} · ${upcoming.package}`
+          : `${upcoming.skills.length} skill${upcoming.skills.length === 1 ? "" : "s"} · ${upcoming.package}`}
       </p>
 
       <div className="mt-6 flex items-end gap-4 sm:gap-6">

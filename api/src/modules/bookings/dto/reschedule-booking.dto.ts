@@ -1,4 +1,4 @@
-import { IsDateString, IsNotEmpty, IsString } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class RescheduleBookingDto {
   @IsDateString()
@@ -8,7 +8,8 @@ export class RescheduleBookingDto {
   @IsNotEmpty()
   mockTime: string;
 
+  /** Required when the package includes speaking; omitted for writing-only mocks. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  speakingSlotId: string;
+  speakingSlotId?: string;
 }

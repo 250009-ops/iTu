@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ExamSkill,
   NotificationType,
   Prisma,
   TicketType,
@@ -108,8 +109,15 @@ export class StudentsService {
 
     const completedSkills =
       upcoming?.examSession?.sectionAttempts
-        .filter((a) => a.submittedAt)
+        .filter((a) => {
+          if (a.submittedAt) return true;
+          return false;
+        })
         .map((a) => a.skill.toLowerCase()) ?? [];
+
+    const upcomingPackageSkills = upcoming
+      ? packageExamSkills(upcoming.package.skills)
+      : [];
 
     return {
       user: {
@@ -150,18 +158,20 @@ export class StudentsService {
             daysUntil,
             hoursUntil,
             minutesUntil,
-            skills: ['listening', 'reading', 'writing', 'speaking'].map(
-              (skill) => ({
-                name: skill.charAt(0).toUpperCase() + skill.slice(1),
-                status: completedSkills.includes(skill)
+            skills: upcomingPackageSkills.map((skill) => {
+              const key = skill.toLowerCase();
+              return {
+                name: key.charAt(0).toUpperCase() + key.slice(1),
+                status: completedSkills.includes(key)
                   ? 'completed'
                   : upcoming.examSession?.state
                         .toLowerCase()
-                        .includes(skill)
+                        .includes(key)
                     ? 'active'
                     : 'scheduled',
-              }),
-            ),
+              };
+            }),
+            packageSkills: upcomingPackageSkills.map((s) => s.toLowerCase()),
           }
         : null,
       bandProgress: completed
@@ -262,6 +272,17 @@ export class StudentsService {
       .map((a) => a.skill.toLowerCase());
 
     const packageSkills = packageExamSkills(enrollment.package.skills);
+    const checkInCompleted = Boolean(session.checkInAt);
+    const sessionState = session.state.toLowerCase();
+
+    let nextSkill: string | null = null;
+    for (const skill of packageSkills) {
+      const key = skill.toLowerCase();
+      if (!completedSkills.includes(key)) {
+        nextSkill = key;
+        break;
+      }
+    }
 
     return {
       enrollment: {
@@ -270,24 +291,37 @@ export class StudentsService {
         mockDate: enrollment.mockDate,
         mockTime: enrollment.mockTime,
         sessionCode: session.sessionCode,
-        state: session.state.toLowerCase(),
+        state: sessionState,
         packageTitle: enrollment.package.title,
         packageSkills: packageSkills.map((s) => s.toLowerCase()),
+        checkInCompleted,
       },
       sections: packageSkills.map((skill) => {
         const key = skill.toLowerCase();
+        const attempt = session.sectionAttempts.find((a) => a.skill === skill);
+        const completed = completedSkills.includes(key);
+        const active =
+          sessionState.includes(key) && !completed;
+        const unlocked =
+          !completed &&
+          !active &&
+          checkInCompleted &&
+          nextSkill === key;
         return {
           skill: key,
-          completed: completedSkills.includes(key),
-          active:
-            session.state.toLowerCase().includes(key) &&
-            !completedSkills.includes(key),
+          completed,
+          active,
+          unlocked,
+          band: attempt?.band ?? null,
+          rawScore: attempt?.rawScore ?? null,
         };
       }),
-      speaking: {
-        scheduledAt: enrollment.speakingSlot?.startsAt,
-        examiner: enrollment.speakingTeacher?.user.name,
-      },
+      speaking: packageSkills.includes(ExamSkill.SPEAKING)
+        ? {
+            scheduledAt: enrollment.speakingSlot?.startsAt,
+            examiner: enrollment.speakingTeacher?.user.name,
+          }
+        : null,
     };
   }
 

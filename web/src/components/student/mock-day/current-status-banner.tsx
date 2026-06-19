@@ -43,6 +43,8 @@ export function CurrentStatusBanner() {
     currentPhase,
     moduleRail,
     sessionCode,
+    countdownLabel,
+    checkInCompleted,
   } = data;
 
   const hrs = Math.floor(seconds / 3600);
@@ -113,7 +115,7 @@ export function CurrentStatusBanner() {
               className="font-semibold tracking-wider text-blue-300"
               style={{ fontSize: "10px" }}
             >
-              TIME UNTIL SPEAKING
+              {countdownLabel ?? "TIME UNTIL MOCK START"}
             </p>
             <div className="flex gap-2">
               {[
@@ -138,12 +140,14 @@ export function CurrentStatusBanner() {
               href={`/exam/${sessionCode}/check-in`}
               className="flex items-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-white transition-opacity hover:opacity-90"
               style={{
-                background: "linear-gradient(135deg, #E31837, #c01230)",
+                background: checkInCompleted
+                  ? "rgba(255,255,255,0.15)"
+                  : "linear-gradient(135deg, #E31837, #c01230)",
                 fontSize: "14px",
               }}
             >
               <Zap size={16} />
-              Enter Exam · Check-in
+              {checkInCompleted ? "Review Check-in" : "Enter Exam · Check-in"}
             </Link>
           </div>
         </div>

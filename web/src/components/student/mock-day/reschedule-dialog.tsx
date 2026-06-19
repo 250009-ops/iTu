@@ -37,12 +37,14 @@ export function RescheduleDialog({
   enrollmentId,
   currentDateIso,
   currentTime,
+  hasSpeaking = true,
   onClose,
   onDone,
 }: {
   enrollmentId: string;
   currentDateIso: string;
   currentTime: string;
+  hasSpeaking?: boolean;
   onClose: () => void;
   onDone: () => Promise<void> | void;
 }) {
@@ -69,8 +71,8 @@ export function RescheduleDialog({
   }, [mockDate]);
 
   useEffect(() => {
-    void loadSlots();
-  }, [loadSlots]);
+    if (hasSpeaking) void loadSlots();
+  }, [loadSlots, hasSpeaking]);
 
   const slotsByTeacher = useMemo(() => {
     const groups = new Map<string, { name: string; slots: Slot[] }>();
@@ -85,18 +87,24 @@ export function RescheduleDialog({
     return [...groups.values()];
   }, [slots]);
 
+  const canConfirm = hasSpeaking ? Boolean(selectedSlot) : Boolean(mockDate && mockTime);
+
   async function handleConfirm() {
-    if (!selectedSlot) return;
+    if (hasSpeaking && !selectedSlot) return;
     setSubmitting(true);
     setError(null);
     try {
       await rescheduleBooking(enrollmentId, {
         mockDate: new Date(`${mockDate}T${mockTime}:00`).toISOString(),
         mockTime,
-        speakingSlotId: selectedSlot.id,
+        ...(hasSpeaking && selectedSlot
+          ? { speakingSlotId: selectedSlot.id }
+          : {}),
       });
       toast("Mock rescheduled", {
-        description: "Your new date and speaking slot are confirmed.",
+        description: hasSpeaking
+          ? "Your new date and speaking slot are confirmed."
+          : "Your new mock date and time are confirmed.",
         variant: "success",
       });
       await onDone();
@@ -119,7 +127,9 @@ export function RescheduleDialog({
           <div>
             <h2 className="text-lg font-bold text-navy">Reschedule mock</h2>
             <p className="mt-0.5 text-sm text-muted">
-              Pick a new date and speaking slot for your upcoming mock.
+              {hasSpeaking
+                ? "Pick a new date and speaking slot for your upcoming mock."
+                : "Pick a new date and start time for your upcoming mock."}
             </p>
           </div>
           <button
@@ -169,6 +179,7 @@ export function RescheduleDialog({
             </div>
           </div>
 
+          {hasSpeaking && (
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-navy">
               Speaking slot
@@ -215,6 +226,7 @@ export function RescheduleDialog({
               </div>
             )}
           </div>
+          )}
 
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -230,7 +242,7 @@ export function RescheduleDialog({
           <Button
             variant="danger"
             onClick={handleConfirm}
-            disabled={!selectedSlot}
+            disabled={!canConfirm}
             loading={submitting}
           >
             Confirm reschedule
