@@ -543,6 +543,8 @@ export function mapSpeakingSession(data: SpeakingSession) {
     criteria: speakingCriteria,
     defaultScores,
     overallBand: data.grade?.overallBand ?? 7.0,
+    graded: Boolean(data.grade),
+    gradedBand: data.grade?.overallBand ?? null,
     teacherNotes: data.teacherNotes ?? "",
     status: data.status,
     recordingUrl: data.recordingUrl ?? null,

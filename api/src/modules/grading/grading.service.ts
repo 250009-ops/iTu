@@ -311,7 +311,10 @@ export class GradingService {
 
       await tx.sectionAttempt.update({
         where: { id: session.sectionAttemptId },
-        data: { band: body.overallBand },
+        data: {
+          band: body.overallBand,
+          submittedAt: session.sectionAttempt.submittedAt ?? new Date(),
+        },
       });
 
       if (isFirstGrade && user.teacherProfileId) {

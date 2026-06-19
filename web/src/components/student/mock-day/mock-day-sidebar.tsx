@@ -34,6 +34,7 @@ export function MockDaySidebar() {
   if (!data) return null;
   const { checkIn, speakingTip, sessionCode } = data;
   const canReschedule = data.state === "enrolled";
+  const speakingDone = data.speaking.status === "completed";
 
   const supportActions: Record<string, () => void> = {
     "Open Chat": () =>
@@ -51,39 +52,41 @@ export function MockDaySidebar() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-        <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-white">
-            <Zap size={18} />
+      {!speakingDone && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-white">
+              <Zap size={18} />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900" style={{ fontSize: "14px" }}>
+                {checkIn.title}
+              </p>
+              <p className="mt-0.5 text-gray-600" style={{ fontSize: "12px" }}>
+                {checkIn.description}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-gray-900" style={{ fontSize: "14px" }}>
-              {checkIn.title}
-            </p>
-            <p className="mt-0.5 text-gray-600" style={{ fontSize: "12px" }}>
-              {checkIn.description}
-            </p>
-          </div>
-        </div>
-        <Link
-          href={`/exam/${sessionCode}/check-in`}
-          className="mt-4 block w-full rounded-xl bg-[#1B2A4A] py-2.5 text-center font-semibold text-white hover:bg-[#243660]"
-          style={{ fontSize: "13px" }}
-        >
-          {checkIn.actionLabel} &gt;
-        </Link>
-        {canReschedule && (
-          <button
-            type="button"
-            onClick={() => setRescheduleOpen(true)}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-white py-2.5 font-semibold text-amber-700 hover:bg-amber-100"
+          <Link
+            href={`/exam/${sessionCode}/check-in`}
+            className="mt-4 block w-full rounded-xl bg-[#1B2A4A] py-2.5 text-center font-semibold text-white hover:bg-[#243660]"
             style={{ fontSize: "13px" }}
           >
-            <CalendarClock size={14} />
-            Reschedule mock
-          </button>
-        )}
-      </div>
+            {checkIn.actionLabel} &gt;
+          </Link>
+          {canReschedule && (
+            <button
+              type="button"
+              onClick={() => setRescheduleOpen(true)}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-white py-2.5 font-semibold text-amber-700 hover:bg-amber-100"
+              style={{ fontSize: "13px" }}
+            >
+              <CalendarClock size={14} />
+              Reschedule mock
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center gap-2">

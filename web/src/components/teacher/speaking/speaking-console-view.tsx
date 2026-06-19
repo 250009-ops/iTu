@@ -3,8 +3,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import { SpeakingEmptyState } from "@/components/teacher/speaking/speaking-empty-state";
 import { SpeakingLiveConsole } from "@/components/teacher/speaking/speaking-live-console";
+import { LiveScoringPanel } from "@/components/teacher/speaking/live-scoring-panel";
 import { SpeakingSessionHeader } from "@/components/teacher/speaking/session-header";
 import { SpeakingRoomProvider } from "@/contexts/speaking-room-context";
 import {
@@ -66,25 +68,63 @@ function SpeakingContent() {
           <SpeakingSessionHeader />
           <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
             {sessionCompleted ? (
-              <>
-                <h2 className="text-lg font-bold text-navy">Session complete</h2>
-                <p className="mt-2 text-sm text-muted">
-                  This speaking session with{" "}
-                  <strong className="text-navy">{session.studentName}</strong> has
-                  ended. Submit your grade from the live console if you have not
-                  already, or review the recording below.
-                </p>
-                {session.recordingUrl && (
-                  <a
-                    href={session.recordingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 inline-block text-sm font-semibold text-sky-600 hover:underline"
-                  >
-                    Open speaking recording
-                  </a>
-                )}
-              </>
+              session.graded ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    <h2 className="text-lg font-bold text-navy">
+                      Grade submitted
+                    </h2>
+                  </div>
+                  <p className="mt-2 text-sm text-muted">
+                    <strong className="text-navy">{session.studentName}</strong>
+                    &apos;s speaking session is complete and graded
+                    {session.gradedBand != null && (
+                      <>
+                        {" "}
+                        with an overall band of{" "}
+                        <strong className="text-navy">
+                          {session.gradedBand.toFixed(1)}
+                        </strong>
+                      </>
+                    )}
+                    . The student will see results once all sections are released.
+                  </p>
+                  {session.recordingUrl && (
+                    <a
+                      href={session.recordingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-block text-sm font-semibold text-sky-600 hover:underline"
+                    >
+                      Open speaking recording
+                    </a>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold text-navy">Session complete</h2>
+                  <p className="mt-2 text-sm text-muted">
+                    This speaking session with{" "}
+                    <strong className="text-navy">{session.studentName}</strong>{" "}
+                    has ended but is not graded yet. Submit the candidate&apos;s
+                    band scores below.
+                  </p>
+                  {session.recordingUrl && (
+                    <a
+                      href={session.recordingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-block text-sm font-semibold text-sky-600 hover:underline"
+                    >
+                      Open speaking recording
+                    </a>
+                  )}
+                  <div className="mt-5">
+                    <LiveScoringPanel />
+                  </div>
+                </>
+              )
             ) : (
               <>
                 <h2 className="text-lg font-bold text-navy">Ready to examine?</h2>

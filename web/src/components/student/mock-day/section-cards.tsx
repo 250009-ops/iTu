@@ -17,6 +17,7 @@ import {
   User,
 } from "lucide-react";
 import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
+import { cn } from "@/lib/utils";
 
 type SectionStatus = "completed" | "in_progress" | "locked";
 
@@ -59,6 +60,7 @@ export function SectionCards() {
 
   if (!data) return null;
   const { sections, speaking, sessionCode } = data;
+  const speakingDone = speaking.status === "completed";
 
   return (
     <div className="space-y-4">
@@ -192,19 +194,48 @@ export function SectionCards() {
         );
       })}
 
-      <div className="overflow-hidden rounded-2xl border-2 border-rose-200 bg-white shadow-md">
-        <div className="flex items-center justify-between border-b border-rose-100 bg-gradient-to-r from-rose-50 to-rose-50/60 px-5 py-2.5">
+      <div
+        className={cn(
+          "overflow-hidden rounded-2xl border-2 bg-white shadow-md",
+          speakingDone ? "border-emerald-200" : "border-rose-200",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center justify-between border-b px-5 py-2.5",
+            speakingDone
+              ? "border-emerald-100 bg-gradient-to-r from-emerald-50 to-emerald-50/60"
+              : "border-rose-100 bg-gradient-to-r from-rose-50 to-rose-50/60",
+          )}
+        >
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
-            <span className="font-bold tracking-wide text-rose-700" style={{ fontSize: "11px" }}>
-              ACTION REQUIRED · SPEAKING MODULE
+            {speakingDone ? (
+              <CheckCircle size={12} className="text-emerald-600" />
+            ) : (
+              <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
+            )}
+            <span
+              className={cn(
+                "font-bold tracking-wide",
+                speakingDone ? "text-emerald-700" : "text-rose-700",
+              )}
+              style={{ fontSize: "11px" }}
+            >
+              {speakingDone
+                ? "SPEAKING MODULE · COMPLETE"
+                : "ACTION REQUIRED · SPEAKING MODULE"}
             </span>
           </div>
           <span
-            className="rounded-full bg-rose-100 px-2.5 py-0.5 font-semibold text-rose-700"
+            className={cn(
+              "rounded-full px-2.5 py-0.5 font-semibold",
+              speakingDone
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-rose-100 text-rose-700",
+            )}
             style={{ fontSize: "11px" }}
           >
-            {speaking.scheduledLabel} today
+            {speakingDone ? "Submitted" : `${speaking.scheduledLabel} today`}
           </span>
         </div>
 
@@ -219,10 +250,17 @@ export function SectionCards() {
                   Speaking
                 </h3>
                 <span
-                  className="rounded-full bg-sky-100 px-2.5 py-0.5 font-semibold text-sky-700"
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 font-semibold",
+                    speakingDone
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-sky-100 text-sky-700",
+                  )}
                   style={{ fontSize: "11px" }}
                 >
-                  Scheduled · {speaking.scheduledLabel}
+                  {speakingDone
+                    ? "Complete"
+                    : `Scheduled · ${speaking.scheduledLabel}`}
                 </span>
               </div>
               <p className="mt-0.5 text-gray-500" style={{ fontSize: "13px" }}>
@@ -252,22 +290,34 @@ export function SectionCards() {
           </div>
 
           <div className="flex shrink-0 gap-2">
-            <Link
-              href={`/exam/${sessionCode}/speaking`}
-              className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 font-semibold text-white hover:bg-rose-700"
-              style={{ fontSize: "13px" }}
-            >
-              <Play size={14} fill="white" />
-              Join Session
-            </Link>
-            <Link
-              href={`/exam/${sessionCode}/check-in`}
-              className="flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 font-semibold text-rose-700 hover:bg-rose-50"
-              style={{ fontSize: "13px" }}
-            >
-              <Shield size={14} />
-              Check-in First
-            </Link>
+            {speakingDone ? (
+              <span
+                className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 font-semibold text-emerald-700"
+                style={{ fontSize: "13px" }}
+              >
+                <CheckCircle size={14} />
+                Completed
+              </span>
+            ) : (
+              <>
+                <Link
+                  href={`/exam/${sessionCode}/speaking`}
+                  className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 font-semibold text-white hover:bg-rose-700"
+                  style={{ fontSize: "13px" }}
+                >
+                  <Play size={14} fill="white" />
+                  Join Session
+                </Link>
+                <Link
+                  href={`/exam/${sessionCode}/check-in`}
+                  className="flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 font-semibold text-rose-700 hover:bg-rose-50"
+                  style={{ fontSize: "13px" }}
+                >
+                  <Shield size={14} />
+                  Check-in First
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

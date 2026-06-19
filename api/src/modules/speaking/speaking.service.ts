@@ -300,6 +300,15 @@ export class SpeakingService {
       include: speakingSessionInclude,
     });
 
+    // When the examiner ends the session, the speaking section is over: mark the
+    // attempt submitted so the student's Mock Day Hub stops offering to "join".
+    if (dto.endSession) {
+      await this.prisma.sectionAttempt.updateMany({
+        where: { id: session.sectionAttemptId, submittedAt: null },
+        data: { submittedAt: now },
+      });
+    }
+
     return this.toStateResponse(updated);
   }
 
