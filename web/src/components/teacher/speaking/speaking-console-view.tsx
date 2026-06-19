@@ -62,7 +62,7 @@ function SpeakingContent() {
     session.status === "completed" || session.activePhase === "complete";
 
   return (
-    <SpeakingRoomProvider speakingSessionId={sessionId} role="examiner">
+    <>
       <div className="p-4 lg:p-6 xl:p-8">
         <div className="mx-auto max-w-3xl space-y-6">
           <SpeakingSessionHeader />
@@ -150,14 +150,27 @@ function SpeakingContent() {
           </div>
         </div>
       </div>
-      <LiveConsoleGate sessionCompleted={sessionCompleted} />
-    </SpeakingRoomProvider>
+      <LiveConsoleGate sessionCompleted={sessionCompleted} sessionId={sessionId} />
+    </>
   );
 }
 
-function LiveConsoleGate({ sessionCompleted }: { sessionCompleted: boolean }) {
+function LiveConsoleGate({
+  sessionCompleted,
+  sessionId,
+}: {
+  sessionCompleted: boolean;
+  sessionId: string;
+}) {
   const searchParams = useSearchParams();
   const isLive = searchParams.get("live") === "1";
+  // Only mount the LiveKit room (and the examiner's mic/camera) while actually
+  // running the live console. Leaving the console or finishing the session
+  // unmounts the provider, which disconnects audio/video.
   if (!isLive || sessionCompleted) return null;
-  return <SpeakingLiveConsole />;
+  return (
+    <SpeakingRoomProvider speakingSessionId={sessionId} role="examiner">
+      <SpeakingLiveConsole />
+    </SpeakingRoomProvider>
+  );
 }

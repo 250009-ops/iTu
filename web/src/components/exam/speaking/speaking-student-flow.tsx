@@ -102,13 +102,16 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
-        {stage === "waiting" && (
-          <WaitingRoom
-            content={content}
-            speakingState={speakingState}
-            onJoin={() => setStage("rules")}
-          />
-        )}
+        {stage === "waiting" &&
+          (speakingState?.status === "completed" ? (
+            <SessionComplete onReturn={() => router.push("/student/mock-day")} />
+          ) : (
+            <WaitingRoom
+              content={content}
+              speakingState={speakingState}
+              onJoin={() => setStage("rules")}
+            />
+          ))}
         {stage === "rules" && <RulesConsent onJoin={() => setStage("live")} />}
         {stage === "complete" && (
           <SessionComplete onReturn={() => router.push("/student/mock-day")} />

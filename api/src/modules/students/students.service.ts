@@ -231,7 +231,13 @@ export class StudentsService {
         },
         include: {
           package: true,
-          examSession: { include: { sectionAttempts: true } },
+          examSession: {
+            include: {
+              sectionAttempts: {
+                include: { speakingSession: { include: { grade: true } } },
+              },
+            },
+          },
           speakingSlot: true,
           speakingTeacher: { include: { user: true } },
         },
@@ -244,7 +250,15 @@ export class StudentsService {
 
     const session = enrollment.examSession;
     const completedSkills = session.sectionAttempts
-      .filter((a) => a.submittedAt)
+      .filter((a) => {
+        if (a.submittedAt) return true;
+        // Speaking is "over" for the student once the live session has ended or
+        // been graded, even if the attempt's submittedAt wasn't stamped.
+        const speaking = a.speakingSession;
+        return Boolean(
+          speaking && (speaking.status === 'COMPLETED' || speaking.grade),
+        );
+      })
       .map((a) => a.skill.toLowerCase());
 
     const packageSkills = packageExamSkills(enrollment.package.skills);

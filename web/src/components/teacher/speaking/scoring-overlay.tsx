@@ -6,7 +6,6 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
-import { useSpeakingRoom } from "@/contexts/speaking-room-context";
 import {
   bandOptions,
   computeOverall,
@@ -59,7 +58,6 @@ function ScoreRow({
 export function ScoringSidebar() {
   const router = useRouter();
   const { session, sessionId, refreshSession } = useTeacherSpeaking();
-  const { leaveRoom } = useSpeakingRoom();
   const [scores, setScores] = useState(
     session?.defaultScores ?? {
       fluency: 7,
@@ -103,14 +101,10 @@ export function ScoringSidebar() {
         description: `${session.studentName} · Speaking band ${overall.toFixed(1)}`,
         variant: "success",
       });
-      // Grading finalizes the session — leave the live room and exit the
-      // full-screen console back to the (now graded) session summary.
+      // Grading finalizes the session. Navigating off the live URL unmounts
+      // the LiveKit room provider, which disconnects the examiner's mic/camera
+      // and returns to the (now graded) session summary.
       await refreshSession();
-      try {
-        await leaveRoom();
-      } catch {
-        // Leaving the room is best-effort; the grade is already saved.
-      }
       router.push(`/teacher/speaking?session=${sessionId}`);
     } catch (err) {
       toast("Could not submit grade", {
