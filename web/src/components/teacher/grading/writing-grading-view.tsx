@@ -24,6 +24,14 @@ const WRITING_CRITERIA = [
 
 type CriterionKey = (typeof WRITING_CRITERIA)[number];
 
+/** API keys expected by POST /grading/writing/:id/score (band-validation). */
+const WRITING_CRITERIA_API_KEYS: Record<CriterionKey, string> = {
+  "Task Achievement": "taskAchievement",
+  "Coherence & Cohesion": "coherenceCohesion",
+  "Lexical Resource": "lexicalResource",
+  "Grammatical Range & Accuracy": "grammar",
+};
+
 function computeOverall(scores: Record<string, number>): number {
   const values = Object.values(scores);
   if (!values.length) return 0;
@@ -118,9 +126,11 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
       if (data.grade) {
         setScores((prev) => {
           const next = { ...prev };
-          for (const key of WRITING_CRITERIA) {
-            const score = data.grade?.criteriaScores?.[key];
-            if (typeof score === "number") next[key] = score;
+          for (const label of WRITING_CRITERIA) {
+            const score =
+              data.grade?.criteriaScores?.[WRITING_CRITERIA_API_KEYS[label]] ??
+              data.grade?.criteriaScores?.[label];
+            if (typeof score === "number") next[label] = score;
           }
           return next;
         });
@@ -143,8 +153,14 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
     setSubmitting(true);
     setConfirmOpen(false);
     try {
+      const criteriaScores = Object.fromEntries(
+        WRITING_CRITERIA.map((label) => [
+          WRITING_CRITERIA_API_KEYS[label],
+          scores[label],
+        ]),
+      );
       await scoreWriting(submissionId, {
-        criteriaScores: scores,
+        criteriaScores,
         overallBand: overall,
         feedback: feedback.trim() || undefined,
       });

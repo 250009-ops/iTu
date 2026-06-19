@@ -116,8 +116,8 @@ export async function gradeWritingForStudent(
   await api("POST", `/grading/writing/${row.id}/score`, teacherToken, {
     criteriaScores: {
       taskAchievement: 7,
-      coherence: 7,
-      lexical: 7,
+      coherenceCohesion: 7,
+      lexicalResource: 7,
       grammar: 7,
     },
     overallBand: 7,

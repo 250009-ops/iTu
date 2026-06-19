@@ -506,6 +506,19 @@ function skillBand(
   return skills?.find((s) => s.skill === skill)?.band ?? null;
 }
 
+const CRITERIA_LABELS: Record<string, string> = {
+  taskAchievement: "Task Achievement",
+  coherenceCohesion: "Coherence & Cohesion",
+  lexicalResource: "Lexical Resource",
+  grammar: "Grammatical Range & Accuracy",
+  fluencyCoherence: "Fluency & Coherence",
+  pronunciation: "Pronunciation",
+};
+
+function prettyCriterionLabel(key: string): string {
+  return CRITERIA_LABELS[key] ?? key;
+}
+
 function buildModuleDetail(
   skill: SkillId,
   band: number | null,
@@ -516,8 +529,8 @@ function buildModuleDetail(
   const isRaw = skill === "listening" || skill === "reading";
 
   if (criteriaScores && Object.keys(criteriaScores).length > 0) {
-    const parts = Object.entries(criteriaScores).map(([label, value]) => ({
-      label,
+    const parts = Object.entries(criteriaScores).map(([key, value]) => ({
+      label: prettyCriterionLabel(key),
       sublabel: "Criterion",
       tag: value >= 7 ? "Strong" : value >= 6 ? "Good" : "Develop",
       tagTone: (value >= 7 ? "emerald" : value >= 6 ? "amber" : "rose") as PartTone,
