@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
   Line,
+  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  LineChart,
 } from "recharts";
 import { useStudentDashboardData } from "@/contexts/student-dashboard-context";
 import {
@@ -61,13 +60,7 @@ export function BandProgressChart() {
 
       <div className="mt-4 flex-1">
         <ResponsiveContainer width="100%" height={160}>
-          <ComposedChart data={bandProgress} margin={{ left: -8, right: 8, top: 8, bottom: 0 }}>
-            <defs>
-              <linearGradient id="bandGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1b2a4a" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#1b2a4a" stopOpacity={0} />
-              </linearGradient>
-            </defs>
+          <LineChart data={bandProgress} margin={{ left: -8, right: 8, top: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="4 4" stroke={CHART_GRID_STROKE} vertical={false} />
             <XAxis
               dataKey="month"
@@ -76,8 +69,8 @@ export function BandProgressChart() {
               tickLine={false}
             />
             <YAxis
-              domain={[5, 7.5]}
-              ticks={[5.5, 6, 6.5, 7]}
+              domain={[0, 9]}
+              ticks={[0, 3, 6, 9]}
               tick={CHART_AXIS_TICK}
               axisLine={false}
               tickLine={false}
@@ -89,23 +82,16 @@ export function BandProgressChart() {
               }
               cursor={{ stroke: "#cbd5e1", strokeWidth: 1 }}
             />
-            <Area
-              type="monotone"
-              dataKey="band"
-              name="Band"
-              stroke="none"
-              fill="url(#bandGradient)"
-            />
             <Line
               type="monotone"
               dataKey="band"
-              name="Band"
+              name="Overall band"
               stroke="#1b2a4a"
               strokeWidth={2.5}
               dot={{ r: 4, fill: "#1b2a4a", strokeWidth: 0 }}
               activeDot={{ r: 6, fill: "#1b2a4a", stroke: "#fff", strokeWidth: 2 }}
             />
-          </ComposedChart>
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>

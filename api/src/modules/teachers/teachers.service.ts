@@ -65,10 +65,19 @@ export class TeachersService {
       where: { teacherId: teacher.id, status: { in: ['PENDING', 'IN_REVIEW'] } },
     });
 
+    const speakingQueue = await this.prisma.speakingSession.count({
+      where: {
+        teacherId: teacher.id,
+        status: 'COMPLETED',
+        grade: null,
+      },
+    });
+
     return {
       stats: {
         sessionsToday: speakingToday.length,
         writingQueue,
+        speakingQueue,
         rating: teacher.rating,
         totalEarned: teacher.totalEarned,
       },
@@ -82,36 +91,201 @@ export class TeachersService {
     };
   }
 
-  async getAvailability(user: RequestUser) {
+  async getSpeakingSessions(user: RequestUser) {
+    const teacher = await this.requireTeacher(user);
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const sessions = await this.prisma.speakingSession.findMany({
+      where: { teacherId: teacher.id },
+      include: {
+        grade: true,
+        sectionAttempt: {
+          include: {
+            session: {
+              include: {
+                enrollment: {
+                  include: {
+                    student: { include: { user: true } },
+                    package: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { scheduledAt: 'asc' },
+    });
+
+    const mapped = sessions.map((s) => {
+      const scheduledAt = s.scheduledAt;
+      const endsAt = scheduledAt
+        ? new Date(scheduledAt.getTime() + 20 * 60_000)
+        : null;
+      const enrollment = s.sectionAttempt.session.enrollment;
+      const studentName = enrollment.student.user.name;
+      const examType = enrollment.package.examType;
+
+      let uiStatus: 'upcoming' | 'live' | 'awaiting_grade' | 'graded';
+      if (s.grade) {
+        uiStatus = 'graded';
+      } else if (s.status === 'COMPLETED') {
+        uiStatus = 'awaiting_grade';
+      } else if (s.status === 'ACTIVE' || s.status === 'WAITING') {
+        uiStatus = 'live';
+      } else {
+        uiStatus = 'upcoming';
+      }
+
+      return {
+        id: s.id,
+        studentName,
+        scheduledAt,
+        endsAt,
+        status: s.status.toLowerCase(),
+        uiStatus,
+        examType: examType.toLowerCase(),
+        packageTitle: enrollment.package.title,
+        grade: s.grade
+          ? {
+              overallBand: s.grade.overallBand,
+              criteriaScores: s.grade.criteriaScores as Record<string, number>,
+            }
+          : null,
+        recordingUrl: s.recordingUrl,
+      };
+    });
+
+    const todaySessions = mapped.filter((s) => {
+      if (!s.scheduledAt) return false;
+      const d = new Date(s.scheduledAt);
+      return d >= today && d < tomorrow;
+    });
+
+    const upcoming = mapped.filter((s) => {
+      if (!s.scheduledAt) return false;
+      const d = new Date(s.scheduledAt);
+      return d >= tomorrow && (s.uiStatus === 'upcoming' || s.uiStatus === 'live');
+    });
+
+    const completed = mapped.filter((s) => s.uiStatus === 'graded');
+
+    const actionable = mapped.filter(
+      (s) =>
+        s.uiStatus === 'upcoming' ||
+        s.uiStatus === 'live' ||
+        s.uiStatus === 'awaiting_grade',
+    );
+    const nextSession =
+      actionable.find((s) => s.scheduledAt && new Date(s.scheduledAt) >= now) ??
+      actionable.find((s) => s.uiStatus === 'live') ??
+      null;
+
+    let minutesUntilNext: number | null = null;
+    if (nextSession?.scheduledAt) {
+      minutesUntilNext = Math.max(
+        0,
+        Math.round(
+          (new Date(nextSession.scheduledAt).getTime() - now.getTime()) /
+            60_000,
+        ),
+      );
+    }
+
+    return {
+      today: todaySessions,
+      upcoming,
+      completed,
+      counts: {
+        today: todaySessions.length,
+        upcoming: upcoming.length,
+        completed: completed.length,
+      },
+      nextSession,
+      minutesUntilNext,
+    };
+  }
+
+  async getAvailability(user: RequestUser, weekStart?: string) {
     const teacher = await this.requireTeacher(user);
 
-    const [weekly, slots] = await Promise.all([
+    const weekStartDate = weekStart ? new Date(weekStart) : this.getMonday(new Date());
+    weekStartDate.setHours(0, 0, 0, 0);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 7);
+
+    const now = new Date();
+
+    const [weekly, weekSlots, upcomingSlots] = await Promise.all([
       this.prisma.teacherAvailability.findMany({
         where: { teacherId: teacher.id },
-        orderBy: { dayOfWeek: 'asc' },
+        orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
       }),
       this.prisma.teacherSlot.findMany({
         where: {
           teacherId: teacher.id,
-          startsAt: { gte: new Date() },
+          startsAt: { gte: weekStartDate, lt: weekEndDate },
         },
         orderBy: { startsAt: 'asc' },
-        take: 50,
+        include: {
+          enrollments: {
+            take: 1,
+            include: {
+              student: { include: { user: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.teacherSlot.findMany({
+        where: {
+          teacherId: teacher.id,
+          status: SlotStatus.BOOKED,
+          startsAt: { gte: now },
+        },
+        orderBy: { startsAt: 'asc' },
+        take: 5,
+        include: {
+          enrollments: {
+            take: 1,
+            include: {
+              student: { include: { user: true } },
+            },
+          },
+        },
       }),
     ]);
 
+    const slotDuration = weekly[0]?.slotDuration ?? 20;
+
     return {
+      slotDuration,
+      bufferMinutes: 0,
+      weekStart: weekStartDate.toISOString(),
       weekly: weekly.map((a) => ({
         dayOfWeek: a.dayOfWeek,
         startTime: a.startTime,
         endTime: a.endTime,
         slotDuration: a.slotDuration,
       })),
-      slots: slots.map((s) => ({
+      slots: weekSlots.map((s) => {
+        const studentName = s.enrollments[0]?.student.user.name ?? null;
+        return {
+          id: s.id,
+          startsAt: s.startsAt,
+          endsAt: s.endsAt,
+          status: s.status.toLowerCase(),
+          studentName,
+        };
+      }),
+      upcoming: upcomingSlots.map((s) => ({
         id: s.id,
         startsAt: s.startsAt,
         endsAt: s.endsAt,
-        status: s.status.toLowerCase(),
+        studentName: s.enrollments[0]?.student.user.name ?? 'Student',
       })),
     };
   }
@@ -119,25 +293,40 @@ export class TeachersService {
   async updateAvailability(
     user: RequestUser,
     slots: { dayOfWeek: number; startTime: string; endTime: string }[],
+    slotDuration = 20,
   ) {
     const teacher = await this.requireTeacher(user);
+
+    const duration = [15, 20, 30].includes(slotDuration) ? slotDuration : 20;
 
     await this.prisma.teacherAvailability.deleteMany({
       where: { teacherId: teacher.id },
     });
 
-    await this.prisma.teacherAvailability.createMany({
-      data: slots.map((s) => ({
-        teacherId: teacher.id,
-        dayOfWeek: s.dayOfWeek,
-        startTime: s.startTime,
-        endTime: s.endTime,
-      })),
-    });
+    if (slots.length > 0) {
+      await this.prisma.teacherAvailability.createMany({
+        data: slots.map((s) => ({
+          teacherId: teacher.id,
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          slotDuration: duration,
+        })),
+      });
+    }
 
-    const generated = await this.regenerateSlots(teacher.id, slots);
+    const generated = await this.regenerateSlots(teacher.id, slots, 28, duration);
 
     return { updated: slots.length, slotsGenerated: generated };
+  }
+
+  private getMonday(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
   }
 
   /**
@@ -150,7 +339,7 @@ export class TeachersService {
     teacherId: string,
     weekly: { dayOfWeek: number; startTime: string; endTime: string }[],
     horizonDays = 28,
-    slotDuration = 30,
+    slotDuration = 20,
   ): Promise<number> {
     const now = new Date();
 

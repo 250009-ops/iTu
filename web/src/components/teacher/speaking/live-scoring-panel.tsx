@@ -53,7 +53,7 @@ function ScoreRow({
 }
 
 export function LiveScoringPanel() {
-  const { session, sessionId, refreshSession } = useTeacherSpeaking();
+  const { session, sessionId, refreshSession, refreshHub } = useTeacherSpeaking();
   const [scores, setScores] = useState(
     session?.defaultScores ?? {
       fluency: 7,
@@ -98,6 +98,7 @@ export function LiveScoringPanel() {
         variant: "success",
       });
       await refreshSession();
+      await refreshHub();
     } catch (err) {
       toast("Could not submit grade", {
         description: getErrorMessage(err, "Please try again."),

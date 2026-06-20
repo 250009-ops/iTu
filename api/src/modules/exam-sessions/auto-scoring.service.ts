@@ -50,6 +50,15 @@ export class AutoScoringService {
       where: { skill, rawScore: { lte: rawScore }, isActive: true },
       orderBy: { rawScore: 'desc' },
     });
-    return nearest?.band ?? null;
+    if (nearest?.band != null) return nearest.band;
+    return 2.5;
+  }
+
+  /** Resolve a band from a stored raw score (e.g. when backfilling results). */
+  async lookupBandFromRawScore(
+    skill: ExamSkill,
+    rawScore: number,
+  ): Promise<number | null> {
+    return this.lookupBand(skill, rawScore);
   }
 }

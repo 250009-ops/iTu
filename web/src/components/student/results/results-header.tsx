@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, FileText, Zap } from "lucide-react";
+import { ChevronDown, Download, FileText, Zap } from "lucide-react";
 import { ResultsShellHeader } from "@/components/student/results/results-shell-header";
 import { useToast } from "@/components/ui/toast";
 import { useStudentResultsData } from "@/contexts/student-results-context";
 import { getErrorMessage } from "@/lib/api/errors";
+import { formatBandDisplay } from "@/lib/api/mappers/student";
 import {
   downloadResultsPdf,
   exportResultReport,
@@ -16,7 +17,7 @@ import {
 export function ResultsHeader() {
   const router = useRouter();
   const { toast } = useToast();
-  const { data } = useStudentResultsData();
+  const { data, selectAttempt } = useStudentResultsData();
   const [downloading, setDownloading] = useState(false);
 
   if (!data) return null;
@@ -39,40 +40,70 @@ export function ResultsHeader() {
     }
   }
 
+  const attemptPicker =
+    data.availableAttempts.length > 1 ? (
+      <div className="relative">
+        <label htmlFor="attempt-select" className="sr-only">
+          Select mock attempt
+        </label>
+        <select
+          id="attempt-select"
+          value={data.selectedEnrollmentCode}
+          onChange={(e) => selectAttempt(e.target.value)}
+          className="appearance-none rounded-xl border border-gray-200 bg-white py-2.5 pl-4 pr-10 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+        >
+          {data.availableAttempts.map((attempt) => (
+            <option key={attempt.enrollmentCode} value={attempt.enrollmentCode}>
+              {attempt.label}
+              {attempt.overallBand != null
+                ? ` · ${formatBandDisplay(attempt.overallBand)}`
+                : ""}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      </div>
+    ) : null;
+
   return (
     <ResultsShellHeader
       title={data.title}
       subtitle={data.subtitle}
       actions={
         <div className="flex flex-wrap items-center gap-3 print:hidden">
-          <button
-            type="button"
-            onClick={() => void handleDownloadPdf()}
-            disabled={downloading}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
-            style={{ fontSize: "14px" }}
-          >
-            <Download size={16} />
-            {downloading ? "Downloading…" : "Download PDF"}
-          </button>
-          <button
-            type="button"
-            onClick={() => exportResultReport(data)}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            style={{ fontSize: "14px" }}
-          >
-            <FileText size={16} />
-            Text report
-          </button>
-          <button
-            type="button"
-            onClick={printResultsReport}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            style={{ fontSize: "14px" }}
-          >
-            <FileText size={16} />
-            Print
-          </button>
+          {attemptPicker}
+          {data.released && (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleDownloadPdf()}
+                disabled={downloading}
+                className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                style={{ fontSize: "14px" }}
+              >
+                <Download size={16} />
+                {downloading ? "Downloading…" : "Download PDF"}
+              </button>
+              <button
+                type="button"
+                onClick={() => exportResultReport(data)}
+                className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                style={{ fontSize: "14px" }}
+              >
+                <FileText size={16} />
+                Text report
+              </button>
+              <button
+                type="button"
+                onClick={printResultsReport}
+                className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                style={{ fontSize: "14px" }}
+              >
+                <FileText size={16} />
+                Print
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => router.push("/student/browse")}

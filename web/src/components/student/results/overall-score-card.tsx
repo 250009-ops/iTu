@@ -8,7 +8,7 @@ import {
   PenLine,
 } from "lucide-react";
 import { useStudentResultsData } from "@/contexts/student-results-context";
-import type { SkillId } from "@/lib/api/mappers/student";
+import { formatBandDisplay, type SkillId } from "@/lib/api/mappers/student";
 import { cn } from "@/lib/utils";
 
 const skillConfig: Record<
@@ -20,10 +20,6 @@ const skillConfig: Record<
   writing: { icon: PenLine, iconBg: "bg-violet-500/20 text-violet-300", bar: "bg-violet-400" },
   speaking: { icon: Mic, iconBg: "bg-rose-500/20 text-rose-300", bar: "bg-rose-400" },
 };
-
-function formatBand(value: number) {
-  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
-}
 
 function OverallGauge({ band }: { band: number }) {
   const pct = band / 9;
@@ -49,7 +45,7 @@ function OverallGauge({ band }: { band: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-black text-white" style={{ fontSize: "40px", lineHeight: 1 }}>
-          {formatBand(band)}
+          {formatBandDisplay(band)}
         </span>
         <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">
           Overall
@@ -76,10 +72,11 @@ export function OverallScoreCard() {
     examFormat,
   } = data;
 
+  const packageTitle = data.title.split(" — ")[0] ?? data.title;
   const examinerInfo = [
     { label: "Exam Number", value: mockId },
     { label: "Exam Format", value: examFormat },
-    { label: "Package", value: data.title.split(" — ")[0] ?? data.title },
+    { label: "Package", value: packageTitle },
     { label: "Exam Type", value: examType },
   ];
 
@@ -121,10 +118,17 @@ export function OverallScoreCard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div
+            className={cn(
+              "grid gap-3",
+              skills.length <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4",
+            )}
+          >
             {skills.map((skill) => {
               const config = skillConfig[skill.id];
               const Icon = config.icon;
+              const barPct =
+                skill.band != null ? (skill.band / 9) * 100 : 0;
               return (
                 <div
                   key={skill.id}
@@ -145,14 +149,23 @@ export function OverallScoreCard() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-3 font-black text-white" style={{ fontSize: "24px", lineHeight: 1 }}>
-                    {formatBand(skill.band)}
+                  <p
+                    className={cn(
+                      "mt-3 font-black",
+                      skill.pending ? "text-white/40" : "text-white",
+                    )}
+                    style={{ fontSize: "24px", lineHeight: 1 }}
+                  >
+                    {formatBandDisplay(skill.band, skill.pending)}
                   </p>
                   <p className="mt-1 text-xs font-medium text-white/55">{skill.name}</p>
                   <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
                     <div
-                      className={cn("h-full rounded-full", config.bar)}
-                      style={{ width: `${(skill.band / 9) * 100}%` }}
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        skill.pending ? "bg-white/20" : config.bar,
+                      )}
+                      style={{ width: `${barPct}%` }}
                     />
                   </div>
                 </div>

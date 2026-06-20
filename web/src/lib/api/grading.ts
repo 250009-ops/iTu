@@ -15,6 +15,18 @@ export function getWritingQueue() {
   >("/grading/writing-queue");
 }
 
+export function getSpeakingQueue() {
+  return apiFetch<
+    {
+      id: string;
+      studentName: string;
+      date: string;
+      status: string;
+      scheduledAt: string | null;
+    }[]
+  >("/grading/speaking-queue");
+}
+
 export function getWritingSubmission(id: string) {
   return apiFetch<{
     id: string;

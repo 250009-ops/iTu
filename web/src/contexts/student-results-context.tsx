@@ -9,6 +9,7 @@ type StudentResultsContextValue = {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  selectAttempt: (enrollmentCode: string) => void;
 };
 
 const StudentResultsContext =

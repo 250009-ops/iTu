@@ -9,6 +9,11 @@ import {
   writingOnlyHighlights,
   type BrowseHighlight,
 } from "@/lib/student/constants";
+import {
+  mockStartDateTime,
+  secondsUntil,
+  splitCountdown,
+} from "@/lib/student/datetime";
 
 type CatalogPackage = Awaited<ReturnType<typeof listPackages>>[number];
 type MockDayApi = Awaited<ReturnType<typeof getMockDayHub>>;
@@ -251,13 +256,11 @@ export function mapMockDayHub(data: MockDayApi) {
   const mockDate = new Date(enrollment.mockDate);
   const now = Date.now();
   const checkInCompleted = Boolean(enrollment.checkInCompleted);
-  const mockStart = new Date(`${enrollment.mockDate}T${enrollment.mockTime}:00`);
+  const mockStart = mockStartDateTime(enrollment.mockDate, enrollment.mockTime);
   const countdownTarget =
     hasSpeaking && speakingScheduled ? speakingScheduled : mockStart;
-  const secondsUntilTarget = Math.max(
-    0,
-    Math.floor((countdownTarget.getTime() - now) / 1000),
-  );
+  const secondsUntilTarget = secondsUntil(countdownTarget, now);
+  const countdownParts = splitCountdown(secondsUntilTarget);
   const countdownLabel =
     hasSpeaking && speakingScheduled
       ? "TIME UNTIL SPEAKING"
@@ -409,11 +412,7 @@ export function mapMockDayHub(data: MockDayApi) {
     totalModules,
     speakingExaminer: speaking?.examiner ?? "Your examiner",
     countdownLabel,
-    countdown: {
-      hours: Math.floor(secondsUntilTarget / 3600),
-      minutes: Math.floor((secondsUntilTarget % 3600) / 60),
-      seconds: secondsUntilTarget % 60,
-    },
+    countdown: countdownParts,
     checkInCompleted,
     currentPhase: {
       label: activeSection
@@ -498,7 +497,8 @@ export type ModulePart = {
 
 export type ModuleDetail = {
   summary: string;
-  band: number;
+  band: number | null;
+  pending: boolean;
   parts: ModulePart[];
   focus: string;
 };
@@ -506,8 +506,10 @@ export type ModuleDetail = {
 export type SkillResult = {
   id: SkillId;
   name: string;
-  band: number;
+  band: number | null;
+  rawScore?: number | null;
   delta: number;
+  pending: boolean;
 };
 
 export type AttemptRow = {
@@ -524,11 +526,11 @@ export type AttemptRow = {
 
 export type ProgressionPoint = {
   date: string;
-  overall: number;
-  listening: number;
-  reading: number;
-  writing: number;
-  speaking: number;
+  overall: number | null;
+  listening: number | null;
+  reading: number | null;
+  writing: number | null;
+  speaking: number | null;
 };
 
 export type ImprovementOpportunity = {
@@ -563,6 +565,13 @@ export type StudentResultsData = {
   improvementOpportunities: ImprovementOpportunity[];
   targetMessage: string;
   nextSteps: string[];
+  packageSkills: SkillId[];
+  selectedEnrollmentCode: string;
+  availableAttempts: {
+    enrollmentCode: string;
+    label: string;
+    overallBand: number | null;
+  }[];
 };
 
 function skillBand(
@@ -585,15 +594,18 @@ function prettyCriterionLabel(key: string): string {
   return CRITERIA_LABELS[key] ?? key;
 }
 
+export function formatBandDisplay(band: number | null, pending = false): string {
+  if (band == null) return pending ? "Pending" : "—";
+  return Number.isInteger(band) ? `${band}` : band.toFixed(1);
+}
+
 function buildModuleDetail(
   skill: SkillId,
   band: number | null,
+  rawScore: number | null | undefined,
   feedback?: string | null,
   criteriaScores?: Record<string, number>,
 ): ModuleDetail {
-  const safeBand = band ?? 0;
-  const isRaw = skill === "listening" || skill === "reading";
-
   if (criteriaScores && Object.keys(criteriaScores).length > 0) {
     const parts = Object.entries(criteriaScores).map(([key, value]) => ({
       label: prettyCriterionLabel(key),
@@ -605,29 +617,66 @@ function buildModuleDetail(
       unit: "band" as const,
     }));
     return {
-      summary: feedback ?? `Band ${safeBand} for ${SKILL_META[skill].name}.`,
-      band: safeBand,
+      summary:
+        feedback ??
+        (band != null
+          ? `Band ${band} for ${SKILL_META[skill].name}.`
+          : `${SKILL_META[skill].name} criteria scores recorded.`),
+      band,
+      pending: band == null,
       parts,
-      focus: feedback ?? `Keep practising ${SKILL_META[skill].name.toLowerCase()} under timed conditions.`,
+      focus:
+        feedback ??
+        `Keep practising ${SKILL_META[skill].name.toLowerCase()} under timed conditions.`,
+    };
+  }
+
+  const parts: ModulePart[] = [];
+  const isAutoScored = skill === "listening" || skill === "reading";
+
+  if (isAutoScored && rawScore != null) {
+    parts.push({
+      label: "Raw score",
+      sublabel: "Correct answers",
+      tag: rawScore >= 30 ? "Strong" : rawScore >= 23 ? "Good" : "Develop",
+      tagTone: (rawScore >= 30 ? "emerald" : rawScore >= 23 ? "amber" : "rose") as PartTone,
+      value: rawScore,
+      max: 40,
+      unit: "raw",
+    });
+  }
+
+  if (band != null) {
+    parts.push({
+      label: SKILL_META[skill].name,
+      sublabel: "Band score",
+      tag: band >= 7 ? "Strong" : band >= 6 ? "Good" : "Develop",
+      tagTone: (band >= 7 ? "emerald" : band >= 6 ? "amber" : "rose") as PartTone,
+      value: band,
+      max: 9,
+      unit: "band",
+    });
+  }
+
+  if (parts.length === 0) {
+    return {
+      summary: `${SKILL_META[skill].name} results are pending.`,
+      band: null,
+      pending: true,
+      parts: [],
+      focus: `Your ${SKILL_META[skill].name.toLowerCase()} score will appear here once grading is complete.`,
     };
   }
 
   return {
     summary:
       feedback ??
-      `${SKILL_META[skill].name} band score: ${safeBand || "pending"}.`,
-    band: safeBand,
-    parts: [
-      {
-        label: SKILL_META[skill].name,
-        sublabel: isRaw ? "Raw score" : "Band score",
-        tag: safeBand >= 7 ? "Strong" : safeBand >= 6 ? "Good" : "Develop",
-        tagTone: (safeBand >= 7 ? "emerald" : safeBand >= 6 ? "amber" : "rose") as PartTone,
-        value: safeBand,
-        max: isRaw ? 40 : 9,
-        unit: isRaw ? "raw" : "band",
-      },
-    ],
+      (band != null
+        ? `${SKILL_META[skill].name} band score: ${band}.`
+        : `${SKILL_META[skill].name} raw score: ${rawScore ?? "—"}.`),
+    band,
+    pending: band == null,
+    parts,
     focus:
       feedback ??
       `Review ${SKILL_META[skill].name.toLowerCase()} practice materials and timed drills.`,
@@ -691,47 +740,73 @@ export function mapPendingStudentResults(
     improvementOpportunities: [],
     targetMessage: "",
     nextSteps: [],
+    packageSkills: [],
+    selectedEnrollmentCode: pending.enrollmentCode,
+    availableAttempts: [],
   };
 }
 
 export function mapStudentResults(
   list: ResultList,
-  detail: ResultDetail,
+  detailByCode: Record<string, ResultDetail>,
+  selectedCode: string,
   targetBand: number | null = null,
+  examTypeLabel = "Academic IELTS",
 ): StudentResultsData | null {
   if (!list.length) return null;
 
+  const detail =
+    detailByCode[selectedCode] ?? detailByCode[list[0]!.enrollmentCode];
+  if (!detail) return null;
+
   if (!detail.released) {
     return {
-      released: false,
-      message: detail.message ?? "Results are not yet available.",
-      mockId: detail.enrollmentCode ?? list[0]?.enrollmentCode ?? "",
-      enrollmentCode: detail.enrollmentCode ?? list[0]?.enrollmentCode ?? "",
-      dateLabel: formatLongDate(detail.mockDate ?? list[0]?.mockDate ?? ""),
-      title: `${detail.package ?? list[0]?.package ?? "Mock"} — ${formatLongDate(detail.mockDate ?? list[0]?.mockDate ?? "")}`,
-      subtitle: `Mock ID: ${detail.enrollmentCode ?? list[0]?.enrollmentCode ?? ""}`,
-      examType: "Academic IELTS",
-      examFormat: "Academic",
-      overallBand: 0,
-      bandLabel: "Pending",
-      targetBand,
-      targetAchieved: false,
-      improvement: 0,
-      overallImprovement: 0,
-      skills: [],
-      moduleDetails: {} as Record<SkillId, ModuleDetail>,
-      scoreProgression: [],
-      attempts: [],
-      improvementOpportunities: [],
-      targetMessage: "",
-      nextSteps: [],
+      ...mapPendingStudentResults(
+        {
+          enrollmentCode: detail.enrollmentCode ?? selectedCode,
+          mockDate: detail.mockDate ?? list[0]!.mockDate,
+          package: detail.package ?? list[0]!.package,
+          message: detail.message ?? "Results are not yet available.",
+        },
+        targetBand,
+      ),
+      examType: examTypeLabel,
+      examFormat: examTypeLabel.includes("General")
+        ? "General Training"
+        : "Academic",
     };
   }
 
-  const latest = list[0];
+  const latest =
+    list.find((item) => item.enrollmentCode === selectedCode) ?? list[0]!;
   const skillsApi = detail.skills ?? [];
-  const overallBand = detail.overallBand ?? latest.overallBand ?? 0;
-  const previousOverall = list[1]?.overallBand ?? null;
+  const packageSkillIds = skillsApi.map((s) => s.skill as SkillId);
+  const selectedIndex = list.findIndex(
+    (item) => item.enrollmentCode === selectedCode,
+  );
+  const previousOverall =
+    selectedIndex >= 0
+      ? (list[selectedIndex + 1]?.overallBand ?? null)
+      : (list[1]?.overallBand ?? null);
+
+  const skills: SkillResult[] = packageSkillIds.map((id) => {
+    const row = skillsApi.find((s) => s.skill === id);
+    return {
+      id,
+      name: SKILL_META[id]?.name ?? id,
+      band: row?.band ?? null,
+      rawScore: row?.rawScore ?? null,
+      delta: 0,
+      pending: row?.band == null,
+    };
+  });
+
+  const overallBand =
+    detail.overallBand ??
+    latest.overallBand ??
+    overallFromSkills(skills.map((s) => ({ skill: s.id, band: s.band }))) ??
+    0;
+
   const improvement =
     previousOverall != null
       ? Math.round((overallBand - previousOverall) * 2) / 2
@@ -740,47 +815,44 @@ export function mapStudentResults(
   const overallImprovement =
     Math.round((overallBand - firstOverall) * 2) / 2;
 
-  const skills: SkillResult[] = (["listening", "reading", "writing", "speaking"] as SkillId[]).map(
-    (id) => {
-      const current = skillBand(skillsApi, id) ?? 0;
-      return {
-        id,
-        name: SKILL_META[id].name,
-        band: current,
-        delta: 0,
-      };
-    },
-  );
-
   const moduleDetails = Object.fromEntries(
-    (["listening", "reading", "writing", "speaking"] as SkillId[]).map((id) => {
+    packageSkillIds.map((id) => {
       const row = skillsApi.find((s) => s.skill === id);
       return [
         id,
-        buildModuleDetail(id, row?.band ?? null, row?.feedback, row?.criteriaScores),
+        buildModuleDetail(
+          id,
+          row?.band ?? null,
+          row?.rawScore,
+          row?.feedback,
+          row?.criteriaScores,
+        ),
       ];
     }),
   ) as Record<SkillId, ModuleDetail>;
 
   const chronological = [...list].reverse();
-  const scoreProgression: ProgressionPoint[] = chronological.map((item, index) => {
-    const isLatest = index === chronological.length - 1;
-    const itemSkills = isLatest ? skillsApi : [];
+  const scoreProgression: ProgressionPoint[] = chronological.map((item) => {
+    const itemDetail = detailByCode[item.enrollmentCode];
+    const itemSkills = itemDetail?.skills ?? [];
     return {
       date: formatShortDate(item.mockDate),
-      overall: item.overallBand ?? 0,
-      listening: skillBand(itemSkills, "listening") ?? item.overallBand ?? 0,
-      reading: skillBand(itemSkills, "reading") ?? item.overallBand ?? 0,
-      writing: skillBand(itemSkills, "writing") ?? item.overallBand ?? 0,
-      speaking: skillBand(itemSkills, "speaking") ?? item.overallBand ?? 0,
+      overall: item.overallBand ?? itemDetail?.overallBand ?? null,
+      listening: skillBand(itemSkills, "listening"),
+      reading: skillBand(itemSkills, "reading"),
+      writing: skillBand(itemSkills, "writing"),
+      speaking: skillBand(itemSkills, "speaking"),
     };
   });
 
   const attempts: AttemptRow[] = list.map((item, index) => {
-    const isLatest = index === 0;
-    const itemSkills = isLatest ? skillsApi : [];
-    const overall = item.overallBand;
-    const prev = list[index + 1]?.overallBand;
+    const itemDetail = detailByCode[item.enrollmentCode];
+    const itemSkills = itemDetail?.skills ?? [];
+    const overall = item.overallBand ?? itemDetail?.overallBand ?? null;
+    const prev =
+      list[index + 1]?.overallBand ??
+      detailByCode[list[index + 1]?.enrollmentCode ?? ""]?.overallBand ??
+      null;
     return {
       id: item.enrollmentCode,
       date: formatLongDate(item.mockDate),
@@ -793,12 +865,12 @@ export function mapStudentResults(
         overall != null && prev != null
           ? Math.round((overall - prev) * 2) / 2
           : undefined,
-      latest: isLatest,
+      latest: item.enrollmentCode === list[0]!.enrollmentCode,
     };
   });
 
-  const targetAchieved =
-    targetBand != null && overallBand >= targetBand;
+  const targetAchieved = targetBand != null && overallBand >= targetBand;
+  const moduleCount = packageSkillIds.length;
 
   return {
     released: true,
@@ -807,9 +879,9 @@ export function mapStudentResults(
     pdfUrl: detail.pdfUrl ?? latest.pdfUrl ?? null,
     dateLabel: formatLongDate(detail.mockDate ?? latest.mockDate),
     title: `${detail.package ?? latest.package} — ${formatLongDate(detail.mockDate ?? latest.mockDate)}`,
-    subtitle: `Mock ID: ${detail.enrollmentCode ?? latest.enrollmentCode} · IDP Computer-delivered format · All 4 modules`,
-    examType: "Academic IELTS",
-    examFormat: "Academic",
+    subtitle: `Mock ID: ${detail.enrollmentCode ?? latest.enrollmentCode} · ${moduleCount} module${moduleCount === 1 ? "" : "s"}`,
+    examType: examTypeLabel,
+    examFormat: examTypeLabel.includes("General") ? "General Training" : "Academic",
     overallBand,
     bandLabel: bandLabel(overallBand),
     targetBand,
@@ -827,6 +899,13 @@ export function mapStudentResults(
     nextSteps: deriveImprovements(skillsApi, targetBand).map(
       (o) => `Review ${o.title.split(" — ")[0]} feedback`,
     ),
+    packageSkills: packageSkillIds,
+    selectedEnrollmentCode: selectedCode,
+    availableAttempts: list.map((item) => ({
+      enrollmentCode: item.enrollmentCode,
+      label: `${item.package} · ${formatShortDate(item.mockDate)}`,
+      overallBand: item.overallBand ?? detailByCode[item.enrollmentCode]?.overallBand ?? null,
+    })),
   };
 }
 

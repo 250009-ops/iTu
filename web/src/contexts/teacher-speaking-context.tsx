@@ -3,35 +3,44 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSpeakingSession } from "@/lib/api/grading";
 import { getSpeakingExaminerContent } from "@/lib/api/speaking";
-import { getTeacherDashboard } from "@/lib/api/teachers";
+import { getTeacherSpeakingSessions } from "@/lib/api/teachers";
 import {
-  mapSpeakingSchedule,
   mapSpeakingSession,
+  mapTeacherSpeakingSessions,
 } from "@/lib/api/mappers/teacher";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { SpeakingContent } from "@/lib/exam/types";
 
 type TeacherSpeakingValue = {
-  loading: boolean;
-  error: string | null;
-  isEmpty: boolean;
-  todaySessions: ReturnType<typeof mapSpeakingSchedule>;
-  session: ReturnType<typeof mapSpeakingSession> | null;
+  hubLoading: boolean;
+  hubError: string | null;
+  hub: ReturnType<typeof mapTeacherSpeakingSessions>;
+  refreshHub: () => Promise<void>;
   sessionId: string | null;
+  sessionLoading: boolean;
+  sessionError: string | null;
+  session: ReturnType<typeof mapSpeakingSession> | null;
   speakingContent: SpeakingContent | null;
   contentLoading: boolean;
   contentError: string | null;
   refreshSession: () => Promise<void>;
 };
+
+const emptyHub = mapTeacherSpeakingSessions({
+  today: [],
+  upcoming: [],
+  completed: [],
+  counts: { today: 0, upcoming: 0, completed: 0 },
+  nextSession: null,
+  minutesUntilNext: null,
+});
 
 const TeacherSpeakingContext = createContext<TeacherSpeakingValue | null>(null);
 
@@ -40,64 +49,43 @@ export function TeacherSpeakingProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const urlSessionId = searchParams.get("session");
 
-  const dashboard = useApiQuery(getTeacherDashboard, [authSession?.accessToken]);
-  const [resolvedId, setResolvedId] = useState<string | null>(urlSessionId);
-  const firstScheduledId = dashboard.data?.speakingSchedule[0]?.id ?? null;
+  const hubQuery = useApiQuery(getTeacherSpeakingSessions, [
+    authSession?.accessToken,
+  ]);
 
-  useEffect(() => {
-    if (urlSessionId) {
-      setResolvedId(urlSessionId);
-      return;
-    }
-    setResolvedId(firstScheduledId);
-  }, [urlSessionId, firstScheduledId]);
-
-  const speaking = useApiQuery(
-    () => getSpeakingSession(resolvedId!),
-    [authSession?.accessToken, resolvedId],
-    { enabled: Boolean(resolvedId) },
+  const sessionQuery = useApiQuery(
+    () => getSpeakingSession(urlSessionId!),
+    [authSession?.accessToken, urlSessionId],
+    { enabled: Boolean(urlSessionId) },
   );
 
-  const bank = useApiQuery(
-    () => getSpeakingExaminerContent(resolvedId!),
-    [authSession?.accessToken, resolvedId],
-    { enabled: Boolean(resolvedId) },
+  const bankQuery = useApiQuery(
+    () => getSpeakingExaminerContent(urlSessionId!),
+    [authSession?.accessToken, urlSessionId],
+    { enabled: Boolean(urlSessionId) },
   );
 
   const value = useMemo<TeacherSpeakingValue>(() => {
-    const todaySessions = dashboard.data
-      ? mapSpeakingSchedule(dashboard.data)
-      : [];
-    const loading =
-      dashboard.loading || (Boolean(resolvedId) && speaking.loading);
-    const session =
-      resolvedId && speaking.data ? mapSpeakingSession(speaking.data) : null;
-    const sessionNotFound =
-      Boolean(resolvedId) &&
-      !speaking.loading &&
-      !session &&
-      speaking.error?.toLowerCase().includes("not found");
-
-    const isEmpty = !loading && !session && !urlSessionId;
-
-    const error =
-      dashboard.error ??
-      (urlSessionId && speaking.error ? speaking.error : null) ??
-      (resolvedId && speaking.error && !sessionNotFound ? speaking.error : null);
-
     return {
-      loading,
-      error,
-      isEmpty,
-      todaySessions,
-      sessionId: resolvedId,
-      session,
-      speakingContent: bank.data?.content ?? null,
-      contentLoading: bank.loading,
-      contentError: bank.error,
-      refreshSession: speaking.refresh,
+      hubLoading: hubQuery.loading,
+      hubError: hubQuery.error,
+      hub: hubQuery.data
+        ? mapTeacherSpeakingSessions(hubQuery.data)
+        : emptyHub,
+      refreshHub: hubQuery.refresh,
+      sessionId: urlSessionId,
+      sessionLoading: Boolean(urlSessionId) && sessionQuery.loading,
+      sessionError: sessionQuery.error,
+      session:
+        urlSessionId && sessionQuery.data
+          ? mapSpeakingSession(sessionQuery.data)
+          : null,
+      speakingContent: bankQuery.data?.content ?? null,
+      contentLoading: bankQuery.loading,
+      contentError: bankQuery.error,
+      refreshSession: sessionQuery.refresh,
     };
-  }, [resolvedId, urlSessionId, dashboard, speaking, bank]);
+  }, [urlSessionId, hubQuery, sessionQuery, bankQuery]);
 
   return (
     <TeacherSpeakingContext.Provider value={value}>

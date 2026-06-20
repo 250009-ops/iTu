@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   Headphones,
@@ -9,7 +9,11 @@ import {
   PenLine,
 } from "lucide-react";
 import { useStudentResultsData } from "@/contexts/student-results-context";
-import type { PartTone, SkillId } from "@/lib/api/mappers/student";
+import {
+  formatBandDisplay,
+  type PartTone,
+  type SkillId,
+} from "@/lib/api/mappers/student";
 import { cn } from "@/lib/utils";
 
 const skillMeta: Record<
@@ -29,15 +33,24 @@ const toneStyles: Record<PartTone, { pill: string; bar: string }> = {
   sky: { pill: "bg-sky-50 text-sky-700", bar: "bg-sky-500" },
 };
 
-function formatBand(value: number) {
-  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
-}
-
 export function ModuleBreakdown() {
   const { data } = useStudentResultsData();
-  const [active, setActive] = useState<SkillId>("listening");
-  if (!data?.released) return null;
+  const [active, setActive] = useState<SkillId | null>(null);
+
+  useEffect(() => {
+    if (!data?.skills.length) return;
+    setActive((current) =>
+      current && data.skills.some((s) => s.id === current)
+        ? current
+        : data.skills[0]!.id,
+    );
+  }, [data?.skills, data?.selectedEnrollmentCode]);
+
+  if (!data?.released || !active) return null;
+
   const detail = data.moduleDetails[active];
+  if (!detail) return null;
+
   const activeMeta = skillMeta[active];
 
   return (
@@ -66,9 +79,10 @@ export function ModuleBreakdown() {
                 className={cn(
                   "rounded-md px-1.5 py-0.5 text-xs font-bold",
                   isActive ? "bg-gray-100 text-gray-700" : "text-gray-400",
+                  skill.pending && "text-amber-600",
                 )}
               >
-                {formatBand(skill.band)}
+                {formatBandDisplay(skill.band, skill.pending)}
               </span>
             </button>
           );
@@ -79,7 +93,7 @@ export function ModuleBreakdown() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-              {active} Module
+              {activeMeta ? `${data.skills.find((s) => s.id === active)?.name ?? active} Module` : "Module"}
             </p>
             <p className="mt-1 max-w-xl text-gray-600" style={{ fontSize: "14px" }}>
               {detail.summary}
@@ -87,57 +101,68 @@ export function ModuleBreakdown() {
           </div>
           <div className="shrink-0 text-right">
             <p
-              className={cn("font-black", activeMeta.active.split(" ")[1])}
+              className={cn(
+                "font-black",
+                detail.pending ? "text-gray-300" : activeMeta.active.split(" ")[1],
+              )}
               style={{ fontSize: "34px", lineHeight: 1 }}
             >
-              {formatBand(detail.band)}
+              {formatBandDisplay(detail.band, detail.pending)}
             </p>
-            <p className="text-xs text-gray-400">Band Score</p>
+            <p className="text-xs text-gray-400">
+              {detail.pending ? "Awaiting score" : "Band Score"}
+            </p>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {detail.parts.map((part) => {
-            const tone = toneStyles[part.tagTone];
-            return (
-              <div
-                key={part.label}
-                className="rounded-xl border border-gray-100 p-4"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-bold text-gray-900" style={{ fontSize: "13px" }}>
-                      {part.label}
-                    </p>
-                    <p className="text-gray-400" style={{ fontSize: "11px" }}>
-                      {part.sublabel}
-                    </p>
+        {detail.parts.length > 0 ? (
+          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {detail.parts.map((part) => {
+              const tone = toneStyles[part.tagTone];
+              return (
+                <div
+                  key={part.label}
+                  className="rounded-xl border border-gray-100 p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-gray-900" style={{ fontSize: "13px" }}>
+                        {part.label}
+                      </p>
+                      <p className="text-gray-400" style={{ fontSize: "11px" }}>
+                        {part.sublabel}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        tone.pill,
+                      )}
+                    >
+                      {part.tag}
+                    </span>
                   </div>
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                      tone.pill,
-                    )}
-                  >
-                    {part.tag}
-                  </span>
+                  <p className="mt-3 font-black text-gray-900" style={{ fontSize: "20px" }}>
+                    {formatBandDisplay(part.value)}
+                    <span className="text-gray-400" style={{ fontSize: "13px" }}>
+                      /{part.max}
+                    </span>
+                  </p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className={cn("h-full rounded-full", tone.bar)}
+                      style={{ width: `${(part.value / part.max) * 100}%` }}
+                    />
+                  </div>
                 </div>
-                <p className="mt-3 font-black text-gray-900" style={{ fontSize: "20px" }}>
-                  {formatBand(part.value)}
-                  <span className="text-gray-400" style={{ fontSize: "13px" }}>
-                    /{part.max}
-                  </span>
-                </p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                  <div
-                    className={cn("h-full rounded-full", tone.bar)}
-                    style={{ width: `${(part.value / part.max) * 100}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : detail.pending ? (
+          <div className="mt-5 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+            Scores for this module will appear here once grading is complete.
+          </div>
+        ) : null}
 
         <div className="mt-5 flex gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />

@@ -67,6 +67,43 @@ export class GradingService {
     }));
   }
 
+  async getSpeakingQueue(user: RequestUser) {
+    if (!user.teacherProfileId) {
+      throw new ForbiddenException('Teacher profile required');
+    }
+
+    const sessions = await this.prisma.speakingSession.findMany({
+      where: {
+        teacherId: user.teacherProfileId,
+        status: 'COMPLETED',
+        grade: null,
+      },
+      include: {
+        sectionAttempt: {
+          include: {
+            session: {
+              include: {
+                enrollment: {
+                  include: { student: { include: { user: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { endedAt: 'asc' },
+    });
+
+    return sessions.map((s) => ({
+      id: s.id,
+      studentName:
+        s.sectionAttempt.session.enrollment.student.user.name,
+      date: s.endedAt ?? s.createdAt,
+      status: 'pending_grading',
+      scheduledAt: s.scheduledAt,
+    }));
+  }
+
   async getWritingSubmission(id: string, user: RequestUser) {
     const submission = await this.prisma.writingSubmission.findUnique({
       where: { id },

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -19,17 +28,33 @@ export class TeachersController {
     return this.teachers.getDashboard(user);
   }
 
+  @Get('speaking-sessions')
+  getSpeakingSessions(@CurrentUser() user: RequestUser) {
+    return this.teachers.getSpeakingSessions(user);
+  }
+
   @Get('availability')
-  getAvailability(@CurrentUser() user: RequestUser) {
-    return this.teachers.getAvailability(user);
+  getAvailability(
+    @CurrentUser() user: RequestUser,
+    @Query('weekStart') weekStart?: string,
+  ) {
+    return this.teachers.getAvailability(user, weekStart);
   }
 
   @Put('availability')
   updateAvailability(
     @CurrentUser() user: RequestUser,
-    @Body() body: { slots: { dayOfWeek: number; startTime: string; endTime: string }[] },
+    @Body()
+    body: {
+      slots: { dayOfWeek: number; startTime: string; endTime: string }[];
+      slotDuration?: number;
+    },
   ) {
-    return this.teachers.updateAvailability(user, body.slots);
+    return this.teachers.updateAvailability(
+      user,
+      body.slots,
+      body.slotDuration,
+    );
   }
 
   @Patch('slots/:slotId/block')

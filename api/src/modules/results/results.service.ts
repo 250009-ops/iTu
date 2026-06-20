@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ExamSkill } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { packageExamSkills } from '../content/package-skills';
@@ -30,7 +31,7 @@ export class ResultsService {
       };
     }
 
-    const payload = this.buildReleasedPayload(enrollment);
+    const payload = await this.buildReleasedPayload(enrollment);
     return {
       ...payload,
       pdfUrl: enrollment.resultPdfUrl,
@@ -54,25 +55,40 @@ export class ResultsService {
       orderBy: { mockDate: 'desc' },
     });
 
-    return enrollments.map((e) => {
-      const bands =
-        e.examSession?.sectionAttempts
-          .map((a) => a.band)
-          .filter((b): b is number => b !== null) ?? [];
-      const overall =
-        bands.length > 0
-          ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) /
-            2
-          : null;
+    return Promise.all(
+      enrollments.map(async (e) => {
+        const attempts = e.examSession?.sectionAttempts ?? [];
+        const bands: number[] = [];
+        for (const attempt of attempts) {
+          let band = attempt.band;
+          if (
+            (attempt.skill === ExamSkill.LISTENING ||
+              attempt.skill === ExamSkill.READING) &&
+            band == null &&
+            attempt.rawScore != null
+          ) {
+            band = await this.lookupBandFromRaw(
+              attempt.skill,
+              attempt.rawScore,
+            );
+          }
+          if (band != null) bands.push(band);
+        }
+        const overall =
+          bands.length > 0
+            ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) /
+              2
+            : null;
 
-      return {
-        enrollmentCode: e.enrollmentCode,
-        mockDate: e.mockDate,
-        package: e.package.title,
-        overallBand: overall,
-        pdfUrl: e.resultPdfUrl,
-      };
-    });
+        return {
+          enrollmentCode: e.enrollmentCode,
+          mockDate: e.mockDate,
+          package: e.package.title,
+          overallBand: overall,
+          pdfUrl: e.resultPdfUrl,
+        };
+      }),
+    );
   }
 
   async getPendingForStudent(user: RequestUser) {
@@ -176,10 +192,45 @@ export class ResultsService {
     }
   }
 
-  private buildReleasedPayload(enrollment: {
+  private async lookupBandFromRaw(
+    skill: ExamSkill,
+    rawScore: number,
+  ): Promise<number | null> {
+    const row = await this.prisma.bandConversionTable.findFirst({
+      where: { skill, rawScore, isActive: true },
+      orderBy: { rawScore: 'desc' },
+    });
+    if (row) return row.band;
+
+    const nearest = await this.prisma.bandConversionTable.findFirst({
+      where: { skill, rawScore: { lte: rawScore }, isActive: true },
+      orderBy: { rawScore: 'desc' },
+    });
+    if (nearest?.band != null) return nearest.band;
+    if (rawScore >= 0) return 2.5;
+    return null;
+  }
+
+  private async resolveAttemptBand(attempt: {
+    skill: string;
+    band: number | null;
+    rawScore: number | null;
+  }): Promise<number | null> {
+    if (attempt.band != null) return attempt.band;
+    const skill = attempt.skill as ExamSkill;
+    if (
+      (skill === ExamSkill.LISTENING || skill === ExamSkill.READING) &&
+      attempt.rawScore != null
+    ) {
+      return this.lookupBandFromRaw(skill, attempt.rawScore);
+    }
+    return null;
+  }
+
+  private async buildReleasedPayload(enrollment: {
     enrollmentCode: string;
     mockDate: Date;
-    package: { title: string };
+    package: { title: string; skills: unknown };
     examSession?: {
       sectionAttempts: {
         skill: string;
@@ -191,19 +242,38 @@ export class ResultsService {
     } | null;
   }) {
     const attempts = enrollment.examSession?.sectionAttempts ?? [];
-    const skills = attempts.map((a) => ({
-      skill: a.skill.toLowerCase(),
-      band: a.band,
-      rawScore: a.rawScore,
-      feedback:
-        a.writingSubmission?.grade?.feedback ??
-        a.speakingSession?.grade?.feedback,
-      criteriaScores:
-        (a.writingSubmission?.grade?.criteriaScores as Record<string, number>) ??
-        (a.speakingSession?.grade?.criteriaScores as Record<string, number>),
-    }));
+    const packageSkills = packageExamSkills(enrollment.package.skills);
 
-    const bands = skills.map((s) => s.band).filter((b): b is number => b !== null);
+    const skills = await Promise.all(
+      attempts
+        .filter((a) =>
+          packageSkills.includes(a.skill as ExamSkill),
+        )
+        .map(async (a) => {
+          const band = await this.resolveAttemptBand(a);
+          return {
+            skill: a.skill.toLowerCase(),
+            band,
+            rawScore: a.rawScore,
+            feedback:
+              a.writingSubmission?.grade?.feedback ??
+              a.speakingSession?.grade?.feedback,
+            criteriaScores:
+              (a.writingSubmission?.grade?.criteriaScores as Record<
+                string,
+                number
+              >) ??
+              (a.speakingSession?.grade?.criteriaScores as Record<
+                string,
+                number
+              >),
+          };
+        }),
+    );
+
+    const bands = skills
+      .map((s) => s.band)
+      .filter((b): b is number => b !== null);
     const overallBand =
       bands.length > 0
         ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2
@@ -214,6 +284,7 @@ export class ResultsService {
       enrollmentCode: enrollment.enrollmentCode,
       mockDate: enrollment.mockDate,
       package: enrollment.package.title,
+      packageSkills: packageSkills.map((s) => s.toLowerCase()),
       overallBand,
       skills,
     };
