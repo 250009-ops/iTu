@@ -10,34 +10,31 @@ import {
   Headphones,
   Maximize,
   Mic,
+  Monitor,
   ScrollText,
+  Wifi,
 } from "lucide-react";
 import { ExamInterstitialHeader } from "@/components/exam/flow/exam-interstitial-header";
 import { useExamSessionContext } from "@/contexts/exam-session-context";
 import { useAuth, getInitials } from "@/hooks/use-auth";
 import {
-  examResumeRoute,
-  packageExamSkills,
-} from "@/lib/exam/package-skills";
+  getCheckInCopy,
+  type CheckInDeviceIcon,
+} from "@/lib/exam/check-in-config";
+import { examResumeRoute } from "@/lib/exam/package-skills";
 import { requestExamFullscreen } from "@/hooks/use-exam-integrity";
 import { cn } from "@/lib/utils";
 
-const FULL_MOCK_RULES = [
-  "All sections must be completed today in order: Listening → Reading → Writing → Speaking.",
-  "Timers are controlled by the server. You cannot pause or rewind.",
-  "Audio in Listening plays once only.",
-  "Copy and paste are disabled in all answer fields.",
-  "Leaving the test window is logged and may be flagged.",
-  "Your band scores are released only after Speaking is graded.",
-];
-
-const SPEAKING_ONLY_RULES = [
-  "Complete your live Speaking session with your assigned examiner.",
-  "Join on time — late arrival may shorten your session.",
-  "Your microphone and webcam must work throughout the session.",
-  "Speaking is recorded for examiner reference and quality assurance.",
-  "Your speaking score is released within 24 hours.",
-];
+const DEVICE_ICONS: Record<
+  CheckInDeviceIcon,
+  React.ComponentType<{ size?: number; className?: string }>
+> = {
+  headphones: Headphones,
+  mic: Mic,
+  camera: Camera,
+  wifi: Wifi,
+  monitor: Monitor,
+};
 
 export function CheckInView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -59,11 +56,8 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
       })
     : null;
 
-  const packageSkills = packageExamSkills(session?.enrollment.package.skills);
-  const isSpeakingOnly =
-    packageSkills.length === 1 && packageSkills[0] === "speaking";
+  const checkIn = getCheckInCopy(session?.enrollment.package.skills);
   const packageTitle = session?.enrollment.package.title ?? "Mock exam";
-  const examRules = isSpeakingOnly ? SPEAKING_ONLY_RULES : FULL_MOCK_RULES;
   const alreadyCheckedIn =
     session?.state != null && session.state !== "enrolled";
 
@@ -94,6 +88,13 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
     }
   }
 
+  const deviceGridClass =
+    checkIn.devices.length <= 2
+      ? "sm:grid-cols-2"
+      : checkIn.devices.length === 3
+        ? "sm:grid-cols-3"
+        : "sm:grid-cols-2 lg:grid-cols-4";
+
   return (
     <>
       <ExamInterstitialHeader sessionId={sessionId} label="Check-in" />
@@ -101,11 +102,7 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
         <div className="mx-auto max-w-3xl px-5 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-navy">Exam day check-in</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {isSpeakingOnly
-                ? "Complete all three steps to unlock your Speaking session."
-                : "Complete all three steps to unlock your first section."}
-            </p>
+            <p className="mt-1 text-sm text-slate-500">{checkIn.subtitle}</p>
           </div>
 
           <div className="mt-6 space-y-4">
@@ -122,7 +119,11 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
                 <div className="text-[13px] text-slate-600">
                   <p className="font-semibold text-slate-900">{studentName}</p>
                   <p>Candidate no. {sessionId}</p>
-                  {mockDate && <p>{packageTitle} · {mockDate}</p>}
+                  {mockDate && (
+                    <p>
+                      {packageTitle} · {mockDate}
+                    </p>
+                  )}
                 </div>
               </div>
               <ConfirmButton
@@ -139,7 +140,7 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
               done={rulesAck}
             >
               <ul className="space-y-2">
-                {examRules.map((r) => (
+                {checkIn.rules.map((r) => (
                   <li
                     key={r}
                     className="flex gap-2 text-[13px] text-slate-600"
@@ -158,27 +159,28 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
 
             <CheckCard
               index={3}
-              title="Device check"
+              title={checkIn.deviceStepTitle}
               icon={<Headphones size={18} />}
               done={devices}
             >
-              <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  { icon: <Headphones size={16} />, label: "Headphones" },
-                  { icon: <Mic size={16} />, label: "Microphone" },
-                  { icon: <Camera size={16} />, label: "Webcam" },
-                ].map((d) => (
-                  <div
-                    key={d.label}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px]"
-                  >
-                    <span className="text-slate-400">{d.icon}</span>
-                    <span className="flex-1 font-medium text-slate-700">
-                      {d.label}
-                    </span>
-                    <CheckCircle2 size={16} className="text-emerald-500" />
-                  </div>
-                ))}
+              <div className={cn("grid gap-3", deviceGridClass)}>
+                {checkIn.devices.map((d) => {
+                  const Icon = DEVICE_ICONS[d.icon];
+                  return (
+                    <div
+                      key={d.label}
+                      className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px]"
+                    >
+                      <span className="text-slate-400">
+                        <Icon size={16} />
+                      </span>
+                      <span className="flex-1 font-medium text-slate-700">
+                        {d.label}
+                      </span>
+                      <CheckCircle2 size={16} className="text-emerald-500" />
+                    </div>
+                  );
+                })}
               </div>
               <ConfirmButton
                 done={devices}
@@ -196,18 +198,10 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
               className="flex items-center gap-2 rounded-xl bg-brand-red px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-red-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Maximize size={16} />
-              {checkingIn
-                ? "Checking in…"
-                : isSpeakingOnly
-                  ? "Begin Speaking session"
-                  : "Begin first section"}
+              {checkingIn ? "Checking in…" : checkIn.beginLabel}
               <ChevronRight size={16} />
             </button>
-            <p className="mt-2 text-[12px] text-slate-400">
-              {isSpeakingOnly
-                ? "You will join your live Speaking room after check-in."
-                : "The test will open in full screen. Your section timer starts immediately."}
-            </p>
+            <p className="mt-2 text-[12px] text-slate-400">{checkIn.beginHint}</p>
           </div>
         </div>
       </main>

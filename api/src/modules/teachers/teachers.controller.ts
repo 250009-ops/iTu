@@ -65,6 +65,14 @@ export class TeachersController {
     return this.teachers.blockSlot(user, slotId);
   }
 
+  @Patch('slots/:slotId/unblock')
+  unblockSlot(
+    @CurrentUser() user: RequestUser,
+    @Param('slotId') slotId: string,
+  ) {
+    return this.teachers.unblockSlot(user, slotId);
+  }
+
   @Get('earnings')
   getEarnings(@CurrentUser() user: RequestUser) {
     return this.teachers.getEarnings(user);

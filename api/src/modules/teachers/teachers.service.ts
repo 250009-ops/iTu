@@ -11,6 +11,7 @@ import {
   TeacherSpeciality,
   UserRole,
   NotificationType,
+  ExamSkill,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -253,6 +254,14 @@ export class TeachersService {
             take: 1,
             include: {
               student: { include: { user: true } },
+              examSession: {
+                include: {
+                  sectionAttempts: {
+                    where: { skill: ExamSkill.SPEAKING },
+                    include: { speakingSession: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -281,12 +290,19 @@ export class TeachersService {
           studentName,
         };
       }),
-      upcoming: upcomingSlots.map((s) => ({
-        id: s.id,
-        startsAt: s.startsAt,
-        endsAt: s.endsAt,
-        studentName: s.enrollments[0]?.student.user.name ?? 'Student',
-      })),
+      upcoming: upcomingSlots.map((s) => {
+        const enrollment = s.enrollments[0];
+        const speakingSessionId =
+          enrollment?.examSession?.sectionAttempts[0]?.speakingSession?.id ??
+          null;
+        return {
+          id: s.id,
+          startsAt: s.startsAt,
+          endsAt: s.endsAt,
+          studentName: enrollment?.student.user.name ?? 'Student',
+          speakingSessionId,
+        };
+      }),
     };
   }
 
@@ -432,6 +448,23 @@ export class TeachersService {
       data: { status: SlotStatus.BLOCKED },
     });
     return { blocked: true };
+  }
+
+  async unblockSlot(user: RequestUser, slotId: string) {
+    const teacher = await this.requireTeacher(user);
+    const slot = await this.prisma.teacherSlot.findFirst({
+      where: { id: slotId, teacherId: teacher.id },
+    });
+    if (!slot) throw new NotFoundException('Slot not found');
+    if (slot.status !== SlotStatus.BLOCKED) {
+      throw new ForbiddenException('Only blocked slots can be unblocked');
+    }
+
+    await this.prisma.teacherSlot.update({
+      where: { id: slotId },
+      data: { status: SlotStatus.AVAILABLE },
+    });
+    return { unblocked: true };
   }
 
   async getEarnings(user: RequestUser) {

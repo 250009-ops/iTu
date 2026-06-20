@@ -1,8 +1,9 @@
 import type { listPackages } from "@/lib/api/catalog";
 import type { getResult, listResults } from "@/lib/api/results";
 import type { getMockDayHub, getStudentProfile } from "@/lib/api/students";
+import { getMockDayRules, isSingleSkillPackage } from "@/lib/exam/check-in-config";
+import { packageExamSkills } from "@/lib/exam/package-skills";
 import {
-  defaultExamRules,
   fullMockHighlights,
   speakingOnlyHighlights,
   speakingTip,
@@ -247,8 +248,9 @@ export function mapMockDayHub(data: MockDayApi) {
   const hasSpeaking =
     (enrollment.packageSkills ?? []).includes("speaking") ||
     sections.some((s) => s.skill === "speaking");
+  const packageSkills = packageExamSkills(enrollment.packageSkills);
   const completedCount = sections.filter((s) => s.completed).length;
-  const totalModules = sections.length || 4;
+  const totalModules = sections.length || packageSkills.length || 1;
   const activeSection = sections.find((s) => s.active);
   const speakingScheduled = speaking?.scheduledAt
     ? new Date(speaking.scheduledAt)
@@ -445,7 +447,7 @@ export function mapMockDayHub(data: MockDayApi) {
             : "Verify your identity and device setup before starting your first section.",
     },
     moduleRail,
-    rules: defaultExamRules,
+    rules: getMockDayRules(enrollment.packageSkills),
     schedule: scheduleItems,
     sections: cbtSections,
     hasSpeaking,
@@ -472,10 +474,18 @@ export function mapMockDayHub(data: MockDayApi) {
     checkIn: {
       title: checkInCompleted ? "Check-in Complete" : "Check-in Required",
       description: checkInCompleted
-        ? "You are cleared to start your exam sections."
+        ? isSingleSkillPackage(packageSkills, "writing")
+          ? "You are cleared to start your Writing section."
+          : isSingleSkillPackage(packageSkills, "speaking")
+            ? "You are cleared to start your Speaking session."
+            : "You are cleared to start your exam sections."
         : hasSpeaking && speakingScheduled
           ? `Complete before ${formatTime(new Date(speakingScheduled.getTime() - 15 * 60 * 1000))} to access the speaking session.`
-          : "Complete check-in before your first section.",
+          : isSingleSkillPackage(packageSkills, "writing")
+            ? "Complete check-in before your Writing section."
+            : isSingleSkillPackage(packageSkills, "speaking")
+              ? "Complete check-in before your Speaking session."
+              : "Complete check-in before your first section.",
       actionLabel: checkInCompleted ? "Review Check-in" : "Start Check-in",
     },
     speakingTip,

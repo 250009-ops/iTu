@@ -431,6 +431,20 @@ async function main() {
     danielUser.teacherProfile!.id,
     michaelUser.teacherProfile!.id,
   ];
+
+  // Weekly templates so the teacher availability page matches bookable slots.
+  await prisma.teacherAvailability.createMany({
+    data: speakingTeacherIds.flatMap((teacherId) =>
+      [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+        teacherId,
+        dayOfWeek,
+        startTime: '09:00',
+        endTime: '17:00',
+        slotDuration: 30,
+      })),
+    ),
+  });
+
   const rollingSlots: {
     teacherId: string;
     startsAt: Date;

@@ -69,6 +69,7 @@ export function getTeacherAvailability(weekStart?: string) {
       startsAt: string;
       endsAt: string;
       studentName: string;
+      speakingSessionId: string | null;
     }[];
   }>(`/teachers/availability${query}`);
 }
@@ -88,6 +89,12 @@ export function updateTeacherAvailability(
 
 export function blockTeacherSlot(slotId: string) {
   return apiFetch<{ blocked: boolean }>(`/teachers/slots/${slotId}/block`, {
+    method: "PATCH",
+  });
+}
+
+export function unblockTeacherSlot(slotId: string) {
+  return apiFetch<{ unblocked: boolean }>(`/teachers/slots/${slotId}/unblock`, {
     method: "PATCH",
   });
 }

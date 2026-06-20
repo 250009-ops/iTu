@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Ban, ChevronLeft, ChevronRight, Loader2, Unlock } from "lucide-react";
 import { useTeacherAvailability } from "@/contexts/teacher-availability-context";
 import { useToast } from "@/components/ui/toast";
-import { blockTeacherSlot } from "@/lib/api/teachers";
+import { blockTeacherSlot, unblockTeacherSlot } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
   avatarColorFromName,
@@ -22,17 +22,19 @@ const blockStyles: Record<SlotStatus, string> = {
   available:
     "border border-emerald-200/80 bg-emerald-100 hover:border-emerald-300 hover:bg-emerald-200/80 cursor-pointer",
   booked: "border border-sky-200 bg-sky-100",
-  blocked: "border border-slate-200 bg-slate-100",
+  blocked: "border border-slate-300 bg-slate-100 hover:border-slate-400 hover:bg-slate-200/80 cursor-pointer",
 };
 
 function ScheduleBlockCell({
   block,
   pending,
   onBlock,
+  onUnblock,
 }: {
   block: ScheduleBlock;
   pending: boolean;
   onBlock: (() => void) | null;
+  onUnblock: (() => void) | null;
 }) {
   const top =
     ((block.startMinutes - GRID_START * 60) / 60) * HOUR_HEIGHT;
@@ -44,23 +46,27 @@ function ScheduleBlockCell({
     ? avatarColorFromName(block.studentName)
     : null;
 
+  const interactive = onBlock ?? onUnblock;
+
   return (
     <button
       type="button"
-      disabled={!onBlock || pending || block.status !== "available"}
-      onClick={onBlock ?? undefined}
+      disabled={!interactive || pending}
+      onClick={interactive ?? undefined}
       title={
         block.status === "available"
           ? `${block.startLabel}–${block.endLabel} · Click to block`
-          : block.status === "booked" && block.studentName
-            ? `${block.studentName} · ${block.startLabel}–${block.endLabel}`
-            : `${block.startLabel}–${block.endLabel}`
+          : block.status === "blocked"
+            ? `${block.startLabel}–${block.endLabel} · Click to unblock`
+            : block.status === "booked" && block.studentName
+              ? `${block.studentName} · ${block.startLabel}–${block.endLabel}`
+              : `${block.startLabel}–${block.endLabel}`
       }
       style={{ top: `${top}px`, height: `${height}px` }}
       className={cn(
         "absolute inset-x-1 z-10 flex items-start justify-center rounded-md px-1 py-1 text-left transition-colors",
         blockStyles[block.status],
-        block.status === "available" && "group",
+        (block.status === "available" || block.status === "blocked") && "group",
       )}
     >
       {pending ? (
@@ -85,6 +91,8 @@ function ScheduleBlockCell({
         </div>
       ) : block.status === "available" ? (
         <Ban className="h-3 w-3 text-rose-400 opacity-0 transition-opacity group-hover:opacity-100" />
+      ) : block.status === "blocked" ? (
+        <Unlock className="h-3 w-3 text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100" />
       ) : null}
     </button>
   );
@@ -121,9 +129,28 @@ export function SchedulePreviewGrid() {
     }
   }
 
+  async function handleUnblock(slotId: string) {
+    setPendingId(slotId);
+    try {
+      await unblockTeacherSlot(slotId);
+      toast("Slot unblocked", {
+        description: "This time is available for booking again.",
+        variant: "success",
+      });
+      await refresh();
+    } catch (err) {
+      toast("Could not unblock slot", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "error",
+      });
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   return (
-    <div className="flex h-full min-h-[560px] flex-col rounded-xl border border-border bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+    <div className="flex h-full min-h-[560px] flex-col rounded-xl border border-border bg-white shadow-sm xl:min-h-0 xl:max-h-full">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -169,6 +196,15 @@ export function SchedulePreviewGrid() {
             <span className="font-semibold text-foreground">{stats.booked}</span>{" "}
             booked
           </span>
+          {stats.blocked > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-slate-400" />
+              <span className="font-semibold text-foreground">
+                {stats.blocked}
+              </span>{" "}
+              blocked
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-slate-300" />
             <span className="font-semibold text-foreground">
@@ -179,7 +215,7 @@ export function SchedulePreviewGrid() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-x-auto overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
         <div className="min-w-[640px]">
           <div className="grid grid-cols-[3.5rem_repeat(7,1fr)] border-b border-border bg-slate-50/80">
             <div />
@@ -244,6 +280,11 @@ export function SchedulePreviewGrid() {
                           ? () => handleBlock(block.slotIds[0]!)
                           : null
                       }
+                      onUnblock={
+                        block.status === "blocked"
+                          ? () => handleUnblock(block.slotIds[0]!)
+                          : null
+                      }
                     />
                   ))}
               </div>
@@ -252,7 +293,7 @@ export function SchedulePreviewGrid() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-border px-4 py-2.5 text-[11px] text-muted">
+      <div className="shrink-0 flex flex-wrap items-center gap-4 border-t border-border px-4 py-2.5 text-[11px] text-muted">
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-5 rounded border border-emerald-200 bg-emerald-100" />
           Available
@@ -260,6 +301,10 @@ export function SchedulePreviewGrid() {
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-5 rounded border border-sky-200 bg-sky-100" />
           Booked (student)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-5 rounded border border-slate-300 bg-slate-100" />
+          Blocked
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-5 rounded day-off-pattern border border-slate-200" />

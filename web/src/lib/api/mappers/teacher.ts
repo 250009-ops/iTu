@@ -631,6 +631,7 @@ export function mapTeacherAvailability(data: Availability, weekOffset = 0) {
         id: item.id,
         studentName: item.studentName,
         initials: initialsFromName(item.studentName),
+        speakingSessionId: item.speakingSessionId ?? null,
         label: `${startsAt.toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",

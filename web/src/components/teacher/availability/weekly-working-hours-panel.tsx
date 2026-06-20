@@ -74,7 +74,6 @@ export function WeeklyWorkingHoursPanel() {
   const [slotDuration, setSlotDuration] = useState<15 | 20 | 30>(
     (availability.slotDuration as 15 | 20 | 30) || 20,
   );
-  const [bufferMinutes, setBufferMinutes] = useState<0 | 5 | 10>(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -164,8 +163,8 @@ export function WeeklyWorkingHoursPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-border bg-white shadow-sm">
-      <div className="border-b border-border px-5 py-4">
+    <div className="flex h-full min-h-0 flex-col rounded-xl border border-border bg-white shadow-sm xl:max-h-full">
+      <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold text-navy">Weekly Working Hours</h2>
@@ -190,7 +189,7 @@ export function WeeklyWorkingHoursPanel() {
 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted">Slot</span>
+            <span className="text-xs font-medium text-muted">Slot duration</span>
             <SegmentedControl
               value={slotDuration}
               options={[
@@ -201,22 +200,10 @@ export function WeeklyWorkingHoursPanel() {
               onChange={setSlotDuration}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted">Buffer</span>
-            <SegmentedControl
-              value={bufferMinutes}
-              options={[
-                { value: 0 as const, label: "None" },
-                { value: 5 as const, label: "5m" },
-                { value: 10 as const, label: "10m" },
-              ]}
-              onChange={setBufferMinutes}
-            />
-          </div>
         </div>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-4">
         {schedule.map((day) => (
           <div
             key={day.dayOfWeek}
@@ -335,7 +322,7 @@ export function WeeklyWorkingHoursPanel() {
         )}
       </div>
 
-      <div className="border-t border-border p-4">
+      <div className="shrink-0 border-t border-border p-4">
         <Button
           variant="danger"
           className="w-full"
@@ -345,11 +332,6 @@ export function WeeklyWorkingHoursPanel() {
           <Save className="h-4 w-4" />
           Save Changes
         </Button>
-        {bufferMinutes > 0 && (
-          <p className="mt-2 text-center text-[10px] text-muted">
-            Buffer is shown in preview; slot spacing uses {slotDuration}m slots.
-          </p>
-        )}
       </div>
     </div>
   );
