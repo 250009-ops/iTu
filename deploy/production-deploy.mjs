@@ -67,6 +67,14 @@ set -e
 cd /var/www/itestu/app
 tar -xzf /var/www/itestu/production.tar.gz
 rm /var/www/itestu/production.tar.gz
+# Remove files deleted in refactors (tar extract does not delete stale paths)
+rm -f web/src/components/teacher/availability/availability-grid.tsx \\
+  web/src/components/teacher/availability/availability-header.tsx \\
+  web/src/components/teacher/availability/working-hours-dialog.tsx \\
+  web/src/components/teacher/speaking/speaking-empty-state.tsx \\
+  web/src/components/teacher/grading/grading-header.tsx \\
+  web/src/components/teacher/grading/submissions-table.tsx \\
+  web/src/components/teacher/grading/grading-queue-empty.tsx
 mkdir -p /var/www/itestu/deploy/nginx
 for f in deploy-rebuild.sh ensure-local-media.sh; do
   if [ -f "/var/www/itestu/app/deploy/$f" ]; then
