@@ -5,10 +5,11 @@ import { SettingsModule } from '../settings/settings.module';
 import { GradingController } from './grading.controller';
 import { GradingService } from './grading.service';
 import { GradingSlaService } from './grading-sla.service';
+import { WritingAiEvaluationService } from './writing-ai-evaluation.service';
 
 @Module({
   imports: [NotificationsModule, SettingsModule, ResultsModule],
   controllers: [GradingController],
-  providers: [GradingService, GradingSlaService],
+  providers: [GradingService, GradingSlaService, WritingAiEvaluationService],
 })
 export class GradingModule {}

@@ -10,11 +10,11 @@ export function getWritingQueue() {
       task2WordCount: number;
       status: string;
       slaMinutesRemaining: number | null;
-      grade: {
-        overallBand: number;
-        criteriaScores: Record<string, number>;
-        gradedAt: string;
-      } | null;
+    grade: {
+      criteriaScores: Record<string, unknown>;
+      overallBand: number;
+      gradedAt: string;
+    } | null;
     }[]
   >("/grading/writing-queue");
 }
@@ -42,11 +42,11 @@ export type WritingHubRow = {
   task2WordCount: number;
   status: string;
   slaMinutesRemaining: number | null;
-  grade: {
-    overallBand: number;
-    criteriaScores: Record<string, number>;
-    gradedAt: string;
-  } | null;
+    grade: {
+      criteriaScores: Record<string, unknown>;
+      overallBand: number;
+      gradedAt: string;
+    } | null;
 };
 
 export function getSpeakingQueue() {
@@ -67,21 +67,48 @@ export function getWritingSubmission(id: string) {
     studentName: string;
     task1Text: string | null;
     task2Text: string | null;
+    task1Prompt: string | null;
+    task2Prompt: string | null;
+    task1VisualCaption: string | null;
+    task2VisualCaption: string | null;
     task1WordCount: number;
     task2WordCount: number;
+    submittedAt: string;
+    slaMinutesRemaining: number | null;
     status: string;
+    aiConfigured: boolean;
     grade: {
-      criteriaScores: Record<string, number>;
+      criteriaScores: Record<string, unknown>;
       overallBand: number;
       feedback: string | null;
     } | null;
+    aiEvaluation: {
+      status: string;
+      task1Annotations: unknown;
+      task2Annotations: unknown;
+      task1SuggestedScores: Record<string, number> | null;
+      task2SuggestedScores: Record<string, number> | null;
+      modelVersion: string | null;
+      errorMessage: string | null;
+      generatedAt: string | null;
+    } | null;
   }>(`/grading/writing/${id}`);
+}
+
+export function triggerWritingAiEvaluation(id: string) {
+  return apiFetch<{ triggered: boolean; reason?: string }>(
+    `/grading/writing/${id}/ai-evaluate`,
+    { method: "POST" },
+  );
 }
 
 export function scoreWriting(
   id: string,
   body: {
-    criteriaScores: Record<string, number>;
+    criteriaScores: {
+      task1: Record<string, number | string | undefined>;
+      task2: Record<string, number | string | undefined>;
+    };
     overallBand: number;
     feedback?: string;
   },

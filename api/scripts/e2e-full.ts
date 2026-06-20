@@ -382,10 +382,18 @@ async function runTeacherScenarios(studentName = 'Alex') {
       await api('GET', `/grading/writing/${alexWriting.id}`, auth.accessToken);
       await api('POST', `/grading/writing/${alexWriting.id}/score`, auth.accessToken, {
         criteriaScores: {
-          taskAchievement: 7,
-          coherence: 7,
-          lexical: 7,
-          grammar: 7,
+          task1: {
+            taskAchievement: 7,
+            coherenceCohesion: 7,
+            lexicalResource: 7,
+            grammar: 7,
+          },
+          task2: {
+            taskResponse: 7,
+            coherenceCohesion: 7,
+            lexicalResource: 7,
+            grammar: 7,
+          },
         },
         overallBand: 7,
         feedback: 'E2E automated writing grade.',

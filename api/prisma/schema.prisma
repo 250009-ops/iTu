@@ -109,6 +109,13 @@ enum WritingSubmissionStatus {
   GRADED
 }
 
+enum WritingAiEvaluationStatus {
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
 enum SpeakingSessionStatus {
   SCHEDULED
   WAITING
@@ -528,8 +535,28 @@ model WritingSubmission {
   sectionAttempt SectionAttempt  @relation(fields: [sectionAttemptId], references: [id], onDelete: Cascade)
   teacher        TeacherProfile? @relation(fields: [teacherId], references: [id])
   grade          Grade?
+  aiEvaluation   WritingAiEvaluation?
 
   @@map("writing_submissions")
+}
+
+model WritingAiEvaluation {
+  id                   String                    @id @default(cuid())
+  writingSubmissionId  String                    @unique @map("writing_submission_id")
+  status               WritingAiEvaluationStatus @default(QUEUED)
+  task1Annotations     Json?                     @map("task1_annotations")
+  task2Annotations     Json?                     @map("task2_annotations")
+  task1SuggestedScores Json?                     @map("task1_suggested_scores")
+  task2SuggestedScores Json?                     @map("task2_suggested_scores")
+  modelVersion         String?                   @map("model_version")
+  errorMessage         String?                   @map("error_message")
+  generatedAt          DateTime?                 @map("generated_at")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  updatedAt            DateTime                  @updatedAt @map("updated_at")
+
+  writingSubmission WritingSubmission @relation(fields: [writingSubmissionId], references: [id], onDelete: Cascade)
+
+  @@map("writing_ai_evaluations")
 }
 
 model SpeakingSession {

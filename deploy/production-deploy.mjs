@@ -8,7 +8,7 @@
  * Usage:
  *   VPS_PASSWORD=... node deploy/production-deploy.mjs
  */
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
@@ -60,6 +60,17 @@ async function main() {
   );
 
   console.log(`==> Uploading to ${VPS.host}...`);
+  await exec(conn, 'mkdir -p /var/www/itestu/deploy/env');
+  for (const [localRel, remote] of [
+    ['deploy/env/api.env', '/var/www/itestu/deploy/env/api.env'],
+    ['deploy/env/web.env.local', '/var/www/itestu/deploy/env/web.env.local'],
+  ]) {
+    const localPath = join(ROOT, localRel);
+    if (existsSync(localPath)) {
+      console.log(`==> Uploading ${localRel}...`);
+      await upload(sftp, localPath, remote);
+    }
+  }
   await upload(sftp, tarPath, '/var/www/itestu/production.tar.gz');
 
   await exec(conn, `

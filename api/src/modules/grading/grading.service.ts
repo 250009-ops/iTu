@@ -6,6 +6,11 @@ import {
 import { NotificationType } from '@prisma/client';
 import { accrueTeacherGradingEarning } from '../../common/teacher-earnings';
 import { validateBandScores } from './band-validation';
+import {
+  validateWritingCriteriaScores,
+  type WritingCriteriaScoresPayload,
+} from './writing-band-validation';
+import { WritingAiEvaluationService } from './writing-ai-evaluation.service';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -19,6 +24,7 @@ export class GradingService {
     private notifications: NotificationsService,
     private settings: SettingsService,
     private resultsRelease: ResultsReleaseService,
+    private writingAi: WritingAiEvaluationService,
   ) {}
 
   async getWritingQueue(user: RequestUser) {
@@ -66,7 +72,7 @@ export class GradingService {
         grade: s.grade
           ? {
               overallBand: s.grade.overallBand,
-              criteriaScores: s.grade.criteriaScores as Record<string, number>,
+              criteriaScores: s.grade.criteriaScores as Record<string, unknown>,
               gradedAt: s.grade.gradedAt,
             }
           : null,
@@ -163,6 +169,7 @@ export class GradingService {
       include: {
         sectionAttempt: {
           include: {
+            contentTest: { select: { content: true } },
             session: {
               include: {
                 enrollment: {
@@ -173,6 +180,7 @@ export class GradingService {
           },
         },
         grade: true,
+        aiEvaluation: true,
       },
     });
 
@@ -181,15 +189,38 @@ export class GradingService {
       throw new ForbiddenException('Not assigned to this submission');
     }
 
+    if (submission.status !== 'GRADED') {
+      void this.writingAi.getOrTriggerEvaluation(id);
+    }
+
+    const content = submission.sectionAttempt.contentTest?.content as
+      | { tasks?: { taskNumber?: number; prompt?: string; visual?: { caption?: string } }[] }
+      | undefined;
+    const tasks = content?.tasks ?? [];
+    const task1 = tasks.find((t) => t.taskNumber === 1);
+    const task2 = tasks.find((t) => t.taskNumber === 2);
+
+    const slaMinutesRemaining = submission.slaDueAt
+      ? Math.round((submission.slaDueAt.getTime() - Date.now()) / 60_000)
+      : null;
+
     return {
       id: submission.id,
       studentName:
         submission.sectionAttempt.session.enrollment.student.user.name,
       task1Text: submission.task1Text,
       task2Text: submission.task2Text,
+      task1Prompt: task1?.prompt ?? null,
+      task2Prompt: task2?.prompt ?? null,
+      task1VisualCaption: task1?.visual?.caption ?? null,
+      task2VisualCaption: task2?.visual?.caption ?? null,
       task1WordCount: submission.task1WordCount,
       task2WordCount: submission.task2WordCount,
+      submittedAt:
+        submission.sectionAttempt.submittedAt ?? submission.updatedAt,
+      slaMinutesRemaining,
       status: submission.status.toLowerCase(),
+      aiConfigured: this.writingAi.isConfigured(),
       grade: submission.grade
         ? {
             criteriaScores: submission.grade.criteriaScores,
@@ -197,14 +228,44 @@ export class GradingService {
             feedback: submission.grade.feedback,
           }
         : null,
+      aiEvaluation: submission.aiEvaluation
+        ? {
+            status: submission.aiEvaluation.status.toLowerCase(),
+            task1Annotations: submission.aiEvaluation.task1Annotations,
+            task2Annotations: submission.aiEvaluation.task2Annotations,
+            task1SuggestedScores: submission.aiEvaluation.task1SuggestedScores,
+            task2SuggestedScores: submission.aiEvaluation.task2SuggestedScores,
+            modelVersion: submission.aiEvaluation.modelVersion,
+            errorMessage: submission.aiEvaluation.errorMessage,
+            generatedAt: submission.aiEvaluation.generatedAt,
+          }
+        : null,
     };
+  }
+
+  async triggerWritingAiEvaluation(id: string, user: RequestUser) {
+    const submission = await this.prisma.writingSubmission.findUnique({
+      where: { id },
+      select: { teacherId: true },
+    });
+    if (!submission) throw new NotFoundException('Submission not found');
+    if (submission.teacherId !== user.teacherProfileId && user.role !== 'ADMIN') {
+      throw new ForbiddenException('Not assigned to this submission');
+    }
+
+    if (!this.writingAi.isConfigured()) {
+      return { triggered: false, reason: 'OPENAI_API_KEY not configured' };
+    }
+
+    await this.writingAi.retryEvaluation(id);
+    return { triggered: true };
   }
 
   async scoreWriting(
     submissionId: string,
     user: RequestUser,
     body: {
-      criteriaScores: Record<string, number>;
+      criteriaScores: WritingCriteriaScoresPayload;
       overallBand: number;
       feedback?: string;
     },
@@ -213,7 +274,20 @@ export class GradingService {
       throw new ForbiddenException('Teacher profile required');
     }
 
-    validateBandScores('writing', body.criteriaScores, body.overallBand);
+    const validatedScores = validateWritingCriteriaScores(
+      body.criteriaScores as unknown as Record<string, unknown>,
+      body.overallBand,
+    );
+
+    const combinedFeedback =
+      body.feedback?.trim() ||
+      [
+        validatedScores.task1.feedback?.trim(),
+        validatedScores.task2.feedback?.trim(),
+      ]
+        .filter(Boolean)
+        .join('\n\n') ||
+      undefined;
 
     const submission = await this.prisma.writingSubmission.findUnique({
       where: { id: submissionId },
@@ -243,14 +317,14 @@ export class GradingService {
         create: {
           writingSubmissionId: submissionId,
           gradedById: user.teacherProfileId!,
-          criteriaScores: body.criteriaScores,
+          criteriaScores: validatedScores,
           overallBand: body.overallBand,
-          feedback: body.feedback,
+          feedback: combinedFeedback,
         },
         update: {
-          criteriaScores: body.criteriaScores,
+          criteriaScores: validatedScores,
           overallBand: body.overallBand,
-          feedback: body.feedback,
+          feedback: combinedFeedback,
           gradedAt: new Date(),
         },
       });

@@ -311,16 +311,56 @@ function formatSlaLabel(minutes: number | null): {
 }
 
 function mapWritingCriteriaScores(
-  criteriaScores: Record<string, number> | null | undefined,
+  criteriaScores: Record<string, unknown> | null | undefined,
 ): { ta: number; cc: number; lr: number; gra: number } | null {
   if (!criteriaScores) return null;
+
+  const task1 = criteriaScores.task1 as Record<string, number> | undefined;
+  const task2 = criteriaScores.task2 as Record<string, number> | undefined;
+  if (task1 && task2) {
+    const ta1 = task1.taskAchievement;
+    const ta2 = task2.taskResponse;
+    const cc1 = task1.coherenceCohesion;
+    const cc2 = task2.coherenceCohesion;
+    const lr1 = task1.lexicalResource;
+    const lr2 = task2.lexicalResource;
+    const gra1 = task1.grammar;
+    const gra2 = task2.grammar;
+    if (
+      typeof ta1 === "number" &&
+      typeof ta2 === "number" &&
+      typeof cc1 === "number" &&
+      typeof cc2 === "number" &&
+      typeof lr1 === "number" &&
+      typeof lr2 === "number" &&
+      typeof gra1 === "number" &&
+      typeof gra2 === "number"
+    ) {
+      return {
+        ta: Math.round(((ta1 + ta2) / 2) * 2) / 2,
+        cc: Math.round(((cc1 + cc2) / 2) * 2) / 2,
+        lr: Math.round(((lr1 + lr2) / 2) * 2) / 2,
+        gra: Math.round(((gra1 + gra2) / 2) * 2) / 2,
+      };
+    }
+  }
+
   const ta =
-    criteriaScores.taskAchievement ?? criteriaScores.ta ?? null;
+    (criteriaScores as Record<string, number>).taskAchievement ??
+    (criteriaScores as Record<string, number>).ta ??
+    null;
   const cc =
-    criteriaScores.coherenceCohesion ?? criteriaScores.cc ?? null;
+    (criteriaScores as Record<string, number>).coherenceCohesion ??
+    (criteriaScores as Record<string, number>).cc ??
+    null;
   const lr =
-    criteriaScores.lexicalResource ?? criteriaScores.lr ?? null;
-  const gra = criteriaScores.grammar ?? criteriaScores.gra ?? null;
+    (criteriaScores as Record<string, number>).lexicalResource ??
+    (criteriaScores as Record<string, number>).lr ??
+    null;
+  const gra =
+    (criteriaScores as Record<string, number>).grammar ??
+    (criteriaScores as Record<string, number>).gra ??
+    null;
   if (
     typeof ta !== "number" ||
     typeof cc !== "number" ||

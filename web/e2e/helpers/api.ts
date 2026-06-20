@@ -115,10 +115,18 @@ export async function gradeWritingForStudent(
   }
   await api("POST", `/grading/writing/${row.id}/score`, teacherToken, {
     criteriaScores: {
-      taskAchievement: 7,
-      coherenceCohesion: 7,
-      lexicalResource: 7,
-      grammar: 7,
+      task1: {
+        taskAchievement: 7,
+        coherenceCohesion: 7,
+        lexicalResource: 7,
+        grammar: 7,
+      },
+      task2: {
+        taskResponse: 7,
+        coherenceCohesion: 7,
+        lexicalResource: 7,
+        grammar: 7,
+      },
     },
     overallBand: 7,
     feedback: "Playwright E2E writing grade.",
