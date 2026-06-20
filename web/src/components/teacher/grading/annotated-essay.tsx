@@ -23,6 +23,8 @@ export function AnnotatedEssay({
 }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const body = text?.trim() ?? "";
+  const hasText = body.length > 0;
 
   const filtered = useMemo(() => {
     if (filter === "all") return annotations;
@@ -43,8 +45,7 @@ export function AnnotatedEssay({
   }, [annotations]);
 
   const segments = useMemo(() => {
-    const body = text?.trim() ?? "";
-    if (!body || filtered.length === 0) {
+    if (!hasText || filtered.length === 0) {
       return [{ kind: "text" as const, value: body }];
     }
 
@@ -75,45 +76,36 @@ export function AnnotatedEssay({
     }
 
     return parts;
-  }, [text, filtered]);
+  }, [body, hasText, filtered]);
 
   const hoveredAnn =
     hoveredId != null
       ? filtered.find((_, i) => i === hoveredId) ?? null
       : null;
 
-  if (!text?.trim()) {
-    return (
-      <div className="rounded-xl border border-border bg-white p-5 text-sm text-muted shadow-sm">
-        No response submitted.
-      </div>
-    );
-  }
+  const filterItems: [FilterKey, string][] = [
+    ["all", `All (${annotations.length})`],
+    ...CRITERION_ORDER.map(
+      (id): [FilterKey, string] => [
+        id,
+        `${WRITING_CRITERION_META[id].short} (${counts[id]})`,
+      ],
+    ),
+  ];
 
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3">
         <p className="text-sm font-semibold text-navy">Candidate Response</p>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          {(
-            [
-              ["all", `All (${annotations.length})`, null],
-              ...CRITERION_ORDER.map(
-                (id) =>
-                  [
-                    id,
-                    `${WRITING_CRITERION_META[id].short} (${counts[id]})`,
-                    id,
-                  ] as const,
-              ),
-            ] as const
-          ).map(([key, label]) => (
+          {filterItems.map(([key, label]) => (
             <button
               key={key}
               type="button"
-              onClick={() => setFilter(key as FilterKey)}
+              onClick={() => setFilter(key)}
+              disabled={!hasText}
               className={cn(
-                "rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                "rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-default disabled:opacity-60",
                 filter === key
                   ? key === "all"
                     ? "bg-navy text-white"
@@ -126,35 +118,41 @@ export function AnnotatedEssay({
               {label}
             </button>
           ))}
-          <span className="ml-1 text-xs font-medium text-muted">
+          <span className="ml-1 text-xs font-medium tabular-nums text-muted">
             {wordCount} words
           </span>
         </div>
       </div>
 
-      <div className="relative px-5 py-4">
-        <div className="whitespace-pre-wrap font-serif text-[15px] leading-8 text-foreground">
-          {segments.map((part, i) =>
-            part.kind === "text" ? (
-              <span key={i}>{part.value}</span>
-            ) : (
-              <span
-                key={i}
-                className={cn(
-                  "cursor-help rounded-sm transition-colors",
-                  CRITERION_TONE_CLASSES[
-                    WRITING_CRITERION_META[part.ann.criterion].tone
-                  ].highlight,
-                  hoveredId === part.id && "ring-2 ring-navy/20",
-                )}
-                onMouseEnter={() => setHoveredId(part.id)}
-                onMouseLeave={() => setHoveredId(null)}
-              >
-                {part.value}
-              </span>
-            ),
-          )}
-        </div>
+      <div className="relative min-h-[8rem] px-5 py-4">
+        {hasText ? (
+          <div className="whitespace-pre-wrap font-serif text-[15px] leading-8 text-foreground">
+            {segments.map((part, i) =>
+              part.kind === "text" ? (
+                <span key={i}>{part.value}</span>
+              ) : (
+                <span
+                  key={i}
+                  className={cn(
+                    "cursor-help rounded-sm transition-colors",
+                    CRITERION_TONE_CLASSES[
+                      WRITING_CRITERION_META[part.ann.criterion].tone
+                    ].highlight,
+                    hoveredId === part.id && "ring-2 ring-navy/20",
+                  )}
+                  onMouseEnter={() => setHoveredId(part.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                >
+                  {part.value}
+                </span>
+              ),
+            )}
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-muted">
+            No response submitted for this task.
+          </p>
+        )}
 
         {hoveredAnn && (
           <div className="pointer-events-none absolute bottom-4 left-5 right-5 z-10 rounded-lg border border-border bg-white p-3 shadow-lg">
@@ -188,12 +186,12 @@ export function AnnotatedEssay({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-4 border-t border-border px-5 py-2.5 text-[11px] text-muted">
+      <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border px-5 py-3.5 pb-4 text-[11px] leading-relaxed text-muted">
         {CRITERION_ORDER.map((id) => (
           <span key={id} className="inline-flex items-center gap-1.5">
             <span
               className={cn(
-                "h-0.5 w-4 rounded-full",
+                "h-0.5 w-4 shrink-0 rounded-full",
                 id === "ta" && "bg-sky-500",
                 id === "cc" && "bg-violet-500",
                 id === "lr" && "bg-emerald-500",

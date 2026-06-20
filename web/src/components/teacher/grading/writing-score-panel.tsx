@@ -3,7 +3,6 @@
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  bandOptions,
   CRITERION_ORDER,
   CRITERION_TONE_CLASSES,
   TASK1_CRITERION_LABELS,
@@ -13,6 +12,8 @@ import {
   type WritingTaskKey,
   WRITING_CRITERION_META,
   averageTaskBand,
+  formatBand,
+  writingBandOptions,
 } from "@/lib/writing/scoring";
 import { cn } from "@/lib/utils";
 
@@ -55,8 +56,8 @@ export function WritingScorePanel({
             </span>
           )}
         </div>
-        <p className="text-3xl font-bold text-violet-600">
-          {taskBand.toFixed(1)}
+        <p className="text-3xl font-bold tabular-nums text-violet-600">
+          {formatBand(taskBand)}
         </p>
       </div>
 
@@ -71,11 +72,11 @@ export function WritingScorePanel({
                 <span
                   className={cn("text-lg font-bold tabular-nums", toneClasses.score)}
                 >
-                  {scores[id].toFixed(1)}
+                  {formatBand(scores[id])}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {bandOptions.map((score) => (
+                {writingBandOptions.map((score) => (
                   <button
                     key={score}
                     type="button"
@@ -124,7 +125,7 @@ export function WritingScorePanel({
                     )}
                   >
                     {WRITING_CRITERION_META[id].short}{" "}
-                    {aiSuggested[id].toFixed(1)}
+                    {formatBand(aiSuggested[id])}
                   </span>
                 );
               })}

@@ -57,14 +57,31 @@ export class WritingAiEvaluationService {
   async getOrTriggerEvaluation(submissionId: string): Promise<void> {
     if (!this.isConfigured()) return;
 
+    const submission = await this.prisma.writingSubmission.findUnique({
+      where: { id: submissionId },
+      select: { task1Text: true, task2Text: true },
+    });
+    if (!submission) return;
+
     const existing = await this.prisma.writingAiEvaluation.findUnique({
       where: { writingSubmissionId: submissionId },
     });
 
+    if (existing?.status === WritingAiEvaluationStatus.READY) {
+      if (this.isStaleEvaluation(existing, submission)) {
+        await this.prisma.writingAiEvaluation.update({
+          where: { writingSubmissionId: submissionId },
+          data: { status: WritingAiEvaluationStatus.QUEUED, errorMessage: null },
+        });
+        void this.runEvaluation(submissionId);
+        return;
+      }
+      return;
+    }
+
     if (
       existing &&
-      (existing.status === WritingAiEvaluationStatus.READY ||
-        existing.status === WritingAiEvaluationStatus.PROCESSING ||
+      (existing.status === WritingAiEvaluationStatus.PROCESSING ||
         existing.status === WritingAiEvaluationStatus.QUEUED)
     ) {
       if (existing.status === WritingAiEvaluationStatus.QUEUED) {
@@ -147,26 +164,33 @@ export class WritingAiEvaluationService {
       const task2Prompt =
         tasks.find((t) => t.taskNumber === 2)?.prompt ?? 'Task 2 prompt unavailable';
 
+      const task1Text = submission.task1Text?.trim() ?? '';
+      const task2Text = submission.task2Text?.trim() ?? '';
+
       const model =
         this.config.get<string>('OPENAI_MODEL')?.trim() || 'gpt-4o-mini';
 
-      const raw = await this.callOpenAi(apiKey, model, {
-        task1Prompt,
-        task2Prompt,
-        task1Text: submission.task1Text ?? '',
-        task2Text: submission.task2Text ?? '',
-      });
+      let task1: TaskAiResult;
+      let task2: TaskAiResult;
 
-      const task1 = this.normalizeTaskResult(
-        raw.task1,
-        submission.task1Text ?? '',
-        'taskAchievement',
-      );
-      const task2 = this.normalizeTaskResult(
-        raw.task2,
-        submission.task2Text ?? '',
-        'taskResponse',
-      );
+      if (!task1Text && !task2Text) {
+        task1 = this.emptyTaskResult('taskAchievement');
+        task2 = this.emptyTaskResult('taskResponse');
+      } else {
+        const raw = await this.callOpenAi(apiKey, model, {
+          task1Prompt,
+          task2Prompt,
+          task1Text,
+          task2Text,
+        });
+
+        task1 = task1Text
+          ? this.normalizeTaskResult(raw.task1, task1Text, 'taskAchievement')
+          : this.emptyTaskResult('taskAchievement');
+        task2 = task2Text
+          ? this.normalizeTaskResult(raw.task2, task2Text, 'taskResponse')
+          : this.emptyTaskResult('taskResponse');
+      }
 
       await this.prisma.writingAiEvaluation.update({
         where: { writingSubmissionId: submissionId },
@@ -195,11 +219,56 @@ export class WritingAiEvaluationService {
     }
   }
 
+  private isStaleEvaluation(
+    evaluation: {
+      task1SuggestedScores: unknown;
+      task2SuggestedScores: unknown;
+    },
+    submission: { task1Text: string | null; task2Text: string | null },
+  ): boolean {
+    const t1Empty = !submission.task1Text?.trim();
+    const t2Empty = !submission.task2Text?.trim();
+    if (!t1Empty && !t2Empty) return false;
+
+    const t1Scores = evaluation.task1SuggestedScores as Record<
+      string,
+      number
+    > | null;
+    const t2Scores = evaluation.task2SuggestedScores as Record<
+      string,
+      number
+    > | null;
+
+    if (t1Empty && t1Scores) {
+      if (Object.values(t1Scores).some((value) => value > 0)) return true;
+    }
+    if (t2Empty && t2Scores) {
+      if (Object.values(t2Scores).some((value) => value > 0)) return true;
+    }
+    return false;
+  }
+
+  private emptyTaskResult(
+    primaryKey: 'taskAchievement' | 'taskResponse',
+  ): TaskAiResult {
+    const suggestedScores: Record<string, number> = {
+      coherenceCohesion: 0,
+      lexicalResource: 0,
+      grammar: 0,
+    };
+    suggestedScores[primaryKey] = 0;
+    return { annotations: [], suggestedScores };
+  }
+
   private normalizeTaskResult(
     raw: RawAiTaskResult,
     essayText: string,
     primaryKey: 'taskAchievement' | 'taskResponse',
   ): TaskAiResult {
+    if (!essayText.trim()) {
+      return this.emptyTaskResult(primaryKey);
+    }
+
     const annotations: WritingAnnotationDto[] = [];
 
     for (const ann of raw.annotations ?? []) {
@@ -251,8 +320,8 @@ export class WritingAiEvaluationService {
   }
 
   private clampBand(value: unknown): number {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return 6;
-    const clamped = Math.min(9, Math.max(5, value));
+    if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+    const clamped = Math.min(9, Math.max(0, value));
     return Math.round(clamped * 2) / 2;
   }
 
@@ -281,7 +350,7 @@ Return ONLY valid JSON matching this schema:
       }
     ],
     "suggestedScores": {
-      "taskAchievement": <5-9 in 0.5 steps>,
+      "taskAchievement": <0-9 in 0.5 steps>,
       "coherenceCohesion": <number>,
       "lexicalResource": <number>,
       "grammar": <number>
@@ -290,7 +359,7 @@ Return ONLY valid JSON matching this schema:
   "task2": {
     "annotations": [...],
     "suggestedScores": {
-      "taskResponse": <5-9 in 0.5 steps>,
+      "taskResponse": <0-9 in 0.5 steps>,
       "coherenceCohesion": <number>,
       "lexicalResource": <number>,
       "grammar": <number>
@@ -303,8 +372,9 @@ Rules:
 - criterion "cc" = Coherence & Cohesion
 - criterion "lr" = Lexical Resource
 - criterion "gra" = Grammatical Range & Accuracy
-- Include 3-8 annotations per task for genuine issues and strengths
+- Include 3-8 annotations per task when the student wrote a substantive response; use an empty annotations array when the response is blank or "(empty)"
 - "text" MUST be copied verbatim from the student essay (exact substring)
+- Assign band 0 for every criterion when the student submitted no response for that task
 - Be fair and examiner-like; scores should reflect the annotations`;
 
     const userPrompt = `TASK 1 PROMPT:

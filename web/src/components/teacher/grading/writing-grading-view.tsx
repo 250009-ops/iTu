@@ -21,8 +21,10 @@ import {
   defaultTaskScores,
   formatSla,
   formatSubmittedAt,
+  formatWordCount,
   fromAiSuggestedScores,
   fromCriteriaPayload,
+  taskHasResponse,
   toCriteriaPayload,
   type TaskFeedback,
   type TaskScores,
@@ -106,6 +108,10 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
         setTask1Scores(parsed.task1);
         setTask2Scores(parsed.task2);
         setFeedback(parsed.feedback);
+      } else {
+        setTask1Scores(defaultTaskScores());
+        setTask2Scores(defaultTaskScores());
+        setFeedback({ task1: "", task2: "" });
       }
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load submission"));
@@ -173,7 +179,11 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
     activeTask === "task1" ? feedback.task1 : feedback.task2;
   const activeAiSuggested =
     activeTask === "task1" ? aiSuggestedTask1 : aiSuggestedTask2;
-  const aiReady = aiStatus === "ready";
+  const activeHasResponse = taskHasResponse(activeText);
+  const aiReady =
+    aiStatus === "ready" &&
+    activeHasResponse &&
+    activeAiSuggested !== null;
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -232,8 +242,8 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
       emptyMessage="Submission not found."
     >
       {submission && (
-        <div className="flex min-h-full flex-col pb-28">
-          <div className="space-y-5 p-4 lg:p-6 xl:p-8">
+        <div className="flex min-h-full flex-col">
+          <div className="space-y-5 p-4 pb-6 lg:p-6 lg:pb-6 xl:p-8 xl:pb-6">
             <div className="mx-auto max-w-7xl space-y-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -248,8 +258,9 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                     Grade Writing · {submission.studentName}
                   </h1>
                   <p className="mt-1 text-sm text-muted">
-                    {formatSubmittedAt(submission.submittedAt)} · T1{" "}
-                    {submission.task1WordCount}w · T2 {submission.task2WordCount}w
+                    {formatSubmittedAt(submission.submittedAt)} · T1 ·{" "}
+                    {formatWordCount(submission.task1WordCount)} · T2 ·{" "}
+                    {formatWordCount(submission.task2WordCount)}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -272,7 +283,7 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                 </div>
               </div>
 
-              <div className="flex gap-2 border-b border-border">
+              <div className="flex gap-1 border-b border-border">
                 {(
                   [
                     ["task1", "Task 1", submission.task1WordCount],
@@ -284,16 +295,18 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                     type="button"
                     onClick={() => setActiveTask(key)}
                     className={cn(
-                      "border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors",
+                      "-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors",
                       activeTask === key
                         ? key === "task1"
-                          ? "border-sky-500 text-sky-700"
-                          : "border-violet-500 text-violet-700"
-                        : "border-transparent text-muted hover:text-navy",
+                          ? "border-sky-500 font-semibold text-sky-700"
+                          : "border-violet-500 font-semibold text-violet-700"
+                        : "border-transparent font-medium text-muted hover:text-navy",
                     )}
                   >
-                    {label}{" "}
-                    <span className="font-medium text-muted">{words}w</span>
+                    <span>{label}</span>
+                    <span className="ml-1.5 font-normal tabular-nums text-muted">
+                      · {formatWordCount(words)}
+                    </span>
                   </button>
                 ))}
               </div>

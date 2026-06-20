@@ -67,7 +67,18 @@ export function computeWritingOverallBand(
 }
 
 export function defaultTaskScores(): TaskScores {
-  return { ta: 7, cc: 7, lr: 7, gra: 7 };
+  return { ta: 0, cc: 0, lr: 0, gra: 0 };
+}
+
+/** 0 for missing responses, then standard examiner range 5–9. */
+export const writingBandOptions = [0, ...bandOptions] as number[];
+
+export function formatWordCount(count: number): string {
+  return `${count}w`;
+}
+
+export function taskHasResponse(text: string | null | undefined): boolean {
+  return Boolean(text?.trim());
 }
 
 export function toCriteriaPayload(
@@ -110,16 +121,16 @@ export function fromCriteriaPayload(
   if (task1Raw && task2Raw) {
     return {
       task1: {
-        ta: task1Raw.taskAchievement ?? 7,
-        cc: task1Raw.coherenceCohesion ?? 7,
-        lr: task1Raw.lexicalResource ?? 7,
-        gra: task1Raw.grammar ?? 7,
+        ta: task1Raw.taskAchievement ?? 0,
+        cc: task1Raw.coherenceCohesion ?? 0,
+        lr: task1Raw.lexicalResource ?? 0,
+        gra: task1Raw.grammar ?? 0,
       },
       task2: {
-        ta: task2Raw.taskResponse ?? 7,
-        cc: task2Raw.coherenceCohesion ?? 7,
-        lr: task2Raw.lexicalResource ?? 7,
-        gra: task2Raw.grammar ?? 7,
+        ta: task2Raw.taskResponse ?? 0,
+        cc: task2Raw.coherenceCohesion ?? 0,
+        lr: task2Raw.lexicalResource ?? 0,
+        gra: task2Raw.grammar ?? 0,
       },
       feedback: {
         task1:
@@ -140,10 +151,10 @@ export function fromCriteriaPayload(
     typeof flat.coherenceCohesion === "number"
   ) {
     const shared: TaskScores = {
-      ta: flat.taskAchievement ?? flat.taskResponse ?? 7,
-      cc: flat.coherenceCohesion ?? 7,
-      lr: flat.lexicalResource ?? 7,
-      gra: flat.grammar ?? 7,
+      ta: flat.taskAchievement ?? flat.taskResponse ?? 0,
+      cc: flat.coherenceCohesion ?? 0,
+      lr: flat.lexicalResource ?? 0,
+      gra: flat.grammar ?? 0,
     };
     return {
       task1: shared,
@@ -178,6 +189,10 @@ export function fromAiSuggestedScores(
     lr: scores.lexicalResource,
     gra: scores.grammar,
   };
+}
+
+export function formatBand(value: number): string {
+  return value.toFixed(1);
 }
 
 export { bandOptions };
