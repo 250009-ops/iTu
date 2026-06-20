@@ -7,7 +7,12 @@ import type {
   getTeacherSpeakingSessions,
   SpeakingSessionListItem,
 } from "@/lib/api/teachers";
-import type { getSpeakingQueue, getWritingQueue } from "@/lib/api/grading";
+import type {
+  getSpeakingQueue,
+  getWritingGradingHub,
+  getWritingQueue,
+  WritingHubRow,
+} from "@/lib/api/grading";
 import {
   fromSpeakingCriteriaPayload,
   speakingCriteria,
@@ -17,6 +22,7 @@ import {
 
 type Dashboard = Awaited<ReturnType<typeof getTeacherDashboard>>;
 type WritingQueue = Awaited<ReturnType<typeof getWritingQueue>>;
+type WritingGradingHub = Awaited<ReturnType<typeof getWritingGradingHub>>;
 type SpeakingQueue = Awaited<ReturnType<typeof getSpeakingQueue>>;
 type Earnings = Awaited<ReturnType<typeof getTeacherEarnings>>;
 type Availability = Awaited<ReturnType<typeof getTeacherAvailability>>;
@@ -279,23 +285,116 @@ export function mapTeacherSpeakingSessions(
 }
 
 export function mapWritingQueue(queue: WritingQueue) {
-  return queue.map((item) => {
-    const date = new Date(item.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-    return {
-      id: item.id,
-      studentName: item.studentName,
-      initials: initialsFromName(item.studentName),
-      date,
-      submittedAt: date,
-      slaHours: item.slaHours,
-      urgent: item.urgent,
-      status: item.status as GradingStatus,
-      wordCount: item.task1WordCount + item.task2WordCount,
-    };
+  return queue.map((item) => mapWritingHubRow(item));
+}
+
+function formatSlaLabel(minutes: number | null): {
+  label: string;
+  tone: "ok" | "warn" | "overdue";
+} {
+  if (minutes === null) {
+    return { label: "48h SLA", tone: "ok" };
+  }
+  if (minutes > 0) {
+    if (minutes < 60) {
+      return { label: `${minutes}m left`, tone: minutes <= 240 ? "warn" : "ok" };
+    }
+    const hours = Math.ceil(minutes / 60);
+    return { label: `${hours}h left`, tone: minutes <= 240 ? "warn" : "ok" };
+  }
+  const overdueMinutes = Math.abs(minutes);
+  if (overdueMinutes < 60) {
+    return { label: `${overdueMinutes}m overdue`, tone: "overdue" };
+  }
+  const hours = Math.ceil(overdueMinutes / 60);
+  return { label: `${hours}h overdue`, tone: "overdue" };
+}
+
+function mapWritingCriteriaScores(
+  criteriaScores: Record<string, number> | null | undefined,
+): { ta: number; cc: number; lr: number; gra: number } | null {
+  if (!criteriaScores) return null;
+  const ta =
+    criteriaScores.taskAchievement ?? criteriaScores.ta ?? null;
+  const cc =
+    criteriaScores.coherenceCohesion ?? criteriaScores.cc ?? null;
+  const lr =
+    criteriaScores.lexicalResource ?? criteriaScores.lr ?? null;
+  const gra = criteriaScores.grammar ?? criteriaScores.gra ?? null;
+  if (
+    typeof ta !== "number" ||
+    typeof cc !== "number" ||
+    typeof lr !== "number" ||
+    typeof gra !== "number"
+  ) {
+    return null;
+  }
+  return { ta, cc, lr, gra };
+}
+
+export type MappedWritingSubmission = {
+  id: string;
+  studentName: string;
+  initials: string;
+  colors: ReturnType<typeof avatarColorFromName>;
+  dateLabel: string;
+  timeLabel: string;
+  submittedLabel: string;
+  task1WordCount: number;
+  task2WordCount: number;
+  status: GradingStatus;
+  sla: ReturnType<typeof formatSlaLabel>;
+  slaSortKey: number;
+  overallBand: number | null;
+  criteria: ReturnType<typeof mapWritingCriteriaScores>;
+};
+
+function mapWritingHubRow(item: WritingHubRow): MappedWritingSubmission {
+  const submitted = new Date(item.submittedAt);
+  const dateLabel = submitted.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
   });
+  const timeLabel = submitted.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return {
+    id: item.id,
+    studentName: item.studentName,
+    initials: initialsFromName(item.studentName),
+    colors: avatarColorFromName(item.studentName),
+    dateLabel,
+    timeLabel,
+    submittedLabel: `${dateLabel} ${timeLabel}`,
+    task1WordCount: item.task1WordCount,
+    task2WordCount: item.task2WordCount,
+    status: item.status as GradingStatus,
+    sla: formatSlaLabel(item.slaMinutesRemaining),
+    slaSortKey: item.slaMinutesRemaining ?? Number.MAX_SAFE_INTEGER,
+    overallBand: item.grade?.overallBand ?? null,
+    criteria: mapWritingCriteriaScores(item.grade?.criteriaScores),
+  };
+}
+
+export function mapWritingGradingHub(data: WritingGradingHub) {
+  return {
+    pending: data.pending.map(mapWritingHubRow),
+    inReview: data.inReview.map(mapWritingHubRow),
+    completed: data.completed.map(mapWritingHubRow),
+    counts: data.counts,
+    stats: data.stats,
+  };
+}
+
+export function mapGradingSummary(queue: WritingQueue) {
+  const submissions = mapWritingQueue(queue);
+  return {
+    pendingGrading: submissions.filter((s) => s.status === "pending").length,
+    inReview: submissions.filter((s) => s.status === "in_review").length,
+    submissions,
+  };
 }
 
 export function mapSpeakingQueue(queue: SpeakingQueue) {
@@ -314,15 +413,6 @@ export function mapSpeakingQueue(queue: SpeakingQueue) {
       scheduledAt: item.scheduledAt,
     };
   });
-}
-
-export function mapGradingSummary(queue: WritingQueue) {
-  const submissions = mapWritingQueue(queue);
-  return {
-    pendingGrading: submissions.filter((s) => s.status === "pending").length,
-    inReview: submissions.filter((s) => s.status === "in_review").length,
-    submissions,
-  };
 }
 
 export function mapTeacherEarnings(data: Earnings) {

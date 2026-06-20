@@ -47,7 +47,7 @@ export function WritingQueueCard() {
             >
               <div>
                 <p className="font-semibold text-navy">{item.studentName}</p>
-                <p className="text-xs text-muted">{item.submittedAt}</p>
+                <p className="text-xs text-muted">{item.submittedLabel}</p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -64,11 +64,15 @@ export function WritingQueueCard() {
                 <span
                   className={cn(
                     "flex items-center gap-1 text-xs font-semibold",
-                    item.urgent ? "text-brand-red" : "text-muted",
+                    item.sla.tone === "overdue"
+                      ? "text-brand-red"
+                      : item.sla.tone === "warn"
+                        ? "text-amber-700"
+                        : "text-muted",
                   )}
                 >
                   <Clock className="h-3.5 w-3.5" />
-                  SLA: {item.slaHours} hrs
+                  {item.sla.label}
                 </span>
               </div>
             </li>

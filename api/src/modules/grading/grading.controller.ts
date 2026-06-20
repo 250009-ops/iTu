@@ -18,6 +18,11 @@ export class GradingController {
     return this.grading.getWritingQueue(user);
   }
 
+  @Get('writing-hub')
+  getWritingGradingHub(@CurrentUser() user: RequestUser) {
+    return this.grading.getWritingGradingHub(user);
+  }
+
   @Get('speaking-queue')
   getSpeakingQueue(@CurrentUser() user: RequestUser) {
     return this.grading.getSpeakingQueue(user);

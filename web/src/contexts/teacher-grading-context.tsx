@@ -1,41 +1,48 @@
 "use client";
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { getWritingQueue } from "@/lib/api/grading";
-import { mapGradingSummary } from "@/lib/api/mappers/teacher";
+import { getWritingGradingHub } from "@/lib/api/grading";
+import { mapWritingGradingHub } from "@/lib/api/mappers/teacher";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuth } from "@/hooks/use-auth";
+
+const emptyHub = mapWritingGradingHub({
+  pending: [],
+  inReview: [],
+  completed: [],
+  counts: { pending: 0, inReview: 0, completed: 0 },
+  stats: {
+    pendingGrading: 0,
+    onTimeSlaPercent: 100,
+    overdueCount: 0,
+    gradedThisPeriod: 0,
+  },
+});
 
 type TeacherGradingValue = {
   loading: boolean;
   error: string | null;
-  gradingSummary: {
-    pendingGrading: number;
-    inReview: number;
-  };
-  submissions: ReturnType<typeof mapGradingSummary>["submissions"];
+  hub: ReturnType<typeof mapWritingGradingHub>;
+  refresh: () => Promise<void>;
 };
 
 const TeacherGradingContext = createContext<TeacherGradingValue | null>(null);
 
 export function TeacherGradingProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
-  const { data, loading, error } = useApiQuery(getWritingQueue, [
+  const { data, loading, error, refresh } = useApiQuery(getWritingGradingHub, [
     session?.accessToken,
   ]);
 
-  const value = useMemo<TeacherGradingValue>(() => {
-    const mapped = data ? mapGradingSummary(data) : null;
-    return {
+  const value = useMemo<TeacherGradingValue>(
+    () => ({
       loading,
       error,
-      gradingSummary: {
-        pendingGrading: mapped?.pendingGrading ?? 0,
-        inReview: mapped?.inReview ?? 0,
-      },
-      submissions: mapped?.submissions ?? [],
-    };
-  }, [data, loading, error]);
+      hub: data ? mapWritingGradingHub(data) : emptyHub,
+      refresh,
+    }),
+    [data, loading, error, refresh],
+  );
 
   return (
     <TeacherGradingContext.Provider value={value}>

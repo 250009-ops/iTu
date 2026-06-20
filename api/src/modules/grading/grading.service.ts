@@ -22,16 +22,19 @@ export class GradingService {
   ) {}
 
   async getWritingQueue(user: RequestUser) {
+    const hub = await this.getWritingGradingHub(user);
+    return [...hub.pending, ...hub.inReview];
+  }
+
+  async getWritingGradingHub(user: RequestUser) {
     if (!user.teacherProfileId) {
       throw new ForbiddenException('Teacher profile required');
     }
 
     const submissions = await this.prisma.writingSubmission.findMany({
-      where: {
-        teacherId: user.teacherProfileId,
-        status: { in: ['PENDING', 'IN_REVIEW'] },
-      },
+      where: { teacherId: user.teacherProfileId },
       include: {
+        grade: true,
         sectionAttempt: {
           include: {
             session: {
@@ -47,24 +50,74 @@ export class GradingService {
       orderBy: { createdAt: 'asc' },
     });
 
-    return submissions.map((s) => ({
-      id: s.id,
-      studentName: s.sectionAttempt.session.enrollment.student.user.name,
-      date: s.createdAt,
-      slaHours: s.slaDueAt
-        ? Math.max(
-            0,
-            Math.round(
-              (s.slaDueAt.getTime() - Date.now()) / (60 * 60 * 1000),
-            ),
-          )
-        : 48,
-      urgent:
-        !!s.slaDueAt && s.slaDueAt.getTime() - Date.now() < 12 * 60 * 60 * 1000,
-      status: s.status.toLowerCase(),
-      task1WordCount: s.task1WordCount,
-      task2WordCount: s.task2WordCount,
-    }));
+    const mapRow = (s: (typeof submissions)[number]) => {
+      const slaMinutesRemaining = s.slaDueAt
+        ? Math.round((s.slaDueAt.getTime() - Date.now()) / 60_000)
+        : null;
+
+      return {
+        id: s.id,
+        studentName: s.sectionAttempt.session.enrollment.student.user.name,
+        submittedAt: s.createdAt,
+        task1WordCount: s.task1WordCount,
+        task2WordCount: s.task2WordCount,
+        status: s.status.toLowerCase(),
+        slaMinutesRemaining,
+        grade: s.grade
+          ? {
+              overallBand: s.grade.overallBand,
+              criteriaScores: s.grade.criteriaScores as Record<string, number>,
+              gradedAt: s.grade.gradedAt,
+            }
+          : null,
+      };
+    };
+
+    const pending = submissions
+      .filter((s) => s.status === 'PENDING')
+      .map(mapRow);
+    const inReview = submissions
+      .filter((s) => s.status === 'IN_REVIEW')
+      .map(mapRow);
+    const completed = submissions
+      .filter((s) => s.status === 'GRADED')
+      .map(mapRow);
+
+    const actionable = [...pending, ...inReview];
+    const onTimeCount = actionable.filter(
+      (s) => s.slaMinutesRemaining === null || s.slaMinutesRemaining > 0,
+    ).length;
+    const onTimeSlaPercent =
+      actionable.length > 0
+        ? Math.round((onTimeCount / actionable.length) * 100)
+        : 100;
+    const overdueCount = actionable.filter(
+      (s) => s.slaMinutesRemaining !== null && s.slaMinutesRemaining <= 0,
+    ).length;
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const gradedThisPeriod = completed.filter(
+      (s) => s.grade?.gradedAt && new Date(s.grade.gradedAt) >= monthStart,
+    ).length;
+
+    return {
+      pending,
+      inReview,
+      completed,
+      counts: {
+        pending: pending.length,
+        inReview: inReview.length,
+        completed: completed.length,
+      },
+      stats: {
+        pendingGrading: pending.length,
+        onTimeSlaPercent,
+        overdueCount,
+        gradedThisPeriod,
+      },
+    };
   }
 
   async getSpeakingQueue(user: RequestUser) {

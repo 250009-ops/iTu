@@ -14,7 +14,7 @@ Features intentionally omitted from v1 teacher UI because they are not yet imple
 
 | Feature | Description | Target |
 |---------|-------------|--------|
-| **Completed queue tab** | Persist graded writing in a reviewable history table | Phase 2 (backend queue filter change required) |
+| **Advanced filter panel** | Filter by date range, SLA status, exam type (Figma “Filter” button) | Phase 2 |
 | **Submission detail drawer** | Quick preview without opening full grading workspace | Phase 2 |
 
 ## Availability

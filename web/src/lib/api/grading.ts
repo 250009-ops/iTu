@@ -5,15 +5,49 @@ export function getWritingQueue() {
     {
       id: string;
       studentName: string;
-      date: string;
-      slaHours: number;
-      urgent: boolean;
-      status: string;
+      submittedAt: string;
       task1WordCount: number;
       task2WordCount: number;
+      status: string;
+      slaMinutesRemaining: number | null;
+      grade: {
+        overallBand: number;
+        criteriaScores: Record<string, number>;
+        gradedAt: string;
+      } | null;
     }[]
   >("/grading/writing-queue");
 }
+
+export function getWritingGradingHub() {
+  return apiFetch<{
+    pending: WritingHubRow[];
+    inReview: WritingHubRow[];
+    completed: WritingHubRow[];
+    counts: { pending: number; inReview: number; completed: number };
+    stats: {
+      pendingGrading: number;
+      onTimeSlaPercent: number;
+      overdueCount: number;
+      gradedThisPeriod: number;
+    };
+  }>("/grading/writing-hub");
+}
+
+export type WritingHubRow = {
+  id: string;
+  studentName: string;
+  submittedAt: string;
+  task1WordCount: number;
+  task2WordCount: number;
+  status: string;
+  slaMinutesRemaining: number | null;
+  grade: {
+    overallBand: number;
+    criteriaScores: Record<string, number>;
+    gradedAt: string;
+  } | null;
+};
 
 export function getSpeakingQueue() {
   return apiFetch<
