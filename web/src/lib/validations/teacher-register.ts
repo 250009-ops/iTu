@@ -35,7 +35,6 @@ export const teacherRegisterSchema = z
     languages: z
       .array(z.enum(TEACHER_LANGUAGE_OPTIONS))
       .min(1, "Select at least one language"),
-    phone: z.string().max(30).optional(),
     acceptTerms: z.boolean().refine((val) => val === true, {
       message: "You must accept the terms to continue",
     }),

@@ -68,11 +68,6 @@ export class RegisterTeacherDto {
   @IsIn(TEACHER_LANGUAGES, { each: true })
   languages: string[];
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  phone?: string;
-
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   acceptTerms: boolean;

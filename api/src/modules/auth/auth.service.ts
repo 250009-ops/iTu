@@ -203,7 +203,6 @@ export class AuthService {
       yearsExperience: dto.yearsExperience,
       certificateUrls,
       languages: dto.languages,
-      phone: dto.phone?.trim() || null,
       submittedAt: new Date().toISOString(),
     };
 
@@ -246,7 +245,7 @@ export class AuthService {
     return {
       submitted: true,
       message:
-        'Your examiner application has been submitted. We will email you when it is reviewed.',
+        'Your teacher application has been submitted. We will email you when it is reviewed.',
       email: user.email,
     };
   }

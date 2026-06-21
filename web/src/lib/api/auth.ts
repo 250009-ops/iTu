@@ -91,9 +91,6 @@ export function registerTeacher(
   form.append("ieltsSpeakingBand", data.ieltsSpeakingBand);
   form.append("yearsExperience", data.yearsExperience);
   form.append("languages", JSON.stringify(data.languages));
-  if (data.phone?.trim()) {
-    form.append("phone", data.phone.trim());
-  }
   form.append("acceptTerms", String(data.acceptTerms));
   for (const file of certificates) {
     form.append("certificates", file);

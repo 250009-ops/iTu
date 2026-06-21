@@ -165,24 +165,24 @@ export function contactConfirmationEmail(name: string, ticketCode: string) {
 }
 
 export function teacherApplicationReceivedEmail(name: string) {
-  const title = 'Examiner application received';
+  const title = 'Teacher application received';
   const text = [
     `Hi ${name},`,
     '',
-    'Thank you for applying to become an iTestU examiner.',
-    'Our team will review your credentials and IELTS band scores. You will receive another email when your application is approved or if we need more information.',
+    'Thank you for applying to become an iTestU teacher.',
+    'Our team will review your credentials and IELTS band scores. You will receive another email when your application is approved.',
     '',
     'This usually takes 1–2 business days.',
   ].join('\n');
 
   const html = buildEmailHtml({
-    preheader: 'We are reviewing your examiner application.',
+    preheader: 'We are reviewing your teacher application.',
     title,
     bodyHtml: `
       <p>Hi ${escapeHtml(name)},</p>
-      <p>Thank you for applying to become an <strong>iTestU examiner</strong>. We received your application and our team is reviewing your credentials and IELTS band scores.</p>
-      <p style="margin-top:16px;">You will receive another email when your application is <strong>approved</strong> or if we need more information. This usually takes <strong>1–2 business days</strong>.</p>
-      <p style="margin-top:16px;font-size:13px;color:#64748b;">You cannot sign in to the examiner portal until your application is approved.</p>
+      <p>Thank you for applying to become an <strong>iTestU teacher</strong>. We received your application and our team is reviewing your credentials and IELTS band scores.</p>
+      <p style="margin-top:16px;">You will receive another email when your application is <strong>approved</strong>. This usually takes <strong>1–2 business days</strong>.</p>
+      <p style="margin-top:16px;font-size:13px;color:#64748b;">You cannot sign in to the teacher portal until your application is approved.</p>
     `,
   });
 
@@ -190,31 +190,36 @@ export function teacherApplicationReceivedEmail(name: string) {
 }
 
 export function teacherApprovedEmail(name: string, email: string, loginUrl: string) {
-  const title = 'Your examiner application is approved';
+  const title = 'Welcome to iTestU — your teacher account is approved';
   const text = [
     `Hi ${name},`,
     '',
-    'Congratulations — your iTestU examiner application has been approved.',
-    `Sign in with the email and password you chose during registration: ${email}`,
+    'Welcome to iTestU! Your teacher application has been approved.',
+    '',
+    'Sign in with the email and password you chose during registration:',
+    `Email: ${email}`,
     `Login: ${loginUrl}`,
     '',
-    'Set your availability and start grading Writing submissions and conducting Speaking sessions.',
+    'After signing in, set your availability and start grading Writing submissions and conducting Speaking sessions.',
+    '',
+    'Forgot your password? Use the reset link on the login page.',
   ].join('\n');
 
   const html = buildEmailHtml({
-    preheader: 'You can now sign in to the examiner portal.',
+    preheader: 'Welcome — sign in to the teacher portal with your credentials.',
     title,
     bodyHtml: `
       <p>Hi ${escapeHtml(name)},</p>
-      <p>Congratulations — your <strong>iTestU examiner application</strong> has been approved. You can now sign in to the examiner portal.</p>
+      <p><strong>Welcome to iTestU!</strong> Your teacher application has been approved and your account is ready.</p>
       <p style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
-        <strong>Sign in with:</strong><br />
+        <strong>Your sign-in credentials</strong><br />
         Email: <strong>${escapeHtml(email)}</strong><br />
         Password: <em>the password you set during registration</em>
       </p>
+      <p style="margin-top:16px;">Sign in to complete your teacher profile, set availability, and start delivering sessions.</p>
       <p style="margin-top:16px;font-size:13px;color:#64748b;">Forgot your password? Use the reset link on the login page.</p>
     `,
-    ctaLabel: 'Sign in to examiner portal',
+    ctaLabel: 'Sign in to teacher portal',
     ctaUrl: loginUrl,
   });
 

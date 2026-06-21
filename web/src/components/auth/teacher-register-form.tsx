@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   FileUp,
   Mail,
-  Phone,
   User,
   X,
 } from "lucide-react";
@@ -105,13 +104,16 @@ export default function TeacherRegisterForm() {
   } = form;
 
   const languages = watch("languages");
+  const acceptTerms = watch("acceptTerms");
   const values = watch();
+
+  const step3Ready = certificates.length > 0 && acceptTerms === true;
 
   async function validateStep(targetStep: number) {
     const fieldsByStep: Record<number, (keyof TeacherRegisterFormValues)[]> = {
       1: ["fullName", "email", "password", "confirmPassword"],
       2: ["ieltsWritingBand", "ieltsSpeakingBand", "yearsExperience", "languages"],
-      3: ["phone", "acceptTerms"],
+      3: ["acceptTerms"],
     };
 
     const fields = fieldsByStep[targetStep - 1] ?? [];
@@ -185,9 +187,9 @@ export default function TeacherRegisterForm() {
             Your teacher application has been sent to our admin team for review.
           </p>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-            We will email <strong className="text-navy">{submitted.email}</strong> when
-            your application is approved — usually within 1–2 business days. You cannot
-            sign in until then.
+            We sent a confirmation to <strong className="text-navy">{submitted.email}</strong>.
+            You will receive another email from <strong className="text-navy">noreply@itestu.uz</strong> when
+            your account is approved — usually within 1–2 business days. You cannot sign in until then.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Link
@@ -356,16 +358,6 @@ export default function TeacherRegisterForm() {
               <FileUp className="h-4 w-4" />
               Credentials
             </div>
-            <FormField label="Phone (optional)" error={errors.phone?.message}>
-              <div className="relative">
-                <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  {...register("phone")}
-                  placeholder="+998 90 123 45 67"
-                  className="pl-10"
-                />
-              </div>
-            </FormField>
             <div>
               <p className="mb-2 text-sm font-medium text-navy">
                 Qualification certificates
@@ -428,6 +420,11 @@ export default function TeacherRegisterForm() {
             />
             {errors.acceptTerms && (
               <p className="text-xs font-medium text-red-600">{errors.acceptTerms.message}</p>
+            )}
+            {!step3Ready && (
+              <p className="text-xs text-muted">
+                Upload at least one certificate and accept the terms to continue.
+              </p>
             )}
           </div>
         )}
@@ -493,7 +490,13 @@ export default function TeacherRegisterForm() {
             </Button>
           )}
           {step < 4 ? (
-            <Button type="button" variant="primary" className="flex-1 sm:flex-none" onClick={goNext}>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1 sm:flex-none"
+              disabled={step === 3 && !step3Ready}
+              onClick={goNext}
+            >
               Continue
               <ArrowRight className="h-4 w-4" />
             </Button>
