@@ -3,6 +3,7 @@ export const AuditAction = {
   AUTH_LOGIN_SUCCESS: 'auth.login.success',
   AUTH_LOGIN_FAILURE: 'auth.login.failure',
   AUTH_REGISTER: 'auth.register',
+  AUTH_TEACHER_REGISTER: 'auth.teacher.register',
   AUTH_PASSWORD_CHANGE: 'auth.password.change',
   AUTH_PASSWORD_RESET: 'auth.password.reset',
   AUTH_2FA_ENABLE: 'auth.2fa.enable',

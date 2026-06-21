@@ -70,6 +70,23 @@ export type Examiner = {
   speciality: TeacherSpeciality;
 };
 
+export type TeacherApplication = {
+  ieltsWritingBand?: number;
+  ieltsSpeakingBand?: number;
+  yearsExperience?: number;
+  qualifications?: string[];
+  certificateUrls?: string[];
+  phone?: string | null;
+  submittedAt?: string;
+};
+
+export type ExaminerDetail = Examiner & {
+  bio?: string | null;
+  languages?: string[];
+  credentials?: string[];
+  application?: TeacherApplication | null;
+};
+
 export type Order = {
   id: string;
   orderId: string;

@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ExamSessionsModule } from '../exam-sessions/exam-sessions.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SettingsModule } from '../settings/settings.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 
 @Module({
-  imports: [NotificationsModule, ExamSessionsModule],
+  imports: [NotificationsModule, ExamSessionsModule, SettingsModule],
   controllers: [AdminController],
   providers: [AdminService],
 })

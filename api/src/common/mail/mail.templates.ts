@@ -164,6 +164,109 @@ export function contactConfirmationEmail(name: string, ticketCode: string) {
   return { subject: `We received your message (${ticketCode})`, text, html };
 }
 
+export function teacherApplicationReceivedEmail(name: string) {
+  const title = 'Examiner application received';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Thank you for applying to become an iTestU examiner.',
+    'Our team will review your credentials and IELTS band scores. You will receive another email when your application is approved or if we need more information.',
+    '',
+    'This usually takes 1–2 business days.',
+  ].join('\n');
+
+  const html = buildEmailHtml({
+    preheader: 'We are reviewing your examiner application.',
+    title,
+    bodyHtml: `
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Thank you for applying to become an <strong>iTestU examiner</strong>. We received your application and our team is reviewing your credentials and IELTS band scores.</p>
+      <p style="margin-top:16px;">You will receive another email when your application is <strong>approved</strong> or if we need more information. This usually takes <strong>1–2 business days</strong>.</p>
+      <p style="margin-top:16px;font-size:13px;color:#64748b;">You cannot sign in to the examiner portal until your application is approved.</p>
+    `,
+  });
+
+  return { subject: title, text, html };
+}
+
+export function teacherApprovedEmail(name: string, email: string, loginUrl: string) {
+  const title = 'Your examiner application is approved';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Congratulations — your iTestU examiner application has been approved.',
+    `Sign in with the email and password you chose during registration: ${email}`,
+    `Login: ${loginUrl}`,
+    '',
+    'Set your availability and start grading Writing submissions and conducting Speaking sessions.',
+  ].join('\n');
+
+  const html = buildEmailHtml({
+    preheader: 'You can now sign in to the examiner portal.',
+    title,
+    bodyHtml: `
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Congratulations — your <strong>iTestU examiner application</strong> has been approved. You can now sign in to the examiner portal.</p>
+      <p style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+        <strong>Sign in with:</strong><br />
+        Email: <strong>${escapeHtml(email)}</strong><br />
+        Password: <em>the password you set during registration</em>
+      </p>
+      <p style="margin-top:16px;font-size:13px;color:#64748b;">Forgot your password? Use the reset link on the login page.</p>
+    `,
+    ctaLabel: 'Sign in to examiner portal',
+    ctaUrl: loginUrl,
+  });
+
+  return { subject: title, text, html };
+}
+
+export function teacherSuspendedEmail(name: string, supportEmail: string) {
+  const title = 'Examiner account suspended';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Your iTestU examiner account has been suspended.',
+    'You will not be able to sign in or deliver sessions until your account is reinstated.',
+    `Questions? Contact ${supportEmail}`,
+  ].join('\n');
+
+  const html = buildEmailHtml({
+    preheader: 'Your examiner account has been suspended.',
+    title,
+    bodyHtml: `
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Your <strong>iTestU examiner account</strong> has been suspended. You will not be able to sign in or deliver sessions until your account is reinstated by our team.</p>
+      <p style="margin-top:16px;font-size:13px;color:#64748b;">If you believe this is an error, contact us at <a href="mailto:${escapeHtml(supportEmail)}" style="color:#0f172a;">${escapeHtml(supportEmail)}</a>.</p>
+    `,
+  });
+
+  return { subject: title, text, html };
+}
+
+export function teacherReinstatedEmail(name: string, loginUrl: string) {
+  const title = 'Your examiner account is active again';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Your iTestU examiner account has been reinstated. You can sign in and resume grading and speaking sessions.',
+    `Login: ${loginUrl}`,
+  ].join('\n');
+
+  const html = buildEmailHtml({
+    preheader: 'Your examiner account has been reinstated.',
+    title,
+    bodyHtml: `
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Your <strong>iTestU examiner account</strong> has been reinstated. You can sign in and resume grading Writing submissions and conducting Speaking sessions.</p>
+    `,
+    ctaLabel: 'Sign in to examiner portal',
+    ctaUrl: loginUrl,
+  });
+
+  return { subject: title, text, html };
+}
+
 export function portalNotificationEmail(
   name: string,
   title: string,

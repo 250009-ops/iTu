@@ -6,6 +6,10 @@ import {
   contactConfirmationEmail,
   contactInquiryEmail,
   passwordResetEmail,
+  teacherApplicationReceivedEmail,
+  teacherApprovedEmail,
+  teacherReinstatedEmail,
+  teacherSuspendedEmail,
   welcomeEmail,
 } from './mail.templates';
 
@@ -136,6 +140,44 @@ export class MailService {
     const sent = await this.send({ to, subject, text, html });
     if (sent) {
       this.logger.log(`Welcome email sent to ${to}`);
+    }
+  }
+
+  async sendTeacherApplicationReceived(to: string, name: string): Promise<void> {
+    const { subject, text, html } = teacherApplicationReceivedEmail(name);
+    const sent = await this.send({ to, subject, text, html });
+    if (sent) {
+      this.logger.log(`Teacher application confirmation sent to ${to}`);
+    }
+  }
+
+  async sendTeacherApproved(to: string, name: string): Promise<void> {
+    const appUrl = this.config.get<string>('APP_URL', 'https://itestu.uz').replace(/\/$/, '');
+    const { subject, text, html } = teacherApprovedEmail(name, to, `${appUrl}/login`);
+    const sent = await this.send({ to, subject, text, html });
+    if (sent) {
+      this.logger.log(`Teacher approved email sent to ${to}`);
+    }
+  }
+
+  async sendTeacherSuspended(
+    to: string,
+    name: string,
+    supportEmail = 'support@itestu.uz',
+  ): Promise<void> {
+    const { subject, text, html } = teacherSuspendedEmail(name, supportEmail);
+    const sent = await this.send({ to, subject, text, html });
+    if (sent) {
+      this.logger.log(`Teacher suspended email sent to ${to}`);
+    }
+  }
+
+  async sendTeacherReinstated(to: string, name: string): Promise<void> {
+    const appUrl = this.config.get<string>('APP_URL', 'https://itestu.uz').replace(/\/$/, '');
+    const { subject, text, html } = teacherReinstatedEmail(name, `${appUrl}/login`);
+    const sent = await this.send({ to, subject, text, html });
+    if (sent) {
+      this.logger.log(`Teacher reinstated email sent to ${to}`);
     }
   }
 

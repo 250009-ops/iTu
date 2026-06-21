@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Mail, User } from "lucide-react";
 import { AuthBackLink } from "@/components/auth/auth-back-link";
+import { RegisterRoleTabs } from "@/components/auth/register-role-tabs";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -96,6 +97,8 @@ export default function RegisterForm() {
         </h1>
         <p className="text-muted">Join thousands of IELTS candidates</p>
       </div>
+
+      <RegisterRoleTabs />
 
       {error && (
         <div

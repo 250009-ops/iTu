@@ -1,0 +1,606 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Award,
+  CheckCircle2,
+  FileUp,
+  Mail,
+  Phone,
+  User,
+  X,
+} from "lucide-react";
+import { AuthBackLink } from "@/components/auth/auth-back-link";
+import { RegisterRoleTabs } from "@/components/auth/register-role-tabs";
+import { Logo } from "@/components/brand/logo";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Select } from "@/components/ui/select";
+import { registerTeacher } from "@/lib/api/auth";
+import { getErrorMessage } from "@/lib/api/errors";
+import {
+  TEACHER_BAND_OPTIONS,
+  TEACHER_LANGUAGE_OPTIONS,
+  TEACHER_QUALIFICATIONS,
+  teacherRegisterSchema,
+  teacherRegisterSteps,
+  type TeacherRegisterFormValues,
+} from "@/lib/validations/teacher-register";
+import { cn } from "@/lib/utils";
+
+const SPECIALITY_OPTIONS = [
+  { value: "writing", label: "Writing", hint: "Grade Writing submissions" },
+  { value: "speaking", label: "Speaking", hint: "Conduct live Speaking sessions" },
+  { value: "both", label: "Both", hint: "Writing & Speaking examiner" },
+] as const;
+
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <ol className="flex items-center gap-2">
+      {teacherRegisterSteps.map((step, index) => {
+        const done = current > step.id;
+        const active = current === step.id;
+        return (
+          <li key={step.id} className="flex flex-1 items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              <div
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                  done && "bg-emerald-500 text-white",
+                  active && !done && "bg-navy text-white",
+                  !active && !done && "bg-slate-100 text-slate-400",
+                )}
+              >
+                {done ? <CheckCircle2 className="h-4 w-4" /> : step.id}
+              </div>
+              <span
+                className={cn(
+                  "hidden text-center text-[11px] font-medium sm:block",
+                  active ? "text-navy" : "text-muted",
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+            {index < teacherRegisterSteps.length - 1 && (
+              <div
+                className={cn(
+                  "mb-5 h-px flex-1",
+                  done ? "bg-emerald-300" : "bg-slate-200",
+                )}
+              />
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export default function TeacherRegisterForm() {
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [certificates, setCertificates] = useState<File[]>([]);
+  const [submitted, setSubmitted] = useState<{ email: string } | null>(null);
+
+  const form = useForm<TeacherRegisterFormValues>({
+    resolver: zodResolver(teacherRegisterSchema),
+    defaultValues: {
+      speciality: "both",
+      ieltsWritingBand: "7.5",
+      ieltsSpeakingBand: "7.5",
+      qualifications: [],
+      languages: ["English"],
+      acceptTerms: false,
+    },
+    mode: "onChange",
+  });
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    trigger,
+    formState: { errors },
+  } = form;
+
+  const qualifications = watch("qualifications");
+  const languages = watch("languages");
+  const values = watch();
+
+  async function validateStep(targetStep: number) {
+    const fieldsByStep: Record<number, (keyof TeacherRegisterFormValues)[]> = {
+      1: ["fullName", "email", "password", "confirmPassword"],
+      2: [
+        "ieltsWritingBand",
+        "ieltsSpeakingBand",
+        "speciality",
+        "yearsExperience",
+        "qualifications",
+        "languages",
+      ],
+      3: ["bio", "phone", "acceptTerms"],
+    };
+
+    const fields = fieldsByStep[targetStep - 1] ?? [];
+    const valid = await trigger(fields);
+    if (targetStep === 3 && certificates.length === 0) {
+      setError("Upload at least one qualification certificate (PDF or image).");
+      return false;
+    }
+    setError(null);
+    return valid;
+  }
+
+  async function goNext() {
+    const valid = await validateStep(step);
+    if (!valid) return;
+    setStep((s) => Math.min(s + 1, 4));
+  }
+
+  function goBack() {
+    setError(null);
+    setStep((s) => Math.max(s - 1, 1));
+  }
+
+  function toggleQualification(value: (typeof TEACHER_QUALIFICATIONS)[number]) {
+    const next = qualifications.includes(value)
+      ? qualifications.filter((q) => q !== value)
+      : [...qualifications, value];
+    setValue("qualifications", next, { shouldValidate: true });
+  }
+
+  function toggleLanguage(value: string) {
+    const next = languages.includes(value)
+      ? languages.filter((l) => l !== value)
+      : [...languages, value];
+    setValue("languages", next, { shouldValidate: true });
+  }
+
+  function onFilesSelected(files: FileList | null) {
+    if (!files?.length) return;
+    const next = [...certificates, ...Array.from(files)].slice(0, 5);
+    setCertificates(next);
+    setError(null);
+  }
+
+  async function onSubmit(data: TeacherRegisterFormValues) {
+    if (certificates.length === 0) {
+      setError("Upload at least one qualification certificate.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await registerTeacher(data, certificates);
+      setSubmitted({ email: result.email });
+    } catch (err) {
+      setError(getErrorMessage(err, "Application failed. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="space-y-6">
+        <div className="lg:hidden">
+          <Logo />
+        </div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <h1 className="mt-5 text-2xl font-bold tracking-tight text-navy">
+            Application submitted
+          </h1>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted">
+            Thank you, <strong className="text-navy">{values.fullName}</strong>.
+            Your examiner application has been sent to our admin team for review.
+          </p>
+          <p className="mx-auto mt-3 max-w-md text-sm text-muted">
+            We will email <strong className="text-navy">{submitted.email}</strong> when
+            your application is approved — usually within 1–2 business days. You cannot
+            sign in until then.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/login"
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-navy px-5 text-sm font-semibold text-white transition-colors hover:bg-navy/90"
+            >
+              Back to sign in
+            </Link>
+            <Link
+              href="/for-teachers"
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-white px-5 text-sm font-semibold text-navy transition-colors hover:bg-slate-50"
+            >
+              Learn about examining
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="lg:hidden">
+        <Logo />
+      </div>
+
+      <AuthBackLink href="/login" />
+
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">
+          Apply as an examiner
+        </h1>
+        <p className="text-sm text-muted">
+          Certified IELTS professional? Submit your credentials for admin review.
+        </p>
+      </div>
+
+      <RegisterRoleTabs />
+
+      <StepIndicator current={step} />
+
+      {error && (
+        <div
+          className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+        {step === 1 && (
+          <div className="space-y-4 rounded-2xl border border-border bg-slate-50/50 p-5 sm:p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-navy">
+              <User className="h-4 w-4" />
+              Account details
+            </div>
+            <FormField error={errors.fullName?.message}>
+              <Input {...register("fullName")} placeholder="Full name" error={!!errors.fullName} />
+            </FormField>
+            <FormField error={errors.email?.message}>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  {...register("email")}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="Email address"
+                  error={!!errors.email}
+                  className="pl-10"
+                />
+              </div>
+            </FormField>
+            <FormField
+              error={errors.password?.message}
+              hint="Minimum 8 characters with uppercase and number"
+            >
+              <PasswordInput
+                {...register("password")}
+                autoComplete="new-password"
+                placeholder="Password"
+                error={!!errors.password}
+              />
+            </FormField>
+            <FormField error={errors.confirmPassword?.message}>
+              <PasswordInput
+                {...register("confirmPassword")}
+                autoComplete="new-password"
+                placeholder="Confirm password"
+                error={!!errors.confirmPassword}
+              />
+            </FormField>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-5 rounded-2xl border border-border bg-slate-50/50 p-5 sm:p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-navy">
+              <Award className="h-4 w-4" />
+              IELTS scores & experience
+            </div>
+            <p className="text-xs text-muted">
+              Minimum band <strong className="text-navy">7.5</strong> in both Writing and
+              Speaking is required.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="IELTS Writing band" error={errors.ieltsWritingBand?.message}>
+                <Select {...register("ieltsWritingBand")} error={!!errors.ieltsWritingBand}>
+                  {TEACHER_BAND_OPTIONS.map((band) => (
+                    <option key={band} value={band}>
+                      Band {band}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField label="IELTS Speaking band" error={errors.ieltsSpeakingBand?.message}>
+                <Select {...register("ieltsSpeakingBand")} error={!!errors.ieltsSpeakingBand}>
+                  {TEACHER_BAND_OPTIONS.map((band) => (
+                    <option key={band} value={band}>
+                      Band {band}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            </div>
+            <FormField label="Speciality" error={errors.speciality?.message}>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {SPECIALITY_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={cn(
+                      "cursor-pointer rounded-xl border p-3 transition-colors",
+                      values.speciality === opt.value
+                        ? "border-navy bg-navy/5 ring-1 ring-navy/15"
+                        : "border-border bg-white hover:border-slate-300",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      value={opt.value}
+                      {...register("speciality")}
+                      className="sr-only"
+                    />
+                    <p className="text-sm font-semibold text-navy">{opt.label}</p>
+                    <p className="mt-0.5 text-xs text-muted">{opt.hint}</p>
+                  </label>
+                ))}
+              </div>
+            </FormField>
+            <FormField
+              label="Years of IELTS teaching / examining experience"
+              error={errors.yearsExperience?.message}
+            >
+              <Input
+                {...register("yearsExperience")}
+                type="number"
+                min={1}
+                max={50}
+                placeholder="e.g. 5"
+                error={!!errors.yearsExperience}
+              />
+            </FormField>
+            <FormField label="Qualifications" error={errors.qualifications?.message}>
+              <div className="flex flex-wrap gap-2">
+                {TEACHER_QUALIFICATIONS.map((q) => {
+                  const selected = qualifications.includes(q);
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => toggleQualification(q)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                        selected
+                          ? "border-navy bg-navy text-white"
+                          : "border-border bg-white text-muted hover:border-slate-300",
+                      )}
+                    >
+                      {q}
+                    </button>
+                  );
+                })}
+              </div>
+            </FormField>
+            <FormField label="Languages spoken" error={errors.languages?.message}>
+              <div className="flex flex-wrap gap-2">
+                {TEACHER_LANGUAGE_OPTIONS.map((lang) => {
+                  const selected = languages.includes(lang);
+                  return (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => toggleLanguage(lang)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                        selected
+                          ? "border-violet-600 bg-violet-600 text-white"
+                          : "border-border bg-white text-muted hover:border-slate-300",
+                      )}
+                    >
+                      {lang}
+                    </button>
+                  );
+                })}
+              </div>
+            </FormField>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-5 rounded-2xl border border-border bg-slate-50/50 p-5 sm:p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-navy">
+              <FileUp className="h-4 w-4" />
+              Credentials & bio
+            </div>
+            <FormField
+              label="Professional bio"
+              error={errors.bio?.message}
+              hint="Describe your examining experience, specialisms, and approach (min. 80 characters)"
+            >
+              <textarea
+                {...register("bio")}
+                rows={5}
+                placeholder="e.g. Cambridge-certified examiner with 8 years assessing Academic Writing and live Speaking mocks..."
+                className={cn(
+                  "w-full rounded-lg border bg-white px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/10",
+                  errors.bio ? "border-red-300" : "border-border",
+                )}
+              />
+            </FormField>
+            <FormField label="Phone (optional)" error={errors.phone?.message}>
+              <div className="relative">
+                <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  {...register("phone")}
+                  placeholder="+998 90 123 45 67"
+                  className="pl-10"
+                />
+              </div>
+            </FormField>
+            <div>
+              <p className="mb-2 text-sm font-medium text-navy">
+                Qualification certificates
+              </p>
+              <p className="mb-3 text-xs text-muted">
+                Upload CELTA, DELTA, examiner certification, or equivalent (PDF, JPG,
+                PNG — up to 5 files, 10 MB each).
+              </p>
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-6 py-8 transition-colors hover:border-navy/30 hover:bg-slate-50">
+                <FileUp className="h-8 w-8 text-slate-400" />
+                <span className="mt-2 text-sm font-semibold text-navy">
+                  Click to upload certificates
+                </span>
+                <span className="mt-1 text-xs text-muted">or drag and drop</span>
+                <input
+                  type="file"
+                  accept=".pdf,image/jpeg,image/png,image/webp"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => onFilesSelected(e.target.files)}
+                />
+              </label>
+              {certificates.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {certificates.map((file, i) => (
+                    <li
+                      key={`${file.name}-${i}`}
+                      className="flex items-center justify-between rounded-lg border border-border bg-white px-3 py-2 text-sm"
+                    >
+                      <span className="truncate text-navy">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCertificates((prev) => prev.filter((_, idx) => idx !== i))
+                        }
+                        className="ml-2 text-muted hover:text-brand-red"
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <Checkbox
+              {...register("acceptTerms")}
+              label={
+                <>
+                  I agree to the{" "}
+                  <Link href="/terms" className="text-navy underline underline-offset-2">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="text-navy underline underline-offset-2">
+                    Privacy Policy
+                  </Link>
+                </>
+              }
+            />
+            {errors.acceptTerms && (
+              <p className="text-xs font-medium text-red-600">{errors.acceptTerms.message}</p>
+            )}
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-4 rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-sm font-semibold text-navy">Review your application</h2>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Name</dt>
+                <dd className="mt-0.5 font-medium text-navy">{values.fullName}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Email</dt>
+                <dd className="mt-0.5 font-medium text-navy">{values.email}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Writing</dt>
+                <dd className="mt-0.5 font-medium text-navy">Band {values.ieltsWritingBand}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Speaking</dt>
+                <dd className="mt-0.5 font-medium text-navy">Band {values.ieltsSpeakingBand}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Speciality</dt>
+                <dd className="mt-0.5 font-medium capitalize text-navy">{values.speciality}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Experience</dt>
+                <dd className="mt-0.5 font-medium text-navy">{values.yearsExperience} years</dd>
+              </div>
+            </dl>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+                Qualifications
+              </dt>
+              <dd className="mt-1 flex flex-wrap gap-1.5">
+                {qualifications.map((q) => (
+                  <span
+                    key={q}
+                    className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-navy"
+                  >
+                    {q}
+                  </span>
+                ))}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Certificates</dt>
+              <dd className="mt-1 text-sm text-navy">{certificates.length} file(s) attached</dd>
+            </div>
+            <p className="rounded-lg bg-sky-50 p-3 text-xs leading-relaxed text-sky-900">
+              After submission, your application will appear in our admin review queue. You
+              will receive an email when your account is approved.
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-3">
+          {step > 1 && (
+            <Button type="button" variant="secondary" onClick={goBack}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          )}
+          {step < 4 ? (
+            <Button type="button" variant="primary" className="flex-1 sm:flex-none" onClick={goNext}>
+              Continue
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button type="submit" variant="primary" className="flex-1 sm:flex-none" loading={loading}>
+              Submit application
+              {!loading && <ArrowRight className="h-4 w-4" />}
+            </Button>
+          )}
+        </div>
+      </form>
+
+      <p className="text-center text-sm text-muted">
+        Already have an account?{" "}
+        <Link href="/login" className="font-semibold text-navy underline underline-offset-2">
+          Sign in
+        </Link>
+      </p>
+    </div>
+  );
+}

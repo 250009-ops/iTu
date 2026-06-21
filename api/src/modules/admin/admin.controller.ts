@@ -53,6 +53,11 @@ export class AdminController {
     return this.admin.getTeachers();
   }
 
+  @Get('teachers/:id')
+  getTeacher(@Param('id') id: string) {
+    return this.admin.getTeacher(id);
+  }
+
   @Patch('teachers/:id/status')
   updateTeacherStatus(
     @Param('id') id: string,

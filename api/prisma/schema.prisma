@@ -227,6 +227,7 @@ model TeacherProfile {
   avatarUrl      String?           @map("avatar_url")
   notificationPrefs Json?          @map("notification_prefs")
   payoutDetails    Json?           @map("payout_details")
+  applicationData  Json?           @map("application_data")
   credentials    Json?
   languages      Json              @default("[]")
   commissionRate Float             @default(0.25) @map("commission_rate")

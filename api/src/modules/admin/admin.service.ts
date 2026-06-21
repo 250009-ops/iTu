@@ -16,7 +16,9 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { MailService } from '../../common/mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SettingsService } from '../settings/settings.service';
 import {
   SECTION_DURATIONS_SEC,
   skillForActiveState,
@@ -102,6 +104,8 @@ export class AdminService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private audit: AuditService,
+    private mail: MailService,
+    private settings: SettingsService,
   ) {}
 
   async getNavBadges() {
@@ -340,16 +344,20 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return teachers.map((t) => ({
-      id: t.id,
-      name: t.user.name,
-      email: t.user.email,
-      status: t.status.toLowerCase(),
-      rating: t.rating,
-      sessions: t.totalSessions,
-      totalEarned: t.totalEarned,
-      speciality: t.speciality.toLowerCase(),
-    }));
+    return teachers.map((t) => this.mapTeacherListItem(t));
+  }
+
+  async getTeacher(teacherId: string) {
+    const teacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: teacherId },
+      include: { user: true },
+    });
+
+    if (!teacher) {
+      throw new NotFoundException('Teacher not found');
+    }
+
+    return this.mapTeacherDetail(teacher);
   }
 
   async updateTeacherStatus(
@@ -357,9 +365,20 @@ export class AdminService {
     status: 'approved' | 'pending' | 'suspended',
     actorId: string,
   ) {
+    const existing = await this.prisma.teacherProfile.findUnique({
+      where: { id: teacherId },
+      include: { user: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Teacher not found');
+    }
+
+    const previousStatus = existing.status;
     const updated = await this.prisma.teacherProfile.update({
       where: { id: teacherId },
       data: { status: status.toUpperCase() as 'APPROVED' | 'PENDING' | 'SUSPENDED' },
+      include: { user: true },
     });
 
     await this.audit.log({
@@ -367,10 +386,89 @@ export class AdminService {
       action: AuditAction.ADMIN_TEACHER_STATUS,
       entity: 'teacher_profile',
       entityId: teacherId,
-      metadata: { status },
+      metadata: { status, previousStatus: previousStatus.toLowerCase() },
     });
 
-    return updated;
+    void this.notifyTeacherStatusChange(
+      updated.user.email,
+      updated.user.name,
+      previousStatus,
+      updated.status,
+    ).catch(() => undefined);
+
+    return this.mapTeacherListItem(updated);
+  }
+
+  private mapTeacherListItem(teacher: {
+    id: string;
+    status: string;
+    rating: number | null;
+    totalSessions: number;
+    totalEarned: number;
+    speciality: string;
+    createdAt: Date;
+    user: { name: string; email: string };
+  }) {
+    return {
+      id: teacher.id,
+      name: teacher.user.name,
+      email: teacher.user.email,
+      status: teacher.status.toLowerCase(),
+      rating: teacher.rating,
+      sessions: teacher.totalSessions,
+      totalEarned: teacher.totalEarned,
+      speciality: teacher.speciality.toLowerCase(),
+      createdAt: teacher.createdAt,
+    };
+  }
+
+  private mapTeacherDetail(teacher: {
+    id: string;
+    status: string;
+    rating: number | null;
+    totalSessions: number;
+    totalEarned: number;
+    speciality: string;
+    createdAt: Date;
+    bio: string | null;
+    languages: unknown;
+    credentials: unknown;
+    applicationData: unknown;
+    user: { name: string; email: string };
+  }) {
+    return {
+      ...this.mapTeacherListItem(teacher),
+      bio: teacher.bio,
+      languages: teacher.languages,
+      credentials: teacher.credentials,
+      application: teacher.applicationData,
+    };
+  }
+
+  private async notifyTeacherStatusChange(
+    email: string,
+    name: string,
+    previousStatus: string,
+    nextStatus: string,
+  ) {
+    const general = (await this.settings.getSection('general')) as {
+      supportEmail?: string;
+    };
+    const supportEmail = general.supportEmail?.trim() || 'support@itestu.uz';
+
+    if (nextStatus === 'APPROVED' && previousStatus === 'SUSPENDED') {
+      await this.mail.sendTeacherReinstated(email, name);
+      return;
+    }
+
+    if (nextStatus === 'APPROVED' && previousStatus !== 'APPROVED') {
+      await this.mail.sendTeacherApproved(email, name);
+      return;
+    }
+
+    if (nextStatus === 'SUSPENDED') {
+      await this.mail.sendTeacherSuspended(email, name, supportEmail);
+    }
   }
 
   async getOrders() {

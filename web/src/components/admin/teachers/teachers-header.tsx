@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, UserPlus } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useAdminTeachers } from "@/contexts/admin-teachers-context";
@@ -18,7 +18,7 @@ export function TeachersHeader() {
           Teachers Management
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Manage examiner onboarding, performance, and compliance.
+          Review examiner applications, approve credentials, and manage compliance.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -34,19 +34,6 @@ export function TeachersHeader() {
         >
           <Download className="h-4 w-4" />
           Export
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() =>
-            toast("Invite teacher", {
-              description: "Send an examiner onboarding invite by email soon.",
-              variant: "info",
-            })
-          }
-        >
-          <UserPlus className="h-4 w-4" />
-          Invite Teacher
         </Button>
       </div>
     </div>

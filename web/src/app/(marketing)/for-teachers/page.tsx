@@ -47,7 +47,7 @@ export default async function ForTeachersPage() {
         title="Turn your expertise into income"
         subtitle={`Certified examiner? Join ${stats.examiners} professionals earning from flexible, fully remote IELTS grading and live Speaking sessions.`}
       >
-        <CtaButton href="/contact" variant="primary" size="lg" withArrow className="mt-4">
+        <CtaButton href="/register/teacher" variant="primary" size="lg" withArrow className="mt-4">
           Apply to become an examiner
         </CtaButton>
       </PageHero>
@@ -125,7 +125,7 @@ export default async function ForTeachersPage() {
         eyebrow="Join the team"
         title="Ready to start earning?"
         subtitle={`Join ${stats.examiners} certified examiners already on the platform. The application takes 10 minutes.`}
-        primaryHref="/contact"
+        primaryHref="/register/teacher"
         primaryLabel="Apply to become an examiner"
       />
     </>

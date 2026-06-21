@@ -325,7 +325,7 @@ export function mapTeachers(teachers: Teachers) {
     rating: t.rating,
     sessions: t.sessions,
     totalEarned: t.totalEarned,
-    joined: "—",
+    joined: t.createdAt ? formatDate(t.createdAt) : "—",
     speciality: normalizeTeacherSpeciality(t.speciality),
   }));
 

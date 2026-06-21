@@ -150,8 +150,35 @@ export function getAdminTeachers() {
       sessions: number;
       totalEarned: number;
       speciality: string;
+      createdAt: string;
     }[]
   >("/admin/teachers");
+}
+
+export function getAdminTeacher(id: string) {
+  return apiFetch<{
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+    rating: number | null;
+    sessions: number;
+    totalEarned: number;
+    speciality: string;
+    createdAt: string;
+    bio?: string | null;
+    languages?: unknown;
+    credentials?: unknown;
+    application?: {
+      ieltsWritingBand?: number;
+      ieltsSpeakingBand?: number;
+      yearsExperience?: number;
+      qualifications?: string[];
+      certificateUrls?: string[];
+      phone?: string | null;
+      submittedAt?: string;
+    } | null;
+  }>(`/admin/teachers/${id}`);
 }
 
 export function updateTeacherStatus(
