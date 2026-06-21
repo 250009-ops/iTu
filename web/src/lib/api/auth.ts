@@ -89,11 +89,8 @@ export function registerTeacher(
   form.append("password", data.password);
   form.append("ieltsWritingBand", data.ieltsWritingBand);
   form.append("ieltsSpeakingBand", data.ieltsSpeakingBand);
-  form.append("speciality", data.speciality);
   form.append("yearsExperience", data.yearsExperience);
-  form.append("qualifications", JSON.stringify(data.qualifications));
   form.append("languages", JSON.stringify(data.languages));
-  form.append("bio", data.bio);
   if (data.phone?.trim()) {
     form.append("phone", data.phone.trim());
   }

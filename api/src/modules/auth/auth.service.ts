@@ -196,20 +196,13 @@ export class AuthService {
     );
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const speciality =
-      dto.speciality === 'writing'
-        ? TeacherSpeciality.WRITING
-        : dto.speciality === 'speaking'
-          ? TeacherSpeciality.SPEAKING
-          : TeacherSpeciality.BOTH;
-
     const slug = await this.generateUniqueTeacherSlug(dto.fullName.trim());
     const applicationData = {
       ieltsWritingBand: dto.ieltsWritingBand,
       ieltsSpeakingBand: dto.ieltsSpeakingBand,
       yearsExperience: dto.yearsExperience,
-      qualifications: dto.qualifications,
       certificateUrls,
+      languages: dto.languages,
       phone: dto.phone?.trim() || null,
       submittedAt: new Date().toISOString(),
     };
@@ -223,10 +216,8 @@ export class AuthService {
         teacherProfile: {
           create: {
             slug,
-            bio: dto.bio.trim(),
             languages: dto.languages,
-            credentials: dto.qualifications,
-            speciality,
+            speciality: TeacherSpeciality.BOTH,
             status: 'PENDING',
             applicationData,
           },
@@ -242,7 +233,7 @@ export class AuthService {
       entityId: user.teacherProfile!.id,
       metadata: {
         email,
-        speciality: dto.speciality,
+        speciality: 'both',
         ieltsWritingBand: dto.ieltsWritingBand,
         ieltsSpeakingBand: dto.ieltsSpeakingBand,
       },

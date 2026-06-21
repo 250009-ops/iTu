@@ -1,27 +1,8 @@
 import { z } from "zod";
 
-export const TEACHER_QUALIFICATIONS = [
-  "CELTA",
-  "DELTA",
-  "IELTS Examiner Certification",
-  "MA TESOL",
-  "Ex-IDP Examiner",
-  "PGCE with ELT",
-  "Other",
-] as const;
-
 export const TEACHER_BAND_OPTIONS = ["7.5", "8.0", "8.5", "9.0"] as const;
 
-export const TEACHER_LANGUAGE_OPTIONS = [
-  "English",
-  "Mandarin",
-  "Arabic",
-  "Spanish",
-  "French",
-  "Hindi",
-  "Uzbek",
-  "Russian",
-] as const;
+export const TEACHER_LANGUAGE_OPTIONS = ["Uzbek", "English", "Russian"] as const;
 
 const passwordSchema = z
   .string()
@@ -44,9 +25,6 @@ export const teacherRegisterSchema = z
     ieltsSpeakingBand: z.enum(TEACHER_BAND_OPTIONS, {
       message: "Select your IELTS Speaking band",
     }),
-    speciality: z.enum(["writing", "speaking", "both"], {
-      message: "Select your speciality",
-    }),
     yearsExperience: z
       .string()
       .min(1, "Enter years of experience")
@@ -54,14 +32,9 @@ export const teacherRegisterSchema = z
         const n = parseInt(v, 10);
         return !Number.isNaN(n) && n >= 1 && n <= 50;
       }, "Enter a value between 1 and 50"),
-    qualifications: z
-      .array(z.enum(TEACHER_QUALIFICATIONS))
-      .min(1, "Select at least one qualification"),
-    languages: z.array(z.string()).min(1, "Select at least one language"),
-    bio: z
-      .string()
-      .min(80, "Tell us about your experience (at least 80 characters)")
-      .max(2000, "Bio must be under 2000 characters"),
+    languages: z
+      .array(z.enum(TEACHER_LANGUAGE_OPTIONS))
+      .min(1, "Select at least one language"),
     phone: z.string().max(30).optional(),
     acceptTerms: z.boolean().refine((val) => val === true, {
       message: "You must accept the terms to continue",

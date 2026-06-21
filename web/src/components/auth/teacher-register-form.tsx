@@ -28,18 +28,11 @@ import { getErrorMessage } from "@/lib/api/errors";
 import {
   TEACHER_BAND_OPTIONS,
   TEACHER_LANGUAGE_OPTIONS,
-  TEACHER_QUALIFICATIONS,
   teacherRegisterSchema,
   teacherRegisterSteps,
   type TeacherRegisterFormValues,
 } from "@/lib/validations/teacher-register";
 import { cn } from "@/lib/utils";
-
-const SPECIALITY_OPTIONS = [
-  { value: "writing", label: "Writing", hint: "Grade Writing submissions" },
-  { value: "speaking", label: "Speaking", hint: "Conduct live Speaking sessions" },
-  { value: "both", label: "Both", hint: "Writing & Speaking examiner" },
-] as const;
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -94,10 +87,8 @@ export default function TeacherRegisterForm() {
   const form = useForm<TeacherRegisterFormValues>({
     resolver: zodResolver(teacherRegisterSchema),
     defaultValues: {
-      speciality: "both",
       ieltsWritingBand: "7.5",
       ieltsSpeakingBand: "7.5",
-      qualifications: [],
       languages: ["English"],
       acceptTerms: false,
     },
@@ -113,22 +104,14 @@ export default function TeacherRegisterForm() {
     formState: { errors },
   } = form;
 
-  const qualifications = watch("qualifications");
   const languages = watch("languages");
   const values = watch();
 
   async function validateStep(targetStep: number) {
     const fieldsByStep: Record<number, (keyof TeacherRegisterFormValues)[]> = {
       1: ["fullName", "email", "password", "confirmPassword"],
-      2: [
-        "ieltsWritingBand",
-        "ieltsSpeakingBand",
-        "speciality",
-        "yearsExperience",
-        "qualifications",
-        "languages",
-      ],
-      3: ["bio", "phone", "acceptTerms"],
+      2: ["ieltsWritingBand", "ieltsSpeakingBand", "yearsExperience", "languages"],
+      3: ["phone", "acceptTerms"],
     };
 
     const fields = fieldsByStep[targetStep - 1] ?? [];
@@ -152,14 +135,7 @@ export default function TeacherRegisterForm() {
     setStep((s) => Math.max(s - 1, 1));
   }
 
-  function toggleQualification(value: (typeof TEACHER_QUALIFICATIONS)[number]) {
-    const next = qualifications.includes(value)
-      ? qualifications.filter((q) => q !== value)
-      : [...qualifications, value];
-    setValue("qualifications", next, { shouldValidate: true });
-  }
-
-  function toggleLanguage(value: string) {
+  function toggleLanguage(value: (typeof TEACHER_LANGUAGE_OPTIONS)[number]) {
     const next = languages.includes(value)
       ? languages.filter((l) => l !== value)
       : [...languages, value];
@@ -206,7 +182,7 @@ export default function TeacherRegisterForm() {
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted">
             Thank you, <strong className="text-navy">{values.fullName}</strong>.
-            Your examiner application has been sent to our admin team for review.
+            Your teacher application has been sent to our admin team for review.
           </p>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted">
             We will email <strong className="text-navy">{submitted.email}</strong> when
@@ -224,7 +200,7 @@ export default function TeacherRegisterForm() {
               href="/for-teachers"
               className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-white px-5 text-sm font-semibold text-navy transition-colors hover:bg-slate-50"
             >
-              Learn about examining
+              Learn about teaching
             </Link>
           </div>
         </div>
@@ -245,7 +221,8 @@ export default function TeacherRegisterForm() {
           Teacher application
         </h1>
         <p className="text-sm text-muted">
-          Certified IELTS professional? Submit your credentials for admin review.
+          Submit your IELTS scores and certificates. You can complete your profile after
+          approval.
         </p>
       </div>
 
@@ -313,7 +290,7 @@ export default function TeacherRegisterForm() {
             </div>
             <p className="text-xs text-muted">
               Minimum band <strong className="text-navy">7.5</strong> in both Writing and
-              Speaking is required.
+              Speaking is required. All teachers grade Writing and conduct Speaking.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="IELTS Writing band" error={errors.ieltsWritingBand?.message}>
@@ -335,30 +312,6 @@ export default function TeacherRegisterForm() {
                 </Select>
               </FormField>
             </div>
-            <FormField label="Speciality" error={errors.speciality?.message}>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {SPECIALITY_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={cn(
-                      "cursor-pointer rounded-xl border p-3 transition-colors",
-                      values.speciality === opt.value
-                        ? "border-navy bg-navy/5 ring-1 ring-navy/15"
-                        : "border-border bg-white hover:border-slate-300",
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      value={opt.value}
-                      {...register("speciality")}
-                      className="sr-only"
-                    />
-                    <p className="text-sm font-semibold text-navy">{opt.label}</p>
-                    <p className="mt-0.5 text-xs text-muted">{opt.hint}</p>
-                  </label>
-                ))}
-              </div>
-            </FormField>
             <FormField
               label="Years of IELTS teaching / examining experience"
               error={errors.yearsExperience?.message}
@@ -371,28 +324,6 @@ export default function TeacherRegisterForm() {
                 placeholder="e.g. 5"
                 error={!!errors.yearsExperience}
               />
-            </FormField>
-            <FormField label="Qualifications" error={errors.qualifications?.message}>
-              <div className="flex flex-wrap gap-2">
-                {TEACHER_QUALIFICATIONS.map((q) => {
-                  const selected = qualifications.includes(q);
-                  return (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => toggleQualification(q)}
-                      className={cn(
-                        "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-                        selected
-                          ? "border-navy bg-navy text-white"
-                          : "border-border bg-white text-muted hover:border-slate-300",
-                      )}
-                    >
-                      {q}
-                    </button>
-                  );
-                })}
-              </div>
             </FormField>
             <FormField label="Languages spoken" error={errors.languages?.message}>
               <div className="flex flex-wrap gap-2">
@@ -423,23 +354,8 @@ export default function TeacherRegisterForm() {
           <div className="space-y-5 rounded-2xl border border-border bg-slate-50/50 p-5 sm:p-6">
             <div className="flex items-center gap-2 text-sm font-semibold text-navy">
               <FileUp className="h-4 w-4" />
-              Credentials & bio
+              Credentials
             </div>
-            <FormField
-              label="Professional bio"
-              error={errors.bio?.message}
-              hint="Describe your examining experience, specialisms, and approach (min. 80 characters)"
-            >
-              <textarea
-                {...register("bio")}
-                rows={5}
-                placeholder="e.g. Cambridge-certified examiner with 8 years assessing Academic Writing and live Speaking mocks..."
-                className={cn(
-                  "w-full rounded-lg border bg-white px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/10",
-                  errors.bio ? "border-red-300" : "border-border",
-                )}
-              />
-            </FormField>
             <FormField label="Phone (optional)" error={errors.phone?.message}>
               <div className="relative">
                 <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -537,25 +453,23 @@ export default function TeacherRegisterForm() {
                 <dd className="mt-0.5 font-medium text-navy">Band {values.ieltsSpeakingBand}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Speciality</dt>
-                <dd className="mt-0.5 font-medium capitalize text-navy">{values.speciality}</dd>
-              </div>
-              <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted">Experience</dt>
                 <dd className="mt-0.5 font-medium text-navy">{values.yearsExperience} years</dd>
               </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Role</dt>
+                <dd className="mt-0.5 font-medium text-navy">Writing & Speaking</dd>
+              </div>
             </dl>
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                Qualifications
-              </dt>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Languages</dt>
               <dd className="mt-1 flex flex-wrap gap-1.5">
-                {qualifications.map((q) => (
+                {languages.map((lang) => (
                   <span
-                    key={q}
+                    key={lang}
                     className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-navy"
                   >
-                    {q}
+                    {lang}
                   </span>
                 ))}
               </dd>
@@ -565,8 +479,8 @@ export default function TeacherRegisterForm() {
               <dd className="mt-1 text-sm text-navy">{certificates.length} file(s) attached</dd>
             </div>
             <p className="rounded-lg bg-sky-50 p-3 text-xs leading-relaxed text-sky-900">
-              After submission, your application will appear in our admin review queue. You
-              will receive an email when your account is approved.
+              After approval you can sign in and complete your teacher profile. We will
+              email you when your application is reviewed.
             </p>
           </div>
         )}

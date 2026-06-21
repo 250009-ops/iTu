@@ -16,17 +16,7 @@ import {
   MinLength,
 } from 'class-validator';
 
-const TEACHER_QUALIFICATIONS = [
-  'CELTA',
-  'DELTA',
-  'IELTS Examiner Certification',
-  'MA TESOL',
-  'Ex-IDP Examiner',
-  'PGCE with ELT',
-  'Other',
-] as const;
-
-const TEACHER_SPECIALITIES = ['writing', 'speaking', 'both'] as const;
+const TEACHER_LANGUAGES = ['Uzbek', 'English', 'Russian'] as const;
 
 export class RegisterTeacherDto {
   @IsString()
@@ -55,9 +45,6 @@ export class RegisterTeacherDto {
   @Max(9)
   ieltsSpeakingBand: number;
 
-  @IsIn(TEACHER_SPECIALITIES)
-  speciality: (typeof TEACHER_SPECIALITIES)[number];
-
   @Transform(({ value }) => parseInt(String(value), 10))
   @IsInt()
   @Min(1)
@@ -78,31 +65,8 @@ export class RegisterTeacherDto {
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsIn(TEACHER_QUALIFICATIONS, { each: true })
-  qualifications: string[];
-
-  @Transform(({ value }) => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value) as unknown;
-        return Array.isArray(parsed) ? parsed : [value];
-      } catch {
-        return value.split(',').map((s: string) => s.trim()).filter(Boolean);
-      }
-    }
-    return [];
-  })
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsString({ each: true })
-  @MaxLength(60, { each: true })
+  @IsIn(TEACHER_LANGUAGES, { each: true })
   languages: string[];
-
-  @IsString()
-  @MinLength(80)
-  @MaxLength(2000)
-  bio: string;
 
   @IsOptional()
   @IsString()
