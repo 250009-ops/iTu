@@ -34,6 +34,7 @@ echo "==> Building API..."
 cd "$APP_DIR/api"
 npm ci
 npx prisma generate
+npx tsx prisma/pre-db-push-migrate.ts
 npx prisma db push --accept-data-loss
 npm run build
 
