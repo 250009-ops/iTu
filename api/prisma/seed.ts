@@ -270,12 +270,14 @@ async function main() {
   const mockPackage = await prisma.mockTestPackage.create({
     data: {
       slug: 'full-academic-mock',
-      title: 'Full Academic Mock',
+      title: 'Full Academic Mock 001',
       description:
         'All four skills in one day. IELTS Academic — for university, visa, and professional registration.',
       price: 49.0,
       currency: 'USD',
       examType: ExamType.ACADEMIC,
+      packageKind: 'listening+reading+writing+speaking',
+      mockNumber: 1,
       mostPopular: true,
       rating: 4.9,
       reviewCount: 1240,
@@ -300,95 +302,137 @@ async function main() {
     },
   });
 
-  await prisma.mockTestPackage.createMany({
+  await prisma.packageContentTest.createMany({
     data: [
-      {
-        slug: 'general-training-mock',
-        title: 'General Training Mock',
-        description:
-          'All four skills. IELTS General Training — for migration, permanent residency, and work programs.',
-        price: 45.0,
-        currency: 'USD',
-        examType: ExamType.GENERAL_TRAINING,
-        mostPopular: false,
-        rating: 4.8,
-        reviewCount: 680,
-        skills: ['listening', 'reading', 'writing', 'speaking'],
-        included: [
-          'Pick your certified examiner',
-          'Full band report within 24 hours',
-          'Criteria-level written feedback',
-          'Score progression tracking',
-          'Secure exam environment',
-        ],
-        rules: [
-          'No pause or rewind',
-          'Server-authoritative timers',
-          'Strict exam-day integrity',
-          'All scores released together',
-        ],
-      },
-      {
-        slug: 'speaking-only',
-        title: 'Speaking Only',
-        description:
-          'A single live Speaking session with a certified examiner, with criteria-level feedback.',
-        price: 22.0,
-        currency: 'USD',
-        examType: ExamType.ACADEMIC,
-        mostPopular: false,
-        rating: 4.9,
-        reviewCount: 430,
-        skills: ['speaking'],
-        included: [
-          'Pick your certified examiner',
-          'Speaking score within 24 hours',
-          'Criteria-level speaking feedback',
-          'Part 1, 2 & 3 transcript notes',
-        ],
-        rules: ['Live video session', '11–14 minutes', 'Recorded for examiner reference'],
-      },
-      {
-        slug: 'writing-only',
-        title: 'Writing Only',
-        description:
-          'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
-        price: 18.0,
-        currency: 'USD',
-        examType: ExamType.ACADEMIC,
-        mostPopular: false,
-        rating: 4.8,
-        reviewCount: 320,
-        skills: ['writing'],
-        included: [
-          'Expert examiner grading',
-          'Task 1 + Task 2 feedback',
-          'Criteria-level breakdown',
-          'Turnaround within 24 hours',
-        ],
-        rules: ['60-minute window', 'Live word counter', 'Spell-check disabled'],
-      },
+      { packageId: mockPackage.id, testId: listeningTest.id, skill: 'LISTENING' },
+      { packageId: mockPackage.id, testId: readingTest.id, skill: 'READING' },
+      { packageId: mockPackage.id, testId: writingTest.id, skill: 'WRITING' },
+      { packageId: mockPackage.id, testId: speakingBank.id, skill: 'SPEAKING' },
     ],
   });
 
-  await prisma.mockTestPackage.updateMany({
-    where: { slug: 'general-training-mock' },
+  const speakingOnlyBank = await prisma.contentTest.create({
     data: {
-      listeningTestId: listeningTest.id,
-      readingTestId: readingTest.id,
-      writingTestId: writingTest.id,
-      speakingBankId: speakingBank.id,
+      code: 'SPK-BANK-001',
+      title: 'Speaking Bank 001',
+      type: ContentTestType.SPEAKING,
+      status: ContentTestStatus.PUBLISHED,
+      durationMin: 15,
+      publishedAt: new Date(),
+      content: loadExamJson('speaking.json'),
     },
   });
 
-  await prisma.mockTestPackage.updateMany({
-    where: { slug: 'speaking-only' },
-    data: { speakingBankId: speakingBank.id },
+  const writingOnlyTest = await prisma.contentTest.create({
+    data: {
+      code: 'WRI-ACAD-001',
+      title: 'Writing — Academic Mock 001',
+      type: ContentTestType.WRITING,
+      status: ContentTestStatus.PUBLISHED,
+      durationMin: 60,
+      publishedAt: new Date(),
+      content: loadExamJson('writing.json'),
+    },
   });
 
-  await prisma.mockTestPackage.updateMany({
-    where: { slug: 'writing-only' },
-    data: { writingTestId: writingTest.id },
+  const speakingOnlyPackage = await prisma.mockTestPackage.create({
+    data: {
+      slug: 'speaking-only',
+      title: 'Speaking Only 001',
+      description:
+        'A single live Speaking session with a certified examiner, with criteria-level feedback.',
+      price: 22.0,
+      currency: 'USD',
+      examType: ExamType.ACADEMIC,
+      packageKind: 'speaking',
+      mockNumber: 1,
+      mostPopular: false,
+      rating: 4.9,
+      reviewCount: 430,
+      skills: ['speaking'],
+      included: [
+        'Pick your certified examiner',
+        'Speaking score within 24 hours',
+        'Criteria-level speaking feedback',
+        'Part 1, 2 & 3 transcript notes',
+      ],
+      rules: ['Live video session', '11–14 minutes', 'Recorded for examiner reference'],
+      speakingBankId: speakingOnlyBank.id,
+    },
+  });
+
+  await prisma.packageContentTest.create({
+    data: {
+      packageId: speakingOnlyPackage.id,
+      testId: speakingOnlyBank.id,
+      skill: 'SPEAKING',
+    },
+  });
+
+  const writingOnlyPackage = await prisma.mockTestPackage.create({
+    data: {
+      slug: 'writing-only',
+      title: 'Writing Only 001',
+      description:
+        'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
+      price: 18.0,
+      currency: 'USD',
+      examType: ExamType.ACADEMIC,
+      packageKind: 'writing',
+      mockNumber: 1,
+      mostPopular: false,
+      rating: 4.8,
+      reviewCount: 320,
+      skills: ['writing'],
+      included: [
+        'Expert examiner grading',
+        'Task 1 + Task 2 feedback',
+        'Criteria-level breakdown',
+        'Turnaround within 24 hours',
+      ],
+      rules: ['60-minute window', 'Live word counter', 'Spell-check disabled'],
+      writingTestId: writingOnlyTest.id,
+    },
+  });
+
+  await prisma.packageContentTest.create({
+    data: {
+      packageId: writingOnlyPackage.id,
+      testId: writingOnlyTest.id,
+      skill: 'WRITING',
+    },
+  });
+
+  await prisma.mockTestPackage.create({
+    data: {
+      slug: 'general-training-mock',
+      title: 'General Training Mock',
+      description:
+        'All four skills. IELTS General Training — for migration, permanent residency, and work programs.',
+      price: 45.0,
+      currency: 'USD',
+      examType: ExamType.GENERAL_TRAINING,
+      packageKind: 'listening+reading+writing+speaking',
+      mockNumber: 1,
+      mostPopular: false,
+      rating: 4.8,
+      reviewCount: 680,
+      isActive: false,
+      skills: ['listening', 'reading', 'writing', 'speaking'],
+      included: [
+        'Pick your certified examiner',
+        'Full band report within 24 hours',
+        'Criteria-level written feedback',
+        'Score progression tracking',
+        'Secure exam environment',
+      ],
+      rules: [
+        'No pause or rewind',
+        'Server-authoritative timers',
+        'Strict exam-day integrity',
+        'All scores released together',
+      ],
+    },
   });
 
   await seedBandTables();

@@ -125,6 +125,9 @@ export function PackagesTable() {
                   <td className="px-5 py-4 sm:px-6">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-navy">{pkg.title}</p>
+                      {pkg.mockLabel && (
+                        <p className="text-xs font-medium text-sky-700">{pkg.mockLabel}</p>
+                      )}
                       {pkg.mostPopular && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                           <Sparkles className="h-3 w-3" />

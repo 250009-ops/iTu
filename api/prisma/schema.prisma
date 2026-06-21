@@ -292,6 +292,9 @@ model MockTestPackage {
   price           Float
   currency        String   @default("USD")
   examType        ExamType @default(ACADEMIC) @map("exam_type")
+  /// Skill-set key (e.g. "listening+reading+writing+speaking") — separate mock-number sequence per kind.
+  packageKind     String   @default("listening+reading+writing+speaking") @map("package_kind")
+  mockNumber      Int      @default(1) @map("mock_number")
   mostPopular     Boolean  @default(false) @map("most_popular")
   rating          Float?
   reviewCount     Int      @default(0) @map("review_count")
@@ -315,6 +318,7 @@ model MockTestPackage {
   orders        Order[]
   reviews       Review[]
 
+  @@unique([packageKind, mockNumber])
   @@map("mock_test_packages")
 }
 
@@ -343,19 +347,18 @@ model ContentTest {
   @@map("content_tests")
 }
 
-/// Pool of eligible content tests per package + skill, enabling rotation so a
-/// student who re-buys a package does not receive a test they already took.
+/// One published test per skill per package. Each test is globally exclusive.
 model PackageContentTest {
   id        String    @id @default(cuid())
   packageId String    @map("package_id")
-  testId    String    @map("test_id")
+  testId    String    @unique @map("test_id")
   skill     ExamSkill
   createdAt DateTime  @default(now()) @map("created_at")
 
   package MockTestPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
   test    ContentTest     @relation("PoolTest", fields: [testId], references: [id], onDelete: Cascade)
 
-  @@unique([packageId, testId])
+  @@unique([packageId, skill])
   @@index([packageId, skill])
   @@map("package_content_tests")
 }

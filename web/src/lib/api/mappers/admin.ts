@@ -587,6 +587,7 @@ export function mapContentTests(tests: ContentTests) {
     lastUpdated: formatShortDate(t.updatedAt),
     author: t.authorName ?? "Admin",
     linkedPackages: t.linkedPackages ?? 0,
+    assignedMockLabel: t.assignedMockLabel ?? null,
   }));
 
   const counts = {

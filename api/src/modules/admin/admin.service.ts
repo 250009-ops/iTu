@@ -26,6 +26,14 @@ import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
 import { UpdatePayoutDto } from './dto/update-payout.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
+import {
+  derivePackageKind,
+  formatMockNumber,
+  packageKindLabel,
+  SKILL_TO_POOL_KEY,
+  SKILL_TO_TEST_FIELD,
+} from '../../common/package-kind';
+import { packageExamSkills } from '../content/package-skills';
 
 const SKILL_ACCENTS = [
   { id: 'listening', name: 'Listening', detail: '~32 min · plays once', badge: 'Auto-scored', color: 'sky' },
@@ -449,7 +457,7 @@ export class AdminService {
   // ─── Packages & Pricing ──────────────────────────────────────────────────
 
   async getPackages() {
-    const [packages, tests] = await Promise.all([
+    const [packages, tests, poolRows] = await Promise.all([
       this.prisma.mockTestPackage.findMany({
         orderBy: [{ isActive: 'desc' }, { mostPopular: 'desc' }, { price: 'desc' }],
         include: {
@@ -460,7 +468,35 @@ export class AdminService {
         select: { id: true, code: true, title: true, type: true, status: true },
         orderBy: { updatedAt: 'desc' },
       }),
+      this.prisma.packageContentTest.findMany({
+        select: {
+          testId: true,
+          skill: true,
+          package: {
+            select: {
+              id: true,
+              title: true,
+              mockNumber: true,
+              packageKind: true,
+            },
+          },
+        },
+      }),
     ]);
+
+    const assignmentByTestId = new Map(
+      poolRows.map((row) => [
+        row.testId,
+        {
+          packageId: row.package.id,
+          packageTitle: row.package.title,
+          mockNumber: row.package.mockNumber,
+          packageKind: row.package.packageKind,
+          mockLabel: formatMockNumber(row.package.packageKind, row.package.mockNumber),
+          skill: row.skill,
+        },
+      ]),
+    );
 
     return {
       packages: packages.map((pkg) => ({
@@ -471,6 +507,9 @@ export class AdminService {
         price: pkg.price,
         currency: pkg.currency,
         examType: pkg.examType,
+        packageKind: pkg.packageKind,
+        mockNumber: pkg.mockNumber,
+        mockLabel: formatMockNumber(pkg.packageKind, pkg.mockNumber),
         mostPopular: pkg.mostPopular,
         rating: pkg.rating,
         reviewCount: pkg.reviewCount,
@@ -486,13 +525,36 @@ export class AdminService {
         orderCount: pkg._count.orders,
         updatedAt: pkg.updatedAt,
       })),
-      contentTests: tests.map((t) => ({
-        id: t.id,
-        code: t.code,
-        title: t.title,
-        type: t.type,
-        status: t.status,
-      })),
+      contentTests: tests.map((t) => {
+        const assignment = assignmentByTestId.get(t.id);
+        return {
+          id: t.id,
+          code: t.code,
+          title: t.title,
+          type: t.type,
+          status: t.status,
+          assignedPackageId: assignment?.packageId ?? null,
+          assignedPackageTitle: assignment?.packageTitle ?? null,
+          assignedMockLabel: assignment?.mockLabel ?? null,
+          isPackaged: Boolean(assignment),
+        };
+      }),
+    };
+  }
+
+  async getNextMockNumber(skills: unknown) {
+    const packageKind = derivePackageKind(skills);
+    const latest = await this.prisma.mockTestPackage.findFirst({
+      where: { packageKind },
+      orderBy: { mockNumber: 'desc' },
+      select: { mockNumber: true },
+    });
+    const mockNumber = (latest?.mockNumber ?? 0) + 1;
+    return {
+      packageKind,
+      packageKindLabel: packageKindLabel(packageKind),
+      mockNumber,
+      mockLabel: formatMockNumber(packageKind, mockNumber),
     };
   }
 
@@ -512,12 +574,21 @@ export class AdminService {
   }
 
   async createPackage(dto: CreatePackageDto, actorId: string) {
-    await this.assertPublishedTestIds([
-      dto.listeningTestId,
-      dto.readingTestId,
-      dto.writingTestId,
-      dto.speakingBankId,
-    ]);
+    const skills = (dto.skills ?? DEFAULT_PACKAGE_SKILLS) as Prisma.InputJsonValue;
+    const packageKind = derivePackageKind(skills);
+    const { mockNumber } = await this.getNextMockNumber(skills);
+
+    const contentPool =
+      dto.contentPool && dto.contentPool.length > 0
+        ? dto.contentPool
+        : this.buildContentPoolFromLinks(skills, dto);
+
+    const hasContentLinks = contentPool.some((entry) => entry.testIds.length > 0);
+    const activating = dto.isActive ?? true;
+
+    if (hasContentLinks || activating) {
+      await this.assertPackageContentLinks(skills, contentPool, null);
+    }
 
     const slug = await this.resolveSlug(dto.title, dto.slug);
 
@@ -529,10 +600,12 @@ export class AdminService {
         price: dto.price,
         currency: dto.currency ?? 'USD',
         examType: dto.examType ?? 'ACADEMIC',
+        packageKind,
+        mockNumber,
         mostPopular: dto.mostPopular ?? false,
         rating: dto.rating ?? null,
         reviewCount: dto.reviewCount ?? 0,
-        skills: (dto.skills ?? DEFAULT_PACKAGE_SKILLS) as Prisma.InputJsonValue,
+        skills,
         included: (dto.included ?? []) as Prisma.InputJsonValue,
         rules: (dto.rules ?? []) as Prisma.InputJsonValue,
         listeningTestId: dto.listeningTestId || null,
@@ -543,8 +616,8 @@ export class AdminService {
       },
     });
 
-    if (dto.contentPool && dto.contentPool.length > 0) {
-      await this.syncContentPool(created.id, dto.contentPool);
+    if (hasContentLinks) {
+      await this.syncContentPool(created.id, contentPool);
     }
 
     await this.audit.log({
@@ -552,7 +625,11 @@ export class AdminService {
       action: AuditAction.ADMIN_PACKAGE_CREATE,
       entity: 'mock_test_package',
       entityId: created.id,
-      metadata: { slug: created.slug, title: created.title },
+      metadata: {
+        slug: created.slug,
+        title: created.title,
+        mockLabel: formatMockNumber(packageKind, mockNumber),
+      },
     });
 
     if (created.mostPopular) {
@@ -565,31 +642,11 @@ export class AdminService {
   async clonePackage(id: string, actorId: string) {
     const source = await this.prisma.mockTestPackage.findUnique({
       where: { id },
-      include: { contentPool: true },
     });
     if (!source) throw new NotFoundException('Package not found');
 
     const title = `${source.title} Copy`;
     const slug = await this.resolveSlug(title);
-
-    const poolBySkill = new Map<
-      'listening' | 'reading' | 'writing' | 'speaking',
-      string[]
-    >();
-    for (const row of source.contentPool) {
-      const skill = row.skill.toLowerCase() as
-        | 'listening'
-        | 'reading'
-        | 'writing'
-        | 'speaking';
-      const list = poolBySkill.get(skill) ?? [];
-      list.push(row.testId);
-      poolBySkill.set(skill, list);
-    }
-    const contentPool = [...poolBySkill.entries()].map(([skill, testIds]) => ({
-      skill,
-      testIds,
-    }));
 
     const cloned = await this.createPackage(
       {
@@ -605,12 +662,7 @@ export class AdminService {
         skills: (source.skills as string[]) ?? DEFAULT_PACKAGE_SKILLS,
         included: (source.included as string[]) ?? [],
         rules: (source.rules as string[]) ?? [],
-        listeningTestId: source.listeningTestId ?? undefined,
-        readingTestId: source.readingTestId ?? undefined,
-        writingTestId: source.writingTestId ?? undefined,
-        speakingBankId: source.speakingBankId ?? undefined,
         isActive: false,
-        contentPool,
       },
       actorId,
     );
@@ -621,39 +673,49 @@ export class AdminService {
   async updatePackage(id: string, dto: UpdatePackageDto, actorId: string) {
     const existing = await this.prisma.mockTestPackage.findUnique({
       where: { id },
+      include: { _count: { select: { enrollments: true } } },
     });
     if (!existing) throw new NotFoundException('Package not found');
 
-    const newlyLinkedIds: string[] = [];
-    if (
-      dto.listeningTestId !== undefined &&
-      dto.listeningTestId !== existing.listeningTestId &&
-      dto.listeningTestId
-    ) {
-      newlyLinkedIds.push(dto.listeningTestId);
+    const skills = dto.skills ?? existing.skills;
+    const contentLinksChanged =
+      dto.listeningTestId !== undefined ||
+      dto.readingTestId !== undefined ||
+      dto.writingTestId !== undefined ||
+      dto.speakingBankId !== undefined ||
+      dto.contentPool !== undefined;
+
+    if (existing._count.enrollments > 0 && contentLinksChanged) {
+      throw new BadRequestException(
+        'Cannot change linked tests after students have enrolled. Archive this package and create a new mock instead.',
+      );
     }
-    if (
-      dto.readingTestId !== undefined &&
-      dto.readingTestId !== existing.readingTestId &&
-      dto.readingTestId
-    ) {
-      newlyLinkedIds.push(dto.readingTestId);
+
+    const mergedLinks = {
+      listeningTestId:
+        dto.listeningTestId !== undefined
+          ? dto.listeningTestId
+          : existing.listeningTestId,
+      readingTestId:
+        dto.readingTestId !== undefined ? dto.readingTestId : existing.readingTestId,
+      writingTestId:
+        dto.writingTestId !== undefined ? dto.writingTestId : existing.writingTestId,
+      speakingBankId:
+        dto.speakingBankId !== undefined
+          ? dto.speakingBankId
+          : existing.speakingBankId,
+    };
+
+    const contentPool =
+      dto.contentPool !== undefined
+        ? dto.contentPool
+        : contentLinksChanged
+          ? this.buildContentPoolFromLinks(skills, mergedLinks)
+          : null;
+
+    if (contentPool) {
+      await this.assertPackageContentLinks(skills, contentPool, id);
     }
-    if (
-      dto.writingTestId !== undefined &&
-      dto.writingTestId !== existing.writingTestId &&
-      dto.writingTestId
-    ) {
-      newlyLinkedIds.push(dto.writingTestId);
-    }
-    if (
-      dto.speakingBankId !== undefined &&
-      dto.speakingBankId !== existing.speakingBankId &&
-      dto.speakingBankId
-    ) {
-      newlyLinkedIds.push(dto.speakingBankId);
-    }
-    await this.assertPublishedTestIds(newlyLinkedIds);
 
     const data: Prisma.MockTestPackageUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
@@ -695,8 +757,8 @@ export class AdminService {
 
     const updated = await this.prisma.mockTestPackage.update({ where: { id }, data });
 
-    if (dto.contentPool !== undefined) {
-      await this.syncContentPool(id, dto.contentPool);
+    if (contentPool) {
+      await this.syncContentPool(id, contentPool);
     }
 
     await this.audit.log({
@@ -731,52 +793,146 @@ export class AdminService {
     speaking: 'SPEAKING',
   };
 
-  /** Replaces a package's rotation pool, validating each test's type + status. */
+  /** Replaces a package's content bindings — exactly one published test per skill. */
   private async syncContentPool(
     packageId: string,
     pool: { skill: 'listening' | 'reading' | 'writing' | 'speaking'; testIds: string[] }[],
   ) {
-    const allIds = [...new Set(pool.flatMap((p) => p.testIds))];
-    if (allIds.length > 0) {
-      const tests = await this.prisma.contentTest.findMany({
-        where: { id: { in: allIds } },
-        select: { id: true, type: true, status: true, code: true },
-      });
-      const byId = new Map(tests.map((t) => [t.id, t]));
-      for (const entry of pool) {
-        const expected = AdminService.POOL_SKILL_TYPE[entry.skill];
-        for (const testId of entry.testIds) {
-          const test = byId.get(testId);
-          if (!test) {
-            throw new BadRequestException(`Pool test ${testId} not found`);
-          }
-          if (test.status !== ContentTestStatus.PUBLISHED) {
-            throw new BadRequestException(
-              `Pool test ${test.code} must be published before adding to a package`,
-            );
-          }
-          if (test.type !== expected) {
-            throw new BadRequestException(
-              `Pool test ${test.code} is not a ${entry.skill} test`,
-            );
-          }
-        }
-      }
+    const rows = pool.flatMap((entry) =>
+      entry.testIds.map((testId) => ({
+        packageId,
+        testId,
+        skill: AdminService.POOL_SKILL_TYPE[entry.skill] as ExamSkill,
+      })),
+    );
+
+    const fkUpdates: Prisma.MockTestPackageUpdateInput = {
+      listeningTest: { disconnect: true },
+      readingTest: { disconnect: true },
+      writingTest: { disconnect: true },
+      speakingBank: { disconnect: true },
+    };
+    for (const row of rows) {
+      const field = SKILL_TO_TEST_FIELD[row.skill];
+      const relationKey =
+        field === 'listeningTestId'
+          ? 'listeningTest'
+          : field === 'readingTestId'
+            ? 'readingTest'
+            : field === 'writingTestId'
+              ? 'writingTest'
+              : 'speakingBank';
+      (fkUpdates as Record<string, unknown>)[relationKey] = {
+        connect: { id: row.testId },
+      };
     }
 
     await this.prisma.$transaction([
       this.prisma.packageContentTest.deleteMany({ where: { packageId } }),
-      this.prisma.packageContentTest.createMany({
-        data: pool.flatMap((entry) =>
-          entry.testIds.map((testId) => ({
-            packageId,
-            testId,
-            skill: AdminService.POOL_SKILL_TYPE[entry.skill] as ExamSkill,
-          })),
-        ),
-        skipDuplicates: true,
+      ...(rows.length > 0
+        ? [this.prisma.packageContentTest.createMany({ data: rows })]
+        : []),
+      this.prisma.mockTestPackage.update({
+        where: { id: packageId },
+        data: fkUpdates,
       }),
     ]);
+  }
+
+  private buildContentPoolFromLinks(
+    skills: unknown,
+    links: {
+      listeningTestId?: string | null;
+      readingTestId?: string | null;
+      writingTestId?: string | null;
+      speakingBankId?: string | null;
+    },
+  ): { skill: 'listening' | 'reading' | 'writing' | 'speaking'; testIds: string[] }[] {
+    const pool: {
+      skill: 'listening' | 'reading' | 'writing' | 'speaking';
+      testIds: string[];
+    }[] = [];
+
+    for (const skill of packageExamSkills(skills)) {
+      const key = SKILL_TO_POOL_KEY[skill];
+      const field = SKILL_TO_TEST_FIELD[skill];
+      const testId = links[field as keyof typeof links];
+      if (testId) {
+        pool.push({ skill: key, testIds: [testId] });
+      }
+    }
+
+    return pool;
+  }
+
+  private async assertPackageContentLinks(
+    skills: unknown,
+    pool: { skill: 'listening' | 'reading' | 'writing' | 'speaking'; testIds: string[] }[],
+    excludePackageId: string | null,
+  ) {
+    const requiredSkills = packageExamSkills(skills);
+    const poolBySkill = new Map(pool.map((entry) => [entry.skill, entry.testIds]));
+
+    for (const skill of requiredSkills) {
+      const key = SKILL_TO_POOL_KEY[skill];
+      const testIds = poolBySkill.get(key) ?? [];
+      if (testIds.length !== 1) {
+        throw new BadRequestException(
+          `Select exactly one published ${key} test for this package`,
+        );
+      }
+    }
+
+    for (const entry of pool) {
+      if (entry.testIds.length !== 1) {
+        throw new BadRequestException(
+          `Only one ${entry.skill} test may be linked per package`,
+        );
+      }
+    }
+
+    const allIds = pool.flatMap((entry) => entry.testIds);
+    if (new Set(allIds).size !== allIds.length) {
+      throw new BadRequestException('The same test cannot be linked to multiple skills');
+    }
+
+    await this.assertPublishedTestIds(allIds);
+
+    if (allIds.length === 0) return;
+
+    const tests = await this.prisma.contentTest.findMany({
+      where: { id: { in: allIds } },
+      select: { id: true, code: true, type: true },
+    });
+    const byId = new Map(tests.map((t) => [t.id, t]));
+
+    for (const entry of pool) {
+      const expected = AdminService.POOL_SKILL_TYPE[entry.skill];
+      const test = byId.get(entry.testIds[0]!);
+      if (test && test.type !== expected) {
+        throw new BadRequestException(
+          `Test ${test.code} is not a ${entry.skill} test`,
+        );
+      }
+    }
+
+    const existingAssignments = await this.prisma.packageContentTest.findMany({
+      where: {
+        testId: { in: allIds },
+        ...(excludePackageId ? { packageId: { not: excludePackageId } } : {}),
+      },
+      include: {
+        test: { select: { code: true } },
+        package: { select: { mockNumber: true, packageKind: true, title: true } },
+      },
+    });
+
+    if (existingAssignments.length > 0) {
+      const conflict = existingAssignments[0]!;
+      throw new BadRequestException(
+        `Test ${conflict.test.code} is already used in ${formatMockNumber(conflict.package.packageKind, conflict.package.mockNumber)} (${conflict.package.title})`,
+      );
+    }
   }
 
   private async assertPublishedTestIds(

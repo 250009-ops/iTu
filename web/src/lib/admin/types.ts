@@ -130,6 +130,7 @@ export type ContentTest = {
   lastUpdated: string;
   author: string;
   linkedPackages: number;
+  assignedMockLabel?: string | null;
 };
 
 export type ExamTypeValue = "ACADEMIC" | "GENERAL_TRAINING";
@@ -142,6 +143,10 @@ export type AdminContentTestOption = {
   title: string;
   type: ContentTestType;
   status: string;
+  assignedPackageId?: string | null;
+  assignedPackageTitle?: string | null;
+  assignedMockLabel?: string | null;
+  isPackaged?: boolean;
 };
 
 export type AdminPackage = {
@@ -152,6 +157,9 @@ export type AdminPackage = {
   price: number;
   currency: string;
   examType: ExamTypeValue;
+  packageKind?: string;
+  mockNumber?: number;
+  mockLabel?: string;
   mostPopular: boolean;
   rating: number | null;
   reviewCount: number;

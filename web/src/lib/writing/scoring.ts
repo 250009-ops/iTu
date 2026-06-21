@@ -1,4 +1,4 @@
-import { bandOptions } from "@/lib/speaking/scoring";
+import { ieltsBandOptions } from "@/lib/speaking/scoring";
 
 export type WritingTaskKey = "task1" | "task2";
 export type WritingCriterionId = "ta" | "cc" | "lr" | "gra";
@@ -70,8 +70,8 @@ export function defaultTaskScores(): TaskScores {
   return { ta: 0, cc: 0, lr: 0, gra: 0 };
 }
 
-/** 0 for missing responses, then standard examiner range 5–9. */
-export const writingBandOptions = [0, ...bandOptions] as number[];
+/** Full IELTS band scale for examiner scoring (0–9 in 0.5 steps). */
+export const writingBandOptions = [...ieltsBandOptions] as number[];
 
 export function formatWordCount(count: number): string {
   return `${count}w`;
@@ -195,7 +195,7 @@ export function formatBand(value: number): string {
   return value.toFixed(1);
 }
 
-export { bandOptions };
+export { ieltsBandOptions as bandOptions };
 
 export function formatSubmittedAt(iso: string): string {
   const d = new Date(iso);

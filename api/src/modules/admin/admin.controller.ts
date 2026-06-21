@@ -140,6 +140,19 @@ export class AdminController {
     return this.admin.getPackages();
   }
 
+  @Get('packages/next-mock-number')
+  getNextMockNumber(@Query('skills') skillsRaw?: string) {
+    let skills: unknown = ['listening', 'reading', 'writing', 'speaking'];
+    if (skillsRaw) {
+      try {
+        skills = JSON.parse(skillsRaw) as unknown;
+      } catch {
+        skills = skillsRaw.split(',').map((s) => s.trim());
+      }
+    }
+    return this.admin.getNextMockNumber(skills);
+  }
+
   @Post('packages')
   createPackage(
     @Body() body: CreatePackageDto,

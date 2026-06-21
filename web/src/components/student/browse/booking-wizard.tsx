@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/toast";
 import {
   createBooking,
   getAvailability,
+  getContentAvailability,
   listTeachers,
 } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -120,6 +121,8 @@ export function BookingWizard({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [purchaseBlocked, setPurchaseBlocked] = useState<string | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(true);
 
   const priceLabel = `${product.currency === "USD" ? "$" : `${product.currency} `}${product.price}`;
   const selectedWritingTeacher = writingTeachers.find(
@@ -152,6 +155,25 @@ export function BookingWizard({
   }, [mockDate]);
 
   useEffect(() => {
+    let cancelled = false;
+    setCheckingAvailability(true);
+    void getContentAvailability(product.id)
+      .then((result) => {
+        if (cancelled) return;
+        setPurchaseBlocked(result.canPurchase ? null : result.blockingReason ?? result.message);
+      })
+      .catch(() => {
+        if (!cancelled) setPurchaseBlocked(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingAvailability(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [product.id]);
+
+  useEffect(() => {
     if (currentStep === "writing" && writingTeachers.length === 0) {
       void loadTeachers();
     }
@@ -174,6 +196,7 @@ export function BookingWizard({
   }, [slots]);
 
   const canContinue = useMemo(() => {
+    if (purchaseBlocked) return false;
     if (currentStep === "date") return Boolean(mockDate && mockTime);
     if (currentStep === "writing") return Boolean(writingTeacherId);
     if (currentStep === "speaking") return Boolean(selectedSlot);
@@ -191,6 +214,7 @@ export function BookingWizard({
     cardNumber,
     cardExpiry,
     cardCvc,
+    purchaseBlocked,
   ]);
 
   function goNext() {
@@ -204,6 +228,7 @@ export function BookingWizard({
   }
 
   async function handleConfirm() {
+    if (purchaseBlocked) return;
     if (product.needsWriting && !writingTeacherId) return;
     if (product.needsSpeaking && !selectedSlot) return;
 
@@ -258,6 +283,17 @@ export function BookingWizard({
             <X size={18} />
           </button>
         </div>
+
+        {checkingAvailability ? (
+          <div className="flex items-center gap-2 border-b border-border bg-slate-50 px-6 py-3 text-sm text-muted">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Checking whether this mock is available for you…
+          </div>
+        ) : purchaseBlocked ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-900">
+            {purchaseBlocked}
+          </div>
+        ) : null}
 
         <div className="flex items-center gap-2 border-b border-border px-6 py-3">
           {steps.map((step, index) => (

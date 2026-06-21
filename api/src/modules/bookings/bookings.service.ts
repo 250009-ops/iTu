@@ -22,7 +22,7 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import {
   assignContentTests,
-  remainingUniqueAttempts,
+  evaluatePackageAvailability,
 } from '../content/content-assignment';
 import { packageExamSkills } from '../content/package-skills';
 
@@ -126,6 +126,18 @@ export class BookingsService {
       );
     }
 
+    const availability = await evaluatePackageAvailability(
+      this.prisma,
+      user.studentProfileId!,
+      pkg,
+    );
+    if (!availability.canPurchase) {
+      throw new BadRequestException(
+        availability.blockingReason ??
+          'You cannot purchase this package with your current test history.',
+      );
+    }
+
     const enrollmentCode = await this.generateCode('ENR');
     const orderCode = await this.generateCode('ORD');
     const sessionCode = await this.generateCode('MOCK');
@@ -197,8 +209,7 @@ export class BookingsService {
         },
       });
 
-      // Pin a content test per skill, preferring tests the student has not yet
-      // taken so re-purchasing the same package serves fresh content.
+      // Pin the single assigned test per skill for this package.
       const assignments = await assignContentTests(
         tx,
         user.studentProfileId!,
@@ -207,6 +218,15 @@ export class BookingsService {
       const testBySkill = new Map(
         assignments.map((a) => [a.skill, a.testId]),
       );
+
+      for (const skill of skills) {
+        const examSkill = skill.toUpperCase() as ExamSkill;
+        if (!testBySkill.get(examSkill)) {
+          throw new BadRequestException(
+            `Package is missing a published ${skill} test`,
+          );
+        }
+      }
 
       let speakingSession: { id: string } | null = null;
 
@@ -480,29 +500,27 @@ export class BookingsService {
     });
     if (!pkg) throw new NotFoundException('Package not found');
 
-    const perSkill = await remainingUniqueAttempts(
+    const availability = await evaluatePackageAvailability(
       this.prisma,
       user.studentProfileId,
       pkg,
     );
 
-    const freshAvailable = perSkill.every((s) => s.remaining > 0);
-    const anyExhausted = perSkill.some((s) => s.total > 0 && s.remaining === 0);
-
     return {
       packageId,
-      perSkill: perSkill.map((s) => ({
+      canPurchase: availability.canPurchase,
+      blockingReason: availability.blockingReason,
+      perSkill: availability.perSkill.map((s) => ({
         skill: s.skill.toLowerCase(),
-        total: s.total,
-        remaining: s.remaining,
+        testId: s.testId,
+        testCode: s.testCode,
+        alreadyTaken: s.alreadyTaken,
+        canPurchase: s.canPurchase,
       })),
-      freshAvailable,
-      anyExhausted,
-      message: anyExhausted
-        ? 'You have already taken all available tests for at least one skill. Re-purchasing may repeat content for that skill.'
-        : freshAvailable
-          ? 'Fresh, never-seen tests are available for every skill in this package.'
-          : 'Content availability is limited for this package.',
+      message: availability.canPurchase
+        ? 'This package is available for you to book.'
+        : (availability.blockingReason ??
+          'You cannot purchase this package.'),
     };
   }
 

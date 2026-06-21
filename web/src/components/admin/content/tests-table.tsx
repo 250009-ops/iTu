@@ -282,15 +282,14 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                             >
                               Preview
                             </Button>
-                            {test.linkedPackages > 0 && (
+                            {test.assignedMockLabel ? (
                               <Link
                                 href="/admin/packages"
                                 className="flex h-8 items-center px-2 text-xs font-semibold text-sky-600 hover:text-sky-700"
                               >
-                                {test.linkedPackages} pkg
-                                {test.linkedPackages > 1 ? "s" : ""}
+                                {test.assignedMockLabel}
                               </Link>
-                            )}
+                            ) : null}
                           </>
                         ) : test.status === "review" ? (
                           <>

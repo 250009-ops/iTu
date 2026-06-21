@@ -12,6 +12,7 @@ export type AdminPackagePayload = {
   price?: number;
   currency?: string;
   examType?: ExamTypeValue;
+  skills?: string[];
   mostPopular?: boolean;
   rating?: number | null;
   reviewCount?: number;
@@ -29,6 +30,16 @@ export function getAdminPackages() {
     packages: AdminPackage[];
     contentTests: AdminContentTestOption[];
   }>("/admin/packages");
+}
+
+export function getNextMockNumber(skills: string[]) {
+  const q = encodeURIComponent(JSON.stringify(skills));
+  return apiFetch<{
+    packageKind: string;
+    packageKindLabel: string;
+    mockNumber: number;
+    mockLabel: string;
+  }>(`/admin/packages/next-mock-number?skills=${q}`);
 }
 
 export function createPackage(payload: AdminPackagePayload) {
@@ -327,6 +338,7 @@ export function getContentTests(type?: string) {
       questionCount?: number;
       authorName?: string;
       linkedPackages?: number;
+      assignedMockLabel?: string | null;
     }[]
   >(`/admin/content/tests${q}`);
 }
