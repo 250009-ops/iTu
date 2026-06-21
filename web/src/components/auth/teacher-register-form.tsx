@@ -16,7 +16,6 @@ import {
   X,
 } from "lucide-react";
 import { AuthBackLink } from "@/components/auth/auth-back-link";
-import { RegisterRoleTabs } from "@/components/auth/register-role-tabs";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -239,18 +238,16 @@ export default function TeacherRegisterForm() {
         <Logo />
       </div>
 
-      <AuthBackLink href="/login" />
+      <AuthBackLink href="/register" label="Back to account type" />
 
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">
-          Apply as an examiner
+          Teacher application
         </h1>
         <p className="text-sm text-muted">
           Certified IELTS professional? Submit your credentials for admin review.
         </p>
       </div>
-
-      <RegisterRoleTabs />
 
       <StepIndicator current={step} />
 

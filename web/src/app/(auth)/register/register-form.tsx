@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Mail, User } from "lucide-react";
 import { AuthBackLink } from "@/components/auth/auth-back-link";
-import { RegisterRoleTabs } from "@/components/auth/register-role-tabs";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -89,16 +88,14 @@ export default function RegisterForm() {
         <Logo />
       </div>
 
-      <AuthBackLink href="/login" />
+      <AuthBackLink href="/register" label="Back to account type" />
 
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">
-          Create your account
+          Student registration
         </h1>
-        <p className="text-muted">Join thousands of IELTS candidates</p>
+        <p className="text-muted">Create your account to book and take IELTS mocks</p>
       </div>
-
-      <RegisterRoleTabs />
 
       {error && (
         <div
@@ -208,10 +205,17 @@ export default function RegisterForm() {
         </div>
 
         <Button type="submit" className="w-full" size="lg" loading={loading}>
-          Create Account
+          Create student account
           {!loading && <ArrowRight className="h-4 w-4" />}
         </Button>
       </form>
+
+      <p className="text-center text-sm text-muted">
+        Applying as a teacher?{" "}
+        <Link href="/register/teacher" className="font-semibold text-navy underline underline-offset-2">
+          Teacher application
+        </Link>
+      </p>
     </div>
   );
 }
