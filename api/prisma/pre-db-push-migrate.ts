@@ -45,20 +45,16 @@ async function main() {
   const nextByKind = new Map<string, number>();
 
   for (const pkg of packages) {
-    const packageKind = pkg.packageKind || derivePackageKind(pkg.skills);
-    const mockNumber =
-      pkg.mockNumber && pkg.mockNumber > 0
-        ? pkg.mockNumber
-        : (() => {
-            const next = (nextByKind.get(packageKind) ?? 0) + 1;
-            nextByKind.set(packageKind, next);
-            return next;
-          })();
+    const packageKind = derivePackageKind(pkg.skills);
+    const mockNumber = (nextByKind.get(packageKind) ?? 0) + 1;
+    nextByKind.set(packageKind, mockNumber);
 
     await prisma.mockTestPackage.update({
       where: { id: pkg.id },
       data: { packageKind, mockNumber },
     });
+
+    console.log(`  ${pkg.slug} → ${packageKind} #${mockNumber}`);
   }
 
   console.log(`Backfilled mock numbers for ${packages.length} package(s).`);
