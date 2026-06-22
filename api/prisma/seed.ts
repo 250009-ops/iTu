@@ -71,6 +71,7 @@ async function main() {
     data: {
       email: 'admin',
       name: 'System Admin',
+      emailVerifiedAt: new Date(),
       passwordHash: adminHash,
       role: UserRole.ADMIN,
     },
@@ -80,6 +81,7 @@ async function main() {
     data: {
       email: 'teacher',
       name: 'Dr. Sarah Chen',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -108,6 +110,7 @@ async function main() {
     data: {
       email: 'emma.williams@example.com',
       name: 'Emma Williams',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -135,6 +138,7 @@ async function main() {
     data: {
       email: 'daniel.whitfield@example.com',
       name: 'Daniel Whitfield',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -162,6 +166,7 @@ async function main() {
     data: {
       email: 'michael.torres@example.com',
       name: 'Michael Torres',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -189,6 +194,7 @@ async function main() {
     data: {
       email: 'student',
       name: 'Alex Johnson',
+      emailVerifiedAt: new Date(),
       passwordHash,
       role: UserRole.STUDENT,
       studentProfile: {

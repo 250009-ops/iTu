@@ -189,7 +189,9 @@ export default function TeacherRegisterForm() {
           <p className="mx-auto mt-3 max-w-md text-sm text-muted">
             We sent a confirmation to <strong className="text-navy">{submitted.email}</strong>.
             You will receive another email from <strong className="text-navy">noreply@itestu.uz</strong> when
-            your account is approved — usually within 1–2 business days. You cannot sign in until then.
+            your account is approved — usually within 1–2 business days.
+            <br />
+            Please also verify your email (link sent to your inbox) before signing in.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Link

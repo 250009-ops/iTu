@@ -44,6 +44,8 @@ const CERT_EXT_BY_MIME: Record<string, string> = {
   'image/webp': '.webp',
 };
 
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -88,6 +90,12 @@ export class AuthService {
     }
 
     this.assertTeacherCanLogin(user);
+
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException(
+        'Please verify your email before signing in.',
+      );
+    }
 
     if (user.totpEnabled) {
       if (!dto.totpCode?.trim()) {
@@ -167,9 +175,34 @@ export class AuthService {
       metadata: { email, examType },
     });
 
-    void this.mail.sendWelcomeEmail(user.email, user.name).catch(() => undefined);
+    const rawToken = randomBytes(32).toString('hex');
+    const emailVerificationToken = createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
 
-    return this.buildAuthResponse(user);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+
+    const appUrl = this.config
+      .get<string>('APP_URL', 'https://itestu.uz')
+      .replace(/\/$/, '');
+    const verifyUrl = `${appUrl}/verify-email?token=${rawToken}`;
+
+    void this.mail
+      .sendEmailVerificationEmail(user.email, user.name, verifyUrl)
+      .catch(() => undefined);
+
+    return {
+      submitted: true,
+      message: 'Verify your email to finish sign-up. Check your inbox for the verification link.',
+      email: user.email,
+    };
   }
 
   async registerTeacher(
@@ -242,12 +275,123 @@ export class AuthService {
       .sendTeacherApplicationReceived(user.email, user.name)
       .catch(() => undefined);
 
+    const rawToken = randomBytes(32).toString('hex');
+    const emailVerificationToken = createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+
+    const appUrl = this.config
+      .get<string>('APP_URL', 'https://itestu.uz')
+      .replace(/\/$/, '');
+    const verifyUrl = `${appUrl}/verify-email?token=${rawToken}`;
+
+    void this.mail
+      .sendEmailVerificationEmail(user.email, user.name, verifyUrl)
+      .catch(() => undefined);
+
     return {
       submitted: true,
       message:
-        'Your teacher application has been submitted. We will email you when it is reviewed.',
+        'Your teacher application has been submitted. We will email you when it is reviewed. Please also verify your email to finish sign-up.',
       email: user.email,
     };
+  }
+
+  async verifyEmail(token: string) {
+    const raw = token.trim();
+    const emailVerificationToken = createHash('sha256').update(raw).digest('hex');
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        emailVerificationToken,
+        emailVerificationExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired email verification token.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+      },
+    });
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_EMAIL_VERIFICATION_SUCCESS,
+      entity: 'user',
+      entityId: user.id,
+      metadata: { email: user.email, role: String(user.role).toLowerCase() },
+    });
+
+    // Student: now that email is verified, send the regular welcome email.
+    if (user.role === UserRole.STUDENT) {
+      const appUrl = this.config
+        .get<string>('APP_URL', 'https://itestu.uz')
+        .replace(/\/$/, '');
+      void this.mail
+        .sendWelcomeEmail(user.email, user.name)
+        .catch(() => undefined);
+    }
+
+    return { verified: true };
+  }
+
+  async resendEmailVerification(emailRaw: string) {
+    const email = emailRaw.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    // Avoid account enumeration.
+    if (!user || user.emailVerifiedAt) {
+      return { sent: false, message: user ? 'Email already verified.' : 'If the email exists, we sent a new link.' };
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const emailVerificationToken = createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+
+    const appUrl = this.config
+      .get<string>('APP_URL', 'https://itestu.uz')
+      .replace(/\/$/, '');
+    const verifyUrl = `${appUrl}/verify-email?token=${rawToken}`;
+
+    void this.mail
+      .sendEmailVerificationEmail(user.email, user.name, verifyUrl)
+      .catch(() => undefined);
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_EMAIL_VERIFICATION_RESEND,
+      entity: 'user',
+      entityId: user.id,
+      metadata: { email: user.email },
+    });
+
+    return { sent: true };
   }
 
   async getMe(userId: string) {

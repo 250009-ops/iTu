@@ -109,6 +109,40 @@ export function welcomeEmail(name: string, loginUrl: string) {
   return { subject: title, text, html };
 }
 
+export function emailVerificationEmail(
+  name: string,
+  verifyUrl: string,
+): { subject: string; text: string; html: string } {
+  const title = 'Verify your email for iTestU';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Thanks for creating your iTestU account.',
+    'Please verify your email address to finish sign-up.',
+    '',
+    `Verify: ${verifyUrl}`,
+    '',
+    'This link expires in 24 hours. If you didn’t request this, you can ignore this email.',
+  ].join('\n');
+
+  const html = buildEmailHtml({
+    preheader: 'Verify your email to continue.',
+    title,
+    bodyHtml: `
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Thanks for creating your <strong>iTestU</strong> account.</p>
+      <p style="margin-top:12px; font-size:13px; color:#334155;">Please verify your email address to finish sign-up. After verification, you can sign in.</p>
+    `,
+    ctaLabel: 'Verify email',
+    ctaUrl: verifyUrl,
+    footerNote:
+      'If the button does not work, copy and paste this link into your browser: ' +
+      verifyUrl,
+  });
+
+  return { subject: title, text, html };
+}
+
 export function contactInquiryEmail(
   name: string,
   email: string,
@@ -211,6 +245,9 @@ export function teacherApprovedEmail(name: string, email: string, loginUrl: stri
     bodyHtml: `
       <p>Hi ${escapeHtml(name)},</p>
       <p><strong>Welcome to iTestU!</strong> Your teacher application has been approved and your account is ready.</p>
+      <p style="margin-top:12px; font-size:13px; color:#64748b;">
+        If you haven&apos;t verified your email yet, verify it first — otherwise sign-in may be blocked.
+      </p>
       <p style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
         <strong>Your sign-in credentials</strong><br />
         Email: <strong>${escapeHtml(email)}</strong><br />

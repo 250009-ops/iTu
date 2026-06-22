@@ -114,6 +114,42 @@ async function main() {
   }
 
   console.log('Content pool pre-migration complete.');
+
+  const hasSuspendedAt = await columnExists('exam_sessions', 'suspended_at');
+  if (!hasSuspendedAt) {
+    console.log('Adding exam_sessions.suspended_at / suspend_reason...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE exam_sessions
+      ADD COLUMN IF NOT EXISTS suspended_at TIMESTAMP(3),
+      ADD COLUMN IF NOT EXISTS suspend_reason TEXT;
+    `);
+    console.log('Exam session suspend columns ready.');
+  }
+
+  const hasEmailVerifiedAt = await columnExists('users', 'email_verified_at');
+  const hasEmailVerificationToken = await columnExists(
+    'users',
+    'email_verification_token',
+  );
+
+  if (!hasEmailVerifiedAt || !hasEmailVerificationToken) {
+    console.log('Adding users.email_verified_at / email_verification_* columns...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP(3),
+      ADD COLUMN IF NOT EXISTS email_verification_token TEXT,
+      ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMP(3);
+    `);
+  }
+
+  // Demo accounts must be able to sign in during local/prod E2E.
+  await prisma.user.updateMany({
+    where: {
+      email: { in: ['admin', 'teacher', 'student'] },
+      emailVerifiedAt: null,
+    },
+    data: { emailVerifiedAt: new Date() },
+  });
 }
 
 main()

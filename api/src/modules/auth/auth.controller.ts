@@ -6,6 +6,7 @@ import {
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
+import { Query } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
@@ -19,6 +20,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RegisterTeacherDto } from './dto/register-teacher.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResendEmailVerificationDto } from './dto/resend-email-verification.dto';
 import { DisableTotpDto, EnableTotpDto } from './dto/totp.dto';
 
 const MAX_CERT_BYTES = 10 * 1024 * 1024;
@@ -70,6 +72,18 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Public()
+  @Get('verify-email')
+  verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Public()
+  @Post('resend-email-verification')
+  resendEmailVerification(@Body() dto: ResendEmailVerificationDto) {
+    return this.authService.resendEmailVerification(dto.email);
   }
 
   @ApiBearerAuth()

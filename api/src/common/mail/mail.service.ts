@@ -5,6 +5,7 @@ import type { Transporter } from 'nodemailer';
 import {
   contactConfirmationEmail,
   contactInquiryEmail,
+  emailVerificationEmail,
   passwordResetEmail,
   teacherApplicationReceivedEmail,
   teacherApprovedEmail,
@@ -140,6 +141,18 @@ export class MailService {
     const sent = await this.send({ to, subject, text, html });
     if (sent) {
       this.logger.log(`Welcome email sent to ${to}`);
+    }
+  }
+
+  async sendEmailVerificationEmail(
+    to: string,
+    name: string,
+    verifyUrl: string,
+  ): Promise<void> {
+    const { subject, text, html } = emailVerificationEmail(name, verifyUrl);
+    const sent = await this.send({ to, subject, text, html });
+    if (sent) {
+      this.logger.log(`Email verification sent to ${to}`);
     }
   }
 

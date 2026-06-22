@@ -59,8 +59,14 @@ export function login(email: string, password: string, totpCode?: string) {
   });
 }
 
+export type RegisterResponse = {
+  submitted: boolean;
+  message: string;
+  email: string;
+};
+
 export function register(payload: RegisterPayload) {
-  return apiFetch<AuthResponse>("/auth/register", {
+  return apiFetch<RegisterResponse>("/auth/register", {
     method: "POST",
     body: {
       ...payload,
@@ -126,6 +132,20 @@ export function resetPassword(token: string, newPassword: string) {
     body: { token, newPassword },
     auth: false,
   });
+}
+
+export function verifyEmail(token: string) {
+  return apiFetch<{ verified: boolean }>(
+    `/auth/verify-email?token=${encodeURIComponent(token)}`,
+    { method: "GET", auth: false },
+  );
+}
+
+export function resendEmailVerification(email: string) {
+  return apiFetch<{ sent: boolean; message?: string }>(
+    "/auth/resend-email-verification",
+    { method: "POST", body: { email }, auth: false },
+  );
 }
 
 export type TotpSetupResponse = {
