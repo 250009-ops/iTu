@@ -69,7 +69,7 @@ async function main() {
 
   const admin = await prisma.user.create({
     data: {
-      email: 'admin',
+      email: 'serkinov393@gmail.com',
       name: 'System Admin',
       emailVerifiedAt: new Date(),
       passwordHash: adminHash,
@@ -79,7 +79,7 @@ async function main() {
 
   const teacherUser = await prisma.user.create({
     data: {
-      email: 'teacher',
+      email: 'teacher@example.com',
       name: 'Dr. Sarah Chen',
       emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
@@ -192,7 +192,7 @@ async function main() {
 
   const studentUser = await prisma.user.create({
     data: {
-      email: 'student',
+      email: 'student@example.com',
       name: 'Alex Johnson',
       emailVerifiedAt: new Date(),
       passwordHash,
@@ -531,7 +531,7 @@ async function main() {
   }
   await prisma.teacherSlot.createMany({ data: rollingSlots });
 
-  // Alex Johnson (student/student) is seeded as a fresh user — no bookings yet.
+  // Alex Johnson is seeded as a fresh user with no bookings yet.
   // Use the booking wizard to test the full student journey from scratch.
 
   await prisma.notification.createMany({
@@ -584,7 +584,7 @@ async function main() {
   });
 
   console.log('Seed complete.');
-  console.log('Demo accounts: student/student, teacher/teacher, admin/admin');
+  console.log('Seed accounts created for local development.');
   console.log('Fresh student: Alex Johnson — book a mock via Browse Mocks');
   console.log('Reset Alex anytime: npm run db:reset-student');
 }

@@ -4,7 +4,7 @@ async function login() {
   const res = await fetch(`${base}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'student', password: 'student' }),
+    body: JSON.stringify({ email: 'student@example.com', password: 'student' }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(JSON.stringify(data));

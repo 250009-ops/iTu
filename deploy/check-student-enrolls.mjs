@@ -5,7 +5,7 @@ cd /var/www/itestu/app/api && node -e "
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
 (async () => {
-  const user = await p.user.findFirst({ where: { email: 'student' }, include: { studentProfile: true } });
+  const user = await p.user.findFirst({ where: { email: 'student@example.com' }, include: { studentProfile: true } });
   const enrolls = await p.enrollment.findMany({
     where: { studentId: user?.studentProfile?.id },
     orderBy: { createdAt: 'desc' },

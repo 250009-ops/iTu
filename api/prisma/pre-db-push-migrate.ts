@@ -142,10 +142,19 @@ async function main() {
     `);
   }
 
-  // Demo accounts must be able to sign in during local/prod E2E.
+  // Seeded local/test accounts must be able to sign in during E2E.
   await prisma.user.updateMany({
     where: {
-      email: { in: ['admin', 'teacher', 'student'] },
+      email: {
+        in: [
+          'admin',
+          'teacher',
+          'student',
+          'serkinov393@gmail.com',
+          'teacher@example.com',
+          'student@example.com',
+        ],
+      },
       emailVerifiedAt: null,
     },
     data: { emailVerifiedAt: new Date() },

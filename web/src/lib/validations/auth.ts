@@ -1,18 +1,10 @@
 import { z } from "zod";
 
-const DEMO_USERNAMES = ["student", "teacher", "admin"] as const;
-
 export const loginSchema = z.object({
   email: z
     .string()
     .min(1, "Email is required")
-    .refine(
-      (val) =>
-        DEMO_USERNAMES.includes(
-          val.trim().toLowerCase() as (typeof DEMO_USERNAMES)[number],
-        ) || z.string().email().safeParse(val).success,
-      { message: "Enter a valid email or demo username" },
-    ),
+    .email("Enter a valid email address"),
   password: z.string().min(1, "Password is required"),
   rememberMe: z.boolean().optional(),
 });

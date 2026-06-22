@@ -42,13 +42,13 @@ npm run start:dev
 - Swagger: http://localhost:3001/api/docs
 - Health: http://localhost:3001/api/v1/health
 
-## Demo accounts
+## Local seed accounts
 
 | Role | Email | Password |
 |------|-------|----------|
-| Student | `student` | `student` |
-| Teacher | `teacher` | `teacher` |
-| Admin | `admin` | `admin` |
+| Student | `student@example.com` | `student` |
+| Teacher | `teacher@example.com` | `teacher` |
+| Admin | `serkinov393@gmail.com` | See the owner-provided/admin-seed password |
 
 Demo exam session: `MOCK-005`
 

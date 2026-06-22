@@ -95,7 +95,7 @@ Follow **[STUDENT-TESTING-GUIDE.md](./STUDENT-TESTING-GUIDE.md)** in the browser
 - [ ] Admin exports CSV from Enrollments / Orders
 - [ ] 2FA setup on student profile (optional)
 
-Demo accounts: `student`/`student`, `teacher`/`teacher`, `admin`/`admin`.
+Local seed accounts use email-based sign-in only: `student@example.com`, `teacher@example.com`, and the configured owner admin email.
 
 ---
 

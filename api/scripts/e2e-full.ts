@@ -76,7 +76,7 @@ async function runStudentScenarios() {
   const portal = 'Student';
 
   try {
-    const auth = await login('student', 'student');
+    const auth = await login('student@example.com', 'student');
     if (auth.dashboardPath === '/student') {
       pass(portal, '1. Login redirects to student dashboard');
     } else {
@@ -111,7 +111,7 @@ async function runStudentScenarios() {
   let packageId = '';
 
   try {
-    studentToken = (await login('student', 'student')).accessToken;
+    studentToken = (await login('student@example.com', 'student')).accessToken;
     const packages = await fetch(`${BASE}/catalog/packages`).then((r) =>
       r.json(),
     ) as { id: string; slug: string; title: string }[];
@@ -343,7 +343,7 @@ async function runTeacherScenarios(studentName = 'Alex') {
   const portal = 'Teacher';
   let speakingSessionId: string | null = null;
   try {
-    const auth = await login('teacher', 'teacher');
+    const auth = await login('teacher@example.com', 'teacher');
     if (auth.dashboardPath.includes('/teacher')) {
       pass(portal, 'Login', auth.dashboardPath);
     }
@@ -530,7 +530,7 @@ async function runStudentResultsScenarios(
 async function runAdminScenarios() {
   const portal = 'Admin';
   try {
-    const auth = await login('admin', 'admin');
+    const auth = await login('serkinov393@gmail.com', 'admin');
     pass(portal, 'Login', auth.dashboardPath);
 
     const dash = await api<{
@@ -615,7 +615,9 @@ async function main() {
   }
 
   const studentRun = await runStudentScenarios();
-  const studentToken = studentRun?.studentToken ?? (await login('student', 'student')).accessToken;
+  const studentToken =
+    studentRun?.studentToken ??
+    (await login('student@example.com', 'student')).accessToken;
 
   await runTeacherScenarios('Alex');
   await runStudentResultsScenarios(studentToken, studentRun?.enrollmentCode);
