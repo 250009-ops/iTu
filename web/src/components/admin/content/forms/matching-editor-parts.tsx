@@ -95,7 +95,6 @@ export function StatementListEditor({
   function removeStatement(idx: number) {
     const next = removeQuestionAt(questions, idx, minStatements);
     if (!next) return;
-    onAnswerKeyChange(removeAnswerKeyEntry(answerKey, questions[idx]!.n));
     onQuestionsChange(next);
   }
 
