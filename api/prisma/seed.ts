@@ -273,40 +273,46 @@ async function main() {
     },
   });
 
-  const mockPackage = await prisma.mockTestPackage.create({
-    data: {
-      slug: 'full-academic-mock',
-      title: 'Full Academic Mock 001',
-      description:
-        'All four skills in one day. IELTS Academic — for university, visa, and professional registration.',
-      price: 49.0,
-      currency: 'USD',
-      examType: ExamType.ACADEMIC,
-      packageKind: 'listening+reading+writing+speaking',
-      mockNumber: 1,
-      mostPopular: true,
-      rating: 4.9,
-      reviewCount: 1240,
-      skills: ['listening', 'reading', 'writing', 'speaking'],
-      included: [
-        'Pick your certified examiner',
-        'Full band report within 24 hours',
-        'Criteria-level written feedback',
-        'Score progression tracking',
-        'Secure exam environment',
-      ],
-      rules: [
-        'No pause or rewind',
-        'Server-authoritative timers',
-        'Strict exam-day integrity',
-        'All scores released together',
-      ],
-      listeningTestId: listeningTest.id,
-      readingTestId: readingTest.id,
-      writingTestId: writingTest.id,
-      speakingBankId: speakingBank.id,
-    },
+  let mockPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'listening+reading+writing+speaking', mockNumber: 1 },
   });
+
+  if (!mockPackage) {
+    mockPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'full-academic-mock',
+        title: 'Full Academic Mock 001',
+        description:
+          'All four skills in one day. IELTS Academic — for university, visa, and professional registration.',
+        price: 49.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'listening+reading+writing+speaking',
+        mockNumber: 1,
+        mostPopular: true,
+        rating: 4.9,
+        reviewCount: 1240,
+        skills: ['listening', 'reading', 'writing', 'speaking'],
+        included: [
+          'Pick your certified examiner',
+          'Full band report within 24 hours',
+          'Criteria-level written feedback',
+          'Score progression tracking',
+          'Secure exam environment',
+        ],
+        rules: [
+          'No pause or rewind',
+          'Server-authoritative timers',
+          'Strict exam-day integrity',
+          'All scores released together',
+        ],
+        listeningTestId: listeningTest.id,
+        readingTestId: readingTest.id,
+        writingTestId: writingTest.id,
+        speakingBankId: speakingBank.id,
+      },
+    });
+  }
 
   await prisma.packageContentTest.createMany({
     data: [
@@ -341,31 +347,37 @@ async function main() {
     },
   });
 
-  const speakingOnlyPackage = await prisma.mockTestPackage.create({
-    data: {
-      slug: 'speaking-only',
-      title: 'Speaking Only 001',
-      description:
-        'A single live Speaking session with a certified examiner, with criteria-level feedback.',
-      price: 22.0,
-      currency: 'USD',
-      examType: ExamType.ACADEMIC,
-      packageKind: 'speaking',
-      mockNumber: 1,
-      mostPopular: false,
-      rating: 4.9,
-      reviewCount: 430,
-      skills: ['speaking'],
-      included: [
-        'Pick your certified examiner',
-        'Speaking score within 24 hours',
-        'Criteria-level speaking feedback',
-        'Part 1, 2 & 3 transcript notes',
-      ],
-      rules: ['Live video session', '11–14 minutes', 'Recorded for examiner reference'],
-      speakingBankId: speakingOnlyBank.id,
-    },
+  let speakingOnlyPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'speaking', mockNumber: 1 },
   });
+
+  if (!speakingOnlyPackage) {
+    speakingOnlyPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'speaking-only',
+        title: 'Speaking Only 001',
+        description:
+          'A single live Speaking session with a certified examiner, with criteria-level feedback.',
+        price: 22.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'speaking',
+        mockNumber: 1,
+        mostPopular: false,
+        rating: 4.9,
+        reviewCount: 430,
+        skills: ['speaking'],
+        included: [
+          'Pick your certified examiner',
+          'Speaking score within 24 hours',
+          'Criteria-level speaking feedback',
+          'Part 1, 2 & 3 transcript notes',
+        ],
+        rules: ['Live video session', '11–14 minutes', 'Recorded for examiner reference'],
+        speakingBankId: speakingOnlyBank.id,
+      },
+    });
+  }
 
   await prisma.packageContentTest.create({
     data: {
@@ -375,31 +387,37 @@ async function main() {
     },
   });
 
-  const writingOnlyPackage = await prisma.mockTestPackage.create({
-    data: {
-      slug: 'writing-only',
-      title: 'Writing Only 001',
-      description:
-        'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
-      price: 18.0,
-      currency: 'USD',
-      examType: ExamType.ACADEMIC,
-      packageKind: 'writing',
-      mockNumber: 1,
-      mostPopular: false,
-      rating: 4.8,
-      reviewCount: 320,
-      skills: ['writing'],
-      included: [
-        'Expert examiner grading',
-        'Task 1 + Task 2 feedback',
-        'Criteria-level breakdown',
-        'Turnaround within 24 hours',
-      ],
-      rules: ['60-minute window', 'Live word counter', 'Spell-check disabled'],
-      writingTestId: writingOnlyTest.id,
-    },
+  let writingOnlyPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'writing', mockNumber: 1 },
   });
+
+  if (!writingOnlyPackage) {
+    writingOnlyPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'writing-only',
+        title: 'Writing Only 001',
+        description:
+          'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
+        price: 18.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'writing',
+        mockNumber: 1,
+        mostPopular: false,
+        rating: 4.8,
+        reviewCount: 320,
+        skills: ['writing'],
+        included: [
+          'Expert examiner grading',
+          'Task 1 + Task 2 feedback',
+          'Criteria-level breakdown',
+          'Turnaround within 24 hours',
+        ],
+        rules: ['60-minute window', 'Live word counter', 'Spell-check disabled'],
+        writingTestId: writingOnlyTest.id,
+      },
+    });
+  }
 
   await prisma.packageContentTest.create({
     data: {
@@ -409,37 +427,43 @@ async function main() {
     },
   });
 
-  await prisma.mockTestPackage.create({
-    data: {
-      slug: 'general-training-mock',
-      title: 'General Training Mock',
-      description:
-        'All four skills. IELTS General Training — for migration, permanent residency, and work programs.',
-      price: 45.0,
-      currency: 'USD',
-      examType: ExamType.GENERAL_TRAINING,
-      packageKind: 'listening+reading+writing+speaking',
-      mockNumber: 1,
-      mostPopular: false,
-      rating: 4.8,
-      reviewCount: 680,
-      isActive: false,
-      skills: ['listening', 'reading', 'writing', 'speaking'],
-      included: [
-        'Pick your certified examiner',
-        'Full band report within 24 hours',
-        'Criteria-level written feedback',
-        'Score progression tracking',
-        'Secure exam environment',
-      ],
-      rules: [
-        'No pause or rewind',
-        'Server-authoritative timers',
-        'Strict exam-day integrity',
-        'All scores released together',
-      ],
-    },
+  let generalTrainingPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'listening+reading+writing+speaking', mockNumber: 2 },
   });
+
+  if (!generalTrainingPackage) {
+    generalTrainingPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'general-training-mock',
+        title: 'General Training Mock',
+        description:
+          'All four skills. IELTS General Training — for migration, permanent residency, and work programs.',
+        price: 45.0,
+        currency: 'USD',
+        examType: ExamType.GENERAL_TRAINING,
+        packageKind: 'listening+reading+writing+speaking',
+        mockNumber: 2,
+        mostPopular: false,
+        rating: 4.8,
+        reviewCount: 680,
+        isActive: false,
+        skills: ['listening', 'reading', 'writing', 'speaking'],
+        included: [
+          'Pick your certified examiner',
+          'Full band report within 24 hours',
+          'Criteria-level written feedback',
+          'Score progression tracking',
+          'Secure exam environment',
+        ],
+        rules: [
+          'No pause or rewind',
+          'Server-authoritative timers',
+          'Strict exam-day integrity',
+          'All scores released together',
+        ],
+      },
+    });
+  }
 
   await seedBandTables();
 
