@@ -142,23 +142,16 @@ async function main() {
     `);
   }
 
-  // Seeded local/test accounts must be able to sign in during E2E.
-  await prisma.user.updateMany({
+  // Accounts that existed before email verification have no token to click.
+  // Backfill only tokenless users; newly registered users still must verify.
+  const legacyVerified = await prisma.user.updateMany({
     where: {
-      email: {
-        in: [
-          'admin',
-          'teacher',
-          'student',
-          'serkinov393@gmail.com',
-          'teacher@example.com',
-          'student@example.com',
-        ],
-      },
       emailVerifiedAt: null,
+      emailVerificationToken: null,
     },
     data: { emailVerifiedAt: new Date() },
   });
+  console.log(`Marked ${legacyVerified.count} legacy account(s) as email verified.`);
 }
 
 main()

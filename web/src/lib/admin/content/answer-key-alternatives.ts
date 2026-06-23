@@ -24,9 +24,10 @@ export function parseTextAlternatives(
 
 /** Collapse edited alternatives back to answer-key storage shape. */
 export function commitTextAlternatives(alts: string[]): string | string[] {
-  const trimmed = alts.map((s) => s.trim()).filter(Boolean);
-  if (trimmed.length === 0) return "";
-  if (trimmed.length === 1) return trimmed[0]!;
+  const trimmed = alts.map((s) => s.trim());
+  const nonEmpty = trimmed.filter(Boolean);
+  if (nonEmpty.length === 0) return "";
+  if (alts.length === 1 && nonEmpty.length === 1) return nonEmpty[0]!;
   return trimmed;
 }
 

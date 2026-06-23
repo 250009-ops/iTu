@@ -18,9 +18,13 @@ const READING_TYPES: QuestionGroup["type"][] = [
   "instruction_screen",
   "tfng",
   "yng",
+  "form_completion",
   "note_completion",
   "summary_completion",
   "summary_completion_list",
+  "table_completion",
+  "flowchart_completion",
+  "map_labeling",
   "matching_information",
   "matching_headings",
   "matching_features",
@@ -28,13 +32,18 @@ const READING_TYPES: QuestionGroup["type"][] = [
   "mcq_single",
   "mcq_multi",
   "sentence_completion",
+  "short_answer",
 ];
 
 const LISTENING_TYPES: QuestionGroup["type"][] = [
   "instruction_screen",
   "form_completion",
   "note_completion",
+  "summary_completion",
+  "summary_completion_list",
+  "sentence_completion",
   "mcq_single",
+  "mcq_multi",
   "matching",
   "flowchart_completion",
   "map_labeling",
@@ -47,6 +56,7 @@ type Props = {
   module: "reading" | "listening";
   /** 1-based part or passage number (IELTS partition). */
   partNumber: number;
+  partitionFromOverride?: number;
   testId?: string;
   answerKey: AnswerKeyMap;
   /** Passage paragraph markers for matching_headings section mapping. */
@@ -59,6 +69,7 @@ export function QuestionGroupsPanel({
   groups: groupsProp,
   module,
   partNumber,
+  partitionFromOverride,
   testId,
   answerKey,
   passageParagraphs,
@@ -67,7 +78,7 @@ export function QuestionGroupsPanel({
 }: Props) {
   const groups = groupsProp ?? [];
   const types = module === "reading" ? READING_TYPES : LISTENING_TYPES;
-  const partitionFrom = partitionForPart(module, partNumber).from;
+  const partitionFrom = partitionFromOverride ?? partitionForPart(module, partNumber).from;
 
   function commitGroups(next: QuestionGroup[]) {
     onGroupsChange(renumberPartitionGroups(next, partitionFrom));

@@ -39,9 +39,10 @@ export function matchAnswer(
   const expectedIsArray = Array.isArray(expected);
 
   if (expectedIsArray && submittedIsArray) {
-    const sortedExpected = [...expected].map(normalizeAnswer).sort();
+    const sortedExpected = expandExpectedAlternatives(expected).map(normalizeAnswer).sort();
     const sortedSubmitted = submitted
       .map((s) => normalizeAnswer(String(s)))
+      .filter(Boolean)
       .sort();
     return JSON.stringify(sortedExpected) === JSON.stringify(sortedSubmitted);
   }
@@ -49,7 +50,7 @@ export function matchAnswer(
   if (expectedIsArray && !submittedIsArray) {
     const submittedStr = String(submitted ?? '');
     const normalizedSubmitted = normalizeAnswer(submittedStr);
-    return expected.some(
+    return expandExpectedAlternatives(expected).some(
       (alt) => normalizeAnswer(String(alt)) === normalizedSubmitted,
     );
   }

@@ -16,7 +16,10 @@ type Props = {
 };
 
 function gapsInCell(cell: InlineNode[]): Gap[] {
-  return cell.filter((n): n is Gap => typeof n === "object");
+  return cell.filter(
+    (n): n is Gap =>
+      typeof n === "object" && n !== null && "n" in n && !("type" in n),
+  );
 }
 
 export function TableCompletionEditor({

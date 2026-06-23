@@ -14,7 +14,6 @@ import {
 } from "@/lib/admin/content/factories";
 import {
   collectOrderedNumbers,
-  defaultPartitionBlurb,
   renumberReadingContent,
   remapAnswerKeyByOrder,
   validatePartitionGroups,
@@ -44,6 +43,25 @@ export function ReadingVisualEditor({
   const passages = content.passages ?? [];
   const passage = passages[activeIdx];
 
+  function startNumberForPassage(index: number): number {
+    const currentNums = collectOrderedNumbers(passages[index]?.groups ?? []);
+    if (currentNums.length > 0) {
+      return Math.min(...currentNums);
+    }
+
+    const previousNums = passages
+      .slice(0, index)
+      .flatMap((p) => collectOrderedNumbers(p.groups ?? []));
+    return previousNums.length > 0 ? Math.max(...previousNums) + 1 : 1;
+  }
+
+  function questionRangeText(groups: QuestionGroup[]): string {
+    const nums = collectOrderedNumbers(groups);
+    if (nums.length === 0) return "questions";
+    const sorted = [...new Set(nums)].sort((a, b) => a - b);
+    return `questions ${sorted[0]}–${sorted[sorted.length - 1]}`;
+  }
+
   if (!passage) {
     return (
       <p className="text-sm text-muted">No passages. Add a passage to begin.</p>
@@ -67,7 +85,10 @@ export function ReadingVisualEditor({
     nextPassages[activeIdx] = {
       ...passage,
       groups,
-      blurb: groups.length > 0 ? defaultPartitionBlurb("reading", passage.part) : passage.blurb,
+      blurb:
+        groups.length > 0
+          ? `Read the text and answer ${questionRangeText(groups)}.`
+          : passage.blurb,
     };
     const next = { ...content, passages: nextPassages };
     recomputeTotalQuestions(next);
@@ -248,6 +269,7 @@ export function ReadingVisualEditor({
         groups={passage.groups}
         module="reading"
         partNumber={passage.part}
+        partitionFromOverride={startNumberForPassage(activeIdx)}
         testId={testId}
         answerKey={answerKey}
         passageParagraphs={passage.paragraphs}

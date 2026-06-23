@@ -76,6 +76,13 @@ export function defaultPartitionBlurb(
   return `Read the text and answer questions ${from}–${to}.`;
 }
 
+function inferredReadingRange(numbers: number[]): PartitionRange | null {
+  if (numbers.length === 0) return null;
+  const from = numbers[0]!;
+  const to = numbers[numbers.length - 1]!;
+  return { from, to, expectedCount: to - from + 1 };
+}
+
 /** Ordered distinct question numbers across groups (uses inner gap/question numbers). */
 export function collectOrderedNumbers(groups: QuestionGroup[]): number[] {
   const nums: number[] = [];
@@ -242,11 +249,13 @@ export function renumberListeningContent(content: ListeningContent): ListeningCo
 }
 
 export function renumberReadingContent(content: ReadingContent): ReadingContent {
+  let nextQuestion = 1;
   const passages = (content.passages ?? []).map((passage) => {
-    const range = partitionForPart("reading", passage.part);
+    const groups = renumberPartitionGroups(passage.groups ?? [], nextQuestion);
+    nextQuestion += collectOrderedNumbers(groups).length;
     return {
       ...passage,
-      groups: renumberPartitionGroups(passage.groups ?? [], range.from),
+      groups,
     };
   });
   return { ...content, passages };
@@ -309,9 +318,12 @@ export function validatePartitionGroups(
   groups: QuestionGroup[],
   answerKey: AnswerKeyMap = {},
 ): PartitionStatus {
-  const range = partitionForPart(module, part);
   const numbers = collectOrderedNumbers(groups);
   const unique = [...new Set(numbers)].sort((a, b) => a - b);
+  const range =
+    module === "reading"
+      ? inferredReadingRange(unique) ?? partitionForPart(module, part)
+      : partitionForPart(module, part);
   const issues: NumberingIssue[] = [];
 
   if (unique.length !== numbers.length) {
@@ -325,11 +337,18 @@ export function validatePartitionGroups(
   }
 
   for (const n of unique) {
-    if (n < range.from || n > range.to) {
+    const outsideRange =
+      module === "listening"
+        ? n < range.from || n > range.to
+        : n < 1 || n > IELTS_TOTAL_QUESTIONS;
+    if (outsideRange) {
       issues.push({
         id: `out-of-range-${n}`,
         severity: "error",
-        message: `Question ${n} is outside ${partitionLabel(module, part)} range (${range.from}–${range.to})`,
+        message:
+          module === "listening"
+            ? `Question ${n} is outside ${partitionLabel(module, part)} range (${range.from}–${range.to})`
+            : `Question ${n} is outside the IELTS Reading range (1–${IELTS_TOTAL_QUESTIONS})`,
       });
     }
   }
