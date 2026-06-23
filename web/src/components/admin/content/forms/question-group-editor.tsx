@@ -238,7 +238,6 @@ function renderBody(
                   onClick={() => {
                     const next = removeQuestionAt(group.questions, idx, 1);
                     if (!next) return;
-                    onAnswerKeyChange(removeAnswerKeyEntry(answerKey, q.n));
                     onChange({ ...group, questions: next });
                   }}
                   aria-label={`Remove section ${q.n}`}
