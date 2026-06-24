@@ -92,12 +92,13 @@ export function writingTask1ImageReady(
 /** Merge uploaded Task 1 image from media assets into content when JSON lacks imageUrl. */
 export function injectWritingTask1ImageUrl(
   content: unknown,
-  mediaAssets: { key: string; url: string }[],
+  mediaAssets: { key: string; url: string; sizeBytes?: number | null }[],
 ): unknown {
   const asset = mediaAssets.find((a) => a.key === WRITING_TASK1_IMAGE_KEY);
   if (!asset?.url?.trim() || !content || typeof content !== 'object') {
     return content;
   }
+  const baseUrl = asset.url.split('?')[0]!;
   const c = content as Record<string, unknown>;
   const tasks = c.tasks;
   if (!Array.isArray(tasks)) return content;
@@ -109,10 +110,17 @@ export function injectWritingTask1ImageUrl(
       visual?: { imageUrl?: string; kind?: string };
     };
     if (task.taskNumber !== 1 || !task.visual?.kind) return t;
-    if (task.visual.imageUrl?.trim()) return t;
+
+    const existing = task.visual.imageUrl?.trim();
+    const resolvedBase = existing ? existing.split('?')[0]! : baseUrl;
+    const imageUrl =
+      asset.sizeBytes != null
+        ? `${resolvedBase}?v=${asset.sizeBytes}`
+        : existing || asset.url;
+
     return {
       ...task,
-      visual: { ...task.visual, imageUrl: asset.url },
+      visual: { ...task.visual, imageUrl },
     };
   });
 

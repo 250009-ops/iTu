@@ -239,7 +239,9 @@ function WritingPreview({
   const [taskIdx, setTaskIdx] = useState(0);
   const tasks = content.tasks ?? [];
   const task = tasks[taskIdx];
-  const task1ImageUrl = resolveTask1ImageUrl(content, mediaAssets);
+  const task1ImageUrl = resolveTask1ImageUrl(content, mediaAssets, {
+    cacheBust: true,
+  });
 
   if (!task) return <EmptyPreview message="No writing tasks to preview." />;
 

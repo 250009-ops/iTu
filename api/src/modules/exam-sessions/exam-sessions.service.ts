@@ -700,7 +700,7 @@ export class ExamSessionsService {
         content: true,
         durationMin: true,
         mediaAssets: {
-          select: { key: true, url: true },
+          select: { key: true, url: true, sizeBytes: true },
         },
       },
     });
