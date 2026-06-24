@@ -89,6 +89,36 @@ export function writingTask1ImageReady(
   return typeof url === 'string' && url.trim().length > 0;
 }
 
+/** Merge uploaded Task 1 image from media assets into content when JSON lacks imageUrl. */
+export function injectWritingTask1ImageUrl(
+  content: unknown,
+  mediaAssets: { key: string; url: string }[],
+): unknown {
+  const asset = mediaAssets.find((a) => a.key === WRITING_TASK1_IMAGE_KEY);
+  if (!asset?.url?.trim() || !content || typeof content !== 'object') {
+    return content;
+  }
+  const c = content as Record<string, unknown>;
+  const tasks = c.tasks;
+  if (!Array.isArray(tasks)) return content;
+
+  const nextTasks = tasks.map((t) => {
+    if (typeof t !== 'object' || t === null) return t;
+    const task = t as {
+      taskNumber?: number;
+      visual?: { imageUrl?: string; kind?: string };
+    };
+    if (task.taskNumber !== 1 || !task.visual?.kind) return t;
+    if (task.visual.imageUrl?.trim()) return t;
+    return {
+      ...task,
+      visual: { ...task.visual, imageUrl: asset.url },
+    };
+  });
+
+  return { ...c, tasks: nextTasks };
+}
+
 /** Detect scaffold keys (`answer1` … `answerN`) that must be replaced before publish. */
 export function isPlaceholderAnswerKey(
   key: Record<string, string | string[]> | null | undefined,

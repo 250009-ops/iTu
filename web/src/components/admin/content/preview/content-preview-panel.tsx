@@ -11,6 +11,7 @@ import { matchingHeadingsForPassage } from "@/lib/exam/matching-headings";
 import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import type { ContentModule } from "@/lib/admin/types";
 import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
+import { resolveTask1ImageUrl } from "@/lib/admin/content/writing-media";
 import { buildListeningAudioTracks } from "@/lib/exam/listening-audio-tracks";
 import { ListeningPreviewAudioBar } from "@/components/admin/content/preview/listening-preview-audio-bar";
 import type {
@@ -41,7 +42,12 @@ export function ContentPreviewPanel({ module, content, mediaAssets = [] }: Props
     );
   }
   if (module === "writing") {
-    return <WritingPreview content={content as WritingContent} />;
+    return (
+      <WritingPreview
+        content={content as WritingContent}
+        mediaAssets={mediaAssets}
+      />
+    );
   }
   if (module === "speaking") {
     return <SpeakingPreview content={content as SpeakingContent} />;
@@ -223,22 +229,62 @@ function ListeningPreview({
   );
 }
 
-function WritingPreview({ content }: { content: WritingContent }) {
-  const task = content.tasks[0];
+function WritingPreview({
+  content,
+  mediaAssets,
+}: {
+  content: WritingContent;
+  mediaAssets: MediaAssetRef[];
+}) {
+  const [taskIdx, setTaskIdx] = useState(0);
+  const tasks = content.tasks ?? [];
+  const task = tasks[taskIdx];
+  const task1ImageUrl = resolveTask1ImageUrl(content, mediaAssets);
+
   if (!task) return <EmptyPreview message="No writing tasks to preview." />;
 
+  const visual =
+    task.taskNumber === 1 && task.visual
+      ? { ...task.visual, imageUrl: task1ImageUrl ?? task.visual.imageUrl }
+      : task.visual;
+
   return (
-    <div className="rounded-xl border border-border bg-white p-6">
-      <p className="text-xs font-semibold uppercase text-muted">Task {task.taskNumber}</p>
-      <p className="mt-2 text-sm text-slate-600">{task.instruction}</p>
-      <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-navy">
-        {task.prompt || "No prompt yet."}
-      </p>
-      {task.visual && (
-        <div className="mt-4">
-          <TaskVisual visual={task.visual} />
-        </div>
-      )}
+    <div className="overflow-hidden rounded-xl border border-border bg-white">
+      <div className="flex flex-wrap gap-2 border-b border-border bg-slate-50 px-4 py-3">
+        {tasks.map((t, idx) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTaskIdx(idx)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-semibold",
+              taskIdx === idx ? "bg-violet-600 text-white" : "bg-white text-muted",
+            )}
+          >
+            Task {t.taskNumber}
+          </button>
+        ))}
+      </div>
+      <div className="p-6">
+        <span className="inline-block rounded-md bg-violet-100 px-2.5 py-1 text-[12px] font-bold text-violet-700">
+          Task {task.taskNumber} · {task.minWords}+ words · {task.minutes} min
+        </span>
+        <p className="mt-4 text-sm text-slate-600">{task.instruction}</p>
+        {task.introScreen?.body?.trim() && (
+          <div className="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-4 text-sm text-slate-700">
+            <p className="text-xs font-bold uppercase text-muted">Intro screen</p>
+            <p className="mt-2 whitespace-pre-wrap">{task.introScreen.body}</p>
+          </div>
+        )}
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-navy">
+          {task.prompt || "No prompt yet."}
+        </p>
+        {visual && (
+          <div className="mt-4">
+            <TaskVisual visual={visual} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
