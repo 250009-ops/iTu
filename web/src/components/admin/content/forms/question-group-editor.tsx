@@ -436,14 +436,16 @@ function renderBody(
       );
 
     case "mcq_multi": {
-      const selectionMode = group.selectionMode ?? "shared";
+      if (group.type !== "mcq_multi") return null;
+      const mcq = group;
+      const selectionMode = mcq.selectionMode ?? "shared";
       const isPerQuestion = selectionMode === "per_question";
-      const optionIds = group.options.map((o) => o.id);
+      const optionIds = mcq.options.map((o) => o.id);
 
       function resizeNumbers(count: number) {
-        const nums = [...group.numbers];
+        const nums = [...mcq.numbers];
         while (nums.length < count) {
-          nums.push((nums[nums.length - 1] ?? group.from - 1) + 1);
+          nums.push((nums[nums.length - 1] ?? mcq.from - 1) + 1);
         }
         while (nums.length > count && nums.length > 1) nums.pop();
         return nums;
@@ -458,22 +460,22 @@ function renderBody(
               onChange={(e) => {
                 const mode = e.target.value as "shared" | "per_question";
                 if (mode === "per_question") {
-                  const nums = resizeNumbers(Math.max(group.numbers.length, 4));
+                  const nums = resizeNumbers(Math.max(mcq.numbers.length, 4));
                   onChange({
-                    ...group,
+                    ...mcq,
                     selectionMode: mode,
                     numbers: nums,
                     maxSelections: nums.length,
-                    to: nums[nums.length - 1] ?? group.to,
+                    to: nums[nums.length - 1] ?? mcq.to,
                     hint: `Choose the correct letter, ${optionIds[0] ?? "A"}–${optionIds[optionIds.length - 1] ?? "G"}. Write one letter in each box.`,
                   });
                 } else {
                   onChange({
-                    ...group,
+                    ...mcq,
                     selectionMode: mode,
                     maxSelections: 2,
                     numbers: resizeNumbers(2),
-                    to: group.from + 1,
+                    to: mcq.from + 1,
                     hint: "Choose TWO letters.",
                   });
                 }
@@ -486,22 +488,22 @@ function renderBody(
           </div>
 
           <Input
-            value={group.prompt}
-            onChange={(e) => onChange({ ...group, prompt: e.target.value })}
+            value={mcq.prompt}
+            onChange={(e) => onChange({ ...mcq, prompt: e.target.value })}
             placeholder="Question prompt"
           />
 
           <MatchOptionsBankEditor
             label="Options (A, B, C…)"
-            options={group.options}
+            options={mcq.options}
             minOptions={2}
-            onChange={(options) => onChange({ ...group, options })}
+            onChange={(options) => onChange({ ...mcq, options })}
           />
 
           {isPerQuestion ? (
             <div className="space-y-2">
               <Label className="text-xs">Answer boxes (one letter each)</Label>
-              {group.numbers.map((n, idx) => (
+              {mcq.numbers.map((n, idx) => (
                 <div
                   key={n}
                   className="grid gap-2 rounded-lg border border-border bg-slate-50/80 p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
@@ -521,16 +523,16 @@ function renderBody(
                     variant="secondary"
                     size="sm"
                     className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
-                    disabled={group.numbers.length <= 1}
+                    disabled={mcq.numbers.length <= 1}
                     onClick={() => {
-                      const nums = group.numbers.filter((_, i) => i !== idx);
+                      const nums = mcq.numbers.filter((_, i) => i !== idx);
                       if (nums.length === 0) return;
                       onAnswerKeyChange(removeAnswerKeyEntry(answerKey, n));
                       onChange({
-                        ...group,
+                        ...mcq,
                         numbers: nums,
                         maxSelections: nums.length,
-                        to: nums[nums.length - 1] ?? group.from,
+                        to: nums[nums.length - 1] ?? mcq.from,
                       });
                     }}
                     aria-label={`Remove answer box ${n}`}
@@ -544,12 +546,12 @@ function renderBody(
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  const nums = resizeNumbers(group.numbers.length + 1);
+                  const nums = resizeNumbers(mcq.numbers.length + 1);
                   onChange({
-                    ...group,
+                    ...mcq,
                     numbers: nums,
                     maxSelections: nums.length,
-                    to: nums[nums.length - 1] ?? group.to,
+                    to: nums[nums.length - 1] ?? mcq.to,
                   });
                 }}
               >
@@ -563,33 +565,33 @@ function renderBody(
                 <Input
                   type="number"
                   min={2}
-                  max={Math.max(2, group.options.length)}
-                  value={group.maxSelections}
+                  max={Math.max(2, mcq.options.length)}
+                  value={mcq.maxSelections}
                   onChange={(e) => {
                     const count = Math.max(
                       2,
-                      Math.min(group.options.length, Number(e.target.value) || 2),
+                      Math.min(mcq.options.length, Number(e.target.value) || 2),
                     );
                     const nums = resizeNumbers(count);
                     onChange({
-                      ...group,
+                      ...mcq,
                       maxSelections: count,
                       numbers: nums,
-                      to: nums[nums.length - 1] ?? group.to,
+                      to: nums[nums.length - 1] ?? mcq.to,
                     });
                   }}
                   className="max-w-[8rem]"
                 />
               </div>
               <Label className="text-xs">
-                Correct answers (choose {group.maxSelections})
+                Correct answers (choose {mcq.maxSelections})
               </Label>
               <AnswerKeyMultiField
-                numbers={group.numbers}
+                numbers={mcq.numbers}
                 answerKey={answerKey}
                 onChange={onAnswerKeyChange}
                 options={optionIds}
-                maxSelections={group.maxSelections}
+                maxSelections={mcq.maxSelections}
               />
             </>
           )}
