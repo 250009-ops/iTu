@@ -329,6 +329,7 @@ export function createQuestionGroup(
         instruction: "Label the map below.",
         hint: "Drag the correct letter next to each location.",
         imageLabel: "Map",
+        answerMode: "option",
         options: [
           { id: "A", label: "A" },
           { id: "B", label: "B" },

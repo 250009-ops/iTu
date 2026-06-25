@@ -104,6 +104,8 @@ export interface MapLabelingGroup extends BaseGroup {
   imageLabel: string;
   /** Optional uploaded map image URL (from admin media library). */
   imageUrl?: string;
+  /** How candidates answer: pick a letter from the list, or type text. */
+  answerMode?: "option" | "text";
   options: MatchOption[];
   /** Drop zones positioned as percentages over the image. */
   zones: { n: number; x: number; y: number; label: string }[];

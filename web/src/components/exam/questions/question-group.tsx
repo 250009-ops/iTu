@@ -550,11 +550,12 @@ function GroupBody({
           group={group}
           answers={map}
           current={current}
-          onAssign={(n, id) => {
+          onAssign={(n, value) => {
             onFocus(n);
-            onAnswer(n, id);
+            onAnswer(n, value ?? "");
           }}
           onFocus={onFocus}
+          onPasteBlocked={onPasteBlocked}
         />
       );
     }

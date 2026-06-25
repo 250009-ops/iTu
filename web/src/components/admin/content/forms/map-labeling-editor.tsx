@@ -57,6 +57,19 @@ export function MapLabelingEditor({
 
   const zones = group.zones ?? [];
   const options = group.options ?? [];
+  const answerMode = group.answerMode ?? "option";
+  const isTextMode = answerMode === "text";
+
+  function setAnswerMode(mode: "option" | "text") {
+    onChange({
+      ...group,
+      answerMode: mode,
+      hint:
+        mode === "text"
+          ? "Write the correct word or phrase for each label."
+          : "Drag the correct letter next to each location.",
+    });
+  }
 
   function placeZone(clientX: number, clientY: number) {
     if (activeZone == null || !canvasRef.current) return;
@@ -74,8 +87,25 @@ export function MapLabelingEditor({
       <Input
         value={group.imageLabel}
         onChange={(e) => onChange({ ...group, imageLabel: e.target.value })}
-        placeholder="Map title"
+        placeholder="Diagram or map title"
       />
+
+      <div className="space-y-2">
+        <Label className="text-xs">How candidates answer</Label>
+        <select
+          value={answerMode}
+          onChange={(e) => setAnswerMode(e.target.value as "option" | "text")}
+          className="h-9 w-full max-w-md rounded-md border border-border bg-white px-2 text-sm"
+        >
+          <option value="option">Choose from letter list (A, B, C…)</option>
+          <option value="text">Write the answer (words or numbers)</option>
+        </select>
+        <p className="text-xs text-muted">
+          {isTextMode
+            ? "Use for diagram/process labeling where students type answers (e.g. NO MORE THAN TWO WORDS)."
+            : "Use for map tasks where students pick a letter from a list and place it on each location."}
+        </p>
+      </div>
 
       <div className="space-y-2">
         <Label className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -166,12 +196,14 @@ export function MapLabelingEditor({
         ))}
       </div>
 
-      <MatchOptionsBankEditor
-        label="Options bank"
-        options={options}
-        minOptions={2}
-        onChange={(nextOptions) => onChange({ ...group, options: nextOptions })}
-      />
+      {!isTextMode && (
+        <MatchOptionsBankEditor
+          label="Options bank"
+          options={options}
+          minOptions={2}
+          onChange={(nextOptions) => onChange({ ...group, options: nextOptions })}
+        />
+      )}
 
       {zones.map((zone, idx) => (
         <div
@@ -188,7 +220,7 @@ export function MapLabelingEditor({
               nextZones[idx] = { ...zone, label: e.target.value };
               onChange({ ...group, zones: nextZones });
             }}
-            placeholder="Location label"
+            placeholder={isTextMode ? "Optional context label" : "Location label"}
           />
           <span className="text-xs text-muted">
             {zone.x}%, {zone.y}%
@@ -197,7 +229,7 @@ export function MapLabelingEditor({
             questionNumber={zone.n}
             answerKey={answerKey}
             onChange={onAnswerKeyChange}
-            type="option"
+            type={isTextMode ? "text" : "option"}
             options={options.map((o) => o.id)}
           />
         </div>

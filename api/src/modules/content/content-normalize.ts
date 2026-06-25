@@ -45,7 +45,12 @@ function repairQuestionGroup(group: unknown): Json {
   const g = group;
   switch (g.type) {
     case 'map_labeling':
-      return { ...g, options: asArray(g.options), zones: asArray(g.zones) };
+      return {
+        ...g,
+        answerMode: g.answerMode === 'text' ? 'text' : 'option',
+        options: asArray(g.options),
+        zones: asArray(g.zones),
+      };
     case 'matching':
     case 'matching_headings':
     case 'matching_features':
