@@ -263,6 +263,84 @@ function GroupBody({
     }
 
     case "mcq_multi": {
+      const selectionMode = group.selectionMode ?? "shared";
+      const optionIds = group.options.map((o) => o.id);
+
+      if (selectionMode === "per_question") {
+        const usedLetters = (exclude: number) => {
+          const used = new Set<string>();
+          for (const n of group.numbers) {
+            if (n === exclude) continue;
+            const v = answers[n];
+            if (typeof v === "string" && v.trim()) used.add(v);
+          }
+          return used;
+        };
+
+        return (
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="mb-3 flex flex-wrap gap-2 text-[15px] font-medium text-slate-800">
+              <span className="flex h-6 items-center justify-center rounded-md bg-navy px-1.5 text-[12px] font-bold text-white">
+                {group.numbers[0]}
+                {group.numbers.length > 1
+                  ? `–${group.numbers[group.numbers.length - 1]}`
+                  : ""}
+              </span>
+              {group.prompt}
+            </p>
+            <p className="mb-3 text-[12px] font-medium text-slate-500">
+              Choose the correct letter, {optionIds[0] ?? "A"}–
+              {optionIds[optionIds.length - 1] ?? "G"}. Write one letter in each box.
+            </p>
+            <ol className="mb-4 space-y-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+              {group.options.map((opt) => (
+                <li key={opt.id} className="flex gap-2 text-[14px] text-slate-700">
+                  <span className="font-bold text-slate-500">{opt.id}</span>
+                  <span>{opt.label}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="space-y-2">
+              {group.numbers.map((n) => {
+                const value = typeof answers[n] === "string" ? (answers[n] as string) : "";
+                const used = usedLetters(n);
+                const isActive = current === n;
+                return (
+                  <div
+                    key={n}
+                    className={cn(
+                      "flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 transition",
+                      isActive ? "border-navy bg-sky-50" : "border-slate-200 bg-white",
+                    )}
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[13px] font-bold text-white">
+                      {n}
+                    </span>
+                    <select
+                      value={value}
+                      onFocus={() => onFocus(n)}
+                      onChange={(e) => onAnswer(n, e.target.value)}
+                      className="h-9 min-w-[6rem] rounded-md border border-slate-200 bg-white px-2 text-[14px] font-medium text-navy"
+                    >
+                      <option value="">—</option>
+                      {group.options.map((opt) => (
+                        <option
+                          key={opt.id}
+                          value={opt.id}
+                          disabled={used.has(opt.id) && value !== opt.id}
+                        >
+                          {opt.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+
       const value = (answers[group.numbers[0]] as string[]) ?? [];
       const toggle = (id: string) => {
         let next: string[];

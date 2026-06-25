@@ -74,9 +74,14 @@ export interface McqSingleGroup extends BaseGroup {
 export interface McqMultiGroup extends BaseGroup {
   type: "mcq_multi";
   prompt: string;
-  /** The question numbers grouped, e.g. [18, 19]. */
+  /** The question numbers grouped, e.g. [18, 19] or [1, 2, 3, 4]. */
   numbers: number[];
   maxSelections: number;
+  /**
+   * shared — pick N letters together (e.g. Which TWO?).
+   * per_question — one letter per answer box (e.g. boxes 1–4 on answer sheet).
+   */
+  selectionMode?: "shared" | "per_question";
   options: Option[];
 }
 

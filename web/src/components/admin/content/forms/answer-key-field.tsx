@@ -158,11 +158,13 @@ export function AnswerKeyMultiField({
   answerKey,
   onChange,
   options,
+  maxSelections = 2,
 }: {
   numbers: number[];
   answerKey: AnswerKeyMap;
   onChange: (key: AnswerKeyMap) => void;
   options: string[];
+  maxSelections?: number;
 }) {
   const primary = numbers[0];
   const stored = answerKey[String(primary)];
@@ -176,7 +178,7 @@ export function AnswerKeyMultiField({
     let next = selected.includes(opt)
       ? selected.filter((s) => s !== opt)
       : [...selected, opt];
-    if (next.length > 2) next = next.slice(-2);
+    if (next.length > maxSelections) next = next.slice(-maxSelections);
     const updated = { ...answerKey };
     for (const n of numbers) {
       updated[String(n)] = next;

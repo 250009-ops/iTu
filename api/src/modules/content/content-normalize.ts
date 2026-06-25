@@ -85,7 +85,12 @@ function repairQuestionGroup(group: unknown): Json {
     case 'yng':
       return { ...g, questions: asArray(g.questions) };
     case 'mcq_multi':
-      return { ...g, options: asArray(g.options), numbers: asArray(g.numbers) };
+      return {
+        ...g,
+        selectionMode: g.selectionMode === 'per_question' ? 'per_question' : 'shared',
+        options: asArray(g.options),
+        numbers: asArray(g.numbers),
+      };
     case 'note_completion':
     case 'form_completion':
     case 'summary_completion':

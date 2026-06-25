@@ -67,6 +67,7 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "mcq_multi":
       return {
         ...g,
+        selectionMode: g.selectionMode === "per_question" ? "per_question" : "shared",
         options: asArray(g.options),
         numbers: asArray(g.numbers),
       };

@@ -159,7 +159,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionGroup["type"], string> = {
   sentence_completion: "Sentence completion",
   table_completion: "Table completion",
   mcq_single: "Multiple choice (single)",
-  mcq_multi: "Multiple choice (choose two)",
+  mcq_multi: "Multiple choice (choose multiple)",
   matching: "Matching",
   matching_headings: "Matching headings",
   matching_information: "Matching information",
@@ -314,6 +314,7 @@ export function createQuestionGroup(
         prompt: "",
         numbers: [from, from + 1],
         maxSelections: 2,
+        selectionMode: "shared",
         options: [
           { id: "A", label: "" },
           { id: "B", label: "" },
