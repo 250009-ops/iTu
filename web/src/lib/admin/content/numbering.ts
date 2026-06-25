@@ -65,6 +65,23 @@ export function partitionLabel(module: "listening" | "reading", part: number): s
   return module === "listening" ? `Part ${part}` : `Passage ${part}`;
 }
 
+function hasAnswerKeyEntry(answerKey: AnswerKeyMap, n: number): boolean {
+  const v = answerKey[String(n)];
+  if (v != null) {
+    if (Array.isArray(v)) return v.length > 0;
+    if (String(v).trim().length > 0) return true;
+  }
+  for (const [k, val] of Object.entries(answerKey)) {
+    if (!k.startsWith("$set$") || typeof val !== "string" || !val.trim()) continue;
+    const match = k.match(/^\$set\$(\d+)-(\d+)$/);
+    if (!match) continue;
+    const from = Number(match[1]);
+    const to = Number(match[2]);
+    if (n >= from && n <= to) return true;
+  }
+  return false;
+}
+
 export function defaultPartitionBlurb(
   module: "listening" | "reading",
   part: number,
@@ -383,12 +400,7 @@ export function validatePartitionGroups(
     });
   }
 
-  const missingAnswers = unique.filter((n) => {
-    const v = answerKey[String(n)];
-    if (v == null) return true;
-    if (Array.isArray(v)) return v.length === 0;
-    return String(v).trim().length === 0;
-  }).length;
+  const missingAnswers = unique.filter((n) => !hasAnswerKeyEntry(answerKey, n)).length;
 
   if (unique.length > 0 && missingAnswers > 0) {
     issues.push({

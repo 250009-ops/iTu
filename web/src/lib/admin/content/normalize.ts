@@ -68,6 +68,7 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
       return {
         ...g,
         selectionMode: g.selectionMode === "per_question" ? "per_question" : "shared",
+        answerOrdering: g.answerOrdering === "fixed" ? "fixed" : "any",
         options: asArray(g.options),
         numbers: asArray(g.numbers),
       };

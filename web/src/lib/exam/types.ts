@@ -82,6 +82,11 @@ export interface McqMultiGroup extends BaseGroup {
    * per_question — one letter per answer box (e.g. boxes 1–4 on answer sheet).
    */
   selectionMode?: "shared" | "per_question";
+  /**
+   * fixed — each answer box has a specific correct letter.
+   * any — correct letters can appear in any box order (set scoring).
+   */
+  answerOrdering?: "fixed" | "any";
   options: Option[];
 }
 

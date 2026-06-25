@@ -267,7 +267,9 @@ function GroupBody({
       const optionIds = group.options.map((o) => o.id);
 
       if (selectionMode === "per_question") {
+        const anyOrder = (group.answerOrdering ?? "any") === "any";
         const usedLetters = (exclude: number) => {
+          if (anyOrder) return new Set<string>();
           const used = new Set<string>();
           for (const n of group.numbers) {
             if (n === exclude) continue;

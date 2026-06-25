@@ -16,8 +16,45 @@ export class AutoScoringService {
       return { rawScore: 0, band: null };
     }
 
+    const answerByNumber = new Map(
+      answers.map((a) => [a.questionNumber, a.value]),
+    );
+    const scoredNumbers = new Set<number>();
     let rawScore = 0;
+
+    for (const [k, v] of Object.entries(answerKey)) {
+      if (!k.startsWith('$set$') || typeof v !== 'string' || !v.trim()) continue;
+      const match = k.match(/^\$set\$(\d+)-(\d+)$/);
+      if (!match) continue;
+
+      const from = Number(match[1]);
+      const to = Number(match[2]);
+      const expected = v
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+        .sort();
+      const nums: number[] = [];
+      for (let n = from; n <= to; n++) nums.push(n);
+
+      const submitted = nums
+        .map((n) => answerByNumber.get(n))
+        .filter((val) => typeof val === 'string' && val.trim())
+        .map((val) => String(val).trim().toUpperCase())
+        .sort();
+
+      if (
+        expected.length > 0 &&
+        submitted.length === expected.length &&
+        JSON.stringify(submitted) === JSON.stringify(expected)
+      ) {
+        rawScore += expected.length;
+      }
+      nums.forEach((n) => scoredNumbers.add(n));
+    }
+
     for (const answer of answers) {
+      if (scoredNumbers.has(answer.questionNumber)) continue;
       const key = answerKey[String(answer.questionNumber)];
       if (!key) continue;
       if (this.isCorrect(answer.value, key)) {

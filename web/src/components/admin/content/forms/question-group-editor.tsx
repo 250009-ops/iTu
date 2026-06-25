@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   AnswerKeyField,
+  AnswerKeyLetterPicker,
   AnswerKeyMultiField,
+  setMcqSetAnswerKey,
 } from "@/components/admin/content/forms/answer-key-field";
+import { SectionLabelsInput } from "@/components/admin/content/forms/section-labels-input";
 import { MapLabelingEditor } from "@/components/admin/content/forms/map-labeling-editor";
 import { TableCompletionEditor } from "@/components/admin/content/forms/table-completion-editor";
 import { CompletionLinesEditor } from "@/components/admin/content/forms/completion-lines-editor";
@@ -20,9 +23,8 @@ import { removeAnswerKeyEntry, removeQuestionAt } from "@/lib/admin/content/matc
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import {
-  formatSectionLabelsInput,
-  parseSectionLabelsInput,
   passageSectionLabels,
+  DEFAULT_SECTION_LABELS,
 } from "@/lib/exam/passage-sections";
 import { resolveMatchingSection } from "@/lib/exam/matching-headings";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
@@ -345,23 +347,26 @@ function renderBody(
       );
 
     case "matching_information": {
-      const labels = group.sectionLabels ?? ["A", "B", "C", "D", "E", "F"];
+      const labels =
+        group.sectionLabels && group.sectionLabels.length > 0
+          ? group.sectionLabels
+          : passageSectionLabels(passageParagraphs, undefined);
       return (
         <div className="space-y-3">
           <div className="space-y-2">
             <Label className="text-xs">Section labels (dropdown options)</Label>
-            <Input
-              value={formatSectionLabelsInput(group.sectionLabels)}
-              onChange={(e) =>
+            <SectionLabelsInput
+              value={group.sectionLabels}
+              onChange={(sectionLabels) =>
                 onChange({
                   ...group,
-                  sectionLabels: parseSectionLabelsInput(e.target.value),
+                  sectionLabels,
                 })
               }
               placeholder="A, B, C, D, E, F"
             />
             <p className="text-xs text-muted">
-              Usually matches passage paragraph markers (A, B, C…). Leave blank to
+              Type comma-separated letters (e.g. A, B, C, D, E). Leave blank to
               use markers from the passage at exam time.
             </p>
           </div>
@@ -369,7 +374,7 @@ function renderBody(
             questions={group.questions}
             answerKey={answerKey}
             answerKeyType="option"
-            answerOptions={labels}
+            answerOptions={labels.length > 0 ? labels : DEFAULT_SECTION_LABELS}
             placeholder="Statement to match to a section"
             onQuestionsChange={(questions) => onChange({ ...group, questions })}
             onAnswerKeyChange={onAnswerKeyChange}
@@ -440,6 +445,8 @@ function renderBody(
       const mcq = group;
       const selectionMode = mcq.selectionMode ?? "shared";
       const isPerQuestion = selectionMode === "per_question";
+      const answerOrdering = mcq.answerOrdering ?? "any";
+      const isAnyOrder = answerOrdering === "any";
       const optionIds = mcq.options.map((o) => o.id);
 
       function resizeNumbers(count: number) {
@@ -464,6 +471,7 @@ function renderBody(
                   onChange({
                     ...mcq,
                     selectionMode: mode,
+                    answerOrdering: "any",
                     numbers: nums,
                     maxSelections: nums.length,
                     to: nums[nums.length - 1] ?? mcq.to,
@@ -501,46 +509,100 @@ function renderBody(
           />
 
           {isPerQuestion ? (
-            <div className="space-y-2">
-              <Label className="text-xs">Answer boxes (one letter each)</Label>
-              {mcq.numbers.map((n, idx) => (
-                <div
-                  key={n}
-                  className="grid gap-2 rounded-lg border border-border bg-slate-50/80 p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Correct answer assignment</Label>
+                <select
+                  value={answerOrdering}
+                  onChange={(e) => {
+                    const ordering = e.target.value as "fixed" | "any";
+                    const nextKey =
+                      ordering === "any"
+                        ? setMcqSetAnswerKey(answerKey, mcq.numbers, [])
+                        : (() => {
+                            const from = mcq.numbers[0];
+                            const to = mcq.numbers[mcq.numbers.length - 1];
+                            if (from == null || to == null) return answerKey;
+                            const next = { ...answerKey };
+                            delete next[`$set$${from}-${to}`];
+                            return next;
+                          })();
+                    onAnswerKeyChange(nextKey);
+                    onChange({ ...mcq, answerOrdering: ordering });
+                  }}
+                  className="h-9 w-full max-w-md rounded-md border border-border bg-white px-2 text-sm"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                    {n}
-                  </span>
-                  <AnswerKeyField
-                    questionNumber={n}
+                  <option value="any">
+                    Correct letter set — any box order (recommended for paper Q1–4)
+                  </option>
+                  <option value="fixed">Specific letter per answer box</option>
+                </select>
+                <p className="text-xs text-muted">
+                  {isAnyOrder
+                    ? "Pick the correct letters below. Students may write them in any order in boxes 1–4."
+                    : "Assign one specific correct letter to each numbered box."}
+                </p>
+              </div>
+
+              {isAnyOrder ? (
+                <>
+                  <Label className="text-xs">
+                    Correct letters ({mcq.numbers.length} required)
+                  </Label>
+                  <AnswerKeyMultiField
+                    numbers={mcq.numbers}
                     answerKey={answerKey}
                     onChange={onAnswerKeyChange}
-                    type="option"
                     options={optionIds}
+                    maxSelections={mcq.numbers.length}
+                    setKeyMode
                   />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
-                    disabled={mcq.numbers.length <= 1}
-                    onClick={() => {
-                      const nums = mcq.numbers.filter((_, i) => i !== idx);
-                      if (nums.length === 0) return;
-                      onAnswerKeyChange(removeAnswerKeyEntry(answerKey, n));
-                      onChange({
-                        ...mcq,
-                        numbers: nums,
-                        maxSelections: nums.length,
-                        to: nums[nums.length - 1] ?? mcq.from,
-                      });
-                    }}
-                    aria-label={`Remove answer box ${n}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
+                </>
+              ) : (
+                <>
+                  <Label className="text-xs">Answer boxes (click the correct letter)</Label>
+                  {mcq.numbers.map((n, idx) => (
+                    <div
+                      key={n}
+                      className="space-y-2 rounded-lg border border-border bg-slate-50/80 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
+                          {n}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
+                          disabled={mcq.numbers.length <= 1}
+                          onClick={() => {
+                            const nums = mcq.numbers.filter((_, i) => i !== idx);
+                            if (nums.length === 0) return;
+                            onAnswerKeyChange(removeAnswerKeyEntry(answerKey, n));
+                            onChange({
+                              ...mcq,
+                              numbers: nums,
+                              maxSelections: nums.length,
+                              to: nums[nums.length - 1] ?? mcq.from,
+                            });
+                          }}
+                          aria-label={`Remove answer box ${n}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <AnswerKeyLetterPicker
+                        questionNumber={n}
+                        answerKey={answerKey}
+                        onChange={onAnswerKeyChange}
+                        options={mcq.options}
+                      />
+                    </div>
+                  ))}
+                </>
+              )}
+
               <Button
                 type="button"
                 variant="secondary"
