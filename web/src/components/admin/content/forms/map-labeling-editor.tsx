@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AnswerKeyField } from "@/components/admin/content/forms/answer-key-field";
+import { MatchOptionsBankEditor } from "@/components/admin/content/forms/matching-editor-parts";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type { MapLabelingGroup } from "@/lib/exam/types";
 import { uploadContentMedia } from "@/lib/api/admin";
@@ -165,22 +166,12 @@ export function MapLabelingEditor({
         ))}
       </div>
 
-      <div className="space-y-2">
-        <Label className="text-xs">Options bank</Label>
-        {options.map((opt, idx) => (
-          <div key={opt.id} className="flex items-center gap-2">
-            <span className="w-8 text-xs font-bold">{opt.id}</span>
-            <Input
-              value={opt.label}
-              onChange={(e) => {
-                const nextOptions = [...options];
-                nextOptions[idx] = { ...opt, label: e.target.value };
-                onChange({ ...group, options: nextOptions });
-              }}
-            />
-          </div>
-        ))}
-      </div>
+      <MatchOptionsBankEditor
+        label="Options bank"
+        options={options}
+        minOptions={2}
+        onChange={(nextOptions) => onChange({ ...group, options: nextOptions })}
+      />
 
       {zones.map((zone, idx) => (
         <div

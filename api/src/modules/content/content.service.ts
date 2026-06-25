@@ -582,10 +582,19 @@ export class ContentService {
     });
     if (!test) throw new NotFoundException('Test not found');
 
-    if (isAudio || isMap) {
+    if (isAudio) {
       if (test.type !== ContentTestType.LISTENING) {
         throw new BadRequestException(
-          'Audio and map media uploads are only supported for listening tests',
+          'Audio uploads are only supported for listening tests',
+        );
+      }
+    } else if (isMap) {
+      if (
+        test.type !== ContentTestType.LISTENING &&
+        test.type !== ContentTestType.READING
+      ) {
+        throw new BadRequestException(
+          'Map image uploads are only supported for listening and reading tests',
         );
       }
     } else if (isWritingImage) {

@@ -12,6 +12,7 @@ import { MapLabelingEditor } from "@/components/admin/content/forms/map-labeling
 import { TableCompletionEditor } from "@/components/admin/content/forms/table-completion-editor";
 import { CompletionLinesEditor } from "@/components/admin/content/forms/completion-lines-editor";
 import {
+  HeadingsBankEditor,
   MatchOptionsBankEditor,
   StatementListEditor,
 } from "@/components/admin/content/forms/matching-editor-parts";
@@ -121,7 +122,7 @@ function renderBody(
       return (
         <div className="space-y-4">
           {group.questions.map((q, qIdx) => (
-            <div key={q.n} className="space-y-2 rounded-lg border border-border bg-white p-3">
+            <div key={`${q.n}-${qIdx}`} className="space-y-2 rounded-lg border border-border bg-white p-3">
               <div className="flex items-center gap-2">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
                   {q.n}
@@ -142,6 +143,22 @@ function renderBody(
                   type="option"
                   options={q.options.map((o) => o.id)}
                 />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
+                  disabled={group.questions.length <= 1}
+                  onClick={() => {
+                    const next = removeQuestionAt(group.questions, qIdx, 1);
+                    if (!next) return;
+                    onAnswerKeyChange(removeAnswerKeyEntry(answerKey, q.n));
+                    onChange({ ...group, questions: next });
+                  }}
+                  aria-label={`Remove question ${q.n}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
               {q.options.map((opt, oIdx) => (
                 <div key={opt.id} className="flex items-center gap-2 pl-9">
@@ -161,6 +178,37 @@ function renderBody(
               ))}
             </div>
           ))}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              const last = group.questions[group.questions.length - 1];
+              const n = (last?.n ?? group.to) + 1;
+              const template = last ?? group.questions[0];
+              onChange({
+                ...group,
+                to: n,
+                questions: [
+                  ...group.questions,
+                  {
+                    n,
+                    prompt: "",
+                    options: template
+                      ? template.options.map((o) => ({ id: o.id, label: "" }))
+                      : [
+                          { id: "A", label: "" },
+                          { id: "B", label: "" },
+                          { id: "C", label: "" },
+                          { id: "D", label: "" },
+                        ],
+                  },
+                ],
+              });
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Add question
+          </Button>
         </div>
       );
 
@@ -172,22 +220,10 @@ function renderBody(
             Students drag headings onto drop zones above each section in the passage.
             Map each question to a passage section.
           </p>
-          <div className="space-y-2">
-            <Label className="text-xs">Headings bank</Label>
-            {group.options.map((opt, idx) => (
-              <div key={opt.id} className="flex items-center gap-2">
-                <span className="w-8 text-xs font-bold">{opt.id}</span>
-                <Input
-                  value={opt.label}
-                  onChange={(e) => {
-                    const options = [...group.options];
-                    options[idx] = { ...opt, label: e.target.value };
-                    onChange({ ...group, options });
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+          <HeadingsBankEditor
+            options={group.options}
+            onChange={(options) => onChange({ ...group, options })}
+          />
           {group.questions.map((q, idx) => {
             const section =
               q.section?.trim() ||
