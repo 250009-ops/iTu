@@ -178,6 +178,14 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
         numbers: nums.slice(0, group.numbers.length),
       };
     case "map_labeling":
+      if (group.layoutMode === "place_list") {
+        return {
+          ...group,
+          from,
+          to,
+          questions: (group.questions ?? []).map((q) => ({ ...q, n: nums[i++]! })),
+        };
+      }
       return {
         ...group,
         from,

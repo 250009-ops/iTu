@@ -121,11 +121,20 @@ export interface MapLabelingGroup extends BaseGroup {
   imageLabel: string;
   /** Optional uploaded map image URL (from admin media library). */
   imageUrl?: string;
+  /**
+   * zones — numbered pins on the map (listening-style drag letters to locations).
+   * place_list — reading-style map with letter markers; place names are questions below.
+   */
+  layoutMode?: "zones" | "place_list";
   /** How candidates answer: pick a letter from the list, or type text. */
   answerMode?: "option" | "text";
   options: MatchOption[];
-  /** Drop zones positioned as percentages over the image. */
+  /** Drop zones positioned as percentages over the image (zones layout). */
   zones: { n: number; x: number; y: number; label: string }[];
+  /** Letter markers on the map (place_list layout). */
+  mapMarkers?: { id: string; x: number; y: number }[];
+  /** Place names to match to map letters (place_list layout). */
+  questions?: { n: number; prompt: string }[];
 }
 
 export interface ShortAnswerGroup extends BaseGroup {

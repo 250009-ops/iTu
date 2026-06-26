@@ -27,9 +27,12 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "map_labeling":
       return {
         ...g,
+        layoutMode: g.layoutMode === "place_list" ? "place_list" : "zones",
         answerMode: g.answerMode === "text" ? "text" : "option",
         options: asArray(g.options),
         zones: asArray(g.zones),
+        mapMarkers: asArray(g.mapMarkers),
+        questions: asArray(g.questions),
       };
     case "matching":
     case "matching_headings":

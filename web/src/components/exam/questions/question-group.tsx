@@ -622,10 +622,17 @@ function GroupBody({
 
     case "map_labeling": {
       const map: Record<number, string> = {};
-      group.zones.forEach((z) => {
-        const v = answers[z.n];
-        if (typeof v === "string") map[z.n] = v;
-      });
+      if (group.layoutMode === "place_list") {
+        (group.questions ?? []).forEach((q) => {
+          const v = answers[q.n];
+          if (typeof v === "string") map[q.n] = v;
+        });
+      } else {
+        group.zones.forEach((z) => {
+          const v = answers[z.n];
+          if (typeof v === "string") map[z.n] = v;
+        });
+      }
       return (
         <MapLabeling
           group={group}

@@ -79,6 +79,9 @@ export function gapsInGroup(group: QuestionGroup): number[] {
     case "yng":
       return arr(group.questions).map((q) => q.n);
     case "map_labeling":
+      if (group.layoutMode === "place_list") {
+        return arr(group.questions).map((q) => q.n);
+      }
       return arr(group.zones).map((z) => z.n);
     case "short_answer":
       return arr(group.questions).map((q) => q.n);

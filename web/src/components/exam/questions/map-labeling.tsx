@@ -13,18 +13,89 @@ interface MapLabelingProps {
   onPasteBlocked?: () => void;
 }
 
+function MapLabelingPlaceListMode({
+  group,
+  answers,
+  current,
+  onAssign,
+  onFocus,
+}: MapLabelingProps) {
+  const markers = group.mapMarkers ?? [];
+  const questions = group.questions ?? [];
+
+  return (
+    <div className="space-y-4">
+      <MapCanvas
+        group={group}
+        answers={answers}
+        current={current}
+        onFocus={() => {}}
+        renderMarker={(zone) => null}
+        overlayMarkers={markers}
+      />
+
+      <ol className="space-y-2">
+        {questions.map((q) => {
+          const value = answers[q.n]?.trim() ?? "";
+          const isActive = current === q.n;
+          return (
+            <li
+              key={q.n}
+              id={`q-${q.n}`}
+              className={cn(
+                "scroll-mt-20 flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2.5 transition",
+                isActive ? "border-navy bg-sky-50" : "border-slate-200 bg-white",
+              )}
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[13px] font-bold text-white">
+                {q.n}
+              </span>
+              <span className="min-w-0 flex-1 text-[14px] text-slate-800">{q.prompt}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {markers.map((m) => {
+                  const picked = value.toUpperCase() === m.id.toUpperCase();
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        onFocus(q.n);
+                        onAssign(q.n, picked ? null : m.id);
+                      }}
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-bold transition",
+                        picked
+                          ? "border-navy bg-navy text-white shadow-md"
+                          : "border-slate-200 bg-white text-navy hover:border-navy hover:bg-sky-50",
+                      )}
+                    >
+                      {m.id}
+                    </button>
+                  );
+                })}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function MapCanvas({
   group,
   answers,
   current,
   onFocus,
   renderMarker,
+  overlayMarkers,
 }: {
   group: MapLabelingGroup;
   answers: Record<number, string>;
   current: number | null;
   onFocus: (n: number) => void;
   renderMarker: (zone: MapLabelingGroup["zones"][number]) => ReactNode;
+  overlayMarkers?: { id: string; x: number; y: number }[];
 }) {
   return (
     <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-[#eef3f8]">
@@ -65,6 +136,16 @@ function MapCanvas({
           <rect x="220" y="40" width="80" height="45" rx="6" fill="#bbf7d0" />
         </svg>
       )}
+
+      {overlayMarkers?.map((marker) => (
+        <span
+          key={marker.id}
+          style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+          className="pointer-events-none absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-navy text-[13px] font-bold text-white shadow-md"
+        >
+          {marker.id}
+        </span>
+      ))}
 
       {group.zones.map((zone) => (
         <button
@@ -298,6 +379,10 @@ function MapLabelingTextMode({
 }
 
 export function MapLabeling(props: MapLabelingProps) {
+  const layout = props.group.layoutMode ?? "zones";
+  if (layout === "place_list") {
+    return <MapLabelingPlaceListMode {...props} />;
+  }
   const mode = props.group.answerMode ?? "option";
   if (mode === "text") {
     return <MapLabelingTextMode {...props} />;
