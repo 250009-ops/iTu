@@ -133,18 +133,20 @@ export function PassageWithHeadingZones({
   >();
 
   for (const group of headingGroups) {
+    const example = group.example;
+    if (example?.section && example.headingId) {
+      const section = example.section.trim().toUpperCase();
+      zoneBySection.set(section, {
+        questionN: 0,
+        group,
+        optionId: example.headingId,
+        isExample: true,
+      });
+    }
     const map = sectionQuestionMap(group, markers);
     for (const [section, q] of map) {
-      const optionId =
-        q.isExample && q.exampleHeadingId
-          ? q.exampleHeadingId
-          : (answers[q.n] as string | undefined);
-      zoneBySection.set(section, {
-        questionN: q.n,
-        group,
-        optionId,
-        isExample: q.isExample,
-      });
+      const optionId = answers[q.n] as string | undefined;
+      zoneBySection.set(section, { questionN: q.n, group, optionId });
     }
   }
 

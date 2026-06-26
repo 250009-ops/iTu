@@ -38,6 +38,57 @@ function normalizeCompletionLines(raw: unknown): Json[] {
   });
 }
 
+function resolveMatchingSection(question: Json, fallback?: string): string {
+  const section = typeof question.section === 'string' ? question.section.trim() : '';
+  if (section) return section.toUpperCase();
+  const prompt = typeof question.prompt === 'string' ? question.prompt : '';
+  const fromPrompt = prompt.match(/section\s+([A-Z])/i)?.[1];
+  if (fromPrompt) return fromPrompt.toUpperCase();
+  return fallback?.toUpperCase() ?? '';
+}
+
+function normalizeMatchingHeadingsGroup(group: Json): Json {
+  const rawQuestions = asArray<Json>(group.questions);
+  const legacyExample = rawQuestions.find((q) => q.isExample === true);
+  let example = isObject(group.example) ? group.example : undefined;
+
+  if (legacyExample && !example) {
+    const section = resolveMatchingSection(legacyExample);
+    const headingId =
+      typeof legacyExample.exampleHeadingId === 'string'
+        ? legacyExample.exampleHeadingId.trim()
+        : '';
+    if (section && headingId) {
+      example = { section, headingId };
+    }
+  } else if (example) {
+    const section =
+      typeof example.section === 'string' ? example.section.trim().toUpperCase() : '';
+    const headingId =
+      typeof example.headingId === 'string' ? example.headingId.trim() : '';
+    example = section && headingId ? { section, headingId } : undefined;
+  }
+
+  const exampleSection =
+    example && typeof example.section === 'string'
+      ? example.section.trim().toUpperCase()
+      : undefined;
+
+  const questions = rawQuestions
+    .filter((q) => q.isExample !== true)
+    .map((q) => ({
+      n: q.n,
+      prompt: q.prompt,
+      section: q.section,
+    }))
+    .filter((q) => {
+      if (!exampleSection) return true;
+      return resolveMatchingSection(q) !== exampleSection;
+    });
+
+  return { ...group, example, questions };
+}
+
 function repairQuestionGroup(group: unknown): Json {
   if (!isObject(group)) {
     return { type: 'instruction_screen', body: '' };
@@ -52,13 +103,18 @@ function repairQuestionGroup(group: unknown): Json {
         zones: asArray(g.zones),
       };
     case 'matching':
-    case 'matching_headings':
     case 'matching_features':
       return {
         ...g,
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
+    case 'matching_headings':
+      return normalizeMatchingHeadingsGroup({
+        ...g,
+        options: asArray(g.options),
+        questions: asArray(g.questions),
+      });
     case 'flowchart_completion':
       return {
         ...g,

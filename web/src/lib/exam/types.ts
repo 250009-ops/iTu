@@ -93,15 +93,13 @@ export interface McqMultiGroup extends BaseGroup {
 export interface MatchingGroup extends BaseGroup {
   type: "matching" | "matching_headings";
   options: MatchOption[];
+  /** Pre-filled example section for matching_headings (not scored, no question number). */
+  example?: { section: string; headingId: string };
   questions: {
     n: number;
     prompt: string;
     /** Passage section letter for matching_headings */
     section?: string;
-    /** Shown pre-filled in the exam (matching_headings only). */
-    isExample?: boolean;
-    /** Heading id displayed for example sections (from content, not answer key). */
-    exampleHeadingId?: string;
   }[];
 }
 

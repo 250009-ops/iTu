@@ -30,12 +30,11 @@ import {
 import {
   defaultMatchingHeadingsInstruction,
   isAutoMatchingHeadingsInstruction,
-  matchingHeadingsSectionLetters,
+  normalizeMatchingHeadingsGroup,
   resolveMatchingSection,
 } from "@/lib/exam/matching-headings";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
 import type { FlowchartCompletionGroup, MatchingGroup, QuestionGroup } from "@/lib/exam/types";
-import { cn } from "@/lib/utils";
 
 type Props = {
   group: QuestionGroup;
@@ -49,32 +48,36 @@ type Props = {
 
 function patchMatchingHeadingsGroup(
   group: MatchingGroup,
-  questions: MatchingGroup["questions"],
+  patch: Partial<MatchingGroup>,
   passageParagraphs: { marker?: string }[] | undefined,
 ): MatchingGroup {
   const sections = passageSectionLabels(passageParagraphs);
-  const sectionLetters = matchingHeadingsSectionLetters(questions, sections);
-  const instruction = isAutoMatchingHeadingsInstruction(group.instruction)
-    ? defaultMatchingHeadingsInstruction(sectionLetters)
-    : group.instruction;
+  const merged = normalizeMatchingHeadingsGroup({ ...group, ...patch });
+  const instruction = isAutoMatchingHeadingsInstruction(merged.instruction)
+    ? defaultMatchingHeadingsInstruction(sections)
+    : merged.instruction;
+  const questions = merged.questions;
   return {
-    ...group,
-    questions,
+    ...merged,
     instruction,
-    to: questions.length ? questions[questions.length - 1]!.n : group.from,
+    from: questions[0]?.n ?? merged.from,
+    to: questions.length ? questions[questions.length - 1]!.n : merged.from,
   };
 }
 
-function syncExampleHeadingFromKey(
-  questions: MatchingGroup["questions"],
-  answerKey: AnswerKeyMap,
-): MatchingGroup["questions"] {
-  return questions.map((q) => {
-    if (!q.isExample) return q;
-    const raw = answerKey[String(q.n)];
-    const headingId = typeof raw === "string" ? raw.trim() : "";
-    return headingId ? { ...q, exampleHeadingId: headingId } : q;
-  });
+function usedMatchingSections(
+  group: MatchingGroup,
+  includeExample = true,
+): Set<string> {
+  const used = new Set(
+    group.questions
+      .map((q) => resolveMatchingSection(q).toUpperCase())
+      .filter(Boolean),
+  );
+  if (includeExample && group.example?.section) {
+    used.add(group.example.section.toUpperCase());
+  }
+  return used;
 }
 
 export function QuestionGroupEditor({
@@ -290,84 +293,66 @@ function renderBody(
       );
 
     case "matching_headings": {
-      const mhGroup = group as MatchingGroup;
+      const mhGroup = normalizeMatchingHeadingsGroup(group as MatchingGroup);
       const sections = passageSectionLabels(passageParagraphs);
 
-      function commitHeadings(questions: MatchingGroup["questions"]) {
-        onChange(patchMatchingHeadingsGroup(mhGroup, questions, passageParagraphs));
+      function commit(patch: Partial<MatchingGroup>) {
+        onChange(patchMatchingHeadingsGroup(mhGroup, patch, passageParagraphs));
       }
 
-      function setExample(idx: number, checked: boolean) {
-        const questions = mhGroup.questions.map((q, i) => {
-          if (checked && i !== idx) {
-            return { ...q, isExample: false, exampleHeadingId: undefined };
-          }
-          if (i !== idx) return q;
-          const raw = answerKey[String(q.n)];
-          const headingId = typeof raw === "string" ? raw.trim() : "";
-          return {
-            ...q,
-            isExample: checked,
-            exampleHeadingId: checked && headingId ? headingId : undefined,
-          };
-        });
-        commitHeadings(questions);
-      }
-
-      function handleHeadingsAnswerKey(key: AnswerKeyMap) {
-        onAnswerKeyChange(key);
-        const questions = syncExampleHeadingFromKey(mhGroup.questions, key);
-        const changed = questions.some(
-          (q, i) =>
-            q.isExample !== mhGroup.questions[i]?.isExample ||
-            q.exampleHeadingId !== mhGroup.questions[i]?.exampleHeadingId,
-        );
-        if (changed) {
-          onChange(patchMatchingHeadingsGroup(mhGroup, questions, passageParagraphs));
-        }
+      function commitQuestions(questions: MatchingGroup["questions"]) {
+        commit({ questions });
       }
 
       return (
         <div className="space-y-3">
           <p className="text-xs text-muted">
             Students drag headings onto drop zones above each section in the passage.
-            Map each question to a passage section. Mark one section as an example to
-            show it pre-filled in the exam.
+            Optionally show one pre-filled example section — it does not use a question
+            number and is not scored.
           </p>
           <HeadingsBankEditor
             options={mhGroup.options}
-            onChange={(options) => onChange({ ...mhGroup, options })}
+            onChange={(options) => commit({ options })}
           />
-          {mhGroup.questions.map((q, idx) => {
-            const section =
-              q.section?.trim() ||
-              resolveMatchingSection(q, sections[idx]) ||
-              sections[0] ||
-              "A";
-            return (
-              <div
-                key={q.n}
-                className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
-              >
-                <span
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white",
-                    q.isExample ? "bg-amber-600" : "bg-navy",
-                  )}
-                >
-                  {q.isExample ? "Ex" : q.n}
-                </span>
+
+          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-amber-950">
+              <input
+                type="checkbox"
+                checked={Boolean(mhGroup.example)}
+                onChange={(e) => {
+                  if (!e.target.checked) {
+                    commit({ example: undefined });
+                    return;
+                  }
+                  const section = sections[0] ?? "A";
+                  const headingId = mhGroup.options[0]?.id ?? "i";
+                  const questions = mhGroup.questions.filter(
+                    (q) => resolveMatchingSection(q).toUpperCase() !== section.toUpperCase(),
+                  );
+                  commit({
+                    example: { section: section.toUpperCase(), headingId },
+                    questions,
+                  });
+                }}
+                className="rounded border-border"
+              />
+              Example section (pre-filled, not scored)
+            </label>
+            {mhGroup.example && (
+              <div className="flex flex-wrap items-center gap-2">
                 <select
-                  value={section}
+                  value={mhGroup.example.section}
                   onChange={(e) => {
-                    const questions = [...mhGroup.questions];
-                    const letter = e.target.value;
-                    questions[idx] = {
-                      ...q,
-                      section: letter,
-                      prompt: `Section ${letter}`,
-                    };
-                    commitHeadings(questions);
+                    const section = e.target.value.toUpperCase();
+                    const questions = mhGroup.questions.filter(
+                      (q) => resolveMatchingSection(q).toUpperCase() !== section,
+                    );
+                    commit({
+                      example: { ...mhGroup.example!, section },
+                      questions,
+                    });
                   }}
                   className="h-9 rounded-md border border-border bg-white px-2 text-sm"
                 >
@@ -377,24 +362,68 @@ function renderBody(
                     </option>
                   ))}
                 </select>
-                <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-center">
-                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(q.isExample)}
-                      onChange={(e) => setExample(idx, e.target.checked)}
-                      className="rounded border-border"
-                    />
-                    Example (pre-filled)
-                  </label>
-                  <AnswerKeyField
-                    questionNumber={q.n}
-                    answerKey={answerKey}
-                    onChange={handleHeadingsAnswerKey}
-                    type="option"
-                    options={mhGroup.options.map((o) => o.id)}
-                  />
-                </div>
+                <select
+                  value={mhGroup.example.headingId}
+                  onChange={(e) =>
+                    commit({
+                      example: { ...mhGroup.example!, headingId: e.target.value },
+                    })
+                  }
+                  className="h-9 min-w-[10rem] rounded-md border border-border bg-white px-2 text-sm"
+                >
+                  {mhGroup.options.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {mhGroup.questions.map((q, idx) => {
+            const used = usedMatchingSections(mhGroup, true);
+            const section =
+              q.section?.trim().toUpperCase() ||
+              resolveMatchingSection(q, sections[idx]) ||
+              sections.find((s) => !used.has(s)) ||
+              sections[0] ||
+              "A";
+            return (
+              <div
+                key={`${q.n}-${idx}`}
+                className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
+                  {q.n}
+                </span>
+                <select
+                  value={section}
+                  onChange={(e) => {
+                    const questions = [...mhGroup.questions];
+                    const letter = e.target.value.toUpperCase();
+                    questions[idx] = {
+                      ...q,
+                      section: letter,
+                      prompt: `Section ${letter}`,
+                    };
+                    commitQuestions(questions);
+                  }}
+                  className="h-9 rounded-md border border-border bg-white px-2 text-sm"
+                >
+                  {sections.map((s) => (
+                    <option key={s} value={s}>
+                      Section {s}
+                    </option>
+                  ))}
+                </select>
+                <AnswerKeyField
+                  questionNumber={q.n}
+                  answerKey={answerKey}
+                  onChange={onAnswerKeyChange}
+                  type="option"
+                  options={mhGroup.options.map((o) => o.id)}
+                />
                 <Button
                   type="button"
                   variant="secondary"
@@ -404,9 +433,9 @@ function renderBody(
                   onClick={() => {
                     const next = removeQuestionAt(mhGroup.questions, idx, 1);
                     if (!next) return;
-                    commitHeadings(next);
+                    commitQuestions(next);
                   }}
-                  aria-label={`Remove section ${q.n}`}
+                  aria-label={`Remove question ${q.n}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -418,11 +447,17 @@ function renderBody(
               variant="secondary"
               size="sm"
               onClick={() => {
+                const used = usedMatchingSections(mhGroup, true);
+                const letter = sections.find((s) => !used.has(s.toUpperCase()));
+                if (!letter) return;
                 const n = mhGroup.to + 1;
-                const letter = sections[mhGroup.questions.length] ?? "A";
-                commitHeadings([
+                commitQuestions([
                   ...mhGroup.questions,
-                  { n, prompt: `Section ${letter}`, section: letter },
+                  {
+                    n,
+                    prompt: `Section ${letter}`,
+                    section: letter.toUpperCase(),
+                  },
                 ]);
               }}
             >
@@ -433,10 +468,14 @@ function renderBody(
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  commitHeadings(
-                    sections.map((s, i) => ({
+                  const exampleSection = mhGroup.example?.section?.toUpperCase();
+                  const scoredSections = sections.filter(
+                    (s) => s.toUpperCase() !== exampleSection,
+                  );
+                  commitQuestions(
+                    scoredSections.map((s, i) => ({
                       n: mhGroup.from + i,
-                      section: s,
+                      section: s.toUpperCase(),
                       prompt: `Section ${s}`,
                     })),
                   );

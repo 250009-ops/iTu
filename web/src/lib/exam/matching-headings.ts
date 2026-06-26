@@ -49,14 +49,39 @@ export function isAutoMatchingHeadingsInstruction(instruction: string | undefine
   return /^The text has \w+ sections,/i.test(instruction.trim());
 }
 
-export function matchingHeadingsSectionLetters(
-  questions: MatchingQuestion[],
-  paragraphMarkers: string[],
-): string[] {
-  return questions
-    .filter((q) => !q.isExample)
-    .map((q, idx) => resolveMatchingSection(q, paragraphMarkers[idx]))
-    .filter(Boolean);
+export function normalizeMatchingHeadingsGroup(group: MatchingGroup): MatchingGroup {
+  if (group.type !== "matching_headings") return group;
+
+  const rawQuestions = group.questions ?? [];
+  const legacyExample = rawQuestions.find(
+    (q) => (q as { isExample?: boolean }).isExample,
+  ) as (MatchingQuestion & { isExample?: boolean; exampleHeadingId?: string }) | undefined;
+
+  let example = group.example;
+  if (legacyExample && !example) {
+    const section = resolveMatchingSection(legacyExample).toUpperCase();
+    const headingId = legacyExample.exampleHeadingId?.trim() ?? "";
+    if (section && headingId) {
+      example = { section, headingId };
+    }
+  } else if (example?.section) {
+    example = {
+      section: example.section.trim().toUpperCase(),
+      headingId: example.headingId?.trim() ?? "",
+    };
+    if (!example.headingId) example = undefined;
+  }
+
+  const exampleSection = example?.section?.toUpperCase();
+  const questions = rawQuestions
+    .filter((q) => !(q as { isExample?: boolean }).isExample)
+    .map(({ n, prompt, section }) => ({ n, prompt, section }))
+    .filter((q) => {
+      if (!exampleSection) return true;
+      return resolveMatchingSection(q).toUpperCase() !== exampleSection;
+    });
+
+  return { ...group, example, questions };
 }
 
 export function resolveMatchingSection(
@@ -78,9 +103,11 @@ export function sectionQuestionMap(
   paragraphMarkers: string[],
 ): Map<string, MatchingQuestion> {
   const map = new Map<string, MatchingQuestion>();
+  const exampleSection = group.example?.section?.trim().toUpperCase();
   group.questions.forEach((q, idx) => {
-    const section = resolveMatchingSection(q, paragraphMarkers[idx]);
-    if (section) map.set(section, q);
+    const section = resolveMatchingSection(q, paragraphMarkers[idx]).toUpperCase();
+    if (!section || section === exampleSection) return;
+    map.set(section, q);
   });
   return map;
 }
@@ -94,15 +121,12 @@ export function headingLabel(
 }
 
 export function usedHeadingIds(
-  questions: { n: number; isExample?: boolean; exampleHeadingId?: string }[],
+  group: Pick<MatchingGroup, "example" | "questions">,
   answers: Record<number, string>,
 ): Set<string> {
   const used = new Set<string>();
-  for (const q of questions) {
-    if (q.isExample && q.exampleHeadingId) {
-      used.add(q.exampleHeadingId);
-      continue;
-    }
+  if (group.example?.headingId) used.add(group.example.headingId);
+  for (const q of group.questions) {
     const v = answers[q.n];
     if (typeof v === "string" && v) used.add(v);
   }

@@ -492,8 +492,7 @@ function GroupBody({
       });
       return (
         <MatchingHeadingsControl
-          options={group.options}
-          questions={group.questions}
+          group={group}
           answers={map}
           current={current}
           onFocus={onFocus}

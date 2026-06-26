@@ -15,6 +15,7 @@ import type {
   WritingContent,
 } from "@/lib/exam/types";
 import { normalizeCompletionLines } from "@/lib/exam/inline-content";
+import { normalizeMatchingHeadingsGroup } from "@/lib/exam/matching-headings";
 
 function asArray<T>(value: unknown, fallback: T[] = []): T[] {
   return Array.isArray(value) ? value : fallback;
@@ -32,12 +33,20 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
       };
     case "matching":
     case "matching_headings":
-    case "matching_features":
+    case "matching_features": {
+      if (g.type === "matching_headings") {
+        return normalizeMatchingHeadingsGroup({
+          ...g,
+          options: asArray(g.options),
+          questions: asArray(g.questions),
+        });
+      }
       return {
         ...g,
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
+    }
     case "flowchart_completion":
       return {
         ...g,

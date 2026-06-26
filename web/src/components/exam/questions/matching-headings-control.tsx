@@ -1,19 +1,12 @@
 "use client";
 
-import type { MatchOption } from "@/lib/exam/types";
+import type { MatchOption, MatchingGroup } from "@/lib/exam/types";
 import { usedHeadingIds } from "@/lib/exam/matching-headings";
 import { useReadingHeadings } from "@/components/exam/reading/reading-headings-context";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  options: MatchOption[];
-  questions: {
-    n: number;
-    prompt: string;
-    section?: string;
-    isExample?: boolean;
-    exampleHeadingId?: string;
-  }[];
+  group: Pick<MatchingGroup, "options" | "questions" | "example">;
   answers: Record<number, string>;
   current: number | null;
   onFocus: (n: number) => void;
@@ -21,19 +14,26 @@ type Props = {
 
 /** Right pane: heading bank for matching headings (drop targets live on the passage). */
 export function MatchingHeadingsControl({
-  options,
-  questions,
+  group,
   answers,
   current,
   onFocus,
 }: Props) {
+  const { options, questions } = group;
   const ctx = useReadingHeadings();
   const picked = ctx?.pickedHeadingId ?? null;
   const setPicked = ctx?.setPickedHeadingId ?? (() => {});
-  const used = usedHeadingIds(questions, answers);
+  const used = usedHeadingIds(group, answers);
 
   return (
     <div className="space-y-4">
+      {group.example && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[13px] text-amber-950">
+          Section {group.example.section} is shown as an example in the passage (pre-filled).
+          Answer questions {questions[0]?.n}
+          {questions.length > 1 ? `–${questions[questions.length - 1]!.n}` : ""} below.
+        </p>
+      )}
       <p className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-[13px] text-sky-900">
         Drag a heading onto the drop zone above each section in the passage (left
         pane), or click a heading then click a drop zone.
@@ -80,46 +80,35 @@ export function MatchingHeadingsControl({
 
       <div className="space-y-1.5">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-          Sections
+          Questions
         </p>
         <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
           {questions.map((q) => {
-            const assignedId =
-              q.isExample && q.exampleHeadingId ? q.exampleHeadingId : answers[q.n];
-            const assigned = options.find((o) => o.id === assignedId);
+            const assigned = options.find((o) => o.id === answers[q.n]);
             const isActive = current === q.n;
             return (
               <li key={q.n} id={`q-${q.n}`} className="scroll-mt-20">
                 <button
                   type="button"
-                  onClick={() => !q.isExample && onFocus(q.n)}
-                  disabled={q.isExample}
+                  onClick={() => onFocus(q.n)}
                   className={cn(
                     "flex w-full items-center gap-3 px-3 py-2.5 text-left transition",
                     isActive && "bg-sky-50",
-                    q.isExample && "cursor-default bg-amber-50/50",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[12px] font-bold text-white",
-                      q.isExample ? "bg-amber-600" : "bg-navy",
-                    )}
-                  >
-                    {q.isExample ? "Ex" : q.n}
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[12px] font-bold text-white">
+                    {q.n}
                   </span>
                   <span className="min-w-0 flex-1 text-[13px] text-slate-700">
                     {q.section ? `Section ${q.section}` : q.prompt}
-                    {q.isExample ? " (example)" : ""}
                   </span>
                   <span
                     className={cn(
                       "max-w-[45%] truncate text-[12px]",
                       assigned ? "font-medium text-emerald-700" : "text-slate-400",
-                      q.isExample && assigned && "text-amber-800",
                     )}
                   >
-                    {assigned ? assigned.label : q.isExample ? "Set answer in admin" : "Not assigned"}
+                    {assigned ? assigned.label : "Not assigned"}
                   </span>
                 </button>
               </li>
