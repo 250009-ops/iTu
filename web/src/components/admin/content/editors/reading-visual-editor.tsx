@@ -22,6 +22,10 @@ import {
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
 import type { QuestionGroup, ReadingContent } from "@/lib/exam/types";
+import {
+  nextPassageMarker,
+  normalizePassageMarker,
+} from "@/lib/exam/passage-sections";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -215,7 +219,7 @@ export function ReadingVisualEditor({
                 paragraphs: [
                   ...passage.paragraphs,
                   {
-                    marker: String.fromCharCode(65 + passage.paragraphs.length),
+                    marker: nextPassageMarker(passage.paragraphs),
                     text: "",
                   },
                 ],
@@ -235,7 +239,14 @@ export function ReadingVisualEditor({
                   paragraphs[idx] = { ...para, marker: e.target.value };
                   updatePassage({ paragraphs });
                 }}
-                className="h-8 w-16 text-center font-bold"
+                onBlur={(e) => {
+                  const normalized = normalizePassageMarker(e.target.value);
+                  if (normalized === (para.marker ?? "")) return;
+                  const paragraphs = [...passage.paragraphs];
+                  paragraphs[idx] = { ...para, marker: normalized || undefined };
+                  updatePassage({ paragraphs });
+                }}
+                className="h-8 w-16 text-center font-bold uppercase"
                 placeholder="A"
               />
               <Button
@@ -244,7 +255,11 @@ export function ReadingVisualEditor({
                 className="ml-auto h-8 text-red-600"
                 onClick={() => {
                   const paragraphs = passage.paragraphs.filter((_, i) => i !== idx);
-                  updatePassage({ paragraphs: paragraphs.length ? paragraphs : [{ text: "" }] });
+                  updatePassage({
+                    paragraphs: paragraphs.length
+                      ? paragraphs
+                      : [{ marker: "A", text: "" }],
+                  });
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5" />

@@ -750,7 +750,21 @@ function renderBody(
         />
       );
 
-    case "flowchart_completion":
+    case "flowchart_completion": {
+      const answerMode = group.answerMode ?? "option";
+      const isTextMode = answerMode === "text";
+
+      function setAnswerMode(mode: "option" | "text") {
+        onChange({
+          ...group,
+          answerMode: mode,
+          hint:
+            mode === "text"
+              ? "Write the correct word or phrase for each step."
+              : "Choose answers from the box and write the correct letter next to questions.",
+        });
+      }
+
       return (
         <div className="space-y-3">
           <div className="space-y-2">
@@ -760,22 +774,31 @@ function renderBody(
               onChange={(e) => onChange({ ...group, title: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label className="text-xs">Options bank</Label>
-            {group.options.map((opt, idx) => (
-              <div key={opt.id} className="flex items-center gap-2">
-                <span className="w-8 text-xs font-bold">{opt.id}</span>
-                <Input
-                  value={opt.label}
-                  onChange={(e) => {
-                    const options = [...group.options];
-                    options[idx] = { ...opt, label: e.target.value };
-                    onChange({ ...group, options });
-                  }}
-                />
-              </div>
-            ))}
+            <Label className="text-xs">How candidates answer</Label>
+            <select
+              value={answerMode}
+              onChange={(e) => setAnswerMode(e.target.value as "option" | "text")}
+              className="h-9 w-full max-w-md rounded-md border border-border bg-white px-2 text-sm"
+            >
+              <option value="option">Choose from options bank (A, B, C…)</option>
+              <option value="text">Write the answer (words or numbers)</option>
+            </select>
+            <p className="text-xs text-muted">
+              {isTextMode
+                ? "Use when students type answers from the passage or audio (no letter bank)."
+                : "Use when students pick a letter from the options box for each gap."}
+            </p>
           </div>
+
+          {!isTextMode && (
+            <MatchOptionsBankEditor
+              options={group.options}
+              onChange={(options) => onChange({ ...group, options })}
+            />
+          )}
+
           <div className="space-y-2">
             <Label className="text-xs">Flow nodes (top to bottom)</Label>
             {group.nodes.map((node, idx) => (
@@ -816,7 +839,7 @@ function renderBody(
                       questionNumber={node.n}
                       answerKey={answerKey}
                       onChange={onAnswerKeyChange}
-                      type="option"
+                      type={isTextMode ? "text" : "option"}
                       options={group.options.map((o) => o.id)}
                     />
                   </>
@@ -867,6 +890,7 @@ function renderBody(
           </div>
         </div>
       );
+    }
 
     case "instruction_screen":
       return (

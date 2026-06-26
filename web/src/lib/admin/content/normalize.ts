@@ -41,6 +41,7 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "flowchart_completion":
       return {
         ...g,
+        answerMode: g.answerMode === "text" ? "text" : "option",
         options: asArray(g.options),
         nodes: asArray(g.nodes),
       };

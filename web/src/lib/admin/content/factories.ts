@@ -364,6 +364,7 @@ export function createQuestionGroup(
         to,
         instruction: "Complete the flow-chart below.",
         hint: "Choose SIX answers from the box and write the correct letter next to questions.",
+        answerMode: "option",
         title: "Process overview",
         options: [
           { id: "A", label: "A. Step one" },

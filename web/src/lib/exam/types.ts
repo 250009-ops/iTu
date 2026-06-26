@@ -134,6 +134,8 @@ export type FlowchartNode =
 export interface FlowchartCompletionGroup extends BaseGroup {
   type: "flowchart_completion";
   title?: string;
+  /** How candidates answer gaps: pick a letter from the box, or type text. */
+  answerMode?: "option" | "text";
   options: MatchOption[];
   nodes: FlowchartNode[];
 }

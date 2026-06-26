@@ -581,15 +581,17 @@ function GroupBody({
       return (
         <FlowchartCompletionControl
           title={group.title}
+          answerMode={group.answerMode}
           nodes={nodes}
           options={group.options ?? []}
           answers={map}
           current={current}
           onAssign={(n, id) => {
             onFocus(n);
-            onAnswer(n, id);
+            onAnswer(n, id ?? "");
           }}
           onFocus={onFocus}
+          onPasteBlocked={onPasteBlocked}
         />
       );
     }
