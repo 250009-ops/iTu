@@ -252,14 +252,35 @@ export function renumberListeningContent(content: ListeningContent): ListeningCo
 }
 
 export function renumberReadingContent(content: ReadingContent): ReadingContent {
+  let nextQuestion = 1;
   const passages = (content.passages ?? []).map((passage) => {
-    const range = partitionForPart("reading", passage.part);
+    const groups = renumberPartitionGroups(passage.groups ?? [], nextQuestion);
+    nextQuestion += collectOrderedNumbers(groups).length;
     return {
       ...passage,
-      groups: renumberPartitionGroups(passage.groups ?? [], range.from),
+      groups,
     };
   });
   return { ...content, passages };
+}
+
+/** First question number when adding groups to a reading passage (sequential across passages). */
+export function readingPassageStartNumber(
+  passages: ReadingPassage[],
+  index: number,
+): number {
+  const passage = passages[index];
+  const currentNums = collectOrderedNumbers(passage?.groups ?? []);
+  if (currentNums.length > 0) {
+    return Math.min(...currentNums);
+  }
+  const previousNums = passages
+    .slice(0, index)
+    .flatMap((p) => collectOrderedNumbers(p.groups ?? []));
+  if (previousNums.length > 0) {
+    return Math.max(...previousNums) + 1;
+  }
+  return partitionForPart("reading", passage?.part ?? index + 1).from;
 }
 
 export function renumberModuleContent(

@@ -14,7 +14,7 @@ import {
 } from "@/lib/admin/content/factories";
 import {
   collectOrderedNumbers,
-  partitionForPart,
+  readingPassageStartNumber,
   renumberReadingContent,
   remapAnswerKeyByOrder,
   remapAnswerKeyForReadingContent,
@@ -50,12 +50,7 @@ export function ReadingVisualEditor({
   const passage = passages[activeIdx];
 
   function startNumberForPassage(index: number): number {
-    const p = passages[index];
-    const currentNums = collectOrderedNumbers(p?.groups ?? []);
-    if (currentNums.length > 0) {
-      return Math.min(...currentNums);
-    }
-    return partitionForPart("reading", p?.part ?? index + 1).from;
+    return readingPassageStartNumber(passages, index);
   }
 
   function questionRangeText(groups: QuestionGroup[]): string {
