@@ -35,21 +35,25 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         questions: asArray(g.questions),
       };
     case "matching":
-    case "matching_headings":
-    case "matching_features": {
-      if (g.type === "matching_headings") {
-        return normalizeMatchingHeadingsGroup({
-          ...g,
-          options: asArray(g.options),
-          questions: asArray(g.questions),
-        });
-      }
       return {
         ...g,
+        reuseOptions: g.reuseOptions !== false && (g.reuseOptions === true || /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ""))),
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
-    }
+    case "matching_headings":
+      return normalizeMatchingHeadingsGroup({
+        ...g,
+        options: asArray(g.options),
+        questions: asArray(g.questions),
+      });
+    case "matching_features":
+      return {
+        ...g,
+        reuseOptions: g.reuseOptions !== false && (g.reuseOptions === true || /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ""))),
+        options: asArray(g.options),
+        questions: asArray(g.questions),
+      };
     case "flowchart_completion":
       return {
         ...g,

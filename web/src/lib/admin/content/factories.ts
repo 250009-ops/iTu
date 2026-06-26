@@ -10,6 +10,10 @@ import type {
 import { defaultMatchOptions } from "@/lib/admin/content/match-editor-helpers";
 import { newId } from "@/lib/admin/content/utils";
 import { defaultMatchingHeadingsInstruction } from "@/lib/exam/matching-headings";
+import {
+  defaultListeningMatchingHint,
+  defaultMatchingFeaturesHint,
+} from "@/lib/exam/matching-options";
 
 export function emptyReadingContent(title = "Reading"): ReadingContent {
   return {
@@ -223,7 +227,8 @@ export function createQuestionGroup(
         to,
         instruction:
           "Look at the following statements and the list of options below.",
-        hint: "Drag the correct letter next to each question. NB You may use any letter more than once.",
+        hint: defaultListeningMatchingHint(true),
+        reuseOptions: true,
         options: defaultMatchOptions(5),
         questions: [{ n: from, prompt: "" }],
       };
@@ -387,7 +392,11 @@ export function createQuestionGroup(
         body: "You will hear a number of different recordings and you will have to answer questions on what you hear.\n\nThere will be time for you to read the questions and you will have a chance to check your work.\n\nAll the recordings will be played once only.",
         buttonLabel: "Next",
       };
-    case "matching_features":
+    case "matching_features": {
+      const options = defaultMatchOptions(7).map((o) => ({
+        ...o,
+        label: `Person ${o.id}`,
+      }));
       return {
         id,
         type,
@@ -395,13 +404,12 @@ export function createQuestionGroup(
         to,
         instruction:
           "Look at the following statements and the list of people below.",
-        hint: "Match each statement with the correct person, A–G. NB You may use any letter more than once.",
+        hint: defaultMatchingFeaturesHint(options, true),
+        reuseOptions: true,
         listTitle: "List of people",
-        options: defaultMatchOptions(7).map((o) => ({
-          ...o,
-          label: `Person ${o.id}`,
-        })),
+        options,
         questions: [{ n: from, prompt: "" }],
       };
+    }
   }
 }

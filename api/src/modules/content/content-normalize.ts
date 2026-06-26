@@ -109,6 +109,10 @@ function repairQuestionGroup(group: unknown): Json {
     case 'matching_features':
       return {
         ...g,
+        reuseOptions:
+          g.reuseOptions !== false &&
+          (g.reuseOptions === true ||
+            /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ''))),
         options: asArray(g.options),
         questions: asArray(g.questions),
       };

@@ -25,6 +25,7 @@ import { SummaryCompletionListControl } from "./summary-completion-list-control"
 import { MapLabeling } from "./map-labeling";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import { passageSectionLabels } from "@/lib/exam/passage-sections";
+import { inferMatchingReuseOptions } from "@/lib/exam/matching-options";
 
 interface QuestionGroupProps {
   group: Group;
@@ -512,6 +513,7 @@ function GroupBody({
           questions={group.questions}
           answers={map}
           current={current}
+          reuseOptions={inferMatchingReuseOptions(group)}
           onAssign={(n, id) => {
             onFocus(n);
             onAnswer(n, id);
@@ -559,6 +561,7 @@ function GroupBody({
           questions={group.questions}
           answers={map}
           current={current}
+          reuseOptions={inferMatchingReuseOptions(group)}
           onAssign={(n, id) => {
             onFocus(n);
             onAnswer(n, id);

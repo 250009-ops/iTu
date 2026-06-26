@@ -93,6 +93,8 @@ export interface McqMultiGroup extends BaseGroup {
 export interface MatchingGroup extends BaseGroup {
   type: "matching" | "matching_headings";
   options: MatchOption[];
+  /** When true, the same option letter may be used for multiple questions (listening matching). */
+  reuseOptions?: boolean;
   /** Pre-filled example section for matching_headings (not scored, no question number). */
   example?: { section: string; headingId: string };
   questions: {
@@ -176,6 +178,8 @@ export interface MatchingFeaturesGroup extends BaseGroup {
   type: "matching_features";
   /** Heading above the feature/person list, e.g. "List of researchers". */
   listTitle?: string;
+  /** When true, the same option letter may be used for multiple questions (shows NB). */
+  reuseOptions?: boolean;
   options: MatchOption[];
   questions: { n: number; prompt: string }[];
 }

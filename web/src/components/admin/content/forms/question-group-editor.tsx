@@ -33,8 +33,12 @@ import {
   normalizeMatchingHeadingsGroup,
   resolveMatchingSection,
 } from "@/lib/exam/matching-headings";
+import {
+  inferMatchingReuseOptions,
+  matchingHintWithReuse,
+} from "@/lib/exam/matching-options";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
-import type { FlowchartCompletionGroup, MatchingGroup, QuestionGroup } from "@/lib/exam/types";
+import type { FlowchartCompletionGroup, MatchingFeaturesGroup, MatchingGroup, QuestionGroup } from "@/lib/exam/types";
 
 type Props = {
   group: QuestionGroup;
@@ -78,6 +82,44 @@ function usedMatchingSections(
     used.add(group.example.section.toUpperCase());
   }
   return used;
+}
+
+function MatchingReuseOptionsField({
+  group,
+  onChange,
+}: {
+  group: { reuseOptions?: boolean; hint?: string };
+  onChange: (patch: { reuseOptions: boolean; hint: string }) => void;
+}) {
+  const reuse = inferMatchingReuseOptions(group);
+  return (
+    <div className="rounded-lg border border-border bg-white p-3">
+      <label className="flex cursor-pointer items-start gap-2.5">
+        <input
+          type="checkbox"
+          checked={reuse}
+          onChange={(e) => {
+            const reuseOptions = e.target.checked;
+            onChange({
+              reuseOptions,
+              hint: matchingHintWithReuse(group.hint ?? "", reuseOptions),
+            });
+          }}
+          className="mt-0.5 rounded border-border"
+        />
+        <span>
+          <span className="text-sm font-medium text-navy">
+            Allow reusing the same letter (NB)
+          </span>
+          <span className="mt-0.5 block text-xs text-muted">
+            When checked, the hint adds &quot;NB You may use any letter more than
+            once&quot; and students can assign the same letter to multiple questions.
+            When unchecked, each letter can only be used once.
+          </span>
+        </span>
+      </label>
+    </div>
+  );
 }
 
 export function QuestionGroupEditor({
@@ -492,6 +534,10 @@ function renderBody(
     case "matching":
       return (
         <div className="space-y-3">
+          <MatchingReuseOptionsField
+            group={group}
+            onChange={(patch) => onChange({ ...group, ...patch })}
+          />
           <MatchOptionsBankEditor
             options={group.options}
             onChange={(options) => onChange({ ...group, options })}
@@ -1041,6 +1087,10 @@ function renderBody(
     case "matching_features":
       return (
         <div className="space-y-3">
+          <MatchingReuseOptionsField
+            group={group}
+            onChange={(patch) => onChange({ ...group, ...patch })}
+          />
           <div className="space-y-2">
             <Label className="text-xs">Feature list title</Label>
             <Input

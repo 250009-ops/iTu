@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { MatchOption } from "@/lib/exam/types";
+import { usedMatchOptionIds } from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 interface MatchingControlProps {
@@ -10,6 +11,7 @@ interface MatchingControlProps {
   questions: { n: number; prompt: string }[];
   answers: Record<number, string>;
   current: number | null;
+  reuseOptions?: boolean;
   onAssign: (n: number, optionId: string | null) => void;
   onFocus: (n: number) => void;
 }
@@ -23,40 +25,64 @@ export function MatchingControl({
   questions,
   answers,
   current,
+  reuseOptions = true,
   onAssign,
   onFocus,
 }: MatchingControlProps) {
   const [picked, setPicked] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
+  function assign(n: number, id: string | null) {
+    if (!reuseOptions && id) {
+      for (const q of questions) {
+        if (q.n !== n && answers[q.n] === id) {
+          onAssign(q.n, null);
+        }
+      }
+    }
+    onAssign(n, id);
+  }
+
   const handleSlotActivate = (n: number) => {
     onFocus(n);
     if (picked) {
-      onAssign(n, picked);
+      assign(n, picked);
       setPicked(null);
     }
   };
+
+  const usedElsewhere = (forQuestion: number | null) =>
+    reuseOptions
+      ? new Set<string>()
+      : usedMatchOptionIds(questions, answers, forQuestion ?? undefined);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
         {options.map((opt) => {
           const isPicked = picked === opt.id;
+          const isUsed = usedElsewhere(current).has(opt.id);
           return (
             <button
               key={opt.id}
               type="button"
-              draggable
+              draggable={!isUsed || isPicked}
               onDragStart={(e) => {
+                if (isUsed && !isPicked) return;
                 e.dataTransfer.setData("text/plain", opt.id);
                 e.dataTransfer.effectAllowed = "copy";
               }}
-              onClick={() => setPicked(isPicked ? null : opt.id)}
+              onClick={() => {
+                if (isUsed && !isPicked) return;
+                setPicked(isPicked ? null : opt.id);
+              }}
               className={cn(
-                "cursor-grab rounded-lg border px-3 py-1.5 text-[13px] font-medium transition active:cursor-grabbing",
-                isPicked
-                  ? "border-navy bg-navy text-white shadow-md"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-sky-50",
+                "rounded-lg border px-3 py-1.5 text-[13px] font-medium transition",
+                isUsed && !isPicked
+                  ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400"
+                  : isPicked
+                    ? "cursor-grab border-navy bg-navy text-white shadow-md active:cursor-grabbing"
+                    : "cursor-grab border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-sky-50 active:cursor-grabbing",
               )}
             >
               <span className="font-bold">{opt.id}</span>
@@ -99,7 +125,7 @@ export function MatchingControl({
                 onDrop={(e) => {
                   e.preventDefault();
                   const id = e.dataTransfer.getData("text/plain");
-                  if (id) onAssign(q.n, id);
+                  if (id) assign(q.n, id);
                   setDragOver(null);
                 }}
                 onClick={() => handleSlotActivate(q.n)}
@@ -123,7 +149,7 @@ export function MatchingControl({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAssign(q.n, null);
+                        assign(q.n, null);
                       }}
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-600 hover:bg-emerald-100"
                     >
