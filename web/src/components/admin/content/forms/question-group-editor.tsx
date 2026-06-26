@@ -29,7 +29,7 @@ import {
 } from "@/lib/exam/passage-sections";
 import { resolveMatchingSection } from "@/lib/exam/matching-headings";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
-import type { QuestionGroup } from "@/lib/exam/types";
+import type { FlowchartCompletionGroup, QuestionGroup } from "@/lib/exam/types";
 
 type Props = {
   group: QuestionGroup;
@@ -751,12 +751,13 @@ function renderBody(
       );
 
     case "flowchart_completion": {
-      const answerMode = group.answerMode ?? "option";
+      const fcGroup = group as FlowchartCompletionGroup;
+      const answerMode = fcGroup.answerMode ?? "option";
       const isTextMode = answerMode === "text";
 
       function setAnswerMode(mode: "option" | "text") {
         onChange({
-          ...group,
+          ...fcGroup,
           answerMode: mode,
           hint:
             mode === "text"
@@ -770,8 +771,8 @@ function renderBody(
           <div className="space-y-2">
             <Label className="text-xs">Flow-chart title</Label>
             <Input
-              value={group.title ?? ""}
-              onChange={(e) => onChange({ ...group, title: e.target.value })}
+              value={fcGroup.title ?? ""}
+              onChange={(e) => onChange({ ...fcGroup, title: e.target.value })}
             />
           </div>
 
@@ -794,14 +795,14 @@ function renderBody(
 
           {!isTextMode && (
             <MatchOptionsBankEditor
-              options={group.options}
-              onChange={(options) => onChange({ ...group, options })}
+              options={fcGroup.options}
+              onChange={(options) => onChange({ ...fcGroup, options })}
             />
           )}
 
           <div className="space-y-2">
             <Label className="text-xs">Flow nodes (top to bottom)</Label>
-            {group.nodes.map((node, idx) => (
+            {fcGroup.nodes.map((node, idx) => (
               <div
                 key={idx}
                 className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-white p-3"
@@ -809,12 +810,12 @@ function renderBody(
                 <select
                   value={node.kind}
                   onChange={(e) => {
-                    const nodes = [...group.nodes];
+                    const nodes = [...fcGroup.nodes];
                     nodes[idx] =
                       e.target.value === "text"
                         ? { kind: "text", text: "" }
-                        : { kind: "gap", n: group.from + idx };
-                    onChange({ ...group, nodes });
+                        : { kind: "gap", n: fcGroup.from + idx };
+                    onChange({ ...fcGroup, nodes });
                   }}
                   className="h-9 rounded-md border border-border px-2 text-sm"
                 >
@@ -825,9 +826,9 @@ function renderBody(
                   <Input
                     value={node.text}
                     onChange={(e) => {
-                      const nodes = [...group.nodes];
+                      const nodes = [...fcGroup.nodes];
                       nodes[idx] = { kind: "text", text: e.target.value };
-                      onChange({ ...group, nodes });
+                      onChange({ ...fcGroup, nodes });
                     }}
                     placeholder="Step label"
                     className="flex-1"
@@ -840,7 +841,7 @@ function renderBody(
                       answerKey={answerKey}
                       onChange={onAnswerKeyChange}
                       type={isTextMode ? "text" : "option"}
-                      options={group.options.map((o) => o.id)}
+                      options={fcGroup.options.map((o) => o.id)}
                     />
                   </>
                 )}
@@ -850,8 +851,8 @@ function renderBody(
                   className="h-8 text-red-600"
                   onClick={() =>
                     onChange({
-                      ...group,
-                      nodes: group.nodes.filter((_, i) => i !== idx),
+                      ...fcGroup,
+                      nodes: fcGroup.nodes.filter((_, i) => i !== idx),
                     })
                   }
                 >
@@ -865,8 +866,8 @@ function renderBody(
                 size="sm"
                 onClick={() =>
                   onChange({
-                    ...group,
-                    nodes: [...group.nodes, { kind: "text", text: "" }],
+                    ...fcGroup,
+                    nodes: [...fcGroup.nodes, { kind: "text", text: "" }],
                   })
                 }
               >
@@ -876,11 +877,11 @@ function renderBody(
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  const n = group.to + 1;
+                  const n = fcGroup.to + 1;
                   onChange({
-                    ...group,
+                    ...fcGroup,
                     to: n,
-                    nodes: [...group.nodes, { kind: "gap", n }],
+                    nodes: [...fcGroup.nodes, { kind: "gap", n }],
                   });
                 }}
               >
