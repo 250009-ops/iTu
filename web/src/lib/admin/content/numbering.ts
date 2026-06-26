@@ -244,13 +244,11 @@ export function renumberListeningContent(content: ListeningContent): ListeningCo
 }
 
 export function renumberReadingContent(content: ReadingContent): ReadingContent {
-  let nextQuestion = 1;
   const passages = (content.passages ?? []).map((passage) => {
-    const groups = renumberPartitionGroups(passage.groups ?? [], nextQuestion);
-    nextQuestion += collectOrderedNumbers(groups).length;
+    const range = partitionForPart("reading", passage.part);
     return {
       ...passage,
-      groups,
+      groups: renumberPartitionGroups(passage.groups ?? [], range.from),
     };
   });
   return { ...content, passages };
@@ -317,6 +315,42 @@ export function remapAnswerKeyByOrder(
     }
   }
 
+  return next;
+}
+
+/** Remap answer keys passage-by-passage so edits in one passage never steal another's answers. */
+export function remapAnswerKeyForReadingContent(
+  answerKey: AnswerKeyMap,
+  oldContent: ReadingContent,
+  newContent: ReadingContent,
+): AnswerKeyMap {
+  let next = { ...answerKey };
+  const oldPassages = oldContent.passages ?? [];
+  const newPassages = newContent.passages ?? [];
+  const count = Math.max(oldPassages.length, newPassages.length);
+  for (let i = 0; i < count; i++) {
+    const oldNums = collectOrderedNumbers(oldPassages[i]?.groups ?? []);
+    const newNums = collectOrderedNumbers(newPassages[i]?.groups ?? []);
+    next = remapAnswerKeyByOrder(next, oldNums, newNums);
+  }
+  return next;
+}
+
+/** Remap answer keys part-by-part (listening). */
+export function remapAnswerKeyForListeningContent(
+  answerKey: AnswerKeyMap,
+  oldContent: ListeningContent,
+  newContent: ListeningContent,
+): AnswerKeyMap {
+  let next = { ...answerKey };
+  const oldParts = oldContent.parts ?? [];
+  const newParts = newContent.parts ?? [];
+  const count = Math.max(oldParts.length, newParts.length);
+  for (let i = 0; i < count; i++) {
+    const oldNums = collectOrderedNumbers(oldParts[i]?.groups ?? []);
+    const newNums = collectOrderedNumbers(newParts[i]?.groups ?? []);
+    next = remapAnswerKeyByOrder(next, oldNums, newNums);
+  }
   return next;
 }
 

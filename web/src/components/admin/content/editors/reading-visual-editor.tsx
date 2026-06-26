@@ -14,8 +14,10 @@ import {
 } from "@/lib/admin/content/factories";
 import {
   collectOrderedNumbers,
+  partitionForPart,
   renumberReadingContent,
   remapAnswerKeyByOrder,
+  remapAnswerKeyForReadingContent,
   validatePartitionGroups,
   partitionStatusesForModule,
 } from "@/lib/admin/content/numbering";
@@ -48,15 +50,12 @@ export function ReadingVisualEditor({
   const passage = passages[activeIdx];
 
   function startNumberForPassage(index: number): number {
-    const currentNums = collectOrderedNumbers(passages[index]?.groups ?? []);
+    const p = passages[index];
+    const currentNums = collectOrderedNumbers(p?.groups ?? []);
     if (currentNums.length > 0) {
       return Math.min(...currentNums);
     }
-
-    const previousNums = passages
-      .slice(0, index)
-      .flatMap((p) => collectOrderedNumbers(p.groups ?? []));
-    return previousNums.length > 0 ? Math.max(...previousNums) + 1 : 1;
+    return partitionForPart("reading", p?.part ?? index + 1).from;
   }
 
   function questionRangeText(groups: QuestionGroup[]): string {
@@ -101,14 +100,8 @@ export function ReadingVisualEditor({
   }
 
   function renumberAll() {
-    const oldNums = collectOrderedNumbers(
-      passages.flatMap((p) => p.groups ?? []),
-    );
     const renumbered = renumberReadingContent(content);
-    const newNums = collectOrderedNumbers(
-      renumbered.passages.flatMap((p) => p.groups ?? []),
-    );
-    const remapped = remapAnswerKeyByOrder(answerKey, oldNums, newNums);
+    const remapped = remapAnswerKeyForReadingContent(answerKey, content, renumbered);
     recomputeTotalQuestions(renumbered);
     onContentChange(renumbered);
     onAnswerKeyChange(syncAnswerKey("reading", renumbered, remapped));

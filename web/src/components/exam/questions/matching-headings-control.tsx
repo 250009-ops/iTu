@@ -7,7 +7,13 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   options: MatchOption[];
-  questions: { n: number; prompt: string; section?: string }[];
+  questions: {
+    n: number;
+    prompt: string;
+    section?: string;
+    isExample?: boolean;
+    exampleHeadingId?: string;
+  }[];
   answers: Record<number, string>;
   current: number | null;
   onFocus: (n: number) => void;
@@ -78,31 +84,42 @@ export function MatchingHeadingsControl({
         </p>
         <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
           {questions.map((q) => {
-            const assigned = options.find((o) => o.id === answers[q.n]);
+            const assignedId =
+              q.isExample && q.exampleHeadingId ? q.exampleHeadingId : answers[q.n];
+            const assigned = options.find((o) => o.id === assignedId);
             const isActive = current === q.n;
             return (
               <li key={q.n} id={`q-${q.n}`} className="scroll-mt-20">
                 <button
                   type="button"
-                  onClick={() => onFocus(q.n)}
+                  onClick={() => !q.isExample && onFocus(q.n)}
+                  disabled={q.isExample}
                   className={cn(
                     "flex w-full items-center gap-3 px-3 py-2.5 text-left transition",
                     isActive && "bg-sky-50",
+                    q.isExample && "cursor-default bg-amber-50/50",
                   )}
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[12px] font-bold text-white">
-                    {q.n}
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[12px] font-bold text-white",
+                      q.isExample ? "bg-amber-600" : "bg-navy",
+                    )}
+                  >
+                    {q.isExample ? "Ex" : q.n}
                   </span>
                   <span className="min-w-0 flex-1 text-[13px] text-slate-700">
                     {q.section ? `Section ${q.section}` : q.prompt}
+                    {q.isExample ? " (example)" : ""}
                   </span>
                   <span
                     className={cn(
                       "max-w-[45%] truncate text-[12px]",
                       assigned ? "font-medium text-emerald-700" : "text-slate-400",
+                      q.isExample && assigned && "text-amber-800",
                     )}
                   >
-                    {assigned ? assigned.label : "Not assigned"}
+                    {assigned ? assigned.label : q.isExample ? "Set answer in admin" : "Not assigned"}
                   </span>
                 </button>
               </li>

@@ -9,6 +9,7 @@ import type {
 } from "@/lib/exam/types";
 import { defaultMatchOptions } from "@/lib/admin/content/match-editor-helpers";
 import { newId } from "@/lib/admin/content/utils";
+import { defaultMatchingHeadingsInstruction } from "@/lib/exam/matching-headings";
 
 export function emptyReadingContent(title = "Reading"): ReadingContent {
   return {
@@ -232,8 +233,7 @@ export function createQuestionGroup(
         type,
         from,
         to,
-        instruction:
-          "The text has six sections, A–F. Choose the correct heading for each section.",
+        instruction: defaultMatchingHeadingsInstruction(["A"]),
         hint: "Drag the correct heading into each section.",
         options: [
           { id: "i", label: "i. Heading one" },

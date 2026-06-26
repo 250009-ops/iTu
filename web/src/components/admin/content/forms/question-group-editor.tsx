@@ -27,9 +27,15 @@ import {
   passageSectionLabels,
   DEFAULT_SECTION_LABELS,
 } from "@/lib/exam/passage-sections";
-import { resolveMatchingSection } from "@/lib/exam/matching-headings";
+import {
+  defaultMatchingHeadingsInstruction,
+  isAutoMatchingHeadingsInstruction,
+  matchingHeadingsSectionLetters,
+  resolveMatchingSection,
+} from "@/lib/exam/matching-headings";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
-import type { FlowchartCompletionGroup, QuestionGroup } from "@/lib/exam/types";
+import type { FlowchartCompletionGroup, MatchingGroup, QuestionGroup } from "@/lib/exam/types";
+import { cn } from "@/lib/utils";
 
 type Props = {
   group: QuestionGroup;
@@ -40,6 +46,36 @@ type Props = {
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
   onRemove: () => void;
 };
+
+function patchMatchingHeadingsGroup(
+  group: MatchingGroup,
+  questions: MatchingGroup["questions"],
+  passageParagraphs: { marker?: string }[] | undefined,
+): MatchingGroup {
+  const sections = passageSectionLabels(passageParagraphs);
+  const sectionLetters = matchingHeadingsSectionLetters(questions, sections);
+  const instruction = isAutoMatchingHeadingsInstruction(group.instruction)
+    ? defaultMatchingHeadingsInstruction(sectionLetters)
+    : group.instruction;
+  return {
+    ...group,
+    questions,
+    instruction,
+    to: questions.length ? questions[questions.length - 1]!.n : group.from,
+  };
+}
+
+function syncExampleHeadingFromKey(
+  questions: MatchingGroup["questions"],
+  answerKey: AnswerKeyMap,
+): MatchingGroup["questions"] {
+  return questions.map((q) => {
+    if (!q.isExample) return q;
+    const raw = answerKey[String(q.n)];
+    const headingId = typeof raw === "string" ? raw.trim() : "";
+    return headingId ? { ...q, exampleHeadingId: headingId } : q;
+  });
+}
 
 export function QuestionGroupEditor({
   group,
@@ -254,18 +290,55 @@ function renderBody(
       );
 
     case "matching_headings": {
+      const mhGroup = group as MatchingGroup;
       const sections = passageSectionLabels(passageParagraphs);
+
+      function commitHeadings(questions: MatchingGroup["questions"]) {
+        onChange(patchMatchingHeadingsGroup(mhGroup, questions, passageParagraphs));
+      }
+
+      function setExample(idx: number, checked: boolean) {
+        const questions = mhGroup.questions.map((q, i) => {
+          if (checked && i !== idx) {
+            return { ...q, isExample: false, exampleHeadingId: undefined };
+          }
+          if (i !== idx) return q;
+          const raw = answerKey[String(q.n)];
+          const headingId = typeof raw === "string" ? raw.trim() : "";
+          return {
+            ...q,
+            isExample: checked,
+            exampleHeadingId: checked && headingId ? headingId : undefined,
+          };
+        });
+        commitHeadings(questions);
+      }
+
+      function handleHeadingsAnswerKey(key: AnswerKeyMap) {
+        onAnswerKeyChange(key);
+        const questions = syncExampleHeadingFromKey(mhGroup.questions, key);
+        const changed = questions.some(
+          (q, i) =>
+            q.isExample !== mhGroup.questions[i]?.isExample ||
+            q.exampleHeadingId !== mhGroup.questions[i]?.exampleHeadingId,
+        );
+        if (changed) {
+          onChange(patchMatchingHeadingsGroup(mhGroup, questions, passageParagraphs));
+        }
+      }
+
       return (
         <div className="space-y-3">
           <p className="text-xs text-muted">
             Students drag headings onto drop zones above each section in the passage.
-            Map each question to a passage section.
+            Map each question to a passage section. Mark one section as an example to
+            show it pre-filled in the exam.
           </p>
           <HeadingsBankEditor
-            options={group.options}
-            onChange={(options) => onChange({ ...group, options })}
+            options={mhGroup.options}
+            onChange={(options) => onChange({ ...mhGroup, options })}
           />
-          {group.questions.map((q, idx) => {
+          {mhGroup.questions.map((q, idx) => {
             const section =
               q.section?.trim() ||
               resolveMatchingSection(q, sections[idx]) ||
@@ -276,20 +349,25 @@ function renderBody(
                 key={q.n}
                 className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
-                  {q.n}
+                <span
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white",
+                    q.isExample ? "bg-amber-600" : "bg-navy",
+                  )}
+                >
+                  {q.isExample ? "Ex" : q.n}
                 </span>
                 <select
                   value={section}
                   onChange={(e) => {
-                    const questions = [...group.questions];
+                    const questions = [...mhGroup.questions];
                     const letter = e.target.value;
                     questions[idx] = {
                       ...q,
                       section: letter,
                       prompt: `Section ${letter}`,
                     };
-                    onChange({ ...group, questions });
+                    commitHeadings(questions);
                   }}
                   className="h-9 rounded-md border border-border bg-white px-2 text-sm"
                 >
@@ -299,23 +377,34 @@ function renderBody(
                     </option>
                   ))}
                 </select>
-                <AnswerKeyField
-                  questionNumber={q.n}
-                  answerKey={answerKey}
-                  onChange={onAnswerKeyChange}
-                  type="option"
-                  options={group.options.map((o) => o.id)}
-                />
+                <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-center">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(q.isExample)}
+                      onChange={(e) => setExample(idx, e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    Example (pre-filled)
+                  </label>
+                  <AnswerKeyField
+                    questionNumber={q.n}
+                    answerKey={answerKey}
+                    onChange={handleHeadingsAnswerKey}
+                    type="option"
+                    options={mhGroup.options.map((o) => o.id)}
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
-                  disabled={group.questions.length <= 1}
+                  disabled={mhGroup.questions.length <= 1}
                   onClick={() => {
-                    const next = removeQuestionAt(group.questions, idx, 1);
+                    const next = removeQuestionAt(mhGroup.questions, idx, 1);
                     if (!next) return;
-                    onChange({ ...group, questions: next });
+                    commitHeadings(next);
                   }}
                   aria-label={`Remove section ${q.n}`}
                 >
@@ -329,16 +418,12 @@ function renderBody(
               variant="secondary"
               size="sm"
               onClick={() => {
-                const n = group.to + 1;
-                const letter = sections[group.questions.length] ?? "A";
-                onChange({
-                  ...group,
-                  to: n,
-                  questions: [
-                    ...group.questions,
-                    { n, prompt: `Section ${letter}`, section: letter },
-                  ],
-                });
+                const n = mhGroup.to + 1;
+                const letter = sections[mhGroup.questions.length] ?? "A";
+                commitHeadings([
+                  ...mhGroup.questions,
+                  { n, prompt: `Section ${letter}`, section: letter },
+                ]);
               }}
             >
               <Plus className="h-3.5 w-3.5" /> Add section
@@ -348,15 +433,13 @@ function renderBody(
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  onChange({
-                    ...group,
-                    questions: sections.map((s, i) => ({
-                      n: group.from + i,
+                  commitHeadings(
+                    sections.map((s, i) => ({
+                      n: mhGroup.from + i,
                       section: s,
                       prompt: `Section ${s}`,
                     })),
-                    to: group.from + sections.length - 1,
-                  });
+                  );
                 }}
               >
                 Sync from passage markers

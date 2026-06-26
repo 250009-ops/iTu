@@ -27,6 +27,7 @@ function HeadingDropZone({
   section,
   assignedLabel,
   isActive,
+  isExample,
   onAssign,
   onFocus,
 }: {
@@ -34,12 +35,31 @@ function HeadingDropZone({
   section: string;
   assignedLabel?: string;
   isActive: boolean;
+  isExample?: boolean;
   onAssign: (headingId: string | null) => void;
   onFocus: () => void;
 }) {
   const ctx = useReadingHeadings();
   const picked = ctx?.pickedHeadingId ?? null;
   const setPicked = ctx?.setPickedHeadingId ?? (() => {});
+
+  if (isExample) {
+    return (
+      <div
+        id={`heading-zone-${section}`}
+        className="mb-2 flex min-h-[2.25rem] items-center justify-between gap-2 rounded-md border-2 border-amber-300 bg-amber-50/90 px-3 py-1.5"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800">
+            Example
+          </p>
+          <span className="text-[13px] font-medium leading-snug text-amber-950">
+            {assignedLabel ?? "—"}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -109,14 +129,22 @@ export function PassageWithHeadingZones({
 
   const zoneBySection = new Map<
     string,
-    { questionN: number; group: MatchingGroup; optionId?: string }
+    { questionN: number; group: MatchingGroup; optionId?: string; isExample?: boolean }
   >();
 
   for (const group of headingGroups) {
     const map = sectionQuestionMap(group, markers);
     for (const [section, q] of map) {
-      const optionId = answers[q.n] as string | undefined;
-      zoneBySection.set(section, { questionN: q.n, group, optionId });
+      const optionId =
+        q.isExample && q.exampleHeadingId
+          ? q.exampleHeadingId
+          : (answers[q.n] as string | undefined);
+      zoneBySection.set(section, {
+        questionN: q.n,
+        group,
+        optionId,
+        isExample: q.isExample,
+      });
     }
   }
 
@@ -150,8 +178,10 @@ export function PassageWithHeadingZones({
                       : undefined
                   }
                   isActive={current === zone.questionN}
+                  isExample={zone.isExample}
                   onFocus={() => onFocus(zone.questionN)}
                   onAssign={(headingId) => {
+                    if (zone.isExample) return;
                     if (headingId) {
                       for (const g of headingGroups) {
                         for (const q of g.questions) {
