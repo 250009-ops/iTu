@@ -20,7 +20,7 @@ import {
   MatchOptionsBankEditor,
   StatementListEditor,
 } from "@/components/admin/content/forms/matching-editor-parts";
-import { removeAnswerKeyEntry, removeQuestionAt } from "@/lib/admin/content/match-editor-helpers";
+import { removeAnswerKeyEntry, removeQuestionAt, nextMatchOptionId } from "@/lib/admin/content/match-editor-helpers";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import {
@@ -165,7 +165,7 @@ function renderBody(
               </div>
               {q.options.map((opt, oIdx) => (
                 <div key={opt.id} className="flex items-center gap-2 pl-9">
-                  <span className="w-6 text-xs font-bold text-muted">{opt.id}</span>
+                  <span className="w-6 shrink-0 text-xs font-bold text-muted">{opt.id}</span>
                   <Input
                     value={opt.label}
                     onChange={(e) => {
@@ -177,8 +177,46 @@ function renderBody(
                     }}
                     placeholder={`Option ${opt.id}`}
                   />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
+                    disabled={q.options.length <= 2}
+                    onClick={() => {
+                      const options = q.options.filter((_, i) => i !== oIdx);
+                      const questions = [...group.questions];
+                      questions[qIdx] = { ...q, options };
+                      if (answerKey[String(q.n)] === opt.id) {
+                        onAnswerKeyChange(removeAnswerKeyEntry(answerKey, q.n));
+                      }
+                      onChange({ ...group, questions });
+                    }}
+                    aria-label={`Remove option ${opt.id}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               ))}
+              <div className="pl-9">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => {
+                    const id = nextMatchOptionId(q.options);
+                    const questions = [...group.questions];
+                    questions[qIdx] = {
+                      ...q,
+                      options: [...q.options, { id, label: "" }],
+                    };
+                    onChange({ ...group, questions });
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add option
+                </Button>
+              </div>
             </div>
           ))}
           <Button
