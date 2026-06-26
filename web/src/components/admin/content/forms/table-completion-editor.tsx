@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AnswerKeyField } from "@/components/admin/content/forms/answer-key-field";
+import { removeAnswerKeyEntry } from "@/lib/admin/content/match-editor-helpers";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type { Gap, InlineNode, TableCompletionGroup } from "@/lib/exam/types";
 
@@ -42,13 +43,35 @@ export function TableCompletionEditor({
     const nums = rows.flatMap((row) =>
       row.flatMap((cell) => gapsInCell(cell).map((g) => g.n)),
     );
-    if (nums.length === 0) return group;
+    if (nums.length === 0) return { ...group, rows, from: group.from, to: group.from };
     return {
       ...group,
       rows,
       from: nums[0]!,
       to: nums[nums.length - 1]!,
     };
+  }
+
+  function removeGap(rowIdx: number, colIdx: number, gapN: number) {
+    const row = group.rows[rowIdx];
+    if (!row) return;
+    const newRow = row.map((cell, i) => {
+      if (i !== colIdx) return cell;
+      return cell.filter((node) => {
+        if (typeof node === "object" && node !== null && "n" in node && !("type" in node)) {
+          return (node as Gap).n !== gapN;
+        }
+        return true;
+      });
+    });
+    onAnswerKeyChange(removeAnswerKeyEntry(answerKey, gapN));
+    onChange(
+      recomputeRange(group.rows.map((r, i) => (i === rowIdx ? newRow : r))),
+    );
+  }
+
+  function gapNumbersInRow(row: InlineNode[][]): number[] {
+    return row.flatMap((cell) => gapsInCell(cell).map((g) => g.n));
   }
 
   return (
@@ -144,15 +167,30 @@ export function TableCompletionEditor({
                         placeholder="Cell text"
                       />
                       {gaps.map((gap) => (
-                        <div key={gap.n} className="mt-1 flex items-center gap-2">
-                          <span className="flex h-6 w-6 items-center justify-center rounded bg-navy text-[10px] font-bold text-white">
+                        <div
+                          key={gap.n}
+                          className="mt-1 flex items-center gap-2 rounded-md border border-dashed border-navy/30 bg-slate-50/80 px-2 py-1.5"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-navy text-[10px] font-bold text-white">
                             {gap.n}
                           </span>
-                          <AnswerKeyField
-                            questionNumber={gap.n}
-                            answerKey={answerKey}
-                            onChange={onAnswerKeyChange}
-                          />
+                          <div className="min-w-0 flex-1">
+                            <AnswerKeyField
+                              questionNumber={gap.n}
+                              answerKey={answerKey}
+                              onChange={onAnswerKeyChange}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 shrink-0 px-2 text-red-600"
+                            onClick={() => removeGap(rowIdx, colIdx, gap.n)}
+                            aria-label={`Remove gap ${gap.n}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       ))}
                       <Button
@@ -198,7 +236,15 @@ export function TableCompletionEditor({
             variant="secondary"
             size="sm"
             className="text-red-600"
-            onClick={() => onChange(recomputeRange(group.rows.slice(0, -1)))}
+            onClick={() => {
+              const removedRow = group.rows[group.rows.length - 1];
+              let nextKey = answerKey;
+              for (const n of gapNumbersInRow(removedRow ?? [])) {
+                nextKey = removeAnswerKeyEntry(nextKey, n);
+              }
+              onAnswerKeyChange(nextKey);
+              onChange(recomputeRange(group.rows.slice(0, -1)));
+            }}
           >
             <Trash2 className="h-3.5 w-3.5" /> Remove last row
           </Button>
