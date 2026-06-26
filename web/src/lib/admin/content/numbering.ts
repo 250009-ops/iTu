@@ -1,5 +1,5 @@
 import type { ContentModule } from "@/lib/admin/types";
-import { gapsInGroup, type AnswerKeyMap } from "@/lib/admin/content/utils";
+import { gapsInGroup, type AnswerKeyMap, hasAnswerKeyEntry } from "@/lib/admin/content/utils";
 import type {
   Gap,
   ListeningContent,
@@ -65,23 +65,6 @@ export function partitionLabel(module: "listening" | "reading", part: number): s
   return module === "listening" ? `Part ${part}` : `Passage ${part}`;
 }
 
-function hasAnswerKeyEntry(answerKey: AnswerKeyMap, n: number): boolean {
-  const v = answerKey[String(n)];
-  if (v != null) {
-    if (Array.isArray(v)) return v.length > 0;
-    if (String(v).trim().length > 0) return true;
-  }
-  for (const [k, val] of Object.entries(answerKey)) {
-    if (!k.startsWith("$set$") || typeof val !== "string" || !val.trim()) continue;
-    const match = k.match(/^\$set\$(\d+)-(\d+)$/);
-    if (!match) continue;
-    const from = Number(match[1]);
-    const to = Number(match[2]);
-    if (n >= from && n <= to) return true;
-  }
-  return false;
-}
-
 export function defaultPartitionBlurb(
   module: "listening" | "reading",
   part: number,
@@ -113,12 +96,7 @@ export function countAnsweredInPartition(
   numbers: number[],
   answerKey: AnswerKeyMap,
 ): number {
-  return numbers.filter((n) => {
-    const v = answerKey[String(n)];
-    if (v == null) return false;
-    if (Array.isArray(v)) return v.length > 0;
-    return String(v).trim().length > 0;
-  }).length;
+  return numbers.filter((n) => hasAnswerKeyEntry(answerKey, n)).length;
 }
 
 function renumberInlineNodes(
@@ -306,6 +284,36 @@ export function remapAnswerKeyByOrder(
         delete next[String(oldN)];
         usedOld.add(oldN);
       }
+    }
+  }
+
+  for (const [k, v] of Object.entries(answerKey)) {
+    if (!k.startsWith("$set$")) continue;
+    const match = k.match(/^\$set\$(\d+)-(\d+)$/);
+    if (!match) continue;
+
+    const oldFrom = Number(match[1]);
+    const oldTo = Number(match[2]);
+    const mapped: number[] = [];
+    let valid = true;
+
+    for (let n = oldFrom; n <= oldTo; n++) {
+      const idx = oldNums.indexOf(n);
+      if (idx < 0) {
+        valid = false;
+        break;
+      }
+      mapped.push(newNums[idx]!);
+    }
+
+    if (!valid || mapped.length === 0) continue;
+
+    const newFrom = Math.min(...mapped);
+    const newTo = Math.max(...mapped);
+    const newKey = `$set$${newFrom}-${newTo}`;
+    if (newKey !== k) {
+      delete next[k];
+      next[newKey] = v;
     }
   }
 

@@ -117,7 +117,31 @@ export function collectQuestionNumbers(
   return nums;
 }
 
-/** Keep existing answers; add empty slots for new question numbers. */
+/** Whether a question number has a complete answer-key entry (including $set$ ranges). */
+export function hasAnswerKeyEntry(answerKey: AnswerKeyMap, n: number): boolean {
+  const v = answerKey[String(n)];
+  if (v != null) {
+    if (Array.isArray(v)) return v.length > 0;
+    if (String(v).trim().length > 0) return true;
+  }
+  for (const [k, val] of Object.entries(answerKey)) {
+    if (!k.startsWith("$set$") || typeof val !== "string" || !val.trim()) continue;
+    const match = k.match(/^\$set\$(\d+)-(\d+)$/);
+    if (!match) continue;
+    const from = Number(match[1]);
+    const to = Number(match[2]);
+    if (n >= from && n <= to) {
+      const letters = val
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return letters.length >= to - from + 1;
+    }
+  }
+  return false;
+}
+
+/** Keep existing answers; add empty slots for new question numbers. Preserves $set$ keys. */
 export function syncAnswerKey(
   module: ContentModule,
   content: object,
@@ -127,6 +151,13 @@ export function syncAnswerKey(
 
   const nums = collectQuestionNumbers(module, content);
   const next: AnswerKeyMap = {};
+
+  for (const [k, v] of Object.entries(existing)) {
+    if (k.startsWith("$set$")) {
+      next[k] = v;
+    }
+  }
+
   for (const n of nums) {
     const key = String(n);
     next[key] = existing[key] ?? "";
@@ -135,14 +166,7 @@ export function syncAnswerKey(
 }
 
 export function countAnswered(key: AnswerKeyMap, nums: number[]): number {
-  return nums.filter((n) => {
-    const v = key[String(n)];
-    if (v == null) return false;
-    if (Array.isArray(v)) {
-      return v.some((s) => String(s).trim().length > 0);
-    }
-    return String(v).trim().length > 0;
-  }).length;
+  return nums.filter((n) => hasAnswerKeyEntry(key, n)).length;
 }
 
 export type ChecklistItem = {

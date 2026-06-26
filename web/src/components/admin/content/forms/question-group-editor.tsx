@@ -8,6 +8,7 @@ import {
   AnswerKeyField,
   AnswerKeyLetterPicker,
   AnswerKeyMultiField,
+  readMcqSetAnswerKey,
   setMcqSetAnswerKey,
 } from "@/components/admin/content/forms/answer-key-field";
 import { SectionLabelsInput } from "@/components/admin/content/forms/section-labels-input";
@@ -579,7 +580,12 @@ function renderBody(
                           onClick={() => {
                             const nums = mcq.numbers.filter((_, i) => i !== idx);
                             if (nums.length === 0) return;
-                            onAnswerKeyChange(removeAnswerKeyEntry(answerKey, n));
+                            if (isAnyOrder) {
+                              const letters = readMcqSetAnswerKey(answerKey, mcq.numbers);
+                              onAnswerKeyChange(setMcqSetAnswerKey(answerKey, nums, letters));
+                            } else {
+                              onAnswerKeyChange(removeAnswerKeyEntry(answerKey, n));
+                            }
                             onChange({
                               ...mcq,
                               numbers: nums,
@@ -609,6 +615,12 @@ function renderBody(
                 size="sm"
                 onClick={() => {
                   const nums = resizeNumbers(mcq.numbers.length + 1);
+                  const letters = isAnyOrder
+                    ? readMcqSetAnswerKey(answerKey, mcq.numbers)
+                    : [];
+                  if (isAnyOrder) {
+                    onAnswerKeyChange(setMcqSetAnswerKey(answerKey, nums, letters));
+                  }
                   onChange({
                     ...mcq,
                     numbers: nums,
