@@ -4,7 +4,7 @@ function normalizeOptions(options: Option[] | undefined): Option[] {
   return (options ?? [])
     .map((o) => ({
       id: String(o.id ?? "").trim(),
-      label: String(o.label ?? "").trim(),
+      label: String(o.label ?? ""),
     }))
     .filter((o) => o.id);
 }
@@ -21,7 +21,7 @@ export function normalizeMcqSingleGroup(group: McqSingleGroup): McqSingleGroup {
       example = undefined;
     } else {
       example = {
-        prompt: String(example.prompt ?? "").trim(),
+        prompt: String(example.prompt ?? ""),
         options,
         answerId,
       };

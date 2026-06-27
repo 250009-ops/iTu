@@ -33,7 +33,6 @@ import {
   normalizeMatchingHeadingsGroup,
   resolveMatchingSection,
 } from "@/lib/exam/matching-headings";
-import { normalizeMcqSingleGroup } from "@/lib/exam/mcq-single";
 import {
   inferMatchingReuseOptions,
   matchingHintWithReuse,
@@ -204,7 +203,7 @@ function renderBody(
       );
 
     case "mcq_single": {
-      const mcqGroup = normalizeMcqSingleGroup(group as McqSingleGroup);
+      const mcqGroup = group as McqSingleGroup;
 
       function commit(patch: Partial<McqSingleGroup>) {
         onChange({ ...mcqGroup, ...patch });

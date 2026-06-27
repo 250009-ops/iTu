@@ -93,7 +93,7 @@ function normalizeOptions(raw: unknown): Json[] {
   return asArray<Json>(raw)
     .map((o) => ({
       id: typeof o.id === 'string' ? o.id.trim() : String(o.id ?? '').trim(),
-      label: typeof o.label === 'string' ? o.label.trim() : '',
+      label: typeof o.label === 'string' ? o.label : '',
     }))
     .filter((o) => o.id);
 }
@@ -112,7 +112,7 @@ function normalizeMcqSingleGroup(group: Json): Json {
       example = undefined;
     } else {
       example = {
-        prompt: typeof example.prompt === 'string' ? example.prompt.trim() : '',
+        prompt: typeof example.prompt === 'string' ? example.prompt : '',
         options,
         answerId,
       };
