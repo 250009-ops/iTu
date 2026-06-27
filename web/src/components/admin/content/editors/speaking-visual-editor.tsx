@@ -4,7 +4,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { SpeakingContent } from "@/lib/exam/types";
+import type { SpeakingContent, SpeakingPart1Topic } from "@/lib/exam/types";
+import { emptyPart1Topic } from "@/lib/speaking/content";
 
 type Props = {
   content: SpeakingContent;
@@ -59,6 +60,126 @@ function QuestionListEditor({
       ))}
       <Button variant="secondary" size="sm" onClick={() => onChange([...items, ""])}>
         <Plus className="h-3.5 w-3.5" /> Add question
+      </Button>
+    </div>
+  );
+}
+
+function Part1TopicsEditor({
+  topics,
+  onChange,
+}: {
+  topics: SpeakingPart1Topic[];
+  onChange: (topics: SpeakingPart1Topic[]) => void;
+}) {
+  const items = topics.length > 0 ? topics : [emptyPart1Topic()];
+
+  function updateTopic(index: number, patch: Partial<SpeakingPart1Topic>) {
+    const next = [...items];
+    next[index] = { ...next[index]!, ...patch };
+    onChange(next);
+  }
+
+  function updateQuestion(topicIndex: number, questionIndex: number, value: string) {
+    const next = [...items];
+    const questions = [...(next[topicIndex]?.questions ?? [""])];
+    questions[questionIndex] = value;
+    next[topicIndex] = { ...next[topicIndex]!, questions };
+    onChange(next);
+  }
+
+  function addQuestion(topicIndex: number) {
+    const next = [...items];
+    const questions = [...(next[topicIndex]?.questions ?? [""]), ""];
+    next[topicIndex] = { ...next[topicIndex]!, questions };
+    onChange(next);
+  }
+
+  function removeQuestion(topicIndex: number, questionIndex: number) {
+    const next = [...items];
+    const questions = (next[topicIndex]?.questions ?? [""]).filter(
+      (_, i) => i !== questionIndex,
+    );
+    next[topicIndex] = {
+      ...next[topicIndex]!,
+      questions: questions.length ? questions : [""],
+    };
+    onChange(next);
+  }
+
+  return (
+    <div className="space-y-4">
+      {items.map((topic, topicIndex) => (
+        <div
+          key={topicIndex}
+          className="rounded-lg border border-sky-100 bg-white p-4 shadow-sm"
+        >
+          <div className="mb-3 flex items-start gap-2">
+            <span className="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700">
+              {topicIndex + 1}
+            </span>
+            <div className="min-w-0 flex-1 space-y-2">
+              <Label className="text-xs">Topic title</Label>
+              <Input
+                value={topic.title}
+                onChange={(e) => updateTopic(topicIndex, { title: e.target.value })}
+                placeholder="e.g. Home / accommodation"
+              />
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-6 shrink-0 text-red-600"
+              onClick={() => {
+                const next = items.filter((_, i) => i !== topicIndex);
+                onChange(next.length ? next : [emptyPart1Topic()]);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          <div className="space-y-2 pl-9">
+            {(topic.questions.length > 0 ? topic.questions : [""]).map(
+              (question, questionIndex) => (
+                <div key={questionIndex} className="flex gap-2">
+                  <span className="flex h-10 w-6 shrink-0 items-center justify-center text-[11px] font-bold text-muted">
+                    Q{questionIndex + 1}
+                  </span>
+                  <Input
+                    value={question}
+                    onChange={(e) =>
+                      updateQuestion(topicIndex, questionIndex, e.target.value)
+                    }
+                    placeholder={`Question ${questionIndex + 1}`}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0 text-red-600"
+                    onClick={() => removeQuestion(topicIndex, questionIndex)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ),
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => addQuestion(topicIndex)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add question
+            </Button>
+          </div>
+        </div>
+      ))}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => onChange([...items, emptyPart1Topic()])}
+      >
+        <Plus className="h-3.5 w-3.5" /> Add topic
       </Button>
     </div>
   );
@@ -126,11 +247,20 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
       </div>
 
       <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-4">
-        <QuestionListEditor
-          label="Part 1 — Interviewer questions"
-          hint="Examiner-only. Shown in the live console prompt overlay — not visible to the student."
-          questions={content.part1Questions ?? [""]}
-          onChange={(part1Questions) => onContentChange({ ...content, part1Questions })}
+        <div className="mb-4">
+          <Label className="text-xs font-semibold text-navy">
+            Part 1 — Interviewer topics &amp; questions
+          </Label>
+          <p className="text-xs text-muted">
+            Examiner-only. Group questions by topic for the live console — not
+            visible to the student.
+          </p>
+        </div>
+        <Part1TopicsEditor
+          topics={content.part1Topics ?? [emptyPart1Topic()]}
+          onChange={(part1Topics) =>
+            onContentChange({ ...content, part1Topics, part1Questions: undefined })
+          }
         />
       </div>
 

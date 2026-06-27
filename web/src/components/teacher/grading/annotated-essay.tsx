@@ -4,8 +4,11 @@ import { useMemo, useState } from "react";
 import {
   CRITERION_ORDER,
   CRITERION_TONE_CLASSES,
+  WRITING_MIN_WORDS,
+  getWordCountStatus,
   type WritingAnnotation,
   type WritingCriterionId,
+  type WritingTaskKey,
   WRITING_CRITERION_META,
 } from "@/lib/writing/scoring";
 import { cn } from "@/lib/utils";
@@ -16,15 +19,18 @@ export function AnnotatedEssay({
   text,
   annotations,
   wordCount,
+  task,
 }: {
   text: string | null;
   annotations: WritingAnnotation[];
   wordCount: number;
+  task: WritingTaskKey;
 }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const body = text?.trim() ?? "";
   const hasText = body.length > 0;
+  const wordStatus = getWordCountStatus(task, wordCount);
 
   const filtered = useMemo(() => {
     if (filter === "all") return annotations;
@@ -118,11 +124,23 @@ export function AnnotatedEssay({
               {label}
             </button>
           ))}
-          <span className="ml-1 text-xs font-medium tabular-nums text-muted">
-            {wordCount} words
+          <span
+            className={cn(
+              "ml-1 text-xs font-medium tabular-nums",
+              wordStatus.meetsMinimum ? "text-muted" : "text-amber-700",
+            )}
+          >
+            {wordCount} / {WRITING_MIN_WORDS[task]} words
           </span>
         </div>
       </div>
+
+      {!wordStatus.meetsMinimum && hasText && (
+        <div className="border-b border-amber-100 bg-amber-50 px-5 py-2.5 text-sm text-amber-900">
+          Response is {wordCount} words — IELTS requires at least{" "}
+          {wordStatus.minimum}. Task Achievement/Response should be penalised.
+        </div>
+      )}
 
       <div className="relative min-h-[8rem] px-5 py-4">
         {hasText ? (

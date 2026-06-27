@@ -1,20 +1,42 @@
-import type { SpeakingContent } from "@/lib/exam/types";
+import type {
+  SpeakingContent,
+  SpeakingPart1Topic,
+} from "@/lib/exam/types";
 import type { SpeakingPhase } from "@/lib/speaking/sync";
+
+export type ExaminerPart1Topic = {
+  title: string;
+  questions: string[];
+};
 
 export type ExaminerPartDef = {
   part: 1 | 2 | 3;
   title: string;
   durationLabel: string;
   targetSeconds: number;
+  /** Flat prompt list (Part 2/3, or legacy Part 1). */
   prompts: string[];
+  /** Part 1 topic groupings when configured in Content Studio. */
+  topics?: ExaminerPart1Topic[];
   cueCard?: { topic: string; bullets: string[] };
 };
 
-const DEFAULT_PART1: string[] = [
-  "Can you tell me your full name, please?",
-  "Where are you from, and do you live in a house or a flat?",
-  "Let's talk about your work or studies. What do you do?",
-  "Do you enjoy your free time? What do you usually do?",
+const DEFAULT_PART1_TOPICS: ExaminerPart1Topic[] = [
+  {
+    title: "Introduction",
+    questions: [
+      "Can you tell me your full name, please?",
+      "Where are you from, and do you live in a house or a flat?",
+    ],
+  },
+  {
+    title: "Work / study",
+    questions: ["Let's talk about your work or studies. What do you do?"],
+  },
+  {
+    title: "Free time",
+    questions: ["Do you enjoy your free time? What do you usually do?"],
+  },
 ];
 
 const DEFAULT_PART2_NOTES: string[] = [
@@ -36,6 +58,25 @@ export function formatPartDuration(seconds: number): string {
   return `~${mins} minutes`;
 }
 
+function normalizePart1Topics(content: SpeakingContent): ExaminerPart1Topic[] {
+  const rawTopics = content.part1Topics ?? [];
+  const topics = rawTopics
+    .map((topic) => ({
+      title: topic.title?.trim() ?? "",
+      questions: (topic.questions ?? []).filter((q) => q.trim().length > 0),
+    }))
+    .filter((topic) => topic.title || topic.questions.length > 0);
+
+  if (topics.length > 0) return topics;
+
+  const legacy = content.part1Questions?.filter((q) => q.trim().length > 0) ?? [];
+  if (legacy.length > 0) {
+    return [{ title: "General questions", questions: legacy }];
+  }
+
+  return DEFAULT_PART1_TOPICS;
+}
+
 /** Build examiner part definitions from published speaking content. */
 export function buildExaminerParts(content: SpeakingContent): ExaminerPartDef[] {
   const parts = content.parts ?? [];
@@ -43,12 +84,13 @@ export function buildExaminerParts(content: SpeakingContent): ExaminerPartDef[] 
   const p2 = parts.find((p) => p.part === 2);
   const p3 = parts.find((p) => p.part === 3);
 
-  const part1Questions =
-    content.part1Questions?.filter((q) => q.trim().length > 0) ?? DEFAULT_PART1;
+  const part1Topics = normalizePart1Topics(content);
+  const part1Prompts = part1Topics.flatMap((topic) => topic.questions);
   const part3Questions =
     content.part3Questions?.filter((q) => q.trim().length > 0) ?? DEFAULT_PART3;
   const part2Notes =
-    content.part2ExaminerNotes?.filter((q) => q.trim().length > 0) ?? DEFAULT_PART2_NOTES;
+    content.part2ExaminerNotes?.filter((q) => q.trim().length > 0) ??
+    DEFAULT_PART2_NOTES;
 
   const cueCard = content.cueCard;
   const cueBullets = cueCard?.bullets?.filter((b) => b.trim().length > 0) ?? [];
@@ -59,7 +101,8 @@ export function buildExaminerParts(content: SpeakingContent): ExaminerPartDef[] 
       title: p1?.title ?? "Introduction & Interview",
       durationLabel: p1 ? formatPartDuration(p1.durationSec) : "4–5 minutes",
       targetSeconds: p1?.durationSec ?? 300,
-      prompts: part1Questions,
+      prompts: part1Prompts,
+      topics: part1Topics,
     },
     {
       part: 2,
@@ -86,7 +129,13 @@ export function promptForPhase(
   part: ExaminerPartDef,
   promptIndex: number,
   phase: SpeakingPhase,
+  topicIndex = 0,
 ): string {
+  if (part.part === 1 && part.topics?.length) {
+    const topic = part.topics[topicIndex] ?? part.topics[0];
+    return topic?.questions[promptIndex] ?? "";
+  }
+
   if (part.part === 2) {
     if (phase === "part2-prep") {
       return part.prompts[0] ?? "Give the candidate 1 minute to prepare.";
@@ -99,11 +148,16 @@ export function promptForPhase(
   return part.prompts[promptIndex] ?? "";
 }
 
+export function emptyPart1Topic(): SpeakingPart1Topic {
+  return { title: "", questions: [""] };
+}
+
 /** Strip examiner-only fields before sending content to students. */
 export function sanitizeSpeakingContentForStudent(
   content: Record<string, unknown>,
 ): Record<string, unknown> {
   const {
+    part1Topics: _topics,
     part1Questions: _p1,
     part3Questions: _p3,
     part2ExaminerNotes: _notes,

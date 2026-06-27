@@ -296,6 +296,11 @@ export interface SpeakingCueCard {
   speakSeconds: number;
 }
 
+export interface SpeakingPart1Topic {
+  title: string;
+  questions: string[];
+}
+
 export interface SpeakingContent {
   testId: string;
   examiner: string;
@@ -303,7 +308,9 @@ export interface SpeakingContent {
   slot: string;
   parts: SpeakingPart[];
   cueCard: SpeakingCueCard;
-  /** Part 1 interviewer questions (examiner-only; not shown to student). */
+  /** Part 1 topic pools with questions (examiner-only). */
+  part1Topics?: SpeakingPart1Topic[];
+  /** @deprecated Use part1Topics — kept for legacy content migration. */
   part1Questions?: string[];
   /** Part 3 discussion questions (examiner-only). */
   part3Questions?: string[];

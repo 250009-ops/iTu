@@ -3,6 +3,12 @@ import { ieltsBandOptions } from "@/lib/speaking/scoring";
 export type WritingTaskKey = "task1" | "task2";
 export type WritingCriterionId = "ta" | "cc" | "lr" | "gra";
 
+/** Official IELTS minimum word counts for Writing tasks. */
+export const WRITING_MIN_WORDS: Record<WritingTaskKey, number> = {
+  task1: 150,
+  task2: 250,
+};
+
 export type TaskScores = {
   ta: number;
   cc: number;
@@ -68,6 +74,22 @@ export function computeWritingOverallBand(
 
 export function defaultTaskScores(): TaskScores {
   return { ta: 0, cc: 0, lr: 0, gra: 0 };
+}
+
+export function isScoresUnset(scores: TaskScores): boolean {
+  return scores.ta === 0 && scores.cc === 0 && scores.lr === 0 && scores.gra === 0;
+}
+
+export function getWordCountStatus(
+  task: WritingTaskKey,
+  wordCount: number,
+): { meetsMinimum: boolean; minimum: number; shortfall: number } {
+  const minimum = WRITING_MIN_WORDS[task];
+  return {
+    meetsMinimum: wordCount >= minimum,
+    minimum,
+    shortfall: Math.max(0, minimum - wordCount),
+  };
 }
 
 /** Full IELTS band scale for examiner scoring (0–9 in 0.5 steps). */

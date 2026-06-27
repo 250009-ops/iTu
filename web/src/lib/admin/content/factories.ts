@@ -119,10 +119,22 @@ export function emptySpeakingContent(title = "Speaking"): SpeakingContent {
       prepSeconds: 60,
       speakSeconds: 120,
     },
-    part1Questions: [
-      "Can you tell me your full name, please?",
-      "Where are you from?",
-      "What do you do — work or study?",
+    part1Topics: [
+      {
+        title: "Introduction",
+        questions: [
+          "Can you tell me your full name, please?",
+          "Where are you from?",
+        ],
+      },
+      {
+        title: "Work / study",
+        questions: ["What do you do — work or study?"],
+      },
+      {
+        title: "Free time",
+        questions: ["What do you usually do in your free time?"],
+      },
     ],
     part3Questions: [
       "Why do you think this topic is important?",

@@ -12,13 +12,19 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { useAdminStudents } from "@/contexts/admin-students-context";
 import { getAdminPackages } from "@/lib/api/admin";
 import { getAvailability, listTeachers } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { AdminPackage, Student } from "@/lib/admin/types";
+import {
+  clampMockTimeForDate,
+  defaultMockTimeForDate,
+  isMockStartInFuture,
+  localTodayIso,
+  minMockTimeForDate,
+} from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
 type Teacher = {
@@ -57,12 +63,6 @@ const STEP_LABELS: Record<StepId, string> = {
   speaking: "Speaking slot",
   review: "Confirm",
 };
-
-const EXAM_START_TIMES = ["08:30", "09:00", "09:30", "10:00", "13:00"];
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formatSlotTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", {
@@ -118,8 +118,10 @@ export function GrantMockDialog({
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [packageId, setPackageId] = useState<string | null>(null);
 
-  const [mockDate, setMockDate] = useState(todayIso());
-  const [mockTime, setMockTime] = useState(EXAM_START_TIMES[0]!);
+  const [mockDate, setMockDate] = useState(localTodayIso());
+  const [mockTime, setMockTime] = useState(() =>
+    defaultMockTimeForDate(localTodayIso()),
+  );
 
   const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
   const [writingTeacherId, setWritingTeacherId] = useState<string | null>(null);
@@ -219,9 +221,21 @@ export function GrantMockDialog({
     return [...groups.values()];
   }, [slots]);
 
+  const dateTimeError = useMemo(() => {
+    if (currentStep !== "date" || !mockDate || !mockTime) return null;
+    if (!isMockStartInFuture(mockDate, mockTime)) {
+      return "Choose a date and time in the future.";
+    }
+    return null;
+  }, [currentStep, mockDate, mockTime]);
+
+  const minTimeToday = minMockTimeForDate(mockDate);
+
   const canContinue = useMemo(() => {
     if (currentStep === "package") return Boolean(packageId);
-    if (currentStep === "date") return Boolean(mockDate && mockTime);
+    if (currentStep === "date") {
+      return Boolean(mockDate && mockTime && isMockStartInFuture(mockDate, mockTime));
+    }
     if (currentStep === "writing") return Boolean(writingTeacherId);
     if (currentStep === "speaking") return Boolean(selectedSlot);
     if (currentStep === "review") return true;
@@ -386,25 +400,40 @@ export function GrantMockDialog({
                 <input
                   type="date"
                   value={mockDate}
-                  min={todayIso()}
-                  onChange={(e) => setMockDate(e.target.value)}
+                  min={localTodayIso()}
+                  onChange={(e) => {
+                    const nextDate = e.target.value;
+                    setMockDate(nextDate);
+                    setMockTime((prev) =>
+                      clampMockTimeForDate(nextDate, prev || defaultMockTimeForDate(nextDate)),
+                    );
+                  }}
                   className="h-11 flex-1 bg-transparent text-sm focus:outline-none"
                 />
               </div>
             </div>
             <div>
               <label className="text-sm font-semibold text-navy">Start time</label>
-              <Select
-                value={mockTime}
-                onChange={(e) => setMockTime(e.target.value)}
-                className="mt-1.5"
+              <div
+                className={cn(
+                  "mt-1.5 flex items-center gap-2 rounded-lg border px-3",
+                  dateTimeError ? "border-red-300" : "border-border",
+                )}
               >
-                {EXAM_START_TIMES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </Select>
+                <input
+                  type="time"
+                  value={mockTime}
+                  min={minTimeToday}
+                  step={60}
+                  onChange={(e) => setMockTime(e.target.value)}
+                  className="h-11 flex-1 bg-transparent text-sm focus:outline-none"
+                />
+              </div>
+              {dateTimeError && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">
+                  {dateTimeError}
+                </p>
+              )}
             </div>
             <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
               This is the appointed exam date and time the student will see in

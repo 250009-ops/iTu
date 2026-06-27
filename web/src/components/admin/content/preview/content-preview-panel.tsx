@@ -292,7 +292,20 @@ function WritingPreview({
 }
 
 function SpeakingPreview({ content }: { content: SpeakingContent }) {
-  const p1 = content.part1Questions?.filter((q) => q.trim()) ?? [];
+  const topics =
+    content.part1Topics?.filter(
+      (topic) =>
+        topic.title.trim() ||
+        (topic.questions ?? []).some((q) => q.trim()),
+    ) ??
+    (content.part1Questions?.filter((q) => q.trim()).length
+      ? [
+          {
+            title: "General questions",
+            questions: content.part1Questions.filter((q) => q.trim()),
+          },
+        ]
+      : []);
   const p3 = content.part3Questions?.filter((q) => q.trim()) ?? [];
 
   return (
@@ -305,14 +318,23 @@ function SpeakingPreview({ content }: { content: SpeakingContent }) {
           <p className="mt-1 text-sm text-muted">{part.guidance}</p>
         </div>
       ))}
-      {p1.length > 0 && (
+      {topics.length > 0 && (
         <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
-          <p className="text-xs font-bold uppercase text-muted">Part 1 questions (examiner)</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
-            {p1.map((q) => (
-              <li key={q}>{q}</li>
+          <p className="text-xs font-bold uppercase text-muted">
+            Part 1 topics (examiner)
+          </p>
+          <div className="mt-3 space-y-3">
+            {topics.map((topic) => (
+              <div key={topic.title}>
+                <p className="text-sm font-semibold text-navy">{topic.title}</p>
+                <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+                  {(topic.questions ?? []).filter((q) => q.trim()).map((q) => (
+                    <li key={q}>{q}</li>
+                  ))}
+                </ol>
+              </div>
             ))}
-          </ol>
+          </div>
         </div>
       )}
       <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">

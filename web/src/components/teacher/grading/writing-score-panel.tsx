@@ -41,6 +41,7 @@ export function WritingScorePanel({
   const labels =
     task === "task1" ? TASK1_CRITERION_LABELS : TASK2_CRITERION_LABELS;
   const taskBand = averageTaskBand(scores);
+  const aiTaskBand = aiSuggested ? averageTaskBand(aiSuggested) : null;
   const taskLabel = task === "task1" ? "Task 1" : "Task 2";
 
   return (
@@ -130,6 +131,11 @@ export function WritingScorePanel({
                 );
               })}
             </div>
+            {aiTaskBand !== null && (
+              <p className="mt-2 text-xs font-semibold text-violet-800">
+                AI task band: {formatBand(aiTaskBand)}
+              </p>
+            )}
             <div className="mt-3 flex gap-2">
               <Button type="button" size="sm" onClick={onApplyAi}>
                 Apply suggestions

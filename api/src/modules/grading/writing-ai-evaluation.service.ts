@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, WritingAiEvaluationStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  WRITING_MIN_WORDS,
+  applyWordCountPenaltyToScores,
+  countWords,
+} from './writing-word-count';
 
 export type WritingAnnotationDto = {
   start: number;
@@ -185,10 +190,20 @@ export class WritingAiEvaluationService {
         });
 
         task1 = task1Text
-          ? this.normalizeTaskResult(raw.task1, task1Text, 'taskAchievement')
+          ? this.normalizeTaskResult(
+              raw.task1,
+              task1Text,
+              'taskAchievement',
+              WRITING_MIN_WORDS.task1,
+            )
           : this.emptyTaskResult('taskAchievement');
         task2 = task2Text
-          ? this.normalizeTaskResult(raw.task2, task2Text, 'taskResponse')
+          ? this.normalizeTaskResult(
+              raw.task2,
+              task2Text,
+              'taskResponse',
+              WRITING_MIN_WORDS.task2,
+            )
           : this.emptyTaskResult('taskResponse');
       }
 
@@ -264,11 +279,13 @@ export class WritingAiEvaluationService {
     raw: RawAiTaskResult,
     essayText: string,
     primaryKey: 'taskAchievement' | 'taskResponse',
+    minWords: number,
   ): TaskAiResult {
     if (!essayText.trim()) {
       return this.emptyTaskResult(primaryKey);
     }
 
+    const wordCount = countWords(essayText);
     const annotations: WritingAnnotationDto[] = [];
 
     for (const ann of raw.annotations ?? []) {
@@ -284,7 +301,17 @@ export class WritingAiEvaluationService {
       });
     }
 
-    const suggestedScores: Record<string, number> = {
+    if (wordCount < minWords) {
+      annotations.unshift({
+        start: 0,
+        end: Math.min(essayText.length, 1),
+        criterion: 'ta',
+        title: 'Under minimum word count',
+        explanation: `The response is ${wordCount} words. IELTS requires at least ${minWords} words for this task — Task Achievement/Response must be penalised accordingly.`,
+      });
+    }
+
+    let suggestedScores: Record<string, number> = {
       coherenceCohesion: this.clampBand(raw.suggestedScores.coherenceCohesion),
       lexicalResource: this.clampBand(raw.suggestedScores.lexicalResource),
       grammar: this.clampBand(raw.suggestedScores.grammar),
@@ -299,6 +326,13 @@ export class WritingAiEvaluationService {
         raw.suggestedScores.taskResponse ?? raw.suggestedScores.taskAchievement,
       );
     }
+
+    suggestedScores = applyWordCountPenaltyToScores(
+      suggestedScores,
+      primaryKey,
+      wordCount,
+      minWords,
+    );
 
     return { annotations, suggestedScores };
   }
@@ -372,21 +406,27 @@ Rules:
 - criterion "cc" = Coherence & Cohesion
 - criterion "lr" = Lexical Resource
 - criterion "gra" = Grammatical Range & Accuracy
+- Task 1 minimum: 150 words. Task 2 minimum: 250 words.
+- When a response is below the minimum word count, penalise Task Achievement (Task 1) or Task Response (Task 2) heavily — typically band 4 or below when under 50% of the minimum
+- Include an annotation about insufficient word count when below the minimum
 - Include 3-8 annotations per task when the student wrote a substantive response; use an empty annotations array when the response is blank or "(empty)"
 - "text" MUST be copied verbatim from the student essay (exact substring)
 - Assign band 0 for every criterion when the student submitted no response for that task
 - Be fair and examiner-like; scores should reflect the annotations`;
 
+    const task1Words = countWords(input.task1Text);
+    const task2Words = countWords(input.task2Text);
+
     const userPrompt = `TASK 1 PROMPT:
 ${input.task1Prompt}
 
-TASK 1 STUDENT RESPONSE:
+TASK 1 STUDENT RESPONSE (${task1Words} words — minimum ${WRITING_MIN_WORDS.task1}):
 ${input.task1Text || '(empty)'}
 
 TASK 2 PROMPT:
 ${input.task2Prompt}
 
-TASK 2 STUDENT RESPONSE:
+TASK 2 STUDENT RESPONSE (${task2Words} words — minimum ${WRITING_MIN_WORDS.task2}):
 ${input.task2Text || '(empty)'}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

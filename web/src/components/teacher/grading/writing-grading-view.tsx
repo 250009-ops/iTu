@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock, Loader2 } from "lucide-react";
@@ -24,6 +24,8 @@ import {
   formatWordCount,
   fromAiSuggestedScores,
   fromCriteriaPayload,
+  getWordCountStatus,
+  isScoresUnset,
   taskHasResponse,
   toCriteriaPayload,
   type TaskFeedback,
@@ -96,6 +98,10 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
     task1: false,
     task2: false,
   });
+  const aiAutoAppliedRef = useRef<{ task1: boolean; task2: boolean }>({
+    task1: false,
+    task2: false,
+  });
 
   const load = useCallback(async () => {
     setError(null);
@@ -153,11 +159,40 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
     submission?.aiEvaluation?.task2SuggestedScores ?? null,
     "task2",
   );
+  const alreadyGraded = submission?.status === "graded";
+
+  useEffect(() => {
+    if (!submission || alreadyGraded || aiStatus !== "ready") return;
+
+    if (
+      aiSuggestedTask1 &&
+      isScoresUnset(task1Scores) &&
+      !aiAutoAppliedRef.current.task1
+    ) {
+      setTask1Scores(aiSuggestedTask1);
+      aiAutoAppliedRef.current.task1 = true;
+    }
+    if (
+      aiSuggestedTask2 &&
+      isScoresUnset(task2Scores) &&
+      !aiAutoAppliedRef.current.task2
+    ) {
+      setTask2Scores(aiSuggestedTask2);
+      aiAutoAppliedRef.current.task2 = true;
+    }
+  }, [
+    submission,
+    alreadyGraded,
+    aiStatus,
+    aiSuggestedTask1,
+    aiSuggestedTask2,
+    task1Scores,
+    task2Scores,
+  ]);
 
   const task1Band = averageTaskBand(task1Scores);
   const task2Band = averageTaskBand(task2Scores);
   const overall = computeWritingOverallBand(task1Band, task2Band);
-  const alreadyGraded = submission?.status === "graded";
   const sla = formatSla(submission?.slaMinutesRemaining ?? null);
 
   const activePrompt =
@@ -289,7 +324,9 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                     ["task1", "Task 1", submission.task1WordCount],
                     ["task2", "Task 2", submission.task2WordCount],
                   ] as const
-                ).map(([key, label, words]) => (
+                ).map(([key, label, words]) => {
+                  const underMin = !getWordCountStatus(key, words ?? 0).meetsMinimum;
+                  return (
                   <button
                     key={key}
                     type="button"
@@ -304,11 +341,17 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                     )}
                   >
                     <span>{label}</span>
-                    <span className="ml-1.5 font-normal tabular-nums text-muted">
+                    <span
+                      className={cn(
+                        "ml-1.5 font-normal tabular-nums",
+                        underMin ? "text-amber-700" : "text-muted",
+                      )}
+                    >
                       · {formatWordCount(words)}
                     </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -331,6 +374,7 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                     text={activeText ?? null}
                     annotations={aiProcessing ? [] : activeAnnotations}
                     wordCount={activeWordCount}
+                    task={activeTask}
                   />
 
                   {submission.aiConfigured &&

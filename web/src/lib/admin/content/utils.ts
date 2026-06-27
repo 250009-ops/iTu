@@ -18,6 +18,7 @@ import type {
   QuestionGroup,
   ReadingContent,
   ReadingPassage,
+  SpeakingPart1Topic,
   WritingContent,
 } from "@/lib/exam/types";
 import { gapsInCompletionLines } from "@/lib/exam/inline-content";
@@ -235,9 +236,22 @@ export function buildPublishChecklist(
   if (module === "speaking") {
     const parts = Array.isArray(c.parts) ? c.parts.length : 0;
     const cueCard = c.cueCard as { title?: string } | undefined;
-    const p1 = Array.isArray(c.part1Questions)
+    const topics = Array.isArray(c.part1Topics)
+      ? (c.part1Topics as SpeakingPart1Topic[])
+      : [];
+    const legacyP1 = Array.isArray(c.part1Questions)
       ? (c.part1Questions as string[]).filter((q) => q.trim()).length
       : 0;
+    const topicCount = topics.filter(
+      (topic) =>
+        topic.title?.trim() ||
+        (topic.questions ?? []).some((q) => q.trim()),
+    ).length;
+    const questionCount = topics.reduce(
+      (sum, topic) =>
+        sum + (topic.questions ?? []).filter((q) => q.trim()).length,
+      legacyP1,
+    );
     const p3 = Array.isArray(c.part3Questions)
       ? (c.part3Questions as string[]).filter((q) => q.trim()).length
       : 0;
@@ -252,10 +266,10 @@ export function buildPublishChecklist(
       ok: Boolean(cueCard?.title?.trim()),
     });
     items.push({
-      id: "part1-questions",
-      label: `${p1} Part 1 interviewer questions`,
-      ok: p1 >= 3,
-      hint: "Add at least 3 Part 1 questions for the examiner console.",
+      id: "part1-topics",
+      label: `${topicCount} Part 1 topics · ${questionCount} questions`,
+      ok: topicCount >= 2 && questionCount >= 3,
+      hint: "Add at least 2 Part 1 topics with 3+ questions total.",
     });
     items.push({
       id: "part3-questions",

@@ -14,6 +14,7 @@ import {
   SlotStatus,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
+import { mockStartDateTime } from '../../common/band-resolution';
 import {
   AuditAction,
   type AuditActionName,
@@ -178,6 +179,14 @@ export class BookingsService {
       throw new BadRequestException(
         'Speaking slot is not required for this package',
       );
+    }
+
+    if (!/^\d{2}:\d{2}$/.test(params.mockTime)) {
+      throw new BadRequestException('mockTime must be in HH:mm format');
+    }
+    const mockStart = mockStartDateTime(new Date(params.mockDate), params.mockTime);
+    if (mockStart.getTime() <= Date.now()) {
+      throw new BadRequestException('Mock date and time must be in the future');
     }
 
     const availability = await evaluatePackageAvailability(

@@ -12,6 +12,7 @@ import type {
   ReadingContent,
   ReadingPassage,
   SpeakingContent,
+  SpeakingPart1Topic,
   WritingContent,
 } from "@/lib/exam/types";
 import { normalizeCompletionLines } from "@/lib/exam/inline-content";
@@ -158,6 +159,27 @@ function repairWritingContent(raw: object): WritingContent {
   return { ...c, tasks: tasks as WritingContent["tasks"] };
 }
 
+function repairPart1Topics(c: SpeakingContent): SpeakingPart1Topic[] {
+  const rawTopics = asArray(c.part1Topics) as Partial<SpeakingPart1Topic>[];
+  const topics = rawTopics
+    .map((topic) => ({
+      title: typeof topic.title === "string" ? topic.title : "",
+      questions: asArray(topic.questions, [""]),
+    }))
+    .filter((topic) => topic.title.trim() || topic.questions.some((q) => q.trim()));
+
+  if (topics.length > 0) return topics;
+
+  const legacy = asArray(c.part1Questions).filter(
+    (q): q is string => typeof q === "string" && q.trim().length > 0,
+  );
+  if (legacy.length > 0) {
+    return [{ title: "General questions", questions: legacy }];
+  }
+
+  return [];
+}
+
 function repairSpeakingContent(raw: object): SpeakingContent {
   const c = raw as SpeakingContent;
   const parts = asArray(c.parts);
@@ -165,6 +187,7 @@ function repairSpeakingContent(raw: object): SpeakingContent {
   if (parts.length === 0) {
     return emptySpeakingContent();
   }
+  const part1Topics = repairPart1Topics(c);
   return {
     ...c,
     parts: parts as SpeakingContent["parts"],
@@ -172,7 +195,7 @@ function repairSpeakingContent(raw: object): SpeakingContent {
       ...cueCard,
       bullets: asArray(cueCard.bullets, [""]),
     },
-    part1Questions: asArray(c.part1Questions),
+    part1Topics,
     part3Questions: asArray(c.part3Questions),
     part2ExaminerNotes: asArray(c.part2ExaminerNotes),
   };

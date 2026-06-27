@@ -244,11 +244,37 @@ function repairWritingContent(c: Json): Json {
   return { ...c, tasks: asArray(c.tasks) };
 }
 
+function repairPart1Topics(c: Json): Json[] {
+  const rawTopics = asArray(c.part1Topics) as Json[];
+  const topics = rawTopics
+    .map((topic) => {
+      if (!isObject(topic)) return null;
+      const title = typeof topic.title === 'string' ? topic.title : '';
+      const questions = asArray(topic.questions).filter(
+        (q) => typeof q === 'string' && q.trim(),
+      );
+      if (!title.trim() && questions.length === 0) return null;
+      return { title, questions: questions.length ? questions : [''] };
+    })
+    .filter(Boolean) as Json[];
+
+  if (topics.length > 0) return topics;
+
+  const legacy = asArray(c.part1Questions).filter(
+    (q) => typeof q === 'string' && q.trim(),
+  );
+  if (legacy.length > 0) {
+    return [{ title: 'General questions', questions: legacy }];
+  }
+
+  return [];
+}
+
 function repairSpeakingContent(c: Json): Json {
   return {
     ...c,
     parts: asArray(c.parts),
-    part1Questions: asArray(c.part1Questions),
+    part1Topics: repairPart1Topics(c),
     part3Questions: asArray(c.part3Questions),
     part2ExaminerNotes: asArray(c.part2ExaminerNotes),
   };

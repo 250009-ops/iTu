@@ -64,6 +64,7 @@ export function SpeakingLiveConsole() {
   );
 
   const [activePart, setActivePart] = useState<SpeakingPart>(1);
+  const [topicIndex, setTopicIndex] = useState(0);
   const [promptIndex, setPromptIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [exiting, setExiting] = useState(false);
@@ -82,6 +83,7 @@ export function SpeakingLiveConsole() {
 
   useEffect(() => {
     setPromptIndex(0);
+    setTopicIndex(0);
   }, [activePart, phase]);
 
   useEffect(() => {
@@ -150,6 +152,7 @@ export function SpeakingLiveConsole() {
 
   async function selectPart(part: SpeakingPart) {
     setActivePart(part);
+    setTopicIndex(0);
     setPromptIndex(0);
     const nextPhase: SpeakingPhase =
       part === 1 ? "part1" : part === 2 ? "part2-prep" : "part3";
@@ -164,16 +167,58 @@ export function SpeakingLiveConsole() {
 
   function nextPrompt() {
     if (!current) return;
+    if (current.part === 1 && current.topics?.length) {
+      const topic = current.topics[topicIndex];
+      if (!topic) return;
+      if (promptIndex < topic.questions.length - 1) {
+        setPromptIndex((i) => i + 1);
+        return;
+      }
+      if (topicIndex < current.topics.length - 1) {
+        setTopicIndex((i) => i + 1);
+        setPromptIndex(0);
+      }
+      return;
+    }
     const max = current.prompts.length - 1;
     setPromptIndex((i) => Math.min(max, i + 1));
   }
 
   function prevPrompt() {
+    if (!current) return;
+    if (current.part === 1 && current.topics?.length) {
+      if (promptIndex > 0) {
+        setPromptIndex((i) => i - 1);
+        return;
+      }
+      if (topicIndex > 0) {
+        const prevTopic = current.topics[topicIndex - 1];
+        setTopicIndex((i) => i - 1);
+        setPromptIndex(Math.max(0, (prevTopic?.questions.length ?? 1) - 1));
+      }
+      return;
+    }
     setPromptIndex((i) => Math.max(0, i - 1));
   }
 
+  const part1Topics =
+    current?.part === 1 && current.topics?.length ? current.topics : [];
+  const activeTopic = part1Topics[topicIndex];
+  const activeQuestionTotal = activeTopic?.questions.length ?? current?.prompts.length ?? 0;
+  const canNextPrompt =
+    current &&
+    (current.part === 1 && part1Topics.length
+      ? promptIndex < activeQuestionTotal - 1 ||
+        topicIndex < part1Topics.length - 1
+      : promptIndex < current.prompts.length - 1);
+  const canPrevPrompt =
+    current &&
+    (current.part === 1 && part1Topics.length
+      ? promptIndex > 0 || topicIndex > 0
+      : promptIndex > 0);
+
   const displayPrompt = current
-    ? promptForPhase(current, promptIndex, phase)
+    ? promptForPhase(current, promptIndex, phase, topicIndex)
     : "";
   const partNum = phaseToPart(phase);
 
@@ -237,9 +282,16 @@ export function SpeakingLiveConsole() {
                       <>
                         <p className="text-xs font-bold uppercase tracking-widest text-sky-300">
                           Part {partNum} · {current?.title ?? "Speaking"}
-                          {current && current.prompts.length > 1 && activePart !== 2 && (
+                          {activePart === 1 && activeTopic?.title && (
+                            <span className="ml-2 text-white/70">
+                              · {activeTopic.title}
+                            </span>
+                          )}
+                          {current &&
+                            activeQuestionTotal > 1 &&
+                            activePart !== 2 && (
                             <span className="ml-2 text-white/50">
-                              Q{promptIndex + 1}/{current.prompts.length}
+                              Q{promptIndex + 1}/{activeQuestionTotal}
                             </span>
                           )}
                         </p>
@@ -299,13 +351,36 @@ export function SpeakingLiveConsole() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {activePart !== 2 && current && current.prompts.length > 1 && (
+            {activePart === 1 && part1Topics.length > 1 && (
+              <div className="flex flex-wrap gap-1">
+                {part1Topics.map((topic, idx) => (
+                  <button
+                    key={`${topic.title}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setTopicIndex(idx);
+                      setPromptIndex(0);
+                    }}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-[11px] font-semibold transition",
+                      topicIndex === idx
+                        ? "bg-sky-500 text-white"
+                        : "bg-white/10 text-white/75 hover:bg-white/20",
+                    )}
+                  >
+                    {topic.title || `Topic ${idx + 1}`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activePart !== 2 && current && activeQuestionTotal > 1 && (
               <>
                 <Button
                   variant="secondary"
                   size="sm"
                   className="h-8 border-white/20 bg-white/10 text-white hover:bg-white/20"
-                  disabled={promptIndex === 0}
+                  disabled={!canPrevPrompt}
                   onClick={prevPrompt}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -314,7 +389,7 @@ export function SpeakingLiveConsole() {
                   variant="secondary"
                   size="sm"
                   className="h-8 border-white/20 bg-white/10 text-white hover:bg-white/20"
-                  disabled={promptIndex >= current.prompts.length - 1}
+                  disabled={!canNextPrompt}
                   onClick={nextPrompt}
                 >
                   Next question
