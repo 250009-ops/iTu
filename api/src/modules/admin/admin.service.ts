@@ -829,11 +829,20 @@ export class AdminService {
     if (!existing) throw new NotFoundException('Package not found');
 
     const skills = dto.skills ?? existing.skills;
+    // Only treat content as "changed" when a value actually differs from what
+    // is stored. The editor UI always sends every test id on save, so a
+    // presence-based check (`!== undefined`) would wrongly block metadata-only
+    // edits (price, title, active…) on packages that already have enrollments.
+    const linkChanged = (
+      next: string | null | undefined,
+      current: string | null,
+    ) => next !== undefined && (next ?? null) !== (current ?? null);
+
     const contentLinksChanged =
-      dto.listeningTestId !== undefined ||
-      dto.readingTestId !== undefined ||
-      dto.writingTestId !== undefined ||
-      dto.speakingBankId !== undefined ||
+      linkChanged(dto.listeningTestId, existing.listeningTestId) ||
+      linkChanged(dto.readingTestId, existing.readingTestId) ||
+      linkChanged(dto.writingTestId, existing.writingTestId) ||
+      linkChanged(dto.speakingBankId, existing.speakingBankId) ||
       dto.contentPool !== undefined;
 
     if (existing._count.enrollments > 0 && contentLinksChanged) {

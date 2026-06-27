@@ -44,6 +44,47 @@ describe('normalizeContentForType', () => {
   });
 });
 
+describe('normalizeContentForType — speaking topics', () => {
+  it('migrates legacy flat part1Questions into a single topic', () => {
+    const content = {
+      parts: [{ part: 1 }, { part: 2 }, { part: 3 }],
+      part1Questions: ['Where are you from?', 'Do you work or study?'],
+    };
+    const out = normalizeContentForType(ContentTestType.SPEAKING, content);
+    const topics = (out as any).part1Topics;
+    expect(Array.isArray(topics)).toBe(true);
+    expect(topics).toHaveLength(1);
+    expect(topics[0].title).toBe('General questions');
+    expect(topics[0].questions).toHaveLength(2);
+  });
+
+  it('migrates legacy flat part3Questions into a single topic', () => {
+    const content = {
+      parts: [{ part: 1 }, { part: 2 }, { part: 3 }],
+      part3Questions: ['Why is this important?'],
+    };
+    const out = normalizeContentForType(ContentTestType.SPEAKING, content);
+    const topics = (out as any).part3Topics;
+    expect(topics).toHaveLength(1);
+    expect(topics[0].title).toBe('General discussion');
+  });
+
+  it('preserves structured part1/part3 topics and drops empty ones', () => {
+    const content = {
+      parts: [{ part: 1 }, { part: 2 }, { part: 3 }],
+      part1Topics: [
+        { title: 'Home', questions: ['Do you live in a flat?'] },
+        { title: '', questions: ['', '  '] },
+      ],
+      part3Topics: [{ title: 'Society', questions: ['Has this changed?'] }],
+    };
+    const out = normalizeContentForType(ContentTestType.SPEAKING, content);
+    expect((out as any).part1Topics).toHaveLength(1);
+    expect((out as any).part1Topics[0].title).toBe('Home');
+    expect((out as any).part3Topics).toHaveLength(1);
+  });
+});
+
 describe('findContentStructureErrors', () => {
   it('flags a flowchart group with non-array nodes', () => {
     const content = {
