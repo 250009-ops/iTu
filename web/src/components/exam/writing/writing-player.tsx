@@ -16,9 +16,12 @@ import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useWritingAutosave } from "@/hooks/use-writing-autosave";
 import { useExamIntegrity } from "@/hooks/use-exam-integrity";
-import { startSection, submitSection, submitWriting } from "@/lib/api/exam";
-import { examRouteAfterSection } from "@/lib/exam/package-skills";
+import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
+import { startSection, submitSection, submitWriting, getExamSession } from "@/lib/api/exam";
+import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
+import { ExamRemoteNotice } from "@/components/exam/shell/exam-remote-notice";
 
 export function WritingPlayer({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -36,8 +39,11 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const state = useExamState(content?.tasks[0]?.id ?? "task-1");
-  const { remaining, expired } = useServerTimer(sessionId);
-  useExamIntegrity(sessionId);
+  const { remaining, expired } = useServerTimer(sessionId, { enabled: started });
+  const { warning, dismissWarning } = useExamIntegrity(sessionId);
+  const { markLocalSubmit, remoteNotice } = useExamSectionSync(sessionId, "writing", {
+    enabled: started,
+  });
 
   const task1 = content?.tasks.find((t) => t.taskNumber === 1);
   const task2 = content?.tasks.find((t) => t.taskNumber === 2);
@@ -49,7 +55,16 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
     if (!content || started) return;
     void startSection(sessionId, "writing")
       .then(() => setStarted(true))
-      .catch(() => setStarted(true));
+      .catch(async () => {
+        try {
+          const session = await getExamSession(sessionId);
+          router.replace(
+            examResumeRoute(sessionId, session.state, session.enrollment.package.skills),
+          );
+        } catch {
+          setStarted(true);
+        }
+      });
   }, [content, sessionId, started]);
 
   useEffect(() => {
@@ -98,6 +113,7 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
 
   async function handleSubmit() {
     setSubmitting(true);
+    markLocalSubmit();
     try {
       await submitWriting(sessionId, task1Text, task2Text);
       const updated = await submitSection(sessionId, "writing");
@@ -115,6 +131,9 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
 
   return (
     <>
+      <ExamIntegrityWarning warning={warning} onDismiss={dismissWarning} />
+      <ExamRemoteNotice message={remoteNotice} />
+
       <ExamTopBar
         testTakerId={sessionId}
         timer={<ExamTimer remainingSeconds={remaining} hidden={state.hideTimer} />}

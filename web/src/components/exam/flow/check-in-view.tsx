@@ -1,40 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BadgeCheck,
-  Camera,
   CheckCircle2,
   ChevronRight,
   Headphones,
   Maximize,
-  Mic,
-  Monitor,
   ScrollText,
-  Wifi,
 } from "lucide-react";
 import { ExamInterstitialHeader } from "@/components/exam/flow/exam-interstitial-header";
+import { CheckInDevicePanel } from "@/components/exam/flow/check-in-device-panel";
 import { useExamSessionContext } from "@/contexts/exam-session-context";
 import { useAuth, getInitials } from "@/hooks/use-auth";
 import {
   getCheckInCopy,
-  type CheckInDeviceIcon,
 } from "@/lib/exam/check-in-config";
 import { examResumeRoute } from "@/lib/exam/package-skills";
+import { primeAudioPlayback } from "@/lib/exam/prime-audio";
 import { requestExamFullscreen } from "@/hooks/use-exam-integrity";
 import { cn } from "@/lib/utils";
-
-const DEVICE_ICONS: Record<
-  CheckInDeviceIcon,
-  React.ComponentType<{ size?: number; className?: string }>
-> = {
-  headphones: Headphones,
-  mic: Mic,
-  camera: Camera,
-  wifi: Wifi,
-  monitor: Monitor,
-};
 
 export function CheckInView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -69,11 +55,16 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
     setDevices(true);
   }, [alreadyCheckedIn]);
 
+  const handleDevicesPassed = useCallback((passed: boolean) => {
+    setDevices(passed);
+  }, []);
+
   async function handleBegin() {
     if (checkingIn) return;
     setCheckingIn(true);
-    // Enter fullscreen from the user gesture (browsers block this in effects).
+    // Enter fullscreen and prime audio from the user gesture (browsers block both in effects).
     requestExamFullscreen();
+    primeAudioPlayback();
     try {
       let currentState = session?.state;
       if (currentState === "enrolled") {
@@ -87,13 +78,6 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
       setCheckingIn(false);
     }
   }
-
-  const deviceGridClass =
-    checkIn.devices.length <= 2
-      ? "sm:grid-cols-2"
-      : checkIn.devices.length === 3
-        ? "sm:grid-cols-3"
-        : "sm:grid-cols-2 lg:grid-cols-4";
 
   return (
     <>
@@ -163,30 +147,15 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
               icon={<Headphones size={18} />}
               done={devices}
             >
-              <div className={cn("grid gap-3", deviceGridClass)}>
-                {checkIn.devices.map((d) => {
-                  const Icon = DEVICE_ICONS[d.icon];
-                  return (
-                    <div
-                      key={d.label}
-                      className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px]"
-                    >
-                      <span className="text-slate-400">
-                        <Icon size={16} />
-                      </span>
-                      <span className="flex-1 font-medium text-slate-700">
-                        {d.label}
-                      </span>
-                      <CheckCircle2 size={16} className="text-emerald-500" />
-                    </div>
-                  );
-                })}
-              </div>
-              <ConfirmButton
-                done={devices}
-                onClick={() => setDevices(true)}
-                label="Devices working correctly"
+              <CheckInDevicePanel
+                devices={checkIn.devices}
+                onAllPassedChange={handleDevicesPassed}
               />
+              {devices && (
+                <p className="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-600">
+                  <CheckCircle2 size={15} /> All devices verified
+                </p>
+              )}
             </CheckCard>
           </div>
 
