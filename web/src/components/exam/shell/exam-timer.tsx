@@ -5,13 +5,14 @@ import { formatLongClock } from "@/lib/exam/helpers";
 import { cn } from "@/lib/utils";
 
 interface ExamTimerProps {
-  remainingSeconds: number;
+  remainingSeconds: number | null;
   hidden?: boolean;
 }
 
 export function ExamTimer({ remainingSeconds, hidden }: ExamTimerProps) {
-  const low = remainingSeconds <= 300; // 5 min
-  const critical = remainingSeconds <= 60;
+  const notStarted = remainingSeconds == null;
+  const low = !notStarted && remainingSeconds <= 300; // 5 min
+  const critical = !notStarted && remainingSeconds <= 60;
 
   if (hidden) {
     return (
@@ -34,7 +35,7 @@ export function ExamTimer({ remainingSeconds, hidden }: ExamTimerProps) {
       )}
     >
       <Clock size={15} className={cn(critical && "animate-pulse")} />
-      {formatLongClock(remainingSeconds)}
+      {notStarted ? "--:--" : formatLongClock(remainingSeconds)}
       <span className="hidden text-[11px] font-medium opacity-80 sm:inline">
         left
       </span>

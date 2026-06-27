@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Headphones } from "lucide-react";
 import type { ListeningContent } from "@/lib/exam/types";
@@ -13,7 +13,10 @@ import {
 import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
 import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
-import { ListeningAudioPlayer } from "@/components/exam/listening/listening-audio-player";
+import {
+  ListeningAudioPlayer,
+  type ListeningAudioPlayerHandle,
+} from "@/components/exam/listening/listening-audio-player";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
 import { useInstructionGate } from "@/hooks/use-instruction-gate";
@@ -21,25 +24,35 @@ import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
 import { useExamIntegrity } from "@/hooks/use-exam-integrity";
-import { startSection, submitSection, logIntegrity } from "@/lib/api/exam";
-import { examRouteAfterSection } from "@/lib/exam/package-skills";
+import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
+import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
+import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
+import { ExamRemoteNotice } from "@/components/exam/shell/exam-remote-notice";
 
 export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const router = useRouter();
+  const audioRef = useRef<ListeningAudioPlayerHandle>(null);
   const { content, loading, error } = useExamContent<ListeningContent>(
     sessionId,
     "listening",
   );
-  const [started, setStarted] = useState(false);
+  const [sectionStarted, setSectionStarted] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [audioStatus, setAudioStatus] = useState("Preparing audio…");
+  const [audioReadyToStart, setAudioReadyToStart] = useState(false);
 
   const state = useExamState(content?.parts[0]?.id ?? "part-1");
-  const { remaining, expired } = useServerTimer(sessionId);
+  const { remaining, expired } = useServerTimer(sessionId, {
+    enabled: sectionStarted,
+  });
   useExamAutosave(sessionId, state.answers);
-  useExamIntegrity(sessionId);
+  const { warning, dismissWarning } = useExamIntegrity(sessionId);
+  const { markLocalSubmit, remoteNotice } = useExamSectionSync(sessionId, "listening", {
+    enabled: sectionStarted,
+  });
 
   const logPaste = useCallback(
     () => void logIntegrity(sessionId, "paste_attempt"),
@@ -55,11 +68,20 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   }, [content]);
 
   useEffect(() => {
-    if (!content || started) return;
+    if (!content || sectionStarted) return;
     void startSection(sessionId, "listening")
-      .then(() => setStarted(true))
-      .catch(() => setStarted(true));
-  }, [content, sessionId, started]);
+      .then(() => setSectionStarted(true))
+      .catch(async () => {
+        try {
+          const session = await getExamSession(sessionId);
+          router.replace(
+            examResumeRoute(sessionId, session.state, session.enrollment.package.skills),
+          );
+        } catch {
+          setSectionStarted(true);
+        }
+      });
+  }, [content, sessionId, sectionStarted]);
 
   useEffect(() => {
     if (expired) setSubmitOpen(true);
@@ -84,10 +106,29 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const activePart =
     content?.parts.find((p) => p.id === state.activePart) ?? content?.parts[0];
 
-  // Hooks must run on every render, before any early return, or React throws
-  // "rendered fewer hooks than expected" (#310) once content finishes loading.
   const { blocking, dismiss, questionGroups, nextQuestionAfter } =
     useInstructionGate(activePart?.groups ?? []);
+
+  const startAudio = useCallback(() => {
+    if (!audioTracks.length) return;
+    void audioRef.current?.start();
+  }, [audioTracks.length]);
+
+  // After section starts, begin audio once instructions are dismissed (user gesture).
+  useEffect(() => {
+    if (!sectionStarted || !audioReadyToStart) return;
+    startAudio();
+  }, [sectionStarted, audioReadyToStart, startAudio]);
+
+  useEffect(() => {
+    if (!sectionStarted) {
+      setAudioReadyToStart(false);
+      return;
+    }
+    if (!blocking) {
+      setAudioReadyToStart(true);
+    }
+  }, [sectionStarted, blocking]);
 
   if (loading || !content || !activePart) {
     return <ApiDataShell loading={loading} error={error} />;
@@ -108,6 +149,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
 
   async function handleSubmit() {
     setSubmitting(true);
+    markLocalSubmit();
     try {
       const updated = await submitSection(sessionId, "listening");
       router.push(
@@ -124,8 +166,12 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
 
   return (
     <>
+      <ExamIntegrityWarning warning={warning} onDismiss={dismissWarning} />
+      <ExamRemoteNotice message={remoteNotice} />
+
       {audioTracks.length > 0 && (
         <ListeningAudioPlayer
+          ref={audioRef}
           tracks={audioTracks}
           sessionId={sessionId}
           onStatusChange={setAudioStatus}
@@ -176,6 +222,8 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
           overlay
           onContinue={() => {
             dismiss(blocking.id);
+            setAudioReadyToStart(true);
+            startAudio();
             const next = nextQuestionAfter(blocking.id);
             if (next != null) goToQuestion(next);
           }}

@@ -3,11 +3,23 @@
 import { useEffect, useState } from "react";
 import { getTimer } from "@/lib/api/exam";
 
-export function useServerTimer(sessionCode: string, pollMs = 30000) {
+type Options = {
+  /** When false, skip polling (e.g. before startSection completes). */
+  enabled?: boolean;
+  pollMs?: number;
+};
+
+export function useServerTimer(
+  sessionCode: string,
+  { enabled = true, pollMs = 30000 }: Options = {},
+) {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [expired, setExpired] = useState(false);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
+    if (!enabled) return;
+
     let active = true;
     let intervalId: number | undefined;
 
@@ -15,8 +27,17 @@ export function useServerTimer(sessionCode: string, pollMs = 30000) {
       try {
         const timer = await getTimer(sessionCode);
         if (!active) return;
+
+        if (timer.notStarted || timer.remainingSec == null) {
+          setStarted(false);
+          setRemaining(null);
+          setExpired(false);
+          return;
+        }
+
+        setStarted(true);
         setRemaining(timer.remainingSec);
-        setExpired(timer.expired ?? timer.remainingSec === 0);
+        setExpired(Boolean(timer.expired));
       } catch {
         // keep last known value
       }
@@ -37,7 +58,17 @@ export function useServerTimer(sessionCode: string, pollMs = 30000) {
       if (intervalId) window.clearInterval(intervalId);
       window.clearInterval(tickId);
     };
-  }, [sessionCode, pollMs]);
+  }, [sessionCode, pollMs, enabled]);
 
-  return { remaining: remaining ?? 0, expired };
+  useEffect(() => {
+    if (started && remaining === 0) {
+      setExpired(true);
+    }
+  }, [started, remaining]);
+
+  return {
+    remaining,
+    expired: started && expired,
+    started,
+  };
 }

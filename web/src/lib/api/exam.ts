@@ -32,9 +32,10 @@ export type ExamSessionResponse = {
 
 export type ExamTimerResponse = {
   skill: string | null;
-  remainingSec: number;
+  remainingSec: number | null;
   serverTime: string;
   expired?: boolean;
+  notStarted?: boolean;
 };
 
 export function getExamSession(sessionCode: string) {
@@ -92,10 +93,14 @@ export function logIntegrity(
   event: string,
   metadata?: Record<string, unknown>,
 ) {
-  return apiFetch<{ logged: boolean }>(
-    `/exam-sessions/${sessionCode}/integrity`,
-    { method: "POST", body: { event, metadata } },
-  );
+  return apiFetch<{
+    logged: boolean;
+    integrity?: string;
+    offenseCount?: number;
+  }>(`/exam-sessions/${sessionCode}/integrity`, {
+    method: "POST",
+    body: { event, metadata },
+  });
 }
 
 export function getExamContent(sessionCode: string, skill: ExamSkill) {

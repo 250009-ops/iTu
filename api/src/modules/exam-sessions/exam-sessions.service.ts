@@ -449,9 +449,13 @@ export class ExamSessionsService {
 
     const activeSkill = skillForActiveState(session.state);
     if (!activeSkill) {
+      // No section is active yet (e.g. CHECK_IN_OPEN). Do not report remainingSec
+      // as 0 — clients would treat that as expired and force-submit immediately.
       return {
         skill: null,
-        remainingSec: 0,
+        remainingSec: null,
+        expired: false,
+        notStarted: true,
         serverTime: new Date().toISOString(),
         redisBacked: this.examTimer.isRedisBacked(),
       };

@@ -123,3 +123,53 @@ export function examRouteAfterSection(
   }
   return `/exam/${sessionId}/break?from=${current}&next=${next}`;
 }
+
+/** Skill whose submission matches a `*_submitted` session state, if any. */
+export function skillFromSubmittedState(state: string): ExamSkill | null {
+  const map: Record<string, ExamSkill> = {
+    listening_submitted: "listening",
+    reading_submitted: "reading",
+    writing_submitted: "writing",
+    speaking_submitted: "speaking",
+  };
+  return map[state] ?? null;
+}
+
+/** Mirrors backend `expectedNextSkillToStart` using lowercase API states. */
+export function expectedNextSkillFromSessionState(
+  state: string,
+  skills: unknown,
+): ExamSkill | null {
+  const ordered = packageExamSkills(skills);
+  if (ordered.length === 0) return null;
+
+  if (state === "check_in_open" || state === "enrolled") {
+    return ordered[0] ?? null;
+  }
+  if (state === "speaking_scheduled") return "speaking";
+  if (state === "break") {
+    return ordered.find((s) => s === "writing") ?? null;
+  }
+
+  const submitted = skillFromSubmittedState(state);
+  if (submitted) {
+    const idx = ordered.indexOf(submitted);
+    return ordered[idx + 1] ?? null;
+  }
+
+  const activeByState: Record<string, ExamSkill> = {
+    listening_active: "listening",
+    reading_active: "reading",
+    writing_active: "writing",
+    speaking_active: "speaking",
+  };
+  return activeByState[state] ?? null;
+}
+
+export function examBreakRoute(
+  sessionId: string,
+  from: ExamSkill,
+  next: ExamSkill,
+): string {
+  return `/exam/${sessionId}/break?from=${from}&next=${next}`;
+}

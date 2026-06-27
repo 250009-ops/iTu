@@ -24,9 +24,12 @@ import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
 import { useExamIntegrity } from "@/hooks/use-exam-integrity";
-import { startSection, submitSection, logIntegrity } from "@/lib/api/exam";
-import { examRouteAfterSection } from "@/lib/exam/package-skills";
+import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
+import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
+import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
+import { ExamRemoteNotice } from "@/components/exam/shell/exam-remote-notice";
 
 export function ReadingPlayer({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -42,9 +45,12 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const state = useExamState(content?.passages[0]?.id ?? "passage-1");
-  const { remaining, expired } = useServerTimer(sessionId);
+  const { remaining, expired } = useServerTimer(sessionId, { enabled: started });
   useExamAutosave(sessionId, state.answers);
-  useExamIntegrity(sessionId);
+  const { warning, dismissWarning } = useExamIntegrity(sessionId);
+  const { markLocalSubmit, remoteNotice } = useExamSectionSync(sessionId, "reading", {
+    enabled: started,
+  });
 
   const logPaste = useCallback(
     () => void logIntegrity(sessionId, "paste_attempt"),
@@ -55,7 +61,16 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
     if (!content || started) return;
     void startSection(sessionId, "reading")
       .then(() => setStarted(true))
-      .catch(() => setStarted(true));
+      .catch(async () => {
+        try {
+          const session = await getExamSession(sessionId);
+          router.replace(
+            examResumeRoute(sessionId, session.state, session.enrollment.package.skills),
+          );
+        } catch {
+          setStarted(true);
+        }
+      });
   }, [content, sessionId, started]);
 
   useEffect(() => {
@@ -132,6 +147,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
 
   async function handleSubmit() {
     setSubmitting(true);
+    markLocalSubmit();
     try {
       const updated = await submitSection(sessionId, "reading");
       router.push(
@@ -148,6 +164,9 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
 
   return (
     <ReadingHeadingsProvider>
+      <ExamIntegrityWarning warning={warning} onDismiss={dismissWarning} />
+      <ExamRemoteNotice message={remoteNotice} />
+
       <ExamTopBar
         testTakerId={sessionId}
         timer={<ExamTimer remainingSeconds={remaining} hidden={state.hideTimer} />}

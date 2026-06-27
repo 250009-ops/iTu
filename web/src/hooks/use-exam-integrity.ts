@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { logIntegrity } from "@/lib/api/exam";
 
 type Options = {
@@ -13,6 +13,22 @@ type Options = {
   fullscreen?: boolean;
 };
 
+export type IntegrityWarning = {
+  event: string;
+  message: string;
+  offenseCount: number;
+  flagged: boolean;
+};
+
+const EVENT_MESSAGES: Record<string, string> = {
+  tab_switch:
+    "You left the exam window or switched to another app. This is logged and may be reviewed.",
+  fullscreen_exit:
+    "You exited full-screen mode during the exam. This is logged and may be reviewed.",
+  paste_attempt:
+    "Copy and paste is disabled during the exam. This attempt was logged.",
+};
+
 /** Best-effort fullscreen request; safe to call from a user-gesture handler. */
 export function requestExamFullscreen(): void {
   if (typeof document === "undefined") return;
@@ -22,9 +38,49 @@ export function requestExamFullscreen(): void {
   }
 }
 
-/** Fullscreen enforcement, tab-switch logging, and paste blocking for L/R/W. */
+function buildWarning(
+  event: string,
+  offenseCount: number,
+  flagged: boolean,
+): IntegrityWarning {
+  return {
+    event,
+    message:
+      EVENT_MESSAGES[event] ??
+      "An exam integrity incident was recorded. Stay in the exam window.",
+    offenseCount,
+    flagged,
+  };
+}
+
+/** Fullscreen enforcement, tab-switch logging, paste blocking, and candidate warnings. */
 export function useExamIntegrity(sessionCode: string, options: Options = {}) {
   const { fullscreen = true } = options;
+  const [warning, setWarning] = useState<IntegrityWarning | null>(null);
+  const pendingTabWarningRef = useRef<IntegrityWarning | null>(null);
+
+  const reportEvent = useCallback(
+    async (event: string, showImmediately: boolean) => {
+      try {
+        const res = await logIntegrity(sessionCode, event);
+        const next = buildWarning(
+          event,
+          res.offenseCount ?? 0,
+          res.integrity === "flagged",
+        );
+        if (showImmediately) {
+          setWarning(next);
+        } else {
+          pendingTabWarningRef.current = next;
+        }
+      } catch {
+        if (showImmediately) {
+          setWarning(buildWarning(event, 0, false));
+        }
+      }
+    },
+    [sessionCode],
+  );
 
   useEffect(() => {
     if (fullscreen && !document.fullscreenElement) {
@@ -33,13 +89,18 @@ export function useExamIntegrity(sessionCode: string, options: Options = {}) {
 
     const onFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        void logIntegrity(sessionCode, "fullscreen_exit");
+        void reportEvent("fullscreen_exit", true);
       }
     };
 
     const onVisibility = () => {
       if (document.hidden) {
-        void logIntegrity(sessionCode, "tab_switch");
+        void reportEvent("tab_switch", false);
+        return;
+      }
+      if (pendingTabWarningRef.current) {
+        setWarning(pendingTabWarningRef.current);
+        pendingTabWarningRef.current = null;
       }
     };
 
@@ -47,7 +108,7 @@ export function useExamIntegrity(sessionCode: string, options: Options = {}) {
       const target = e.target as HTMLElement | null;
       if (!target?.closest("[data-exam-surface]")) return;
       e.preventDefault();
-      void logIntegrity(sessionCode, "paste_attempt");
+      void reportEvent("paste_attempt", true);
     };
 
     document.addEventListener("fullscreenchange", onFullscreenChange);
@@ -59,5 +120,9 @@ export function useExamIntegrity(sessionCode: string, options: Options = {}) {
       document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("paste", onPaste, true);
     };
-  }, [sessionCode, fullscreen]);
+  }, [sessionCode, fullscreen, reportEvent]);
+
+  const dismissWarning = useCallback(() => setWarning(null), []);
+
+  return { warning, dismissWarning };
 }
