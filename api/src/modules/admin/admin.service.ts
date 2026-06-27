@@ -17,6 +17,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
 import { MailService } from '../../common/mail/mail.service';
+import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import {
@@ -24,6 +25,7 @@ import {
   skillForActiveState,
 } from '../exam-sessions/exam-state-machine';
 import { UpdateBandTableDto } from './dto/band-table.dto';
+import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
 import { UpdatePayoutDto } from './dto/update-payout.dto';
@@ -106,6 +108,7 @@ export class AdminService {
     private audit: AuditService,
     private mail: MailService,
     private settings: SettingsService,
+    private bookings: BookingsService,
   ) {}
 
   async getNavBadges() {
@@ -336,6 +339,56 @@ export class AdminService {
         lifecycle: lifecycleMap[e.status] ?? 'in_progress',
       })),
     };
+  }
+
+  async getStudents() {
+    const students = await this.prisma.studentProfile.findMany({
+      include: {
+        user: true,
+        _count: { select: { enrollments: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return students.map((s) => ({
+      id: s.id,
+      name: s.user.name,
+      email: s.user.email,
+      targetBand: s.targetBand,
+      examType: s.examType.toLowerCase(),
+      country: s.country ?? null,
+      emailVerified: s.user.emailVerifiedAt != null,
+      enrollments: s._count.enrollments,
+      createdAt: s.user.createdAt,
+    }));
+  }
+
+  /**
+   * Admin-initiated complimentary enrollment. Reuses the shared booking
+   * provisioning so the granted mock behaves identically to a paid one
+   * (speaking slot is locked and the appointed session appears in the teacher
+   * panel), but the order is recorded as a $0 COMPLIMENTARY payment.
+   */
+  async grantEnrollment(dto: GrantEnrollmentDto, actorId: string) {
+    const student = await this.prisma.studentProfile.findUnique({
+      where: { id: dto.studentId },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return this.bookings.provisionEnrollment({
+      studentProfileId: dto.studentId,
+      actorUserId: actorId,
+      packageId: dto.packageId,
+      mockDate: dto.mockDate,
+      mockTime: dto.mockTime,
+      writingTeacherId: dto.writingTeacherId,
+      speakingTeacherId: dto.speakingTeacherId,
+      speakingSlotId: dto.speakingSlotId,
+      complimentary: true,
+      auditAction: AuditAction.ADMIN_ENROLLMENT_GRANT,
+    });
   }
 
   async getTeachers() {

@@ -14,7 +14,10 @@ import {
   SlotStatus,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
-import { AuditAction } from '../../common/audit/audit.actions';
+import {
+  AuditAction,
+  type AuditActionName,
+} from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -25,6 +28,28 @@ import {
   evaluatePackageAvailability,
 } from '../content/content-assignment';
 import { packageExamSkills } from '../content/package-skills';
+
+/**
+ * Parameters for {@link BookingsService.provisionEnrollment}. Shared by the
+ * student self-checkout flow and the admin complimentary-grant flow.
+ */
+export interface ProvisionEnrollmentParams {
+  /** StudentProfile id the enrollment is created for. */
+  studentProfileId: string;
+  /** User id performing the action (student or admin) — used for the audit log. */
+  actorUserId: string;
+  packageId: string;
+  mockDate: string;
+  mockTime: string;
+  writingTeacherId?: string;
+  speakingTeacherId?: string;
+  speakingSlotId?: string;
+  /** Only used for paid bookings; ignored when {@link complimentary} is true. */
+  paymentMethod?: string;
+  /** When true: $0 order, COMPLIMENTARY payment method, adminGranted enrollment. */
+  complimentary?: boolean;
+  auditAction: AuditActionName;
+}
 
 @Injectable()
 export class BookingsService {
@@ -96,8 +121,37 @@ export class BookingsService {
       throw new ForbiddenException('Only students can create bookings');
     }
 
+    return this.provisionEnrollment({
+      studentProfileId: user.studentProfileId,
+      actorUserId: user.id,
+      packageId: dto.packageId,
+      mockDate: dto.mockDate,
+      mockTime: dto.mockTime,
+      writingTeacherId: dto.writingTeacherId,
+      speakingTeacherId: dto.speakingTeacherId,
+      speakingSlotId: dto.speakingSlotId,
+      paymentMethod: dto.paymentMethod,
+      auditAction: AuditAction.BOOKING_CREATE,
+    });
+  }
+
+  /**
+   * Shared enrollment provisioning used by both student self-checkout and admin
+   * complimentary grants. Creates the enrollment, order, exam session, section
+   * attempts and (for speaking packages) the scheduled speaking session inside a
+   * single transaction, then fires notifications and writes an audit entry.
+   *
+   * When `complimentary` is true the order is recorded as a $0
+   * COMPLIMENTARY payment and the enrollment is flagged `adminGranted`, while
+   * still respecting content-availability and speaking-slot locking exactly like
+   * a paid booking.
+   */
+  async provisionEnrollment(params: ProvisionEnrollmentParams) {
+    const { studentProfileId, actorUserId, auditAction } = params;
+    const complimentary = params.complimentary ?? false;
+
     const pkg = await this.prisma.mockTestPackage.findUnique({
-      where: { id: dto.packageId },
+      where: { id: params.packageId },
     });
     if (!pkg || !pkg.isActive) {
       throw new NotFoundException('Package not found');
@@ -107,20 +161,20 @@ export class BookingsService {
     const needsWriting = skills.includes('writing');
     const needsSpeaking = skills.includes('speaking');
 
-    if (needsWriting && !dto.writingTeacherId) {
+    if (needsWriting && !params.writingTeacherId) {
       throw new BadRequestException('Writing examiner is required for this package');
     }
-    if (needsSpeaking && (!dto.speakingTeacherId || !dto.speakingSlotId)) {
+    if (needsSpeaking && (!params.speakingTeacherId || !params.speakingSlotId)) {
       throw new BadRequestException(
         'Speaking examiner and slot are required for this package',
       );
     }
-    if (!needsWriting && dto.writingTeacherId) {
+    if (!needsWriting && params.writingTeacherId) {
       throw new BadRequestException(
         'Writing examiner is not required for this package',
       );
     }
-    if (!needsSpeaking && (dto.speakingTeacherId || dto.speakingSlotId)) {
+    if (!needsSpeaking && (params.speakingTeacherId || params.speakingSlotId)) {
       throw new BadRequestException(
         'Speaking slot is not required for this package',
       );
@@ -128,13 +182,15 @@ export class BookingsService {
 
     const availability = await evaluatePackageAvailability(
       this.prisma,
-      user.studentProfileId!,
+      studentProfileId,
       pkg,
     );
     if (!availability.canPurchase) {
       throw new BadRequestException(
         availability.blockingReason ??
-          'You cannot purchase this package with your current test history.',
+          (complimentary
+            ? 'This student cannot be enrolled in this package with their current test history.'
+            : 'You cannot purchase this package with your current test history.'),
       );
     }
 
@@ -142,20 +198,26 @@ export class BookingsService {
     const orderCode = await this.generateCode('ORD');
     const sessionCode = await this.generateCode('MOCK');
 
+    const amount = complimentary ? 0 : pkg.price;
+    const paymentMethod = complimentary
+      ? PaymentMethod.COMPLIMENTARY
+      : ((params.paymentMethod?.toUpperCase() as PaymentMethod) ??
+        PaymentMethod.CARD);
+
     const result = await this.prisma.$transaction(async (tx) => {
       let slot: { id: string; teacherId: string; startsAt: Date } | null =
         null;
 
-      if (needsSpeaking && dto.speakingSlotId) {
+      if (needsSpeaking && params.speakingSlotId) {
         const speakingSlot = await tx.teacherSlot.findUnique({
-          where: { id: dto.speakingSlotId },
+          where: { id: params.speakingSlotId },
         });
         if (!speakingSlot || speakingSlot.status !== SlotStatus.AVAILABLE) {
           throw new BadRequestException('Speaking slot is no longer available');
         }
         if (
-          dto.speakingTeacherId &&
-          dto.speakingTeacherId !== speakingSlot.teacherId
+          params.speakingTeacherId &&
+          params.speakingTeacherId !== speakingSlot.teacherId
         ) {
           throw new BadRequestException(
             'Speaking examiner must match the selected slot',
@@ -163,7 +225,7 @@ export class BookingsService {
         }
 
         const booked = await tx.teacherSlot.updateMany({
-          where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
+          where: { id: params.speakingSlotId, status: SlotStatus.AVAILABLE },
           data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
         });
         if (booked.count === 0) {
@@ -175,28 +237,28 @@ export class BookingsService {
       const enrollment = await tx.enrollment.create({
         data: {
           enrollmentCode,
-          studentId: user.studentProfileId!,
-          packageId: dto.packageId,
-          mockDate: new Date(dto.mockDate),
-          mockTime: dto.mockTime,
+          studentId: studentProfileId,
+          packageId: params.packageId,
+          mockDate: new Date(params.mockDate),
+          mockTime: params.mockTime,
           status: EnrollmentStatus.ENROLLED,
-          writingTeacherId: dto.writingTeacherId ?? null,
-          speakingTeacherId: dto.speakingTeacherId ?? slot?.teacherId ?? null,
-          speakingSlotId: dto.speakingSlotId ?? null,
+          adminGranted: complimentary,
+          writingTeacherId: params.writingTeacherId ?? null,
+          speakingTeacherId:
+            params.speakingTeacherId ?? slot?.teacherId ?? null,
+          speakingSlotId: params.speakingSlotId ?? null,
         },
       });
 
       const order = await tx.order.create({
         data: {
           orderCode,
-          studentId: user.studentProfileId!,
+          studentId: studentProfileId,
           enrollmentId: enrollment.id,
-          packageId: dto.packageId,
-          amount: pkg.price,
+          packageId: params.packageId,
+          amount,
           currency: pkg.currency,
-          paymentMethod:
-            (dto.paymentMethod?.toUpperCase() as PaymentMethod) ??
-            PaymentMethod.CARD,
+          paymentMethod,
           status: OrderStatus.PAID,
         },
       });
@@ -210,11 +272,7 @@ export class BookingsService {
       });
 
       // Pin the single assigned test per skill for this package.
-      const assignments = await assignContentTests(
-        tx,
-        user.studentProfileId!,
-        pkg,
-      );
+      const assignments = await assignContentTests(tx, studentProfileId, pkg);
       const testBySkill = new Map(
         assignments.map((a) => [a.skill, a.testId]),
       );
@@ -256,28 +314,30 @@ export class BookingsService {
     });
 
     const [writingTeacher, speakingTeacher, studentUser] = await Promise.all([
-      dto.writingTeacherId
+      params.writingTeacherId
         ? this.prisma.teacherProfile.findUnique({
-            where: { id: dto.writingTeacherId },
+            where: { id: params.writingTeacherId },
             include: { user: true },
           })
         : Promise.resolve(null),
-      dto.speakingTeacherId
+      params.speakingTeacherId
         ? this.prisma.teacherProfile.findUnique({
-            where: { id: dto.speakingTeacherId },
+            where: { id: params.speakingTeacherId },
             include: { user: true },
           })
         : Promise.resolve(null),
       this.prisma.user.findFirst({
-        where: { studentProfile: { id: user.studentProfileId! } },
+        where: { studentProfile: { id: studentProfileId } },
       }),
     ]);
 
     if (studentUser) {
       await this.notifications.create(
         studentUser.id,
-        'Mock booked',
-        `Your mock is confirmed for ${new Date(dto.mockDate).toLocaleDateString()} at ${dto.mockTime}.`,
+        complimentary ? 'Free mock granted' : 'Mock booked',
+        complimentary
+          ? `An admin has granted you a free mock on ${new Date(params.mockDate).toLocaleDateString()} at ${params.mockTime}.`
+          : `Your mock is confirmed for ${new Date(params.mockDate).toLocaleDateString()} at ${params.mockTime}.`,
         NotificationType.INFO,
         '/student/mock-day',
       );
@@ -304,15 +364,16 @@ export class BookingsService {
     }
 
     await this.audit.log({
-      userId: user.id,
-      action: AuditAction.BOOKING_CREATE,
+      userId: actorUserId,
+      action: auditAction,
       entity: 'enrollment',
       entityId: result.enrollment.id,
       metadata: {
         enrollmentCode: result.enrollment.enrollmentCode,
         orderCode: result.order.orderCode,
         sessionCode: result.session.sessionCode,
-        packageId: dto.packageId,
+        packageId: params.packageId,
+        complimentary,
       },
     });
 
@@ -324,7 +385,7 @@ export class BookingsService {
       sessionCode: result.session.sessionCode,
       amount: result.order.amount,
       currency: result.order.currency,
-      status: 'confirmed',
+      status: complimentary ? 'granted' : 'confirmed',
     };
   }
 

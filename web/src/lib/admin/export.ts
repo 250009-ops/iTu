@@ -2,6 +2,7 @@ import type {
   Enrollment,
   Examiner,
   Order,
+  Student,
   Ticket,
 } from "@/lib/admin/types";
 import { downloadCsv } from "@/lib/export/csv";
@@ -60,6 +61,32 @@ export function exportOrdersCsv(orders: Order[]) {
       o.paymentLabel,
       o.date,
       o.status,
+    ]),
+  );
+}
+
+export function exportStudentsCsv(students: Student[]) {
+  downloadCsv(
+    `students-${dateStamp()}.csv`,
+    [
+      "Name",
+      "Email",
+      "Email Verified",
+      "Exam Type",
+      "Target Band",
+      "Country",
+      "Enrollments",
+      "Joined",
+    ],
+    students.map((s) => [
+      s.name,
+      s.email,
+      s.emailVerified ? "yes" : "no",
+      s.examType,
+      s.targetBand ?? "",
+      s.country ?? "",
+      s.enrollments,
+      s.joined,
     ]),
   );
 }

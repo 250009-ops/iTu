@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, RotateCcw, Search, Smartphone } from "lucide-react";
+import { CreditCard, Gift, RotateCcw, Search, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
@@ -48,8 +48,16 @@ function PaymentMethodCell({
   method: PaymentMethod;
   label: string;
 }) {
-  const Icon =
-    method === "apple_pay" ? Smartphone : CreditCard;
+  if (method === "complimentary") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+        <Gift className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Complimentary
+      </span>
+    );
+  }
+
+  const Icon = method === "apple_pay" ? Smartphone : CreditCard;
 
   return (
     <div className="flex items-center gap-2">
@@ -238,7 +246,8 @@ export function TransactionLedgerTable() {
                     </td>
                     <td className="px-5 py-4 sm:px-6">
                       <div className="flex justify-end">
-                        {order.status === "paid" ? (
+                        {order.status === "paid" &&
+                        order.paymentMethod !== "complimentary" ? (
                           <Button
                             variant="secondary"
                             size="sm"

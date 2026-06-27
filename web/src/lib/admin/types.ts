@@ -10,7 +10,27 @@ export type TeacherSpeciality = "writing" | "speaking" | "both";
 
 export type OrderStatus = "paid" | "refunded" | "failed" | "pending";
 
-export type PaymentMethod = "visa" | "mastercard" | "paypal" | "apple_pay";
+export type PaymentMethod =
+  | "visa"
+  | "mastercard"
+  | "paypal"
+  | "apple_pay"
+  | "complimentary";
+
+export type ExamTypeKind = "academic" | "general_training";
+
+export type Student = {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  targetBand: number | null;
+  examType: ExamTypeKind;
+  country: string | null;
+  emailVerified: boolean;
+  enrollments: number;
+  joined: string;
+};
 
 export type TicketType =
   | "regrade_request"

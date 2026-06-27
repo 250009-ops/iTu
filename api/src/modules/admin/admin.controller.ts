@@ -17,6 +17,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { ExamSessionsService } from '../exam-sessions/exam-sessions.service';
 import { AdminService } from './admin.service';
 import { ReviewIntegrityDto } from './dto/review-integrity.dto';
+import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
@@ -46,6 +47,19 @@ export class AdminController {
   @Get('enrollments')
   getEnrollments() {
     return this.admin.getEnrollments();
+  }
+
+  @Get('students')
+  getStudents() {
+    return this.admin.getStudents();
+  }
+
+  @Post('enrollments/grant')
+  grantEnrollment(
+    @Body() body: GrantEnrollmentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.grantEnrollment(body, user.id);
   }
 
   @Get('teachers')

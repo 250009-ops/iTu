@@ -128,6 +128,8 @@ async function main() {
     pass('Admin dashboard');
     await get('/admin/enrollments', token);
     pass('Admin enrollments');
+    const students = await get('/admin/students', token);
+    pass('Admin students', `${(students as unknown[]).length} students`);
     await get('/admin/sessions/live', token);
     pass('Admin live sessions');
   } catch (e) {

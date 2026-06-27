@@ -139,6 +139,45 @@ export function getAdminEnrollments() {
   }>("/admin/enrollments");
 }
 
+export function getAdminStudents() {
+  return apiFetch<
+    {
+      id: string;
+      name: string;
+      email: string;
+      targetBand: number | null;
+      examType: string;
+      country: string | null;
+      emailVerified: boolean;
+      enrollments: number;
+      createdAt: string;
+    }[]
+  >("/admin/students");
+}
+
+export type GrantEnrollmentBody = {
+  studentId: string;
+  packageId: string;
+  mockDate: string;
+  mockTime: string;
+  writingTeacherId?: string;
+  speakingTeacherId?: string;
+  speakingSlotId?: string;
+};
+
+export function grantEnrollment(body: GrantEnrollmentBody) {
+  return apiFetch<{
+    enrollmentId: string;
+    enrollmentCode: string;
+    orderId: string;
+    orderCode: string;
+    sessionCode: string;
+    amount: number;
+    currency: string;
+    status: string;
+  }>("/admin/enrollments/grant", { method: "POST", body });
+}
+
 export function getAdminTeachers() {
   return apiFetch<
     {
