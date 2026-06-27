@@ -93,6 +93,15 @@ async function main() {
       }
 
       assignedTests.add(link.testId);
+      const byPackageSkill = await prisma.packageContentTest.findUnique({
+        where: {
+          packageId_skill: { packageId: pkg.id, skill: link.skill },
+        },
+      });
+      if (byPackageSkill) {
+        continue;
+      }
+
       const existingPool = await prisma.packageContentTest.findFirst({
         where: { testId: link.testId },
       });
