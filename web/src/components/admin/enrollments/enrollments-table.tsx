@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { EnrollmentDetailDialog } from "@/components/admin/enrollments/enrollment-detail-dialog";
 import {
   allModules,
   lifecycleFilterOptions,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/admin/constants";
 import type { LifecycleStatus, ModuleKey } from "@/lib/admin/types";
 import { useAdminEnrollments } from "@/contexts/admin-enrollments-context";
-import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 6;
@@ -96,7 +96,8 @@ export function EnrollmentsTable() {
     "all",
   );
   const [page, setPage] = useState(1);
-  const { toast } = useToast();
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const filtered = useMemo(() => {
     return enrollments.filter((e) => {
@@ -123,7 +124,7 @@ export function EnrollmentsTable() {
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <h2 className="font-semibold text-navy">All Enrollments</h2>
         <p className="mt-0.5 text-sm text-muted">
-          Click a row to manage examiner assignment or override scheduling.
+          Click a row to view scores, rescore Listening/Reading, or override bands.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <div className="relative min-w-0 flex-1 sm:max-w-xs">
@@ -178,12 +179,7 @@ export function EnrollmentsTable() {
                 return (
                   <tr
                     key={enrollment.id}
-                    onClick={() =>
-                      toast(`${enrollment.enrollmentId} · ${enrollment.studentName}`, {
-                        description: `Exam ${enrollment.examDate} · ${enrollment.completedModules.length}/4 modules · ${lifecycle.label}`,
-                        variant: "info",
-                      })
-                    }
+                    onClick={() => setDetailId(enrollment.id)}
                     className="cursor-pointer transition-colors hover:bg-slate-50/80"
                   >
                     <td className="px-5 py-4 sm:px-6">
@@ -274,6 +270,16 @@ export function EnrollmentsTable() {
           ))}
         </div>
       </div>
+
+      {detailId && (
+        <EnrollmentDetailDialog
+          key={`${detailId}-${refreshKey}`}
+          enrollmentId={detailId}
+          open
+          onClose={() => setDetailId(null)}
+          onUpdated={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
     </div>
   );
 }

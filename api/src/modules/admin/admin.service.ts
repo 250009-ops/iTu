@@ -20,6 +20,8 @@ import { MailService } from '../../common/mail/mail.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
+import { ExamSessionsService } from '../exam-sessions/exam-sessions.service';
+import { ResultsPdfService } from '../results/results-pdf.service';
 import {
   SECTION_DURATIONS_SEC,
   skillForActiveState,
@@ -109,6 +111,8 @@ export class AdminService {
     private mail: MailService,
     private settings: SettingsService,
     private bookings: BookingsService,
+    private examSessions: ExamSessionsService,
+    private resultsPdf: ResultsPdfService,
   ) {}
 
   async getNavBadges() {
@@ -338,6 +342,274 @@ export class AdminService {
         writingExaminer: e.writingTeacher?.user.name ?? '—',
         lifecycle: lifecycleMap[e.status] ?? 'in_progress',
       })),
+    };
+  }
+
+  async getEnrollmentDetail(enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: {
+        OR: [{ id: enrollmentId }, { enrollmentCode: enrollmentId }],
+      },
+      include: {
+        student: { include: { user: true } },
+        package: true,
+        examSession: {
+          include: {
+            sectionAttempts: {
+              include: {
+                contentTest: { select: { id: true, code: true, title: true } },
+                writingSubmission: { include: { grade: true } },
+                speakingSession: { include: { grade: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+
+    const lifecycleMap: Record<string, string> = {
+      ENROLLED: 'in_progress',
+      IN_PROGRESS: 'in_progress',
+      AWAITING_RESULTS: 'awaiting_results',
+      COMPLETED: 'complete',
+      CANCELLED: 'complete',
+    };
+
+    const packageSkills = packageExamSkills(enrollment.package.skills);
+    const attempts = enrollment.examSession?.sectionAttempts ?? [];
+
+    const skills = packageSkills.map((skill) => {
+      const attempt = attempts.find((a) => a.skill === skill);
+      const grade =
+        attempt?.writingSubmission?.grade ?? attempt?.speakingSession?.grade;
+      return {
+        skill: skill.toLowerCase(),
+        submitted: attempt?.submittedAt != null,
+        rawScore: attempt?.rawScore ?? null,
+        band: attempt?.band ?? grade?.overallBand ?? null,
+        contentTest: attempt?.contentTest
+          ? {
+              id: attempt.contentTest.id,
+              code: attempt.contentTest.code,
+              title: attempt.contentTest.title,
+            }
+          : null,
+      };
+    });
+
+    const bands = skills
+      .map((s) => s.band)
+      .filter((b): b is number => b !== null);
+    const overallBand =
+      bands.length > 0
+        ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2
+        : null;
+
+    return {
+      id: enrollment.id,
+      enrollmentId: enrollment.enrollmentCode,
+      studentName: enrollment.student.user.name,
+      packageTitle: enrollment.package.title,
+      examDate: enrollment.mockDate,
+      examTime: enrollment.mockTime,
+      lifecycle: lifecycleMap[enrollment.status] ?? 'in_progress',
+      resultsStatus: enrollment.resultsStatus.toLowerCase(),
+      overallBand,
+      skills,
+    };
+  }
+
+  async rescoreEnrollment(enrollmentId: string, actorId: string) {
+    const result =
+      await this.examSessions.rescoreListeningReadingForEnrollment(enrollmentId);
+
+    if (result.rescored.length > 0) {
+      await this.resultsPdf.generateForEnrollment(enrollmentId);
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_SCORE_RESCORE,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: { updates: result.rescored },
+    });
+
+    return result;
+  }
+
+  async rescoreAllListeningReading(actorId: string) {
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: {
+        examSession: {
+          sectionAttempts: {
+            some: {
+              skill: { in: [ExamSkill.LISTENING, ExamSkill.READING] },
+              submittedAt: { not: null },
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    let updated = 0;
+    for (const e of enrollments) {
+      const result =
+        await this.examSessions.rescoreListeningReadingForEnrollment(e.id);
+      if (result.rescored.length > 0) {
+        updated++;
+        await this.resultsPdf.generateForEnrollment(e.id);
+      }
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_SCORE_RESCORE,
+      entity: 'enrollment',
+      entityId: 'bulk',
+      metadata: { total: enrollments.length, updated },
+    });
+
+    return { total: enrollments.length, updated };
+  }
+
+  async overrideSectionScore(
+    enrollmentId: string,
+    skill: 'listening' | 'reading' | 'writing' | 'speaking',
+    body: { band: number; rawScore?: number; reason?: string },
+    actorId: string,
+  ) {
+    if (body.band < 0 || body.band > 9 || body.band % 0.5 !== 0) {
+      throw new BadRequestException('Band must be between 0 and 9 in 0.5 steps');
+    }
+
+    const targetSkill = skill.toUpperCase() as ExamSkill;
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        examSession: {
+          include: {
+            sectionAttempts: {
+              include: {
+                writingSubmission: { include: { grade: true } },
+                speakingSession: { include: { grade: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!enrollment?.examSession) {
+      throw new NotFoundException('Enrollment not found');
+    }
+
+    const attempt = enrollment.examSession.sectionAttempts.find(
+      (a) => a.skill === targetSkill,
+    );
+    if (!attempt) {
+      throw new BadRequestException(`No ${skill} section found`);
+    }
+
+    const isAutoScored =
+      targetSkill === ExamSkill.LISTENING || targetSkill === ExamSkill.READING;
+    const previous = { band: attempt.band, rawScore: attempt.rawScore };
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sectionAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          band: body.band,
+          ...(isAutoScored && body.rawScore != null
+            ? { rawScore: body.rawScore }
+            : {}),
+        },
+      });
+
+      if (targetSkill === ExamSkill.WRITING && attempt.writingSubmission?.grade) {
+        await tx.grade.update({
+          where: { id: attempt.writingSubmission.grade.id },
+          data: { overallBand: body.band },
+        });
+      }
+
+      if (targetSkill === ExamSkill.SPEAKING && attempt.speakingSession?.grade) {
+        await tx.grade.update({
+          where: { id: attempt.speakingSession.grade.id },
+          data: { overallBand: body.band },
+        });
+      }
+    });
+
+    await this.resultsPdf.generateForEnrollment(enrollmentId);
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_SCORE_OVERRIDE,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: { skill, band: body.band, rawScore: body.rawScore, reason: body.reason, previous },
+    });
+
+    return { updated: true, skill, band: body.band };
+  }
+
+  async exportEnrollmentPdfs(enrollmentIds: string[], actorId: string) {
+    if (enrollmentIds.length === 0) {
+      throw new BadRequestException('Select at least one enrollment');
+    }
+    if (enrollmentIds.length > 100) {
+      throw new BadRequestException('Maximum 100 enrollments per export');
+    }
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: {
+        OR: [
+          { id: { in: enrollmentIds } },
+          { enrollmentCode: { in: enrollmentIds } },
+        ],
+        resultsStatus: 'RELEASED',
+      },
+      select: { id: true, enrollmentCode: true },
+      orderBy: { enrollmentCode: 'asc' },
+    });
+
+    if (enrollments.length === 0) {
+      throw new BadRequestException(
+        'No released results found for the selected enrollments',
+      );
+    }
+
+    for (const e of enrollments) {
+      const existing = await this.resultsPdf.readPdfBuffer(e.id);
+      if (!existing) {
+        await this.resultsPdf.generateForEnrollment(e.id);
+      }
+    }
+
+    const buffer = await this.resultsPdf.buildBulkPdf(
+      enrollments.map((e) => e.id),
+    );
+    if (!buffer) {
+      throw new BadRequestException('Could not generate PDF export');
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_RESULTS_EXPORT,
+      entity: 'enrollment',
+      entityId: 'bulk',
+      metadata: {
+        count: enrollments.length,
+        codes: enrollments.map((e) => e.enrollmentCode),
+      },
+    });
+
+    return {
+      buffer,
+      filename: `itestu-reports-${enrollments.length}-students.pdf`,
+      count: enrollments.length,
     };
   }
 

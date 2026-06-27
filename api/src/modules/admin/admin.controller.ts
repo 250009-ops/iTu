@@ -8,8 +8,11 @@ import {
   Post,
   Put,
   Query,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -152,6 +155,50 @@ export class AdminController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.admin.reopenForRegrade(id, body.skill, user.id, body.reason);
+  }
+
+  @Get('enrollments/:id/detail')
+  getEnrollmentDetail(@Param('id') id: string) {
+    return this.admin.getEnrollmentDetail(id);
+  }
+
+  @Post('enrollments/:id/rescore')
+  rescoreEnrollment(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.rescoreEnrollment(id, user.id);
+  }
+
+  @Post('enrollments/rescore-all')
+  rescoreAllListeningReading(@CurrentUser() user: RequestUser) {
+    return this.admin.rescoreAllListeningReading(user.id);
+  }
+
+  @Patch('enrollments/:id/scores/:skill')
+  overrideSectionScore(
+    @Param('id') id: string,
+    @Param('skill') skill: 'listening' | 'reading' | 'writing' | 'speaking',
+    @Body() body: { band: number; rawScore?: number; reason?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.overrideSectionScore(id, skill, body, user.id);
+  }
+
+  @Post('enrollments/export-pdfs')
+  async exportEnrollmentPdfs(
+    @Body() body: { enrollmentIds: string[] },
+    @CurrentUser() user: RequestUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename, count } = await this.admin.exportEnrollmentPdfs(
+      body.enrollmentIds,
+      user.id,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Export-Count', String(count));
+    return new StreamableFile(buffer);
   }
 
   @Get('packages')

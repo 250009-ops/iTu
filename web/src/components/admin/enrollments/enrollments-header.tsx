@@ -1,7 +1,9 @@
 "use client";
 
-import { Download, Plus, SlidersHorizontal } from "lucide-react";
+import { useState } from "react";
+import { Download, FileText, Plus, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExportPdfsDialog } from "@/components/admin/enrollments/export-pdfs-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAdminEnrollments } from "@/contexts/admin-enrollments-context";
 import { exportEnrollmentsCsv } from "@/lib/admin/export";
@@ -9,6 +11,7 @@ import { exportEnrollmentsCsv } from "@/lib/admin/export";
 export function EnrollmentsHeader() {
   const { toast } = useToast();
   const { enrollments } = useAdminEnrollments();
+  const [exportOpen, setExportOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -39,6 +42,14 @@ export function EnrollmentsHeader() {
         <Button
           variant="secondary"
           size="sm"
+          onClick={() => setExportOpen(true)}
+        >
+          <FileText className="h-4 w-4" />
+          Export PDFs
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => {
             exportEnrollmentsCsv(enrollments);
             toast("Export ready", {
@@ -63,6 +74,8 @@ export function EnrollmentsHeader() {
           New Enrollment
         </Button>
       </div>
+
+      <ExportPdfsDialog open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
   );
 }

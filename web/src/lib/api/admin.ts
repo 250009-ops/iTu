@@ -139,6 +139,95 @@ export function getAdminEnrollments() {
   }>("/admin/enrollments");
 }
 
+export type AdminEnrollmentDetail = {
+  id: string;
+  enrollmentId: string;
+  studentName: string;
+  packageTitle: string;
+  examDate: string;
+  examTime: string;
+  lifecycle: string;
+  resultsStatus: string;
+  overallBand: number | null;
+  skills: {
+    skill: string;
+    submitted: boolean;
+    rawScore: number | null;
+    band: number | null;
+    contentTest: { id: string; code: string; title: string } | null;
+  }[];
+};
+
+export function getEnrollmentDetail(enrollmentId: string) {
+  return apiFetch<AdminEnrollmentDetail>(
+    `/admin/enrollments/${encodeURIComponent(enrollmentId)}/detail`,
+  );
+}
+
+export function rescoreEnrollment(enrollmentId: string) {
+  return apiFetch<{
+    rescored: {
+      skill: string;
+      rawScore: number;
+      band: number | null;
+      previous: { rawScore: number | null; band: number | null };
+    }[];
+  }>(`/admin/enrollments/${encodeURIComponent(enrollmentId)}/rescore`, {
+    method: "POST",
+  });
+}
+
+export function rescoreAllListeningReading() {
+  return apiFetch<{ total: number; updated: number }>(
+    "/admin/enrollments/rescore-all",
+    { method: "POST" },
+  );
+}
+
+export function overrideSectionScore(
+  enrollmentId: string,
+  skill: "listening" | "reading" | "writing" | "speaking",
+  body: { band: number; rawScore?: number; reason?: string },
+) {
+  return apiFetch(
+    `/admin/enrollments/${encodeURIComponent(enrollmentId)}/scores/${skill}`,
+    { method: "PATCH", body },
+  );
+}
+
+export async function exportEnrollmentPdfs(enrollmentIds: string[]) {
+  const { getAccessToken } = await import("@/lib/auth/session");
+  const { API_BASE_URL } = await import("./config");
+  const { ApiError } = await import("./errors");
+  const token = getAccessToken();
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/admin/enrollments/export-pdfs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ enrollmentIds }),
+    });
+  } catch {
+    throw new ApiError(`Cannot reach API at ${API_BASE_URL}`, 0);
+  }
+  if (!response.ok) {
+    throw new ApiError(`Export failed (${response.status})`, response.status);
+  }
+  const blob = await response.blob();
+  const count = response.headers.get("X-Export-Count") ?? String(enrollmentIds.length);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `itestu-reports-${count}-students.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export function getAdminStudents() {
   return apiFetch<
     {

@@ -42,6 +42,9 @@ export const AuditAction = {
   ADMIN_TEACHER_REASSIGN: 'admin.teacher.reassign',
   ADMIN_GRADE_REOPEN: 'admin.grade.reopen',
   ADMIN_ENROLLMENT_GRANT: 'admin.enrollment.grant',
+  ADMIN_SCORE_OVERRIDE: 'admin.score.override',
+  ADMIN_SCORE_RESCORE: 'admin.score.rescore',
+  ADMIN_RESULTS_EXPORT: 'admin.results.export',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];

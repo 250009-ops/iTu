@@ -5,7 +5,7 @@ import { Info, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { getBandTable, updateBandTable, type BandTableRow } from "@/lib/api/admin";
+import { getBandTable, rescoreAllListeningReading, updateBandTable, type BandTableRow } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
 
 type EditableRow = BandTableRow & { key: string };
@@ -19,6 +19,7 @@ export function BandTablePanel() {
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [rescoring, setRescoring] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const load = useCallback(async () => {
@@ -99,6 +100,24 @@ export function BandTablePanel() {
     }
   }
 
+  async function handleRescoreAll() {
+    setRescoring(true);
+    try {
+      const result = await rescoreAllListeningReading();
+      toast("Bulk rescore complete", {
+        description: `Recalculated Listening/Reading for ${result.updated} of ${result.total} enrollments.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Bulk rescore failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setRescoring(false);
+    }
+  }
+
   function SkillTable({
     title,
     skillRows,
@@ -154,16 +173,27 @@ export function BandTablePanel() {
             Raw score → IELTS band mapping for Listening and Reading auto-scoring.
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          loading={saving}
-          disabled={!dirty || loading}
-          onClick={handleSave}
-        >
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={rescoring}
+            disabled={loading}
+            onClick={() => void handleRescoreAll()}
+          >
+            Rescore all L/R
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            loading={saving}
+            disabled={!dirty || loading}
+            onClick={handleSave}
+          >
           <Save className="h-4 w-4" />
           Save Table
         </Button>
+        </div>
       </div>
 
       <div className="mt-4 flex gap-2 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">

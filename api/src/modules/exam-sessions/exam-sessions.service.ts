@@ -254,11 +254,9 @@ export class ExamSessionsService {
         dto.skill === ExamSkill.READING
       ) {
         const pkg = session.enrollment.package;
-        const testId = await resolvePackageContentTestId(
-          this.prisma,
-          pkg,
-          dto.skill,
-        );
+        const testId =
+          attempt.contentTestId ??
+          (await resolvePackageContentTestId(this.prisma, pkg, dto.skill));
         const test = testId
           ? await this.prisma.contentTest.findUnique({ where: { id: testId } })
           : null;
@@ -772,6 +770,74 @@ export class ExamSessionsService {
 
     const { mediaAssets: _assets, ...rest } = test;
     return { ...rest, content: safeContent };
+  }
+
+  /** Re-score Listening/Reading using the test pinned on each section attempt. */
+  async rescoreListeningReadingForEnrollment(enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        package: true,
+        examSession: {
+          include: {
+            sectionAttempts: { include: { answers: true } },
+          },
+        },
+      },
+    });
+    if (!enrollment?.examSession) {
+      throw new NotFoundException('Enrollment not found');
+    }
+
+    const updates: {
+      skill: string;
+      rawScore: number;
+      band: number | null;
+      previous: { rawScore: number | null; band: number | null };
+    }[] = [];
+
+    for (const attempt of enrollment.examSession.sectionAttempts) {
+      if (
+        attempt.skill !== ExamSkill.LISTENING &&
+        attempt.skill !== ExamSkill.READING
+      ) {
+        continue;
+      }
+      if (!attempt.submittedAt) continue;
+
+      const testId =
+        attempt.contentTestId ??
+        (await resolvePackageContentTestId(
+          this.prisma,
+          enrollment.package,
+          attempt.skill,
+        ));
+      const test = testId
+        ? await this.prisma.contentTest.findUnique({ where: { id: testId } })
+        : null;
+      const scored = await this.autoScoring.scoreListeningOrReading(
+        attempt.skill,
+        attempt.answers.map((a) => ({
+          questionNumber: a.questionNumber,
+          value: a.value,
+        })),
+        test?.answerKey as Record<string, string | string[]> | null,
+      );
+
+      await this.prisma.sectionAttempt.update({
+        where: { id: attempt.id },
+        data: { rawScore: scored.rawScore, band: scored.band },
+      });
+
+      updates.push({
+        skill: attempt.skill.toLowerCase(),
+        rawScore: scored.rawScore,
+        band: scored.band,
+        previous: { rawScore: attempt.rawScore, band: attempt.band },
+      });
+    }
+
+    return { rescored: updates };
   }
 
   private async findSessionOrThrow(sessionCode: string) {
