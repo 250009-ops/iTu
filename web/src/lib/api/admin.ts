@@ -195,20 +195,24 @@ export function overrideSectionScore(
   );
 }
 
-export async function exportEnrollmentPdfs(enrollmentIds: string[]) {
+async function downloadAdminPdfExport(
+  path: string,
+  body: object,
+  fallbackFilename: string,
+) {
   const { getAccessToken } = await import("@/lib/auth/session");
   const { API_BASE_URL } = await import("./config");
   const { ApiError } = await import("./errors");
   const token = getAccessToken();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/admin/enrollments/export-pdfs`, {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ enrollmentIds }),
+      body: JSON.stringify(body),
     });
   } catch {
     throw new ApiError(`Cannot reach API at ${API_BASE_URL}`, 0);
@@ -217,15 +221,38 @@ export async function exportEnrollmentPdfs(enrollmentIds: string[]) {
     throw new ApiError(`Export failed (${response.status})`, response.status);
   }
   const blob = await response.blob();
-  const count = response.headers.get("X-Export-Count") ?? String(enrollmentIds.length);
+  const disposition = response.headers.get("Content-Disposition");
+  const match = disposition?.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? fallbackFilename;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `itestu-reports-${count}-students.pdf`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+export async function exportEnrollmentPdfs(enrollmentIds: string[]) {
+  const count = enrollmentIds.length;
+  await downloadAdminPdfExport(
+    "/admin/enrollments/export-pdfs",
+    { enrollmentIds },
+    `itestu-reports-${count}-students.pdf`,
+  );
+}
+
+export async function exportWritingPdfs(
+  enrollmentIds: string[],
+  tasks: ("task1" | "task2")[] = ["task1", "task2"],
+) {
+  const taskLabel = tasks.length === 2 ? "task1-task2" : tasks[0];
+  await downloadAdminPdfExport(
+    "/admin/enrollments/export-writing-pdfs",
+    { enrollmentIds, tasks, waitForAi: true },
+    `itestu-writing-${taskLabel}-${enrollmentIds.length}-students.pdf`,
+  );
 }
 
 export function getAdminStudents() {

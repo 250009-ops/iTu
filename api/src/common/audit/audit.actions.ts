@@ -45,6 +45,7 @@ export const AuditAction = {
   ADMIN_SCORE_OVERRIDE: 'admin.score.override',
   ADMIN_SCORE_RESCORE: 'admin.score.rescore',
   ADMIN_RESULTS_EXPORT: 'admin.results.export',
+  ADMIN_WRITING_EXPORT: 'admin.writing.export',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];

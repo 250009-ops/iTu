@@ -26,6 +26,12 @@ import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { ExamSessionsService } from '../exam-sessions/exam-sessions.service';
+import { WritingAiEvaluationService } from '../grading/writing-ai-evaluation.service';
+import {
+  WritingPdfService,
+  type WritingTaskPdfData,
+} from '../grading/writing-pdf.service';
+import { WRITING_MIN_WORDS } from '../grading/writing-word-count';
 import { ResultsPdfService } from '../results/results-pdf.service';
 import {
   SECTION_DURATIONS_SEC,
@@ -118,6 +124,8 @@ export class AdminService {
     private bookings: BookingsService,
     private examSessions: ExamSessionsService,
     private resultsPdf: ResultsPdfService,
+    private writingPdf: WritingPdfService,
+    private writingAi: WritingAiEvaluationService,
   ) {}
 
   async getNavBadges() {
@@ -636,6 +644,183 @@ export class AdminService {
       buffer,
       filename: `itestu-reports-${enrollments.length}-students.pdf`,
       count: enrollments.length,
+    };
+  }
+
+  async exportWritingPdfs(
+    enrollmentIds: string[],
+    tasks: ('task1' | 'task2')[],
+    actorId: string,
+    waitForAi = true,
+  ) {
+    if (enrollmentIds.length === 0) {
+      throw new BadRequestException('Select at least one enrollment');
+    }
+    if (enrollmentIds.length > 50) {
+      throw new BadRequestException('Maximum 50 enrollments per writing export');
+    }
+    if (!tasks.length) {
+      throw new BadRequestException('Select at least one writing task');
+    }
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: {
+        OR: [
+          { id: { in: enrollmentIds } },
+          { enrollmentCode: { in: enrollmentIds } },
+        ],
+      },
+      include: {
+        student: { include: { user: true } },
+        examSession: {
+          include: {
+            sectionAttempts: {
+              where: { skill: ExamSkill.WRITING },
+              include: {
+                contentTest: { select: { content: true } },
+                writingSubmission: {
+                  include: {
+                    grade: true,
+                    aiEvaluation: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { enrollmentCode: 'asc' },
+    });
+
+    const reports: WritingTaskPdfData[] = [];
+
+    for (const enrollment of enrollments) {
+      const writingAttempt = enrollment.examSession?.sectionAttempts.find(
+        (a) => a.skill === ExamSkill.WRITING,
+      );
+      const submission = writingAttempt?.writingSubmission;
+      if (!submission) continue;
+
+      if (waitForAi && this.writingAi.isConfigured()) {
+        await this.writingAi.waitForEvaluation(submission.id, 45_000);
+      } else {
+        void this.writingAi.getOrTriggerEvaluation(submission.id);
+      }
+
+      const refreshed = await this.prisma.writingSubmission.findUnique({
+        where: { id: submission.id },
+        include: { grade: true, aiEvaluation: true },
+      });
+      if (!refreshed) continue;
+
+      const content = writingAttempt.contentTest?.content as
+        | {
+            tasks?: {
+              taskNumber?: number;
+              prompt?: string;
+              visual?: { caption?: string };
+            }[];
+          }
+        | undefined;
+      const taskDefs = content?.tasks ?? [];
+      const task1Def = taskDefs.find((t) => t.taskNumber === 1);
+      const task2Def = taskDefs.find((t) => t.taskNumber === 2);
+
+      const criteria = refreshed.grade?.criteriaScores as
+        | {
+            task1?: Record<string, number | string | undefined>;
+            task2?: Record<string, number | string | undefined>;
+          }
+        | null
+        | undefined;
+
+      const ai = refreshed.aiEvaluation;
+      const aiStatus = ai?.status?.toLowerCase() ?? 'pending';
+
+      if (tasks.includes('task1')) {
+        reports.push({
+          studentName: enrollment.student.user.name,
+          enrollmentCode: enrollment.enrollmentCode,
+          mockDate: enrollment.mockDate,
+          taskNumber: 1,
+          prompt: task1Def?.prompt ?? 'Task 1 prompt unavailable',
+          visualCaption: task1Def?.visual?.caption ?? null,
+          essayText: refreshed.task1Text ?? '',
+          wordCount: refreshed.task1WordCount,
+          minWords: WRITING_MIN_WORDS.task1,
+          annotations: (ai?.task1Annotations as WritingTaskPdfData['annotations']) ?? [],
+          suggestedScores:
+            (ai?.task1SuggestedScores as Record<string, number>) ?? null,
+          criterionSummaries:
+            (ai?.task1CriterionSummaries as WritingTaskPdfData['criterionSummaries']) ??
+            null,
+          examinerScores: criteria?.task1 ?? null,
+          examinerTaskBand:
+            typeof criteria?.task1?.taskBand === 'number'
+              ? criteria.task1.taskBand
+              : null,
+          aiStatus,
+        });
+      }
+
+      if (tasks.includes('task2')) {
+        reports.push({
+          studentName: enrollment.student.user.name,
+          enrollmentCode: enrollment.enrollmentCode,
+          mockDate: enrollment.mockDate,
+          taskNumber: 2,
+          prompt: task2Def?.prompt ?? 'Task 2 prompt unavailable',
+          visualCaption: task2Def?.visual?.caption ?? null,
+          essayText: refreshed.task2Text ?? '',
+          wordCount: refreshed.task2WordCount,
+          minWords: WRITING_MIN_WORDS.task2,
+          annotations: (ai?.task2Annotations as WritingTaskPdfData['annotations']) ?? [],
+          suggestedScores:
+            (ai?.task2SuggestedScores as Record<string, number>) ?? null,
+          criterionSummaries:
+            (ai?.task2CriterionSummaries as WritingTaskPdfData['criterionSummaries']) ??
+            null,
+          examinerScores: criteria?.task2 ?? null,
+          examinerTaskBand:
+            typeof criteria?.task2?.taskBand === 'number'
+              ? criteria.task2.taskBand
+              : null,
+          aiStatus,
+        });
+      }
+    }
+
+    if (!reports.length) {
+      throw new BadRequestException(
+        'No writing submissions found for the selected enrollments',
+      );
+    }
+
+    const buffer = await this.writingPdf.buildBulkWritingPdf(reports);
+    if (!buffer) {
+      throw new BadRequestException('Could not generate writing PDF export');
+    }
+
+    const taskLabel = tasks.length === 2 ? 'task1-task2' : tasks[0];
+    const studentCount = new Set(reports.map((r) => r.enrollmentCode)).size;
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_WRITING_EXPORT,
+      entity: 'enrollment',
+      entityId: 'bulk',
+      metadata: {
+        tasks,
+        pages: reports.length,
+        students: studentCount,
+      },
+    });
+
+    return {
+      buffer,
+      filename: `itestu-writing-${taskLabel}-${studentCount}-students.pdf`,
+      count: reports.length,
+      students: studentCount,
     };
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -9,6 +9,7 @@ import {
   getEnrollmentDetail,
   overrideSectionScore,
   rescoreEnrollment,
+  exportWritingPdfs,
   type AdminEnrollmentDetail,
 } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -154,6 +155,24 @@ export function EnrollmentDetailDialog({
     }));
   }
 
+  async function handleExportWriting() {
+    setActing(true);
+    try {
+      await exportWritingPdfs([enrollmentId], ["task1", "task2"]);
+      toast("Writing PDF exported", {
+        description: "Task 1 & 2 reports with AI highlights downloaded.",
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Export failed", {
+        description: getErrorMessage(err, "Writing submission may be missing."),
+        variant: "error",
+      });
+    } finally {
+      setActing(false);
+    }
+  }
+
   return (
     <Modal open onClose={onClose} ariaLabel="Enrollment scores">
       <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
@@ -193,6 +212,15 @@ export function EnrollmentDetailDialog({
               >
                 <RefreshCw className="h-4 w-4" />
                 Rescore L/R
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={acting}
+                onClick={() => void handleExportWriting()}
+              >
+                <FileDown className="h-4 w-4" />
+                Export Writing PDF
               </Button>
             </div>
 

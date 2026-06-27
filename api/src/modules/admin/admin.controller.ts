@@ -201,6 +201,32 @@ export class AdminController {
     return new StreamableFile(buffer);
   }
 
+  @Post('enrollments/export-writing-pdfs')
+  async exportWritingPdfs(
+    @Body()
+    body: {
+      enrollmentIds: string[];
+      tasks?: ('task1' | 'task2')[];
+      waitForAi?: boolean;
+    },
+    @CurrentUser() user: RequestUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tasks = body.tasks?.length ? body.tasks : (['task1', 'task2'] as const);
+    const { buffer, filename, count, students } =
+      await this.admin.exportWritingPdfs(
+        body.enrollmentIds,
+        [...tasks],
+        user.id,
+        body.waitForAi !== false,
+      );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Export-Count', String(count));
+    res.setHeader('X-Export-Students', String(students));
+    return new StreamableFile(buffer);
+  }
+
   @Get('packages')
   getPackages() {
     return this.admin.getPackages();

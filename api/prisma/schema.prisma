@@ -562,6 +562,8 @@ model WritingAiEvaluation {
   task2Annotations     Json?                     @map("task2_annotations")
   task1SuggestedScores Json?                     @map("task1_suggested_scores")
   task2SuggestedScores Json?                     @map("task2_suggested_scores")
+  task1CriterionSummaries Json?                  @map("task1_criterion_summaries")
+  task2CriterionSummaries Json?                  @map("task2_criterion_summaries")
   modelVersion         String?                   @map("model_version")
   errorMessage         String?                   @map("error_message")
   generatedAt          DateTime?                 @map("generated_at")

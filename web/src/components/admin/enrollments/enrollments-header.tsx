@@ -58,7 +58,7 @@ export function EnrollmentsHeader() {
           }}
         >
           <Download className="h-4 w-4" />
-          Export
+          Export CSV
         </Button>
         <Button
           variant="primary"

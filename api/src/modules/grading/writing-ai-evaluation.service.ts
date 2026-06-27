@@ -20,6 +20,7 @@ export type WritingAnnotationDto = {
 export type TaskAiResult = {
   annotations: WritingAnnotationDto[];
   suggestedScores: Record<string, number>;
+  criterionSummaries?: Partial<Record<CriterionKey, string>>;
 };
 
 type RawAiAnnotation = {
@@ -39,7 +40,10 @@ type RawAiTaskResult = {
     lexicalResource: number;
     grammar: number;
   };
+  criterionSummaries?: Partial<Record<CriterionKey, string>>;
 };
+
+type CriterionKey = 'ta' | 'cc' | 'lr' | 'gra';
 
 type RawAiResponse = {
   task1: RawAiTaskResult;
@@ -130,11 +134,43 @@ export class WritingAiEvaluationService {
         task2Annotations: Prisma.JsonNull,
         task1SuggestedScores: Prisma.JsonNull,
         task2SuggestedScores: Prisma.JsonNull,
+        task1CriterionSummaries: Prisma.JsonNull,
+        task2CriterionSummaries: Prisma.JsonNull,
         generatedAt: null,
       },
     });
 
     await this.runEvaluation(submissionId);
+  }
+
+  /** Trigger AI evaluation and wait until ready, failed, or timeout. */
+  async waitForEvaluation(
+    submissionId: string,
+    maxWaitMs = 90_000,
+  ): Promise<{ status: string }> {
+    if (!this.isConfigured()) {
+      return { status: 'unconfigured' };
+    }
+
+    await this.getOrTriggerEvaluation(submissionId);
+    const deadline = Date.now() + maxWaitMs;
+
+    while (Date.now() < deadline) {
+      const evaluation = await this.prisma.writingAiEvaluation.findUnique({
+        where: { writingSubmissionId: submissionId },
+        select: { status: true },
+      });
+      const status = evaluation?.status?.toLowerCase() ?? 'queued';
+      if (
+        status === WritingAiEvaluationStatus.READY.toLowerCase() ||
+        status === WritingAiEvaluationStatus.FAILED.toLowerCase()
+      ) {
+        return { status };
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    return { status: 'timeout' };
   }
 
   private async runEvaluation(submissionId: string): Promise<void> {
@@ -215,6 +251,8 @@ export class WritingAiEvaluationService {
           task2Annotations: task2.annotations,
           task1SuggestedScores: task1.suggestedScores,
           task2SuggestedScores: task2.suggestedScores,
+          task1CriterionSummaries: task1.criterionSummaries ?? Prisma.JsonNull,
+          task2CriterionSummaries: task2.criterionSummaries ?? Prisma.JsonNull,
           modelVersion: model,
           generatedAt: new Date(),
           errorMessage: null,
@@ -334,7 +372,7 @@ export class WritingAiEvaluationService {
       minWords,
     );
 
-    return { annotations, suggestedScores };
+    return { annotations, suggestedScores, criterionSummaries: raw.criterionSummaries };
   }
 
   private findTextSpan(
@@ -379,8 +417,8 @@ Return ONLY valid JSON matching this schema:
         "text": "<exact substring from the student essay>",
         "criterion": "ta" | "cc" | "lr" | "gra",
         "title": "<short issue title>",
-        "explanation": "<1-2 plain English sentences for the teacher>",
-        "suggestion": "<optional improved phrasing>"
+        "explanation": "<1-2 plain English sentences explaining the issue against band descriptors>",
+        "suggestion": "<concrete improved phrasing or strategy the student should apply>"
       }
     ],
     "suggestedScores": {
@@ -388,6 +426,12 @@ Return ONLY valid JSON matching this schema:
       "coherenceCohesion": <number>,
       "lexicalResource": <number>,
       "grammar": <number>
+    },
+    "criterionSummaries": {
+      "ta": "<2-3 sentences: overall Task Achievement strengths, weaknesses, and priority improvement for Task 1>",
+      "cc": "<2-3 sentences focused on paragraphing, cohesion, and logical flow>",
+      "lr": "<2-3 sentences focused on vocabulary range, precision, and collocation>",
+      "gra": "<2-3 sentences focused on sentence variety, accuracy, and complex structures>"
     }
   },
   "task2": {
@@ -397,6 +441,12 @@ Return ONLY valid JSON matching this schema:
       "coherenceCohesion": <number>,
       "lexicalResource": <number>,
       "grammar": <number>
+    },
+    "criterionSummaries": {
+      "ta": "<2-3 sentences: overall Task Response — position, development, and relevance>",
+      "cc": "<2-3 sentences on essay structure and linking>",
+      "lr": "<2-3 sentences on word choice and flexibility>",
+      "gra": "<2-3 sentences on grammar range and error patterns>"
     }
   }
 }
@@ -407,12 +457,13 @@ Rules:
 - criterion "lr" = Lexical Resource
 - criterion "gra" = Grammatical Range & Accuracy
 - Task 1 minimum: 150 words. Task 2 minimum: 250 words.
-- When a response is below the minimum word count, penalise Task Achievement (Task 1) or Task Response (Task 2) heavily — typically band 4 or below when under 50% of the minimum
-- Include an annotation about insufficient word count when below the minimum
-- Include 3-8 annotations per task when the student wrote a substantive response; use an empty annotations array when the response is blank or "(empty)"
+- When below minimum word count, penalise TA/TR heavily and include a word-count annotation
+- For substantive responses: include 6-10 annotations per task with AT LEAST ONE annotation per criterion (ta, cc, lr, gra)
+- Every annotation MUST include a specific, actionable "suggestion" — not just diagnosis
+- criterionSummaries MUST address all four criteria with examiner-style advice
 - "text" MUST be copied verbatim from the student essay (exact substring)
-- Assign band 0 for every criterion when the student submitted no response for that task
-- Be fair and examiner-like; scores should reflect the annotations`;
+- Assign band 0 for every criterion when the student submitted no response
+- Be fair and examiner-like; scores must align with annotations`;
 
     const task1Words = countWords(input.task1Text);
     const task2Words = countWords(input.task2Text);

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BookingsModule } from '../bookings/bookings.module';
 import { ExamSessionsModule } from '../exam-sessions/exam-sessions.module';
+import { GradingModule } from '../grading/grading.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ResultsModule } from '../results/results.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -12,6 +13,7 @@ import { AdminService } from './admin.service';
     NotificationsModule,
     ExamSessionsModule,
     ResultsModule,
+    GradingModule,
     SettingsModule,
     BookingsModule,
   ],
