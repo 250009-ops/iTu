@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ExamSkill, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { matchAnswer } from './answer-matching';
+import { matchAnswer, normalizeAnswer } from './answer-matching';
 
 @Injectable()
 export class AutoScoringService {
@@ -31,7 +31,7 @@ export class AutoScoringService {
       const to = Number(match[2]);
       const expected = v
         .split(',')
-        .map((s) => s.trim().toUpperCase())
+        .map((s) => normalizeAnswer(s))
         .filter(Boolean)
         .sort();
       const nums: number[] = [];
@@ -40,7 +40,7 @@ export class AutoScoringService {
       const submitted = nums
         .map((n) => answerByNumber.get(n))
         .filter((val) => typeof val === 'string' && val.trim())
-        .map((val) => String(val).trim().toUpperCase())
+        .map((val) => normalizeAnswer(String(val)))
         .sort();
 
       if (

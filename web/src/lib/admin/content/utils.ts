@@ -281,14 +281,14 @@ export function buildPublishChecklist(
     items.push({
       id: "part1-topics",
       label: `${topicCount} Part 1 topics · ${questionCount} questions`,
-      ok: topicCount >= 2 && questionCount >= 3,
-      hint: "Add at least 2 Part 1 topics with 3+ questions total.",
+      ok: questionCount >= 3,
+      hint: "Add at least 3 Part 1 interviewer questions (grouped into topics).",
     });
     items.push({
       id: "part3-topics",
       label: `${p3TopicCount} Part 3 topics · ${p3QuestionCount} questions`,
-      ok: p3TopicCount >= 2 && p3QuestionCount >= 3,
-      hint: "Add at least 2 Part 3 discussion topics with 3+ questions total.",
+      ok: p3QuestionCount >= 3,
+      hint: "Add at least 3 Part 3 discussion questions (grouped into topics).",
     });
   }
 

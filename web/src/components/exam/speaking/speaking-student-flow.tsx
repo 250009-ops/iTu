@@ -20,10 +20,12 @@ import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { SpeakingRoomProvider } from "@/contexts/speaking-room-context";
 import { getStudentSpeakingState, type SpeakingState } from "@/lib/api/speaking";
 import { useDeviceCheck } from "@/hooks/use-device-check";
+import { playExaminerReadyAlert } from "@/lib/speaking/prep-bell";
 import {
   formatJoinOpensAt,
   speakingJoinAccess,
 } from "@/lib/speaking/slot-access";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 type Stage = "waiting" | "rules" | "live" | "complete";
@@ -38,6 +40,7 @@ const RULES = [
 
 export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
   const router = useRouter();
+  const { toast } = useToast();
   const { content, loading, error } = useExamContent<SpeakingContent>(
     sessionId,
     "speaking",
@@ -45,6 +48,7 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
   const [stage, setStage] = useState<Stage>("waiting");
   const [speakingState, setSpeakingState] = useState<SpeakingState | null>(null);
   const [stateError, setStateError] = useState<string | null>(null);
+  const prevExaminerReadyRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +76,19 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
       window.clearInterval(id);
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (stage !== "waiting") return;
+    const ready = speakingState?.examinerReady ?? false;
+    if (ready && !prevExaminerReadyRef.current) {
+      playExaminerReadyAlert();
+      toast("Your examiner is ready", {
+        description: "Join your speaking session when your devices are set up.",
+        variant: "success",
+      });
+    }
+    prevExaminerReadyRef.current = ready;
+  }, [speakingState?.examinerReady, stage, toast]);
 
   useEffect(() => {
     if (speakingState?.status !== "completed" || stage !== "waiting") return;
