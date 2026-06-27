@@ -3,7 +3,7 @@ import { login } from "./helpers/ui";
 
 test.describe("Student dashboard (fresh user, detailed)", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page, "student", "student");
+    await login(page, "student@example.com", "student");
     await expect(page).toHaveURL(/\/student/, { timeout: 20_000 });
     await page.goto("/student");
     await expect(page.getByText(/Welcome back, Alex/i)).toBeVisible({

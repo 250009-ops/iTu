@@ -1,13 +1,12 @@
 "use client";
 
-import type { MatchOption } from "@/lib/exam/types";
+import type { MatchOption, MatchingGroup } from "@/lib/exam/types";
 import { usedHeadingIds } from "@/lib/exam/matching-headings";
 import { useReadingHeadings } from "@/components/exam/reading/reading-headings-context";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  options: MatchOption[];
-  questions: { n: number; prompt: string; section?: string }[];
+  group: Pick<MatchingGroup, "options" | "questions" | "example">;
   answers: Record<number, string>;
   current: number | null;
   onFocus: (n: number) => void;
@@ -15,19 +14,26 @@ type Props = {
 
 /** Right pane: heading bank for matching headings (drop targets live on the passage). */
 export function MatchingHeadingsControl({
-  options,
-  questions,
+  group,
   answers,
   current,
   onFocus,
 }: Props) {
+  const { options, questions } = group;
   const ctx = useReadingHeadings();
   const picked = ctx?.pickedHeadingId ?? null;
   const setPicked = ctx?.setPickedHeadingId ?? (() => {});
-  const used = usedHeadingIds(questions, answers);
+  const used = usedHeadingIds(group, answers);
 
   return (
     <div className="space-y-4">
+      {group.example && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[13px] text-amber-950">
+          Section {group.example.section} is shown as an example in the passage (pre-filled).
+          Answer questions {questions[0]?.n}
+          {questions.length > 1 ? `–${questions[questions.length - 1]!.n}` : ""} below.
+        </p>
+      )}
       <p className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-[13px] text-sky-900">
         Drag a heading onto the drop zone above each section in the passage (left
         pane), or click a heading then click a drop zone.
@@ -74,7 +80,7 @@ export function MatchingHeadingsControl({
 
       <div className="space-y-1.5">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-          Sections
+          Questions
         </p>
         <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
           {questions.map((q) => {

@@ -12,6 +12,12 @@ import {
   UserRole,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
+import {
+  countdownParts,
+  mockStartDateTime,
+  overallBandFromSkillBands,
+  resolveAttemptBand,
+} from '../../common/band-resolution';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -65,46 +71,48 @@ export class StudentsService {
 
     const completed = enrollments.filter((e) => e.status === 'COMPLETED');
 
-    const overallBands = completed.map((e) => {
-      const attempts = e.examSession?.sectionAttempts ?? [];
-      const bands = attempts
-        .map((a) => a.band)
-        .filter((b): b is number => b !== null);
-      if (!bands.length) return null;
-      return Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2;
-    }).filter((b): b is number => b !== null);
+    const resolvedCompleted = await Promise.all(
+      completed.map(async (e) => ({
+        enrollment: e,
+        scores: await this.resolveEnrollmentBands(e),
+      })),
+    );
+
+    const overallBands = resolvedCompleted
+      .map((row) => row.scores.overall)
+      .filter((b): b is number => b != null);
 
     const currentBestBand =
       overallBands.length > 0 ? Math.max(...overallBands) : null;
-    const previousBest =
-      overallBands.length > 1
-        ? overallBands.slice(1).reduce((max, b) => Math.max(max, b), 0)
-        : null;
+    const latestOverall = resolvedCompleted[0]?.scores.overall ?? null;
+    const previousOverall = resolvedCompleted[1]?.scores.overall ?? null;
     const bandImprovement =
-      currentBestBand != null && previousBest != null
-        ? Math.round((currentBestBand - previousBest) * 2) / 2
+      latestOverall != null && previousOverall != null
+        ? Math.round((latestOverall - previousOverall) * 2) / 2
         : 0;
 
     const notifications = await this.prisma.notification.findMany({
       where: { userId: user.id },
-      take: 10,
+      take: 20,
       orderBy: { createdAt: 'desc' },
     });
 
-    const releasedAwaiting = enrollments.find(
-      (e) => e.resultsStatus === 'RELEASED' && e.status === 'COMPLETED',
+    const unreadResultNotification = notifications.find(
+      (n) => !n.isRead && n.type === NotificationType.RESULT,
     );
 
     const now = new Date();
-    const upcomingDate = upcoming?.mockDate ?? null;
     let daysUntil = 0;
     let hoursUntil = 0;
     let minutesUntil = 0;
-    if (upcomingDate) {
-      const diff = Math.max(0, upcomingDate.getTime() - now.getTime());
-      daysUntil = Math.floor(diff / (24 * 60 * 60 * 1000));
-      hoursUntil = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-      minutesUntil = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+    let mockStarted = false;
+    if (upcoming) {
+      const start = mockStartDateTime(upcoming.mockDate, upcoming.mockTime);
+      const countdown = countdownParts(start, now);
+      daysUntil = countdown.daysUntil;
+      hoursUntil = countdown.hoursUntil;
+      minutesUntil = countdown.minutesUntil;
+      mockStarted = countdown.started;
     }
 
     const completedSkills =
@@ -138,11 +146,11 @@ export class StudentsService {
         upcomingMocks: upcoming ? 1 : 0,
         unreadNotifications: notifications.filter((n) => !n.isRead).length,
       },
-      resultsAlert: releasedAwaiting
+      resultsAlert: unreadResultNotification
         ? {
-            title: 'Your mock results are ready!',
-            message: `Full band report for ${releasedAwaiting.enrollmentCode} is available.`,
-            href: '/student/results',
+            title: unreadResultNotification.title,
+            message: unreadResultNotification.body,
+            href: unreadResultNotification.link ?? '/student/results',
           }
         : null,
       upcomingMock: upcoming
@@ -158,6 +166,8 @@ export class StudentsService {
             daysUntil,
             hoursUntil,
             minutesUntil,
+            mockStarted,
+            hasPastResults: resolvedCompleted.length > 0,
             skills: upcomingPackageSkills.map((skill) => {
               const key = skill.toLowerCase();
               return {
@@ -174,52 +184,31 @@ export class StudentsService {
             packageSkills: upcomingPackageSkills.map((s) => s.toLowerCase()),
           }
         : null,
-      bandProgress: completed
+      bandProgress: resolvedCompleted
         .slice()
         .reverse()
-        .map((e) => {
-          const attempts = e.examSession?.sectionAttempts ?? [];
-          const bands = attempts
-            .map((a) => a.band)
-            .filter((b): b is number => b !== null);
-          const overall =
-            bands.length > 0
-              ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2
-              : null;
-          return {
-            month: e.mockDate.toLocaleString('en-US', { month: 'short' }),
-            band: overall,
-          };
-        })
+        .map(({ enrollment: e, scores }) => ({
+          month: e.mockDate.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          }),
+          band: scores.overall,
+        }))
         .filter((p) => p.band != null),
-      pastMocks: completed.slice(0, 5).map((e) => {
-        const bySkill = Object.fromEntries(
-          (e.examSession?.sectionAttempts ?? []).map((a) => [
-            a.skill.toLowerCase(),
-            a.band,
-          ]),
-        );
-        const bands = Object.values(bySkill).filter(
-          (b): b is number => b != null,
-        );
-        const overall =
-          bands.length > 0
-            ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2
-            : null;
-        return {
-          id: e.id,
-          enrollmentCode: e.enrollmentCode,
-          mockDate: e.mockDate,
-          package: e.package.title,
-          listening: bySkill.listening ?? null,
-          reading: bySkill.reading ?? null,
-          writing: bySkill.writing ?? null,
-          speaking: bySkill.speaking ?? null,
-          overall,
-          status: e.status.toLowerCase(),
-        };
-      }),
-      activities: notifications.slice(0, 5).map((n) => ({
+      pastMocks: resolvedCompleted.slice(0, 5).map(({ enrollment: e, scores }) => ({
+        id: e.id,
+        enrollmentCode: e.enrollmentCode,
+        mockDate: e.mockDate,
+        package: e.package.title,
+        packageSkills: scores.packageSkills,
+        listening: scores.bySkill.listening ?? null,
+        reading: scores.bySkill.reading ?? null,
+        writing: scores.bySkill.writing ?? null,
+        speaking: scores.bySkill.speaking ?? null,
+        overall: scores.overall,
+        status: e.status.toLowerCase(),
+      })),
+      activities: this.dedupeActivities(notifications).slice(0, 5).map((n) => ({
         id: n.id,
         type: n.type.toLowerCase(),
         title: n.title,
@@ -374,16 +363,21 @@ export class StudentsService {
         mocksUsed: completedCount,
         mocksTotal: profile.enrollments.length,
       },
-      scoreHistory: profile.enrollments
-        .filter((e) => e.status === 'COMPLETED')
-        .map((e) => ({
-          date: e.mockDate,
-          package: e.package.title,
-          bands: e.examSession?.sectionAttempts.map((a) => ({
-            skill: a.skill.toLowerCase(),
-            band: a.band,
-          })),
-        })),
+      scoreHistory: await Promise.all(
+        profile.enrollments
+          .filter((e) => e.status === 'COMPLETED')
+          .map(async (e) => {
+            const scores = await this.resolveEnrollmentBands(e);
+            return {
+              date: e.mockDate,
+              package: e.package.title,
+              bands: scores.packageSkills.map((skill) => ({
+                skill,
+                band: scores.bySkill[skill] ?? null,
+              })),
+            };
+          }),
+      ),
     };
   }
 
@@ -707,6 +701,56 @@ export class StudentsService {
         createdAt: t.createdAt,
       })),
     };
+  }
+
+  private async resolveEnrollmentBands(enrollment: {
+    package: { skills: unknown };
+    examSession?: {
+      sectionAttempts: {
+        skill: string;
+        band: number | null;
+        rawScore: number | null;
+      }[];
+    } | null;
+  }) {
+    const skills = packageExamSkills(enrollment.package.skills);
+    const attempts = enrollment.examSession?.sectionAttempts ?? [];
+    const bySkill: Record<string, number | null> = {
+      listening: null,
+      reading: null,
+      writing: null,
+      speaking: null,
+    };
+
+    for (const skill of skills) {
+      const key = skill.toLowerCase();
+      const attempt = attempts.find((a) => a.skill === skill);
+      bySkill[key] = attempt
+        ? await resolveAttemptBand(this.prisma, attempt)
+        : null;
+    }
+
+    const overall = overallBandFromSkillBands(
+      skills.map((s) => bySkill[s.toLowerCase()]),
+    );
+
+    return {
+      bySkill,
+      overall,
+      packageSkills: skills.map((s) => s.toLowerCase()),
+    };
+  }
+
+  private dedupeActivities<
+    T extends { type: string; title: string; body: string; createdAt: Date },
+  >(items: T[]): T[] {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const key = `${item.type}:${item.title}:${item.body}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   private requireStudent(user: RequestUser) {

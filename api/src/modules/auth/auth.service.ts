@@ -6,15 +6,18 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { UserRole } from '@prisma/client';
+import { UserRole, TeacherSpeciality } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
+import { extname } from 'path';
 import { MailService } from '../../common/mail/mail.service';
+import { StorageService } from '../../common/storage/storage.service';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RegisterTeacherDto } from './dto/register-teacher.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -27,6 +30,22 @@ const DASHBOARD_PATHS: Record<UserRole, string> = {
   ADMIN: '/admin/dashboard',
 };
 
+const CERT_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+const CERT_EXT_BY_MIME: Record<string, string> = {
+  'application/pdf': '.pdf',
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+};
+
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -36,6 +55,7 @@ export class AuthService {
     private mail: MailService,
     private audit: AuditService,
     private totp: TotpService,
+    private storage: StorageService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -67,6 +87,14 @@ export class AuthService {
         metadata: { email },
       });
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    this.assertTeacherCanLogin(user);
+
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException(
+        'Please verify your email before signing in.',
+      );
     }
 
     if (user.totpEnabled) {
@@ -147,9 +175,223 @@ export class AuthService {
       metadata: { email, examType },
     });
 
-    void this.mail.sendWelcomeEmail(user.email, user.name).catch(() => undefined);
+    const rawToken = randomBytes(32).toString('hex');
+    const emailVerificationToken = createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
 
-    return this.buildAuthResponse(user);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+
+    const appUrl = this.config
+      .get<string>('APP_URL', 'https://itestu.uz')
+      .replace(/\/$/, '');
+    const verifyUrl = `${appUrl}/verify-email?token=${rawToken}`;
+
+    void this.mail
+      .sendEmailVerificationEmail(user.email, user.name, verifyUrl)
+      .catch(() => undefined);
+
+    return {
+      submitted: true,
+      message: 'Verify your email to finish sign-up. Check your inbox for the verification link.',
+      email: user.email,
+    };
+  }
+
+  async registerTeacher(
+    dto: RegisterTeacherDto,
+    certificateFiles: Express.Multer.File[],
+  ) {
+    if (!dto.acceptTerms) {
+      throw new BadRequestException('You must accept the terms to continue');
+    }
+
+    if (!certificateFiles?.length) {
+      throw new BadRequestException('Upload at least one qualification certificate');
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException('An account with this email already exists');
+    }
+
+    const certificateUrls = await this.saveTeacherCertificates(
+      email,
+      certificateFiles,
+    );
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const slug = await this.generateUniqueTeacherSlug(dto.fullName.trim());
+    const applicationData = {
+      ieltsWritingBand: dto.ieltsWritingBand,
+      ieltsSpeakingBand: dto.ieltsSpeakingBand,
+      yearsExperience: dto.yearsExperience,
+      certificateUrls,
+      languages: dto.languages,
+      submittedAt: new Date().toISOString(),
+    };
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        name: dto.fullName.trim(),
+        passwordHash,
+        role: UserRole.TEACHER,
+        teacherProfile: {
+          create: {
+            slug,
+            languages: dto.languages,
+            speciality: TeacherSpeciality.BOTH,
+            status: 'PENDING',
+            applicationData,
+          },
+        },
+      },
+      include: { teacherProfile: true },
+    });
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_TEACHER_REGISTER,
+      entity: 'teacher_profile',
+      entityId: user.teacherProfile!.id,
+      metadata: {
+        email,
+        speciality: 'both',
+        ieltsWritingBand: dto.ieltsWritingBand,
+        ieltsSpeakingBand: dto.ieltsSpeakingBand,
+      },
+    });
+
+    void this.mail
+      .sendTeacherApplicationReceived(user.email, user.name)
+      .catch(() => undefined);
+
+    const rawToken = randomBytes(32).toString('hex');
+    const emailVerificationToken = createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+
+    const appUrl = this.config
+      .get<string>('APP_URL', 'https://itestu.uz')
+      .replace(/\/$/, '');
+    const verifyUrl = `${appUrl}/verify-email?token=${rawToken}`;
+
+    void this.mail
+      .sendEmailVerificationEmail(user.email, user.name, verifyUrl)
+      .catch(() => undefined);
+
+    return {
+      submitted: true,
+      message:
+        'Your teacher application has been submitted. We will email you when it is reviewed. Please also verify your email to finish sign-up.',
+      email: user.email,
+    };
+  }
+
+  async verifyEmail(token: string) {
+    const raw = token.trim();
+    const emailVerificationToken = createHash('sha256').update(raw).digest('hex');
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        emailVerificationToken,
+        emailVerificationExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired email verification token.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+      },
+    });
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_EMAIL_VERIFICATION_SUCCESS,
+      entity: 'user',
+      entityId: user.id,
+      metadata: { email: user.email, role: String(user.role).toLowerCase() },
+    });
+
+    // Student: now that email is verified, send the regular welcome email.
+    if (user.role === UserRole.STUDENT) {
+      const appUrl = this.config
+        .get<string>('APP_URL', 'https://itestu.uz')
+        .replace(/\/$/, '');
+      void this.mail
+        .sendWelcomeEmail(user.email, user.name)
+        .catch(() => undefined);
+    }
+
+    return { verified: true };
+  }
+
+  async resendEmailVerification(emailRaw: string) {
+    const email = emailRaw.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    // Avoid account enumeration.
+    if (!user || user.emailVerifiedAt) {
+      return { sent: false, message: user ? 'Email already verified.' : 'If the email exists, we sent a new link.' };
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const emailVerificationToken = createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+
+    const appUrl = this.config
+      .get<string>('APP_URL', 'https://itestu.uz')
+      .replace(/\/$/, '');
+    const verifyUrl = `${appUrl}/verify-email?token=${rawToken}`;
+
+    void this.mail
+      .sendEmailVerificationEmail(user.email, user.name, verifyUrl)
+      .catch(() => undefined);
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.AUTH_EMAIL_VERIFICATION_RESEND,
+      entity: 'user',
+      entityId: user.id,
+      metadata: { email: user.email },
+    });
+
+    return { sent: true };
   }
 
   async getMe(userId: string) {
@@ -354,6 +596,71 @@ export class AuthService {
     });
 
     return { disabled: true };
+  }
+
+  private assertTeacherCanLogin(user: {
+    role: UserRole;
+    teacherProfile?: { status: string } | null;
+  }) {
+    if (user.role !== UserRole.TEACHER || !user.teacherProfile) {
+      return;
+    }
+
+    if (user.teacherProfile.status === 'PENDING') {
+      throw new UnauthorizedException(
+        'Your examiner application is under review. We will email you when it is approved.',
+      );
+    }
+
+    if (user.teacherProfile.status === 'SUSPENDED') {
+      throw new UnauthorizedException(
+        'Your examiner account has been suspended. Contact support@itestu.uz for help.',
+      );
+    }
+  }
+
+  private async saveTeacherCertificates(
+    email: string,
+    files: Express.Multer.File[],
+  ): Promise<string[]> {
+    const urls: string[] = [];
+    const safeEmail = email.replace(/[^a-z0-9]/g, '-');
+
+    for (const [index, file] of files.entries()) {
+      if (!CERT_MIME_TYPES.has(file.mimetype)) {
+        throw new BadRequestException(
+          'Certificates must be PDF or image files (JPG, PNG, WebP)',
+        );
+      }
+
+      const ext =
+        CERT_EXT_BY_MIME[file.mimetype] ??
+        (extname(file.originalname) || '.bin');
+      const relativePath = `teacher-applications/${safeEmail}/${Date.now()}-${index}${ext}`;
+      const url = await this.storage.saveBuffer(relativePath, file.buffer);
+      urls.push(url);
+    }
+
+    return urls;
+  }
+
+  private async generateUniqueTeacherSlug(name: string): Promise<string> {
+    const base = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48);
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const suffix = randomBytes(2).toString('hex');
+      const slug = `${base || 'examiner'}-${suffix}`;
+      const exists = await this.prisma.teacherProfile.findUnique({
+        where: { slug },
+      });
+      if (!exists) return slug;
+    }
+
+    return `examiner-${randomBytes(4).toString('hex')}`;
   }
 
   private buildAuthResponse(user: {

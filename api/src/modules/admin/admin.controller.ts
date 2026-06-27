@@ -17,6 +17,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { ExamSessionsService } from '../exam-sessions/exam-sessions.service';
 import { AdminService } from './admin.service';
 import { ReviewIntegrityDto } from './dto/review-integrity.dto';
+import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
@@ -48,9 +49,27 @@ export class AdminController {
     return this.admin.getEnrollments();
   }
 
+  @Get('students')
+  getStudents() {
+    return this.admin.getStudents();
+  }
+
+  @Post('enrollments/grant')
+  grantEnrollment(
+    @Body() body: GrantEnrollmentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.grantEnrollment(body, user.id);
+  }
+
   @Get('teachers')
   getTeachers() {
     return this.admin.getTeachers();
+  }
+
+  @Get('teachers/:id')
+  getTeacher(@Param('id') id: string) {
+    return this.admin.getTeacher(id);
   }
 
   @Patch('teachers/:id/status')
@@ -138,6 +157,19 @@ export class AdminController {
   @Get('packages')
   getPackages() {
     return this.admin.getPackages();
+  }
+
+  @Get('packages/next-mock-number')
+  getNextMockNumber(@Query('skills') skillsRaw?: string) {
+    let skills: unknown = ['listening', 'reading', 'writing', 'speaking'];
+    if (skillsRaw) {
+      try {
+        skills = JSON.parse(skillsRaw) as unknown;
+      } catch {
+        skills = skillsRaw.split(',').map((s) => s.trim());
+      }
+    }
+    return this.admin.getNextMockNumber(skills);
   }
 
   @Post('packages')

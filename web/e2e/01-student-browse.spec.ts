@@ -124,7 +124,7 @@ const FAQ_QUESTIONS = [
 
 test.describe("Student Browse Mocks (detailed)", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page, "student", "student");
+    await login(page, "student@example.com", "student");
     await expect(page).toHaveURL(/\/student/, { timeout: 20_000 });
     await page.goto("/student/browse");
     await expect(

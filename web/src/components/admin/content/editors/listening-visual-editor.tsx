@@ -14,6 +14,7 @@ import {
   defaultPartitionBlurb,
   renumberListeningContent,
   remapAnswerKeyByOrder,
+  remapAnswerKeyForListeningContent,
   partitionStatusesForModule,
   validatePartitionGroups,
 } from "@/lib/admin/content/numbering";
@@ -77,12 +78,8 @@ export function ListeningVisualEditor({
   }
 
   function renumberAll() {
-    const oldNums = collectOrderedNumbers(parts.flatMap((p) => p.groups ?? []));
     const renumbered = renumberListeningContent(content);
-    const newNums = collectOrderedNumbers(
-      renumbered.parts.flatMap((p) => p.groups ?? []),
-    );
-    const remapped = remapAnswerKeyByOrder(answerKey, oldNums, newNums);
+    const remapped = remapAnswerKeyForListeningContent(answerKey, content, renumbered);
     recomputeTotalQuestions(renumbered);
     onContentChange(renumbered);
     onAnswerKeyChange(syncAnswerKey("listening", renumbered, remapped));

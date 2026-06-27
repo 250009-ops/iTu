@@ -4,7 +4,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuth } from "@/hooks/use-auth";
 import { getTeacherDashboard } from "@/lib/api/teachers";
-import { getWritingQueue } from "@/lib/api/grading";
+import { getSpeakingQueue, getWritingQueue } from "@/lib/api/grading";
 
 type TeacherNavBadges = {
   speaking: number;
@@ -19,18 +19,20 @@ const TeacherNavBadgesContext = createContext<TeacherNavBadges>({
 export function TeacherNavBadgesProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const dashboard = useApiQuery(getTeacherDashboard, [session?.accessToken]);
-  const queue = useApiQuery(getWritingQueue, [session?.accessToken]);
+  const writingQueue = useApiQuery(getWritingQueue, [session?.accessToken]);
+  const speakingQueue = useApiQuery(getSpeakingQueue, [session?.accessToken]);
 
   const value = useMemo<TeacherNavBadges>(() => {
-    const speaking = dashboard.data?.stats.sessionsToday ?? 0;
     const writing =
-      queue.data?.filter((item) => item.status?.toLowerCase() !== "graded")
+      writingQueue.data?.filter((item) => item.status?.toLowerCase() !== "graded")
         .length ??
       dashboard.data?.stats.writingQueue ??
       0;
+    const speaking =
+      speakingQueue.data?.length ?? dashboard.data?.stats.speakingQueue ?? 0;
 
     return { speaking, writing };
-  }, [dashboard.data, queue.data]);
+  }, [dashboard.data, writingQueue.data, speakingQueue.data]);
 
   return (
     <TeacherNavBadgesContext.Provider value={value}>

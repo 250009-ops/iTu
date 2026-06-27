@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import type { MatchOption } from "@/lib/exam/types";
+import { usedMatchOptionIds } from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
   questions: { n: number; prompt: string }[];
   answers: Record<number, string>;
   current: number | null;
+  reuseOptions?: boolean;
   onAssign: (n: number, optionId: string | null) => void;
   onFocus: (n: number) => void;
 };
@@ -28,19 +30,36 @@ export function MatchingFeaturesControl({
   questions,
   answers,
   current,
+  reuseOptions = true,
   onAssign,
   onFocus,
 }: Props) {
   const [picked, setPicked] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
+  function assign(n: number, id: string | null) {
+    if (!reuseOptions && id) {
+      for (const q of questions) {
+        if (q.n !== n && answers[q.n] === id) {
+          onAssign(q.n, null);
+        }
+      }
+    }
+    onAssign(n, id);
+  }
+
   const handleSlotActivate = (n: number) => {
     onFocus(n);
     if (picked) {
-      onAssign(n, picked);
+      assign(n, picked);
       setPicked(null);
     }
   };
+
+  const usedElsewhere = (forQuestion: number | null) =>
+    reuseOptions
+      ? new Set<string>()
+      : usedMatchOptionIds(questions, answers, forQuestion ?? undefined);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_11rem]">
@@ -71,7 +90,7 @@ export function MatchingFeaturesControl({
                 onDrop={(e) => {
                   e.preventDefault();
                   const id = e.dataTransfer.getData("text/plain");
-                  if (id) onAssign(q.n, id);
+                  if (id) assign(q.n, id);
                   setDragOver(null);
                   setPicked(null);
                 }}
@@ -94,7 +113,7 @@ export function MatchingFeaturesControl({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAssign(q.n, null);
+                        assign(q.n, null);
                       }}
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-600 hover:bg-emerald-100"
                       aria-label={`Clear answer for question ${q.n}`}
@@ -120,21 +139,28 @@ export function MatchingFeaturesControl({
         <ul className="space-y-1.5">
           {options.map((opt) => {
             const isPicked = picked === opt.id;
+            const isUsed = usedElsewhere(current).has(opt.id);
             return (
               <li key={opt.id}>
                 <button
                   type="button"
-                  draggable
+                  draggable={!isUsed || isPicked}
                   onDragStart={(e) => {
+                    if (isUsed && !isPicked) return;
                     e.dataTransfer.setData("text/plain", opt.id);
                     e.dataTransfer.effectAllowed = "copy";
                   }}
-                  onClick={() => setPicked(isPicked ? null : opt.id)}
+                  onClick={() => {
+                    if (isUsed && !isPicked) return;
+                    setPicked(isPicked ? null : opt.id);
+                  }}
                   className={cn(
-                    "flex w-full cursor-grab items-start gap-2 rounded-lg border px-2 py-1.5 text-left text-[13px] transition active:cursor-grabbing",
-                    isPicked
-                      ? "border-navy bg-navy text-white shadow-md"
-                      : "border-slate-200 bg-white text-slate-800 hover:border-navy hover:bg-sky-50",
+                    "flex w-full items-start gap-2 rounded-lg border px-2 py-1.5 text-left text-[13px] transition",
+                    isUsed && !isPicked
+                      ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400"
+                      : isPicked
+                        ? "cursor-grab border-navy bg-navy text-white shadow-md active:cursor-grabbing"
+                        : "cursor-grab border-slate-200 bg-white text-slate-800 hover:border-navy hover:bg-sky-50 active:cursor-grabbing",
                   )}
                 >
                   <span className="font-bold">{opt.id}</span>

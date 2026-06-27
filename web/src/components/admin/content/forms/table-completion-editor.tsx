@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AnswerKeyField } from "@/components/admin/content/forms/answer-key-field";
+import { removeAnswerKeyEntry } from "@/lib/admin/content/match-editor-helpers";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
+import { gapNode, isGapNode, isTextSpan, textNode } from "@/lib/exam/inline-content";
 import type { Gap, InlineNode, TableCompletionGroup } from "@/lib/exam/types";
 
 type Props = {
@@ -16,7 +18,152 @@ type Props = {
 };
 
 function gapsInCell(cell: InlineNode[]): Gap[] {
-  return cell.filter((n): n is Gap => typeof n === "object");
+  return cell.filter((n): n is Gap => isGapNode(n));
+}
+
+function nextGapNumber(rows: InlineNode[][][]): number {
+  const nums = rows.flatMap((row) =>
+    row.flatMap((cell) => gapsInCell(cell).map((g) => g.n)),
+  );
+  return (nums.at(-1) ?? 0) + 1;
+}
+
+function gapNumbersInRow(row: InlineNode[][]): number[] {
+  return row.flatMap((cell) => gapsInCell(cell).map((g) => g.n));
+}
+
+function TableCellEditor({
+  cell,
+  onChange,
+  onAddGap,
+  answerKey,
+  onAnswerKeyChange,
+}: {
+  cell: InlineNode[];
+  onChange: (nodes: InlineNode[]) => void;
+  onAddGap: () => void;
+  answerKey: AnswerKeyMap;
+  onAnswerKeyChange: (key: AnswerKeyMap) => void;
+}) {
+  const nodes = cell.length > 0 ? cell : [];
+
+  function removeSegment(nodeIdx: number) {
+    const node = nodes[nodeIdx];
+    if (node && isGapNode(node)) {
+      onAnswerKeyChange(removeAnswerKeyEntry(answerKey, node.n));
+    }
+    const next = nodes.filter((_, i) => i !== nodeIdx);
+    onChange(next);
+  }
+
+  return (
+    <div className="space-y-2">
+      {nodes.length === 0 ? (
+        <p className="text-[11px] text-muted">No content — add text or a gap below.</p>
+      ) : null}
+      {nodes.map((node, nodeIdx) => (
+        <TableCellSegmentRow
+          key={`${nodeIdx}-${isGapNode(node) ? node.n : "text"}`}
+          node={node}
+          onChange={(next) => {
+            const updated = [...nodes];
+            updated[nodeIdx] = next;
+            onChange(updated);
+          }}
+          onRemove={() => removeSegment(nodeIdx)}
+          answerKey={answerKey}
+          onAnswerKeyChange={onAnswerKeyChange}
+        />
+      ))}
+      <div className="flex flex-wrap gap-1">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => onChange([...nodes, ""])}
+        >
+          <Plus className="h-3 w-3" /> Text
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={onAddGap}
+        >
+          <Plus className="h-3 w-3" /> Gap
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TableCellSegmentRow({
+  node,
+  onChange,
+  onRemove,
+  answerKey,
+  onAnswerKeyChange,
+}: {
+  node: InlineNode;
+  onChange: (node: InlineNode) => void;
+  onRemove: () => void;
+  answerKey: AnswerKeyMap;
+  onAnswerKeyChange: (key: AnswerKeyMap) => void;
+}) {
+  if (isGapNode(node)) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-navy/30 bg-slate-50/80 px-2 py-1.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-navy text-[10px] font-bold text-white">
+          {node.n}
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+          Gap
+        </span>
+        <div className="min-w-0 flex-1">
+          <AnswerKeyField
+            questionNumber={node.n}
+            answerKey={answerKey}
+            onChange={onAnswerKeyChange}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="h-7 shrink-0 px-2 text-red-600"
+          onClick={onRemove}
+          aria-label={`Remove gap ${node.n}`}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  }
+
+  const value = isTextSpan(node) ? node.value : node;
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        value={value}
+        onChange={(e) => onChange(textNode(e.target.value))}
+        placeholder="Cell text"
+        className="h-8 flex-1 text-xs"
+      />
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="h-8 shrink-0 px-2 text-red-600"
+        onClick={onRemove}
+        aria-label="Remove text"
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+    </div>
+  );
 }
 
 export function TableCompletionEditor({
@@ -29,23 +176,26 @@ export function TableCompletionEditor({
     onChange({ ...group, columns });
   }
 
-  function updateRow(rowIdx: number, row: InlineNode[][]) {
-    const rows = [...group.rows];
-    rows[rowIdx] = row;
-    onChange({ ...group, rows });
-  }
-
   function recomputeRange(rows: InlineNode[][][]) {
     const nums = rows.flatMap((row) =>
       row.flatMap((cell) => gapsInCell(cell).map((g) => g.n)),
     );
-    if (nums.length === 0) return group;
+    if (nums.length === 0) return { ...group, rows, from: group.from, to: group.from };
     return {
       ...group,
       rows,
       from: nums[0]!,
       to: nums[nums.length - 1]!,
     };
+  }
+
+  function updateCell(rowIdx: number, colIdx: number, nodes: InlineNode[]) {
+    const newRow = group.rows[rowIdx]!.map((cell, i) =>
+      i === colIdx ? nodes : cell,
+    );
+    onChange(
+      recomputeRange(group.rows.map((r, i) => (i === rowIdx ? newRow : r))),
+    );
   }
 
   return (
@@ -82,7 +232,7 @@ export function TableCompletionEditor({
                   onChange({
                     ...group,
                     columns: columns.length ? columns : ["Column 1"],
-                    rows: rows.length ? rows : [[[""]]],
+                    rows: rows.length ? rows : [[[]]],
                   });
                 }}
               >
@@ -94,11 +244,10 @@ export function TableCompletionEditor({
             variant="secondary"
             size="sm"
             onClick={() => {
-              updateColumns([...group.columns, `Column ${group.columns.length + 1}`]);
               onChange({
                 ...group,
                 columns: [...group.columns, `Column ${group.columns.length + 1}`],
-                rows: group.rows.map((row) => [...row, [""]]),
+                rows: group.rows.map((row) => [...row, []]),
               });
             }}
           >
@@ -107,12 +256,21 @@ export function TableCompletionEditor({
         </div>
       </div>
 
+      <p className="text-xs text-muted">
+        Build each cell from text and gap segments in order — e.g. &quot;1977&quot; only, or
+        &quot;finches were&quot; + gap + &quot;mm long&quot;. Remove any segment with the trash
+        icon.
+      </p>
+
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="bg-slate-50">
               {group.columns.map((col, i) => (
-                <th key={i} className="border-b border-border px-3 py-2 text-left font-semibold text-navy">
+                <th
+                  key={i}
+                  className="border-b border-border px-3 py-2 text-left font-semibold text-navy"
+                >
                   {col}
                 </th>
               ))}
@@ -121,58 +279,20 @@ export function TableCompletionEditor({
           <tbody>
             {group.rows.map((row, rowIdx) => (
               <tr key={rowIdx} className="border-b border-border last:border-0">
-                {row.map((cell, colIdx) => {
-                  const gaps = gapsInCell(cell);
-                  const text = cell.filter((n): n is string => typeof n === "string").join(" ");
-                  return (
-                    <td key={colIdx} className="px-3 py-2 align-top">
-                      <Input
-                        value={text}
-                        onChange={(e) => {
-                          const newRow = row.map((c, i) => {
-                            if (i !== colIdx) return c;
-                            const rebuilt: InlineNode[] = [e.target.value];
-                            for (const g of gaps) rebuilt.push(g);
-                            return rebuilt;
-                          });
-                          updateRow(rowIdx, newRow);
-                        }}
-                        className="mb-1 h-8 text-xs"
-                        placeholder="Cell text"
-                      />
-                      {gaps.map((gap) => (
-                        <div key={gap.n} className="mt-1 flex items-center gap-2">
-                          <span className="flex h-6 w-6 items-center justify-center rounded bg-navy text-[10px] font-bold text-white">
-                            {gap.n}
-                          </span>
-                          <AnswerKeyField
-                            questionNumber={gap.n}
-                            answerKey={answerKey}
-                            onChange={onAnswerKeyChange}
-                          />
-                        </div>
-                      ))}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="mt-1 h-7 text-xs"
-                        onClick={() => {
-                          const maxN = group.rows
-                            .flatMap((r) => r.flatMap((c) => gapsInCell(c)))
-                            .at(-1)?.n ?? group.from - 1;
-                          const n = maxN + 1;
-                          const newRow = row.map((c, i) => {
-                            if (i !== colIdx) return c;
-                            return [...c, { n }];
-                          });
-                          onChange(recomputeRange(group.rows.map((r, i) => (i === rowIdx ? newRow : r))));
-                        }}
-                      >
-                        <Plus className="h-3 w-3" /> Gap
-                      </Button>
-                    </td>
-                  );
-                })}
+                {row.map((cell, colIdx) => (
+                  <td key={colIdx} className="px-3 py-2 align-top">
+                    <TableCellEditor
+                      cell={cell}
+                      onChange={(nodes) => updateCell(rowIdx, colIdx, nodes)}
+                      onAddGap={() => {
+                        const n = nextGapNumber(group.rows);
+                        updateCell(rowIdx, colIdx, [...cell, gapNode(n)]);
+                      }}
+                      answerKey={answerKey}
+                      onAnswerKeyChange={onAnswerKeyChange}
+                    />
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -184,7 +304,7 @@ export function TableCompletionEditor({
           variant="secondary"
           size="sm"
           onClick={() => {
-            const emptyRow = group.columns.map(() => [""] as InlineNode[]);
+            const emptyRow = group.columns.map(() => [] as InlineNode[]);
             onChange(recomputeRange([...group.rows, emptyRow]));
           }}
         >
@@ -195,7 +315,15 @@ export function TableCompletionEditor({
             variant="secondary"
             size="sm"
             className="text-red-600"
-            onClick={() => onChange(recomputeRange(group.rows.slice(0, -1)))}
+            onClick={() => {
+              const removedRow = group.rows[group.rows.length - 1];
+              let nextKey = answerKey;
+              for (const n of gapNumbersInRow(removedRow ?? [])) {
+                nextKey = removeAnswerKeyEntry(nextKey, n);
+              }
+              onAnswerKeyChange(nextKey);
+              onChange(recomputeRange(group.rows.slice(0, -1)));
+            }}
           >
             <Trash2 className="h-3.5 w-3.5" /> Remove last row
           </Button>

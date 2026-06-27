@@ -15,7 +15,7 @@ test.describe("Teacher portal", () => {
       );
     }
     page = await browser.newPage();
-    await login(page, "teacher", "teacher");
+    await login(page, "teacher@example.com", "teacher");
     await expectLoggedInDashboard(page, /\/teacher/);
   });
 
@@ -44,7 +44,7 @@ test.describe("Teacher portal", () => {
   });
 
   test("Speaking console & grade Alex", async () => {
-    const auth = await apiLogin("teacher", "teacher");
+    const auth = await apiLogin("teacher@example.com", "teacher");
     const dash = await apiRequest<{
       speakingSchedule: { id: string; studentName: string }[];
     }>("GET", "/teachers/dashboard", auth.accessToken);
@@ -82,7 +82,7 @@ test.describe("Teacher portal", () => {
 
   test("Student results released after grading", async ({ browser }) => {
     const studentPage = await browser.newPage();
-    await login(studentPage, "student", "student");
+    await login(studentPage, "student@example.com", "student");
     await expectLoggedInDashboard(studentPage, /\/student/);
     await studentPage.goto("/student/results");
     await expect(studentPage.getByText("Overall").first()).toBeVisible({ timeout: 30_000 });
@@ -96,7 +96,7 @@ test.describe("Admin portal", () => {
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
-    await login(page, "admin", "admin");
+    await login(page, "serkinov393@gmail.com", "admin");
     await expectLoggedInDashboard(page, /\/admin/);
   });
 

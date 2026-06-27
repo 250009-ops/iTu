@@ -66,24 +66,51 @@ export interface TableCompletionGroup extends BaseGroup {
   rows: InlineNode[][][];
 }
 
+export interface McqSingleExample {
+  prompt: string;
+  options: Option[];
+  answerId: string;
+}
+
 export interface McqSingleGroup extends BaseGroup {
   type: "mcq_single";
+  /** Pre-filled Cambridge-style example — not scored, no question number. */
+  example?: McqSingleExample;
   questions: { n: number; prompt: string; options: Option[] }[];
 }
 
 export interface McqMultiGroup extends BaseGroup {
   type: "mcq_multi";
   prompt: string;
-  /** The question numbers grouped, e.g. [18, 19]. */
+  /** The question numbers grouped, e.g. [18, 19] or [1, 2, 3, 4]. */
   numbers: number[];
   maxSelections: number;
+  /**
+   * shared — pick N letters together (e.g. Which TWO?).
+   * per_question — one letter per answer box (e.g. boxes 1–4 on answer sheet).
+   */
+  selectionMode?: "shared" | "per_question";
+  /**
+   * fixed — each answer box has a specific correct letter.
+   * any — correct letters can appear in any box order (set scoring).
+   */
+  answerOrdering?: "fixed" | "any";
   options: Option[];
 }
 
 export interface MatchingGroup extends BaseGroup {
   type: "matching" | "matching_headings";
   options: MatchOption[];
-  questions: { n: number; prompt: string; /** Passage section letter for matching_headings */ section?: string }[];
+  /** When true, the same option letter may be used for multiple questions (listening matching). */
+  reuseOptions?: boolean;
+  /** Pre-filled example section for matching_headings (not scored, no question number). */
+  example?: { section: string; headingId: string };
+  questions: {
+    n: number;
+    prompt: string;
+    /** Passage section letter for matching_headings */
+    section?: string;
+  }[];
 }
 
 /** Reading: which passage section (A–F) contains each statement — Cambridge dropdown UI. */
@@ -104,9 +131,20 @@ export interface MapLabelingGroup extends BaseGroup {
   imageLabel: string;
   /** Optional uploaded map image URL (from admin media library). */
   imageUrl?: string;
+  /**
+   * zones — numbered pins on the map (listening-style drag letters to locations).
+   * place_list — reading-style map with letter markers; place names are questions below.
+   */
+  layoutMode?: "zones" | "place_list";
+  /** How candidates answer: pick a letter from the list, or type text. */
+  answerMode?: "option" | "text";
   options: MatchOption[];
-  /** Drop zones positioned as percentages over the image. */
+  /** Drop zones positioned as percentages over the image (zones layout). */
   zones: { n: number; x: number; y: number; label: string }[];
+  /** Letter markers on the map (place_list layout). */
+  mapMarkers?: { id: string; x: number; y: number }[];
+  /** Place names to match to map letters (place_list layout). */
+  questions?: { n: number; prompt: string }[];
 }
 
 export interface ShortAnswerGroup extends BaseGroup {
@@ -122,6 +160,8 @@ export type FlowchartNode =
 export interface FlowchartCompletionGroup extends BaseGroup {
   type: "flowchart_completion";
   title?: string;
+  /** How candidates answer gaps: pick a letter from the box, or type text. */
+  answerMode?: "option" | "text";
   options: MatchOption[];
   nodes: FlowchartNode[];
 }
@@ -146,6 +186,8 @@ export interface MatchingFeaturesGroup extends BaseGroup {
   type: "matching_features";
   /** Heading above the feature/person list, e.g. "List of researchers". */
   listTitle?: string;
+  /** When true, the same option letter may be used for multiple questions (shows NB). */
+  reuseOptions?: boolean;
   options: MatchOption[];
   questions: { n: number; prompt: string }[];
 }

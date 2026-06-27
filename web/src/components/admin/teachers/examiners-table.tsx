@@ -5,6 +5,7 @@ import { Eye, Search, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
+import { TeacherDetailDrawer } from "@/components/admin/teachers/teacher-detail-drawer";
 import { teacherStatusFilterOptions } from "@/lib/admin/constants";
 import type { Examiner, TeacherSpeciality, TeacherStatus } from "@/lib/admin/types";
 import { useAdminTeachers } from "@/contexts/admin-teachers-context";
@@ -92,6 +93,7 @@ export function ExaminersTable() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | TeacherStatus>("all");
   const [pending, setPending] = useState<Examiner | null>(null);
+  const [viewTeacher, setViewTeacher] = useState<Examiner | null>(null);
   const { toast } = useToast();
 
   const nextStatus: Record<TeacherStatus, TeacherStatus> = {
@@ -244,12 +246,7 @@ export function ExaminersTable() {
                         <ActionButton teacher={teacher} onAction={setPending} />
                         <button
                           type="button"
-                          onClick={() =>
-                            toast(teacher.name, {
-                              description: `${specialityLabels[teacher.speciality]} examiner · ${teacher.sessions.toLocaleString()} sessions · ${teacher.email}`,
-                              variant: "info",
-                            })
-                          }
+                          onClick={() => setViewTeacher(teacher)}
                           className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:bg-slate-50 hover:text-navy"
                           aria-label={`View ${teacher.name}`}
                         >
@@ -270,13 +267,20 @@ export function ExaminersTable() {
         title={pending ? `${actionVerb[pending.status]} ${pending.name}?` : ""}
         message={
           pending?.status === "approved"
-            ? "Suspending will immediately remove this examiner from upcoming sessions."
-            : "This examiner will be able to deliver and grade sessions."
+            ? "Suspending will immediately remove this examiner from upcoming sessions. They will receive an email notification."
+            : pending?.status === "pending"
+              ? "Approving will allow this examiner to sign in and deliver sessions. They will receive login instructions by email."
+              : "This examiner will be able to deliver and grade sessions again."
         }
         confirmLabel={pending ? actionVerb[pending.status] : "Confirm"}
         tone={pending?.status === "approved" ? "danger" : "default"}
         onConfirm={applyAction}
         onCancel={() => setPending(null)}
+      />
+
+      <TeacherDetailDrawer
+        teacher={viewTeacher}
+        onClose={() => setViewTeacher(null)}
       />
     </div>
   );

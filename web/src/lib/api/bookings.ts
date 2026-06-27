@@ -50,6 +50,22 @@ export type CreateBookingResult = {
   status: string;
 };
 
+export function getContentAvailability(packageId: string) {
+  return apiFetch<{
+    packageId: string;
+    canPurchase: boolean;
+    blockingReason: string | null;
+    message: string;
+    perSkill: {
+      skill: string;
+      testId: string | null;
+      testCode: string | null;
+      alreadyTaken: boolean;
+      canPurchase: boolean;
+    }[];
+  }>(`/bookings/packages/${encodeURIComponent(packageId)}/content-availability`);
+}
+
 export function createBooking(body: CreateBookingBody) {
   return apiFetch<CreateBookingResult>("/bookings", {
     method: "POST",

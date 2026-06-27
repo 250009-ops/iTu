@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, ImageIcon, Loader2, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   getWritingTask1Asset,
+  mediaUrlWithCacheBust,
+  stripMediaCacheBust,
   WRITING_TASK1_IMAGE_KEY,
 } from "@/lib/admin/content/writing-media";
 import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
@@ -34,14 +37,13 @@ export function WritingTask1ImageUpload({
   const [assets, setAssets] = useState<MediaAssetRef[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadGeneration, setUploadGeneration] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    let active = true;
+  const loadAssets = useCallback(() => {
     setLoadingAssets(true);
-    void getContentTest(testId)
+    return getContentTest(testId)
       .then((test) => {
-        if (!active) return;
         setAssets(
           (test.mediaAssets ?? []).map((a) => ({
             key: a.key,
@@ -51,15 +53,27 @@ export function WritingTask1ImageUpload({
         );
       })
       .catch(() => {
-        if (active) setAssets([]);
+        setAssets([]);
       })
       .finally(() => {
-        if (active) setLoadingAssets(false);
+        setLoadingAssets(false);
       });
+  }, [testId]);
+
+  useEffect(() => {
+    let active = true;
+    void loadAssets().then(() => {
+      if (!active) return;
+    });
     return () => {
       active = false;
     };
-  }, [testId]);
+  }, [loadAssets]);
+
+  const openFilePicker = useCallback(() => {
+    if (uploading) return;
+    fileInputRef.current?.click();
+  }, [uploading]);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -70,14 +84,15 @@ export function WritingTask1ImageUpload({
           WRITING_TASK1_IMAGE_KEY,
           file,
         );
-        setAssets([
-          {
-            key: WRITING_TASK1_IMAGE_KEY,
-            url: result.url,
-            sizeBytes: result.sizeBytes,
-          },
-        ]);
-        onImageUploaded(result.url);
+        const cleanUrl = stripMediaCacheBust(result.url);
+        const nextAsset: MediaAssetRef = {
+          key: WRITING_TASK1_IMAGE_KEY,
+          url: cleanUrl,
+          sizeBytes: result.sizeBytes,
+        };
+        setAssets([nextAsset]);
+        setUploadGeneration((g) => g + 1);
+        onImageUploaded(cleanUrl);
         toast("Task 1 image uploaded", {
           description: "Students will see this chart or diagram during Writing.",
           variant: "success",
@@ -96,7 +111,13 @@ export function WritingTask1ImageUpload({
   );
 
   const asset = getWritingTask1Asset(assets);
-  const previewUrl = imageUrl ?? asset?.url;
+  const rawPreviewUrl = imageUrl ?? asset?.url;
+  const cacheVersion =
+    uploadGeneration > 0
+      ? `${asset?.sizeBytes ?? 0}-${uploadGeneration}`
+      : asset?.sizeBytes;
+  const previewUrl = mediaUrlWithCacheBust(rawPreviewUrl, cacheVersion);
+  const showInitialLoader = loadingAssets && !rawPreviewUrl;
 
   return (
     <div className="space-y-3">
@@ -112,7 +133,7 @@ export function WritingTask1ImageUpload({
         }}
       />
 
-      {loadingAssets ? (
+      {showInitialLoader ? (
         <div className="flex items-center gap-2 text-sm text-muted">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading image…
@@ -121,28 +142,28 @@ export function WritingTask1ImageUpload({
         <button
           type="button"
           disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={openFilePicker}
           className={cn(
             "flex w-full items-center gap-4 rounded-xl border-2 border-dashed px-4 py-4 text-left transition-colors",
-            previewUrl
+            rawPreviewUrl
               ? "border-emerald-200 bg-emerald-50/60 hover:border-emerald-300"
               : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/40",
           )}
         >
           {uploading ? (
             <Loader2 className="h-8 w-8 shrink-0 animate-spin text-violet-600" />
-          ) : previewUrl ? (
+          ) : rawPreviewUrl ? (
             <CheckCircle2 className="h-8 w-8 shrink-0 text-emerald-600" />
           ) : (
             <Upload className="h-8 w-8 shrink-0 text-muted" />
           )}
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-navy">
-              {previewUrl ? "Task 1 image uploaded" : "Upload Task 1 image"}
+              {rawPreviewUrl ? "Task 1 image uploaded" : "Upload Task 1 image"}
             </p>
             <p className="mt-0.5 text-sm text-muted">
-              {previewUrl
-                ? `Replace image${formatFileSize(asset?.sizeBytes) ? ` · ${formatFileSize(asset?.sizeBytes)}` : ""}`
+              {rawPreviewUrl
+                ? `Click to replace image${formatFileSize(asset?.sizeBytes) ? ` · ${formatFileSize(asset?.sizeBytes)}` : ""}`
                 : "JPEG, PNG, or WebP — chart, graph, map, or process diagram"}
             </p>
           </div>
@@ -151,16 +172,41 @@ export function WritingTask1ImageUpload({
 
       {previewUrl && (
         <div className="overflow-hidden rounded-lg border border-border bg-white">
-          <div className="flex items-center gap-2 border-b border-border bg-slate-50 px-3 py-2">
-            <ImageIcon className="h-4 w-4 text-muted" />
-            <Label className="text-xs font-medium text-muted">Preview</Label>
+          <div className="flex items-center justify-between gap-2 border-b border-border bg-slate-50 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-muted" />
+              <Label className="text-xs font-medium text-muted">Preview</Label>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={uploading}
+              disabled={uploading}
+              onClick={openFilePicker}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Replace
+            </Button>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewUrl}
-            alt="Task 1 visual preview"
-            className="max-h-64 w-full object-contain bg-slate-50 p-3"
-          />
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={openFilePicker}
+            className="group relative block w-full cursor-pointer disabled:cursor-wait"
+            title="Click to replace image"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={previewUrl}
+              src={previewUrl}
+              alt="Task 1 visual preview"
+              className="max-h-64 w-full object-contain bg-slate-50 p-3"
+            />
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-medium text-white opacity-0 transition group-hover:bg-black/35 group-hover:opacity-100">
+              Replace image
+            </span>
+          </button>
         </div>
       )}
     </div>

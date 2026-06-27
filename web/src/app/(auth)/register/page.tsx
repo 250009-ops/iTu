@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import RegisterForm from "./register-form";
+import { RegisterRolePicker } from "@/components/auth/register-role-picker";
 
 export const metadata: Metadata = {
   title: "Create Account",
 };
 
 export default function RegisterPage() {
-  return <RegisterForm />;
+  return <RegisterRolePicker />;
 }

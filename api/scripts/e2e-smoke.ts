@@ -75,7 +75,7 @@ async function main() {
 
   // Student
   try {
-    const token = await login('student', 'student');
+    const token = await login('student@example.com', 'student');
     const dash = await get('/students/dashboard', token);
     if (dash.user.mocksCompleted === 0) {
       pass('Student fresh dashboard', '0 mocks completed');
@@ -106,7 +106,7 @@ async function main() {
 
   // Teacher
   try {
-    const token = await login('teacher', 'teacher');
+    const token = await login('teacher@example.com', 'teacher');
     await get('/teachers/dashboard', token);
     pass('Teacher dashboard');
     await get('/teachers/profile', token);
@@ -123,11 +123,13 @@ async function main() {
 
   // Admin
   try {
-    const token = await login('admin', 'admin');
+    const token = await login('serkinov393@gmail.com', 'admin');
     await get('/admin/dashboard', token);
     pass('Admin dashboard');
     await get('/admin/enrollments', token);
     pass('Admin enrollments');
+    const students = await get('/admin/students', token);
+    pass('Admin students', `${(students as unknown[]).length} students`);
     await get('/admin/sessions/live', token);
     pass('Admin live sessions');
   } catch (e) {

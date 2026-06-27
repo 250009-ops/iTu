@@ -319,6 +319,8 @@ export function paymentLabel(method: string): string {
   if (m.includes("master")) return "Mastercard";
   if (m.includes("paypal")) return "PayPal";
   if (m.includes("apple")) return "Apple Pay";
+  if (m.includes("complimentary")) return "Complimentary";
+  if (m.includes("card")) return "Card";
   return method;
 }
 
@@ -328,5 +330,6 @@ export function normalizePaymentMethod(method: string): PaymentMethod {
   if (m.includes("master")) return "mastercard";
   if (m.includes("paypal")) return "paypal";
   if (m.includes("apple")) return "apple_pay";
+  if (m.includes("complimentary")) return "complimentary";
   return "visa";
 }

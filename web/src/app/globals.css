@@ -113,3 +113,14 @@ select:disabled,
     animation: none;
   }
 }
+
+.day-off-pattern {
+  background-color: #f8fafc;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    rgba(148, 163, 184, 0.15) 6px,
+    rgba(148, 163, 184, 0.15) 7px
+  );
+}

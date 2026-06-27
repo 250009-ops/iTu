@@ -1,5 +1,7 @@
 import type { UserRole } from "@/lib/auth/session";
+import type { TeacherRegisterFormValues } from "@/lib/validations/teacher-register";
 import { apiFetch } from "./client";
+import { apiFetchForm } from "./form";
 
 export type ApiUser = {
   id: string;
@@ -57,8 +59,14 @@ export function login(email: string, password: string, totpCode?: string) {
   });
 }
 
+export type RegisterResponse = {
+  submitted: boolean;
+  message: string;
+  email: string;
+};
+
 export function register(payload: RegisterPayload) {
-  return apiFetch<AuthResponse>("/auth/register", {
+  return apiFetch<RegisterResponse>("/auth/register", {
     method: "POST",
     body: {
       ...payload,
@@ -67,6 +75,34 @@ export function register(payload: RegisterPayload) {
           ? "GENERAL_TRAINING"
           : "ACADEMIC",
     },
+    auth: false,
+  });
+}
+
+export type TeacherRegisterResponse = {
+  submitted: boolean;
+  message: string;
+  email: string;
+};
+
+export function registerTeacher(
+  data: TeacherRegisterFormValues,
+  certificates: File[],
+) {
+  const form = new FormData();
+  form.append("fullName", data.fullName);
+  form.append("email", data.email);
+  form.append("password", data.password);
+  form.append("ieltsWritingBand", data.ieltsWritingBand);
+  form.append("ieltsSpeakingBand", data.ieltsSpeakingBand);
+  form.append("yearsExperience", data.yearsExperience);
+  form.append("languages", JSON.stringify(data.languages));
+  form.append("acceptTerms", String(data.acceptTerms));
+  for (const file of certificates) {
+    form.append("certificates", file);
+  }
+
+  return apiFetchForm<TeacherRegisterResponse>("/auth/register-teacher", form, {
     auth: false,
   });
 }
@@ -96,6 +132,20 @@ export function resetPassword(token: string, newPassword: string) {
     body: { token, newPassword },
     auth: false,
   });
+}
+
+export function verifyEmail(token: string) {
+  return apiFetch<{ verified: boolean }>(
+    `/auth/verify-email?token=${encodeURIComponent(token)}`,
+    { method: "GET", auth: false },
+  );
+}
+
+export function resendEmailVerification(email: string) {
+  return apiFetch<{ sent: boolean; message?: string }>(
+    "/auth/resend-email-verification",
+    { method: "POST", body: { email }, auth: false },
+  );
 }
 
 export type TotpSetupResponse = {

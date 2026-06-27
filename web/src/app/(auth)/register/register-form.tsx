@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,13 +13,8 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Select } from "@/components/ui/select";
-import { getMe, register as apiRegister } from "@/lib/api/auth";
+import { register as apiRegister } from "@/lib/api/auth";
 import { getErrorMessage } from "@/lib/api/errors";
-import {
-  getDashboardPath,
-  normalizeRole,
-  setSession,
-} from "@/lib/auth/session";
 import {
   BAND_OPTIONS,
   registerSchema,
@@ -29,9 +23,9 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function RegisterForm() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState<{ email: string } | null>(null);
 
   const {
     register,
@@ -61,25 +55,59 @@ export default function RegisterForm() {
         examType: data.examType,
         acceptTerms: data.acceptTerms,
       });
-
-      const verified = await getMe(response.accessToken);
-      const role = normalizeRole(verified.role);
-      setSession(
-        {
-          accessToken: response.accessToken,
-          role,
-          email: verified.email,
-          name: verified.name,
-        },
-        { rememberMe: false },
-      );
-
-      router.push(response.dashboardPath ?? getDashboardPath(role));
+      setSubmitted({ email: response.email });
     } catch (err) {
       setError(getErrorMessage(err, "Registration failed. Please try again."));
     } finally {
       setLoading(false);
     }
+  }
+
+  if (submitted) {
+    return (
+      <div className="space-y-6">
+        <div className="lg:hidden">
+          <Logo />
+        </div>
+
+        <AuthBackLink href="/register" label="Back to account type" />
+
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+          <h1 className="text-2xl font-bold tracking-tight text-navy">
+            Verify your email
+          </h1>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted">
+            We sent a verification link to{" "}
+            <strong className="text-navy">{submitted.email}</strong>.
+            <br />
+            Please click the link to finish sign-up before signing in.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link href="/login" className="w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="primary"
+                className="w-full sm:w-auto"
+                disabled={loading}
+              >
+                Go to sign in
+              </Button>
+            </Link>
+            <Link href="/for-students" className="w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full sm:w-auto"
+                disabled={loading}
+              >
+                Learn about mocks
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -88,13 +116,13 @@ export default function RegisterForm() {
         <Logo />
       </div>
 
-      <AuthBackLink href="/login" />
+      <AuthBackLink href="/register" label="Back to account type" />
 
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">
-          Create your account
+          Student registration
         </h1>
-        <p className="text-muted">Join thousands of IELTS candidates</p>
+        <p className="text-muted">Create your account to book and take IELTS mocks</p>
       </div>
 
       {error && (
@@ -205,10 +233,17 @@ export default function RegisterForm() {
         </div>
 
         <Button type="submit" className="w-full" size="lg" loading={loading}>
-          Create Account
+          Create student account
           {!loading && <ArrowRight className="h-4 w-4" />}
         </Button>
       </form>
+
+      <p className="text-center text-sm text-muted">
+        Applying as a teacher?{" "}
+        <Link href="/register/teacher" className="font-semibold text-navy underline underline-offset-2">
+          Teacher application
+        </Link>
+      </p>
     </div>
   );
 }

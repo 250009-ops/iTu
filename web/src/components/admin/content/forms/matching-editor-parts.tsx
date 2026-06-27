@@ -9,6 +9,7 @@ import {
 } from "@/components/admin/content/forms/answer-key-field";
 import {
   nextMatchOptionId,
+  nextRomanNumeralId,
   removeAnswerKeyEntry,
   removeQuestionAt,
 } from "@/lib/admin/content/match-editor-helpers";
@@ -19,6 +20,8 @@ type OptionsBankProps = {
   label?: string;
   options: MatchOption[];
   minOptions?: number;
+  nextId?: (options: MatchOption[]) => string;
+  placeholder?: (id: string) => string;
   onChange: (options: MatchOption[]) => void;
 };
 
@@ -26,6 +29,8 @@ export function MatchOptionsBankEditor({
   label = "Options bank",
   options,
   minOptions = 2,
+  nextId = nextMatchOptionId,
+  placeholder = (id) => `Option ${id}`,
   onChange,
 }: OptionsBankProps) {
   return (
@@ -41,7 +46,7 @@ export function MatchOptionsBankEditor({
               next[idx] = { ...opt, label: e.target.value };
               onChange(next);
             }}
-            placeholder={`Option ${opt.id}`}
+            placeholder={placeholder(opt.id)}
           />
           <Button
             type="button"
@@ -61,13 +66,32 @@ export function MatchOptionsBankEditor({
         variant="secondary"
         size="sm"
         onClick={() => {
-          const id = nextMatchOptionId(options);
-          onChange([...options, { id, label: `Option ${id}` }]);
+          const id = nextId(options);
+          onChange([...options, { id, label: placeholder(id) }]);
         }}
       >
         <Plus className="h-3.5 w-3.5" /> Add option
       </Button>
     </div>
+  );
+}
+
+export function HeadingsBankEditor({
+  options,
+  onChange,
+}: {
+  options: MatchOption[];
+  onChange: (options: MatchOption[]) => void;
+}) {
+  return (
+    <MatchOptionsBankEditor
+      label="Headings bank"
+      options={options}
+      minOptions={2}
+      nextId={nextRomanNumeralId}
+      placeholder={(id) => `${id}. Heading`}
+      onChange={onChange}
+    />
   );
 }
 

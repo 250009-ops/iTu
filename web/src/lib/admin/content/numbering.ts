@@ -1,5 +1,5 @@
 import type { ContentModule } from "@/lib/admin/types";
-import { gapsInGroup, type AnswerKeyMap } from "@/lib/admin/content/utils";
+import { gapsInGroup, type AnswerKeyMap, hasAnswerKeyEntry } from "@/lib/admin/content/utils";
 import type {
   Gap,
   ListeningContent,
@@ -76,6 +76,13 @@ export function defaultPartitionBlurb(
   return `Read the text and answer questions ${from}–${to}.`;
 }
 
+function inferredReadingRange(numbers: number[]): PartitionRange | null {
+  if (numbers.length === 0) return null;
+  const from = numbers[0]!;
+  const to = numbers[numbers.length - 1]!;
+  return { from, to, expectedCount: to - from + 1 };
+}
+
 /** Ordered distinct question numbers across groups (uses inner gap/question numbers). */
 export function collectOrderedNumbers(groups: QuestionGroup[]): number[] {
   const nums: number[] = [];
@@ -89,12 +96,7 @@ export function countAnsweredInPartition(
   numbers: number[],
   answerKey: AnswerKeyMap,
 ): number {
-  return numbers.filter((n) => {
-    const v = answerKey[String(n)];
-    if (v == null) return false;
-    if (Array.isArray(v)) return v.length > 0;
-    return String(v).trim().length > 0;
-  }).length;
+  return numbers.filter((n) => hasAnswerKeyEntry(answerKey, n)).length;
 }
 
 function renumberInlineNodes(
@@ -176,6 +178,14 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
         numbers: nums.slice(0, group.numbers.length),
       };
     case "map_labeling":
+      if (group.layoutMode === "place_list") {
+        return {
+          ...group,
+          from,
+          to,
+          questions: (group.questions ?? []).map((q) => ({ ...q, n: nums[i++]! })),
+        };
+      }
       return {
         ...group,
         from,
@@ -242,14 +252,35 @@ export function renumberListeningContent(content: ListeningContent): ListeningCo
 }
 
 export function renumberReadingContent(content: ReadingContent): ReadingContent {
+  let nextQuestion = 1;
   const passages = (content.passages ?? []).map((passage) => {
-    const range = partitionForPart("reading", passage.part);
+    const groups = renumberPartitionGroups(passage.groups ?? [], nextQuestion);
+    nextQuestion += collectOrderedNumbers(groups).length;
     return {
       ...passage,
-      groups: renumberPartitionGroups(passage.groups ?? [], range.from),
+      groups,
     };
   });
   return { ...content, passages };
+}
+
+/** First question number when adding groups to a reading passage (sequential across passages). */
+export function readingPassageStartNumber(
+  passages: ReadingPassage[],
+  index: number,
+): number {
+  const passage = passages[index];
+  const currentNums = collectOrderedNumbers(passage?.groups ?? []);
+  if (currentNums.length > 0) {
+    return Math.min(...currentNums);
+  }
+  const previousNums = passages
+    .slice(0, index)
+    .flatMap((p) => collectOrderedNumbers(p.groups ?? []));
+  if (previousNums.length > 0) {
+    return Math.max(...previousNums) + 1;
+  }
+  return partitionForPart("reading", passage?.part ?? index + 1).from;
 }
 
 export function renumberModuleContent(
@@ -283,6 +314,72 @@ export function remapAnswerKeyByOrder(
     }
   }
 
+  for (const [k, v] of Object.entries(answerKey)) {
+    if (!k.startsWith("$set$")) continue;
+    const match = k.match(/^\$set\$(\d+)-(\d+)$/);
+    if (!match) continue;
+
+    const oldFrom = Number(match[1]);
+    const oldTo = Number(match[2]);
+    const mapped: number[] = [];
+    let valid = true;
+
+    for (let n = oldFrom; n <= oldTo; n++) {
+      const idx = oldNums.indexOf(n);
+      if (idx < 0) {
+        valid = false;
+        break;
+      }
+      mapped.push(newNums[idx]!);
+    }
+
+    if (!valid || mapped.length === 0) continue;
+
+    const newFrom = Math.min(...mapped);
+    const newTo = Math.max(...mapped);
+    const newKey = `$set$${newFrom}-${newTo}`;
+    if (newKey !== k) {
+      delete next[k];
+      next[newKey] = v;
+    }
+  }
+
+  return next;
+}
+
+/** Remap answer keys passage-by-passage so edits in one passage never steal another's answers. */
+export function remapAnswerKeyForReadingContent(
+  answerKey: AnswerKeyMap,
+  oldContent: ReadingContent,
+  newContent: ReadingContent,
+): AnswerKeyMap {
+  let next = { ...answerKey };
+  const oldPassages = oldContent.passages ?? [];
+  const newPassages = newContent.passages ?? [];
+  const count = Math.max(oldPassages.length, newPassages.length);
+  for (let i = 0; i < count; i++) {
+    const oldNums = collectOrderedNumbers(oldPassages[i]?.groups ?? []);
+    const newNums = collectOrderedNumbers(newPassages[i]?.groups ?? []);
+    next = remapAnswerKeyByOrder(next, oldNums, newNums);
+  }
+  return next;
+}
+
+/** Remap answer keys part-by-part (listening). */
+export function remapAnswerKeyForListeningContent(
+  answerKey: AnswerKeyMap,
+  oldContent: ListeningContent,
+  newContent: ListeningContent,
+): AnswerKeyMap {
+  let next = { ...answerKey };
+  const oldParts = oldContent.parts ?? [];
+  const newParts = newContent.parts ?? [];
+  const count = Math.max(oldParts.length, newParts.length);
+  for (let i = 0; i < count; i++) {
+    const oldNums = collectOrderedNumbers(oldParts[i]?.groups ?? []);
+    const newNums = collectOrderedNumbers(newParts[i]?.groups ?? []);
+    next = remapAnswerKeyByOrder(next, oldNums, newNums);
+  }
   return next;
 }
 
@@ -309,9 +406,12 @@ export function validatePartitionGroups(
   groups: QuestionGroup[],
   answerKey: AnswerKeyMap = {},
 ): PartitionStatus {
-  const range = partitionForPart(module, part);
   const numbers = collectOrderedNumbers(groups);
   const unique = [...new Set(numbers)].sort((a, b) => a - b);
+  const range =
+    module === "reading"
+      ? inferredReadingRange(unique) ?? partitionForPart(module, part)
+      : partitionForPart(module, part);
   const issues: NumberingIssue[] = [];
 
   if (unique.length !== numbers.length) {
@@ -325,11 +425,18 @@ export function validatePartitionGroups(
   }
 
   for (const n of unique) {
-    if (n < range.from || n > range.to) {
+    const outsideRange =
+      module === "listening"
+        ? n < range.from || n > range.to
+        : n < 1 || n > IELTS_TOTAL_QUESTIONS;
+    if (outsideRange) {
       issues.push({
         id: `out-of-range-${n}`,
         severity: "error",
-        message: `Question ${n} is outside ${partitionLabel(module, part)} range (${range.from}–${range.to})`,
+        message:
+          module === "listening"
+            ? `Question ${n} is outside ${partitionLabel(module, part)} range (${range.from}–${range.to})`
+            : `Question ${n} is outside the IELTS Reading range (1–${IELTS_TOTAL_QUESTIONS})`,
       });
     }
   }
@@ -364,12 +471,7 @@ export function validatePartitionGroups(
     });
   }
 
-  const missingAnswers = unique.filter((n) => {
-    const v = answerKey[String(n)];
-    if (v == null) return true;
-    if (Array.isArray(v)) return v.length === 0;
-    return String(v).trim().length === 0;
-  }).length;
+  const missingAnswers = unique.filter((n) => !hasAnswerKeyEntry(answerKey, n)).length;
 
   if (unique.length > 0 && missingAnswers > 0) {
     issues.push({

@@ -25,6 +25,7 @@ import { SummaryCompletionListControl } from "./summary-completion-list-control"
 import { MapLabeling } from "./map-labeling";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import { passageSectionLabels } from "@/lib/exam/passage-sections";
+import { inferMatchingReuseOptions } from "@/lib/exam/matching-options";
 
 interface QuestionGroupProps {
   group: Group;
@@ -205,8 +206,33 @@ function GroupBody({
     }
 
     case "mcq_single": {
+      const example = group.example;
       return (
         <div className="space-y-4">
+          {example && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+              <p className="mb-2 text-[13px] font-semibold text-slate-800">Example</p>
+              {example.prompt.trim() && (
+                <p className="mb-3 text-[15px] text-slate-800">{example.prompt}</p>
+              )}
+              <div className="space-y-1.5">
+                {example.options.map((opt) => {
+                  const isAnswer = opt.id === example.answerId;
+                  return (
+                    <p
+                      key={opt.id}
+                      className={cn(
+                        "text-[14px]",
+                        isAnswer ? "font-medium text-navy" : "text-slate-600",
+                      )}
+                    >
+                      {isAnswer ? `( ${opt.id} ) ${opt.label}` : `${opt.id} ${opt.label}`}
+                    </p>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {group.questions.map((q) => {
             const value = answers[q.n] as string | null;
             return (
@@ -263,6 +289,86 @@ function GroupBody({
     }
 
     case "mcq_multi": {
+      const selectionMode = group.selectionMode ?? "shared";
+      const optionIds = group.options.map((o) => o.id);
+
+      if (selectionMode === "per_question") {
+        const anyOrder = (group.answerOrdering ?? "any") === "any";
+        const usedLetters = (exclude: number) => {
+          if (anyOrder) return new Set<string>();
+          const used = new Set<string>();
+          for (const n of group.numbers) {
+            if (n === exclude) continue;
+            const v = answers[n];
+            if (typeof v === "string" && v.trim()) used.add(v);
+          }
+          return used;
+        };
+
+        return (
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="mb-3 flex flex-wrap gap-2 text-[15px] font-medium text-slate-800">
+              <span className="flex h-6 items-center justify-center rounded-md bg-navy px-1.5 text-[12px] font-bold text-white">
+                {group.numbers[0]}
+                {group.numbers.length > 1
+                  ? `–${group.numbers[group.numbers.length - 1]}`
+                  : ""}
+              </span>
+              {group.prompt}
+            </p>
+            <p className="mb-3 text-[12px] font-medium text-slate-500">
+              Choose the correct letter, {optionIds[0] ?? "A"}–
+              {optionIds[optionIds.length - 1] ?? "G"}. Write one letter in each box.
+            </p>
+            <ol className="mb-4 space-y-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+              {group.options.map((opt) => (
+                <li key={opt.id} className="flex gap-2 text-[14px] text-slate-700">
+                  <span className="font-bold text-slate-500">{opt.id}</span>
+                  <span>{opt.label}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="space-y-2">
+              {group.numbers.map((n) => {
+                const value = typeof answers[n] === "string" ? (answers[n] as string) : "";
+                const used = usedLetters(n);
+                const isActive = current === n;
+                return (
+                  <div
+                    key={n}
+                    className={cn(
+                      "flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 transition",
+                      isActive ? "border-navy bg-sky-50" : "border-slate-200 bg-white",
+                    )}
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[13px] font-bold text-white">
+                      {n}
+                    </span>
+                    <select
+                      value={value}
+                      onFocus={() => onFocus(n)}
+                      onChange={(e) => onAnswer(n, e.target.value)}
+                      className="h-9 min-w-[6rem] rounded-md border border-slate-200 bg-white px-2 text-[14px] font-medium text-navy"
+                    >
+                      <option value="">—</option>
+                      {group.options.map((opt) => (
+                        <option
+                          key={opt.id}
+                          value={opt.id}
+                          disabled={used.has(opt.id) && value !== opt.id}
+                        >
+                          {opt.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+
       const value = (answers[group.numbers[0]] as string[]) ?? [];
       const toggle = (id: string) => {
         let next: string[];
@@ -412,8 +518,7 @@ function GroupBody({
       });
       return (
         <MatchingHeadingsControl
-          options={group.options}
-          questions={group.questions}
+          group={group}
           answers={map}
           current={current}
           onFocus={onFocus}
@@ -433,6 +538,7 @@ function GroupBody({
           questions={group.questions}
           answers={map}
           current={current}
+          reuseOptions={inferMatchingReuseOptions(group)}
           onAssign={(n, id) => {
             onFocus(n);
             onAnswer(n, id);
@@ -480,6 +586,7 @@ function GroupBody({
           questions={group.questions}
           answers={map}
           current={current}
+          reuseOptions={inferMatchingReuseOptions(group)}
           onAssign={(n, id) => {
             onFocus(n);
             onAnswer(n, id);
@@ -501,15 +608,17 @@ function GroupBody({
       return (
         <FlowchartCompletionControl
           title={group.title}
+          answerMode={group.answerMode}
           nodes={nodes}
           options={group.options ?? []}
           answers={map}
           current={current}
           onAssign={(n, id) => {
             onFocus(n);
-            onAnswer(n, id);
+            onAnswer(n, id ?? "");
           }}
           onFocus={onFocus}
+          onPasteBlocked={onPasteBlocked}
         />
       );
     }
@@ -541,20 +650,28 @@ function GroupBody({
 
     case "map_labeling": {
       const map: Record<number, string> = {};
-      group.zones.forEach((z) => {
-        const v = answers[z.n];
-        if (typeof v === "string") map[z.n] = v;
-      });
+      if (group.layoutMode === "place_list") {
+        (group.questions ?? []).forEach((q) => {
+          const v = answers[q.n];
+          if (typeof v === "string") map[q.n] = v;
+        });
+      } else {
+        group.zones.forEach((z) => {
+          const v = answers[z.n];
+          if (typeof v === "string") map[z.n] = v;
+        });
+      }
       return (
         <MapLabeling
           group={group}
           answers={map}
           current={current}
-          onAssign={(n, id) => {
+          onAssign={(n, value) => {
             onFocus(n);
-            onAnswer(n, id);
+            onAnswer(n, value ?? "");
           }}
           onFocus={onFocus}
+          onPasteBlocked={onPasteBlocked}
         />
       );
     }

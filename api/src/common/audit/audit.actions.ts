@@ -3,6 +3,9 @@ export const AuditAction = {
   AUTH_LOGIN_SUCCESS: 'auth.login.success',
   AUTH_LOGIN_FAILURE: 'auth.login.failure',
   AUTH_REGISTER: 'auth.register',
+  AUTH_TEACHER_REGISTER: 'auth.teacher.register',
+  AUTH_EMAIL_VERIFICATION_RESEND: 'auth.email.verification.resend',
+  AUTH_EMAIL_VERIFICATION_SUCCESS: 'auth.email.verification.success',
   AUTH_PASSWORD_CHANGE: 'auth.password.change',
   AUTH_PASSWORD_RESET: 'auth.password.reset',
   AUTH_2FA_ENABLE: 'auth.2fa.enable',
@@ -17,6 +20,7 @@ export const AuditAction = {
   EXAM_INTEGRITY_FLAG: 'exam.integrity.flag',
   EXAM_INTEGRITY_REVIEW: 'exam.integrity.review',
   EXAM_FORCE_SUBMIT: 'exam.force_submit',
+  EXAM_SUSPEND: 'exam.suspend',
 
   CONTENT_TEST_CREATE: 'content.test.create',
   CONTENT_TEST_PUBLISH: 'content.test.publish',
@@ -37,6 +41,7 @@ export const AuditAction = {
   ADMIN_SETTINGS_UPDATE: 'admin.settings.update',
   ADMIN_TEACHER_REASSIGN: 'admin.teacher.reassign',
   ADMIN_GRADE_REOPEN: 'admin.grade.reopen',
+  ADMIN_ENROLLMENT_GRANT: 'admin.enrollment.grant',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];

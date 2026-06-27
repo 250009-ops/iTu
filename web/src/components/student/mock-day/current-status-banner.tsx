@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Clock, Zap } from "lucide-react";
 import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
+import { splitCountdown } from "@/lib/student/datetime";
 
 const navyGradient =
   "linear-gradient(135deg, #0a1628 0%, #1B2A4A 60%, #1e3a70 100%)";
@@ -14,22 +15,37 @@ const dotTexture = {
   backgroundSize: "28px 28px",
 };
 
+function countdownTotal(countdown?: {
+  hours?: number;
+  minutes?: number;
+  seconds?: number;
+}) {
+  if (!countdown) return 0;
+  const hours = Number(countdown.hours);
+  const minutes = Number(countdown.minutes);
+  const seconds = Number(countdown.seconds);
+  return (
+    (Number.isFinite(hours) ? hours : 0) * 3600 +
+    (Number.isFinite(minutes) ? minutes : 0) * 60 +
+    (Number.isFinite(seconds) ? seconds : 0)
+  );
+}
+
 export function CurrentStatusBanner() {
   const { data } = useStudentMockDayData();
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
-    if (!data) return;
-    const total =
-      data.countdown.hours * 3600 +
-      data.countdown.minutes * 60 +
-      data.countdown.seconds;
-    setSeconds(total);
+    if (!data?.countdown) return;
+    setSeconds(countdownTotal(data.countdown));
   }, [data]);
 
   useEffect(() => {
     const id = setInterval(() => {
-      setSeconds((s) => (s > 0 ? s - 1 : 0));
+      setSeconds((current) => {
+        const next = Number.isFinite(current) ? current : 0;
+        return next > 0 ? next - 1 : 0;
+      });
     }, 1000);
     return () => clearInterval(id);
   }, []);
@@ -47,9 +63,25 @@ export function CurrentStatusBanner() {
     checkInCompleted,
   } = data;
 
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
+  const inSession =
+    seconds === 0 &&
+    (currentPhase.badge.includes("ACTIVE") ||
+      currentPhase.badge.includes("IN PROGRESS") ||
+      data.state === "in_progress");
+
+  const { hours: hrs, minutes: mins, seconds: secs } = splitCountdown(seconds);
+
+  const countdownBoxes = inSession
+    ? [
+        { n: "—", label: "Hrs" },
+        { n: "—", label: "Min" },
+        { n: "Live", label: "Now" },
+      ]
+    : [
+        { n: String(hrs).padStart(2, "0"), label: "Hrs" },
+        { n: String(mins).padStart(2, "0"), label: "Min" },
+        { n: String(secs).padStart(2, "0"), label: "Sec" },
+      ];
 
   return (
     <div className="relative text-white" style={{ background: navyGradient }}>
@@ -115,14 +147,10 @@ export function CurrentStatusBanner() {
               className="font-semibold tracking-wider text-blue-300"
               style={{ fontSize: "10px" }}
             >
-              {countdownLabel ?? "TIME UNTIL MOCK START"}
+              {inSession ? "MOCK IN SESSION" : (countdownLabel ?? "TIME UNTIL MOCK START")}
             </p>
             <div className="flex gap-2">
-              {[
-                { n: String(hrs).padStart(2, "0"), label: "Hrs" },
-                { n: String(mins).padStart(2, "0"), label: "Min" },
-                { n: String(secs).padStart(2, "0"), label: "Sec" },
-              ].map((box) => (
+              {countdownBoxes.map((box) => (
                 <div key={box.label} className="text-center">
                   <div
                     className="rounded-lg bg-white/15 px-3 py-2 font-black tabular-nums"

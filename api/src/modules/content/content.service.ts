@@ -74,7 +74,7 @@ export class ContentService {
     });
 
     const testIds = tests.map((t) => t.id);
-    const [createAudits, packages] = await Promise.all([
+    const [createAudits, poolAssignments] = await Promise.all([
       testIds.length
         ? this.prisma.auditLog.findMany({
             where: {
@@ -86,14 +86,21 @@ export class ContentService {
             orderBy: { createdAt: 'desc' },
           })
         : [],
-      this.prisma.mockTestPackage.findMany({
-        select: {
-          listeningTestId: true,
-          readingTestId: true,
-          writingTestId: true,
-          speakingBankId: true,
-        },
-      }),
+      testIds.length
+        ? this.prisma.packageContentTest.findMany({
+            where: { testId: { in: testIds } },
+            select: {
+              testId: true,
+              package: {
+                select: {
+                  mockNumber: true,
+                  packageKind: true,
+                  title: true,
+                },
+              },
+            },
+          })
+        : [],
     ]);
 
     const authorByTest = new Map<string, string>();
@@ -103,17 +110,12 @@ export class ContentService {
       }
     }
 
-    const packageLinks = new Map<string, number>();
-    for (const pkg of packages) {
-      for (const testId of [
-        pkg.listeningTestId,
-        pkg.readingTestId,
-        pkg.writingTestId,
-        pkg.speakingBankId,
-      ]) {
-        if (!testId) continue;
-        packageLinks.set(testId, (packageLinks.get(testId) ?? 0) + 1);
-      }
+    const packageAssignmentByTest = new Map<
+      string,
+      { mockNumber: number; packageKind: string; title: string }
+    >();
+    for (const row of poolAssignments) {
+      packageAssignmentByTest.set(row.testId, row.package);
     }
 
     return tests.map((t) => ({
@@ -129,7 +131,10 @@ export class ContentService {
       mediaCount: t._count.mediaAssets,
       questionCount: questionCountForTest(t.type, t.content),
       authorName: authorByTest.get(t.id) ?? 'Admin',
-      linkedPackages: packageLinks.get(t.id) ?? 0,
+      linkedPackages: packageAssignmentByTest.has(t.id) ? 1 : 0,
+      assignedMockLabel: packageAssignmentByTest.has(t.id)
+        ? `${packageAssignmentByTest.get(t.id)!.title} · Mock ${String(packageAssignmentByTest.get(t.id)!.mockNumber).padStart(3, '0')}`
+        : null,
     }));
   }
 
@@ -480,15 +485,8 @@ export class ContentService {
       );
     }
 
-    const linkedPackages = await this.prisma.mockTestPackage.count({
-      where: {
-        OR: [
-          { listeningTestId: id },
-          { readingTestId: id },
-          { writingTestId: id },
-          { speakingBankId: id },
-        ],
-      },
+    const linkedPackages = await this.prisma.packageContentTest.count({
+      where: { testId: id },
     });
     if (linkedPackages > 0) {
       throw new BadRequestException(
@@ -584,10 +582,19 @@ export class ContentService {
     });
     if (!test) throw new NotFoundException('Test not found');
 
-    if (isAudio || isMap) {
+    if (isAudio) {
       if (test.type !== ContentTestType.LISTENING) {
         throw new BadRequestException(
-          'Audio and map media uploads are only supported for listening tests',
+          'Audio uploads are only supported for listening tests',
+        );
+      }
+    } else if (isMap) {
+      if (
+        test.type !== ContentTestType.LISTENING &&
+        test.type !== ContentTestType.READING
+      ) {
+        throw new BadRequestException(
+          'Map image uploads are only supported for listening and reading tests',
         );
       }
     } else if (isWritingImage) {

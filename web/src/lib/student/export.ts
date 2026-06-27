@@ -1,4 +1,5 @@
 import type { AttemptRow, StudentResultsData } from "@/lib/api/mappers/student";
+import { formatBandDisplay } from "@/lib/api/mappers/student";
 import { downloadResultPdf } from "@/lib/api/results";
 
 function triggerDownload(content: string, filename: string, mime: string) {
@@ -93,12 +94,14 @@ export function exportResultReport(data: StudentResultsData) {
     `Mock ID:     ${data.mockId}`,
     `Date:        ${data.dateLabel}`,
     `Exam type:   ${data.examType}`,
-    `Overall:     ${data.overallBand} (${data.bandLabel})`,
+    `Overall:     ${formatBandDisplay(data.overallBand)} (${data.bandLabel})`,
     data.targetBand != null ? `Target band: ${data.targetBand}` : "",
     "",
     "Module bands",
     "------------",
-    ...data.skills.map((s) => `${s.name.padEnd(12)} ${s.band}`),
+    ...data.skills.map((s) =>
+      `${s.name.padEnd(12)} ${formatBandDisplay(s.band, s.pending)}`,
+    ),
     "",
   ];
   triggerDownload(

@@ -13,7 +13,7 @@ test.describe("Student portal (scenarios 1–13)", () => {
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
-    await login(page, "student", "student");
+    await login(page, "student@example.com", "student");
     await expectLoggedInDashboard(page, /\/student/);
   });
 
@@ -110,7 +110,7 @@ test.describe("Student portal (scenarios 1–13)", () => {
   });
 
   test("7–10. Complete exam sections (API-assisted)", async () => {
-    const auth = await apiLogin("student", "student");
+    const auth = await apiLogin("student@example.com", "student");
     e2eState.studentToken = auth.accessToken;
     await completeExamSections(e2eState.sessionCode, auth.accessToken);
   });

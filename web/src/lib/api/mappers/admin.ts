@@ -10,6 +10,7 @@ import type {
   ModuleKey,
   Order,
   OrderStatus,
+  Student,
   TeacherSpeciality,
   TeacherStatus,
   Ticket,
@@ -24,6 +25,7 @@ import type {
   getAdminEnrollments,
   getAdminOrders,
   getAdminReports,
+  getAdminStudents,
   getAdminTeachers,
   getContentTests,
   getLiveSessions,
@@ -32,6 +34,7 @@ import type {
 type Dashboard = Awaited<ReturnType<typeof getAdminDashboard>>;
 type EnrollmentsResponse = Awaited<ReturnType<typeof getAdminEnrollments>>;
 type Teachers = Awaited<ReturnType<typeof getAdminTeachers>>;
+type Students = Awaited<ReturnType<typeof getAdminStudents>>;
 type Orders = Awaited<ReturnType<typeof getAdminOrders>>;
 type Disputes = Awaited<ReturnType<typeof getAdminDisputes>>;
 type Reports = Awaited<ReturnType<typeof getAdminReports>>;
@@ -325,7 +328,7 @@ export function mapTeachers(teachers: Teachers) {
     rating: t.rating,
     sessions: t.sessions,
     totalEarned: t.totalEarned,
-    joined: "—",
+    joined: t.createdAt ? formatDate(t.createdAt) : "—",
     speciality: normalizeTeacherSpeciality(t.speciality),
   }));
 
@@ -337,6 +340,31 @@ export function mapTeachers(teachers: Teachers) {
   };
 
   return { examiners, summary };
+}
+
+export function mapStudents(students: Students) {
+  const rows: Student[] = students.map((s) => ({
+    id: s.id,
+    name: s.name,
+    initials: initials(s.name),
+    email: s.email,
+    targetBand: s.targetBand,
+    examType:
+      s.examType.toLowerCase().includes("general") ? "general_training" : "academic",
+    country: s.country,
+    emailVerified: s.emailVerified,
+    enrollments: s.enrollments,
+    joined: s.createdAt ? formatDate(s.createdAt) : "—",
+  }));
+
+  const summary = {
+    total: rows.length,
+    verified: rows.filter((s) => s.emailVerified).length,
+    enrolled: rows.filter((s) => s.enrollments > 0).length,
+    awaitingFirstMock: rows.filter((s) => s.enrollments === 0).length,
+  };
+
+  return { students: rows, summary };
 }
 
 export function mapOrders(orders: Orders) {
@@ -587,6 +615,7 @@ export function mapContentTests(tests: ContentTests) {
     lastUpdated: formatShortDate(t.updatedAt),
     author: t.authorName ?? "Admin",
     linkedPackages: t.linkedPackages ?? 0,
+    assignedMockLabel: t.assignedMockLabel ?? null,
   }));
 
   const counts = {

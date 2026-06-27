@@ -6,7 +6,14 @@ export type ScoringCriterion =
   | "grammar"
   | "pronunciation";
 
-export const bandOptions = [5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9] as const;
+/** Full IELTS band scale: 0, 0.5, 1, … 9. */
+export const ieltsBandOptions = Array.from(
+  { length: 19 },
+  (_, i) => i * 0.5,
+) as readonly number[];
+
+/** @deprecated Prefer ieltsBandOptions — kept for imports that expect this name. */
+export const bandOptions = ieltsBandOptions;
 
 export function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60);

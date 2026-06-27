@@ -5,21 +5,45 @@ import {
   Target,
 } from "lucide-react";
 import { useStudentDashboardData } from "@/contexts/student-dashboard-context";
+import type { StudentDashboardResponse } from "@/lib/api/students";
 import { cn } from "@/lib/utils";
+
+function formatCountdownSub(
+  upcoming: NonNullable<StudentDashboardResponse["upcomingMock"]>,
+) {
+  if (upcoming.mockStarted) {
+    return `${upcoming.mockTime} check-in · in session`;
+  }
+  if (upcoming.daysUntil > 0) {
+    return `${upcoming.mockTime} check-in · ${upcoming.daysUntil} day${upcoming.daysUntil === 1 ? "" : "s"}`;
+  }
+  if (upcoming.hoursUntil > 0 || upcoming.minutesUntil > 0) {
+    return `${upcoming.mockTime} check-in · ${upcoming.hoursUntil}h ${upcoming.minutesUntil}m`;
+  }
+  return `${upcoming.mockTime} check-in · today`;
+}
 
 export function StatCards() {
   const { data } = useStudentDashboardData();
   const stats = data?.stats;
   const upcoming = data?.upcomingMock;
+  const mocksCompleted = stats?.mocksCompleted ?? 0;
+
+  const bestBand = stats?.currentBestBand;
+  const hasBestBand = bestBand != null && bestBand > 0;
+
+  const bestBandSub =
+    stats?.bandImprovement && stats.bandImprovement > 0
+      ? `+${stats.bandImprovement} from last mock`
+      : hasBestBand && mocksCompleted > 0
+        ? "Personal best from completed mocks"
+        : "Complete a mock to track progress";
 
   const cards = [
     {
       label: "Current Best Band",
-      value: stats?.currentBestBand?.toFixed(1) ?? "—",
-      sub:
-        stats?.bandImprovement && stats.bandImprovement > 0
-          ? `+${stats.bandImprovement} from last mock`
-          : "Complete a mock to track progress",
+      value: hasBestBand ? bestBand.toFixed(1) : "—",
+      sub: bestBandSub,
       icon: Star,
       iconBg: "bg-amber-50 text-amber-600",
       trend:
@@ -30,8 +54,11 @@ export function StatCards() {
     },
     {
       label: "Mocks Completed",
-      value: String(stats?.mocksCompleted ?? 0),
-      sub: upcoming ? "1 upcoming mock scheduled" : "Book your next mock",
+      value: String(mocksCompleted),
+      sub:
+        stats?.upcomingMocks && stats.upcomingMocks > 0
+          ? `${stats.upcomingMocks} upcoming mock${stats.upcomingMocks === 1 ? "" : "s"} scheduled`
+          : "Book your next mock",
       icon: CheckCircle2,
       iconBg: "bg-emerald-50 text-emerald-600",
     },
@@ -55,9 +82,7 @@ export function StatCards() {
             day: "numeric",
           })
         : "—",
-      sub: upcoming
-        ? `${upcoming.mockTime} check-in · ${upcoming.daysUntil} days`
-        : "No mock scheduled",
+      sub: upcoming ? formatCountdownSub(upcoming) : "No mock scheduled",
       icon: Calendar,
       iconBg: "bg-violet-50 text-violet-600",
     },

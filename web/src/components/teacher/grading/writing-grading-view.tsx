@@ -3,98 +3,78 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Award, Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Clock, Loader2 } from "lucide-react";
+import { AnnotatedEssay } from "@/components/teacher/grading/annotated-essay";
+import { WritingGradingFooter } from "@/components/teacher/grading/writing-grading-footer";
+import { WritingScorePanel } from "@/components/teacher/grading/writing-score-panel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { useToast } from "@/components/ui/toast";
-import { getWritingSubmission, scoreWriting } from "@/lib/api/grading";
+import {
+  getWritingSubmission,
+  scoreWriting,
+} from "@/lib/api/grading";
 import { getErrorMessage } from "@/lib/api/errors";
-import { bandOptions } from "@/lib/speaking/scoring";
+import {
+  averageTaskBand,
+  computeWritingOverallBand,
+  defaultTaskScores,
+  formatSla,
+  formatSubmittedAt,
+  formatWordCount,
+  fromAiSuggestedScores,
+  fromCriteriaPayload,
+  taskHasResponse,
+  toCriteriaPayload,
+  type TaskFeedback,
+  type TaskScores,
+  type WritingAnnotation,
+  type WritingTaskKey,
+} from "@/lib/writing/scoring";
 import { cn } from "@/lib/utils";
 
 type Submission = Awaited<ReturnType<typeof getWritingSubmission>>;
 
-const WRITING_CRITERIA = [
-  "Task Achievement",
-  "Coherence & Cohesion",
-  "Lexical Resource",
-  "Grammatical Range & Accuracy",
-] as const;
-
-type CriterionKey = (typeof WRITING_CRITERIA)[number];
-
-/** API keys expected by POST /grading/writing/:id/score (band-validation). */
-const WRITING_CRITERIA_API_KEYS: Record<CriterionKey, string> = {
-  "Task Achievement": "taskAchievement",
-  "Coherence & Cohesion": "coherenceCohesion",
-  "Lexical Resource": "lexicalResource",
-  "Grammatical Range & Accuracy": "grammar",
-};
-
-function computeOverall(scores: Record<string, number>): number {
-  const values = Object.values(scores);
-  if (!values.length) return 0;
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  return Math.round(avg * 2) / 2;
-}
-
-function TaskPanel({
-  title,
-  wordCount,
-  text,
-}: {
-  title: string;
-  wordCount: number;
-  text: string | null;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <h3 className="font-semibold text-navy">{title}</h3>
-        <span className="text-xs font-medium text-muted">
-          {wordCount} words
-        </span>
-      </div>
-      <div className="max-h-[22rem] overflow-y-auto whitespace-pre-wrap px-5 py-4 text-sm leading-relaxed text-foreground">
-        {text?.trim() ? text : <span className="text-muted">No response submitted.</span>}
-      </div>
-    </div>
+function parseAnnotations(raw: unknown): WritingAnnotation[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (item): item is WritingAnnotation =>
+      typeof item === "object" &&
+      item !== null &&
+      typeof (item as WritingAnnotation).start === "number" &&
+      typeof (item as WritingAnnotation).end === "number" &&
+      typeof (item as WritingAnnotation).criterion === "string",
   );
 }
 
-function ScoreRow({
-  label,
-  value,
-  onChange,
+function PromptCard({
+  task,
+  prompt,
+  visualCaption,
 }: {
-  label: string;
-  value: number;
-  onChange: (score: number) => void;
+  task: WritingTaskKey;
+  prompt: string | null;
+  visualCaption: string | null;
 }) {
+  const label = task === "task1" ? "Task 1 Prompt" : "Task 2 Prompt";
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-navy">{label}</p>
-        <span className="text-lg font-bold text-sky-600">{value}</span>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {bandOptions.map((score) => (
-          <button
-            key={score}
-            type="button"
-            onClick={() => onChange(score)}
-            className={cn(
-              "flex h-8 min-w-[2rem] items-center justify-center rounded-full px-1.5 text-xs font-semibold transition-colors",
-              value === score
-                ? "bg-navy text-white"
-                : "bg-slate-100 text-muted hover:bg-slate-200",
-            )}
-          >
-            {score}
-          </button>
-        ))}
-      </div>
+    <div
+      className={cn(
+        "rounded-xl border bg-white px-5 py-4 shadow-sm",
+        task === "task1" ? "border-sky-200" : "border-violet-200",
+      )}
+    >
+      <p className="text-xs font-bold uppercase tracking-wide text-muted">
+        {label}
+      </p>
+      {visualCaption && (
+        <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-muted">
+          {visualCaption}
+        </p>
+      )}
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+        {prompt?.trim() || "Prompt unavailable for this submission."}
+      </p>
     </div>
   );
 }
@@ -108,33 +88,30 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const [scores, setScores] = useState<Record<CriterionKey, number>>({
-    "Task Achievement": 7,
-    "Coherence & Cohesion": 7,
-    "Lexical Resource": 7,
-    "Grammatical Range & Accuracy": 7,
+  const [activeTask, setActiveTask] = useState<WritingTaskKey>("task1");
+  const [task1Scores, setTask1Scores] = useState<TaskScores>(defaultTaskScores());
+  const [task2Scores, setTask2Scores] = useState<TaskScores>(defaultTaskScores());
+  const [feedback, setFeedback] = useState<TaskFeedback>({ task1: "", task2: "" });
+  const [aiDismissed, setAiDismissed] = useState<{ task1: boolean; task2: boolean }>({
+    task1: false,
+    task2: false,
   });
-  const [feedback, setFeedback] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true);
     setError(null);
     try {
       const data = await getWritingSubmission(submissionId);
       setSubmission(data);
-      if (data.grade) {
-        setScores((prev) => {
-          const next = { ...prev };
-          for (const label of WRITING_CRITERIA) {
-            const score =
-              data.grade?.criteriaScores?.[WRITING_CRITERIA_API_KEYS[label]] ??
-              data.grade?.criteriaScores?.[label];
-            if (typeof score === "number") next[label] = score;
-          }
-          return next;
-        });
-        setFeedback(data.grade.feedback ?? "");
+
+      const parsed = fromCriteriaPayload(data.grade?.criteriaScores);
+      if (parsed) {
+        setTask1Scores(parsed.task1);
+        setTask2Scores(parsed.task2);
+        setFeedback(parsed.feedback);
+      } else {
+        setTask1Scores(defaultTaskScores());
+        setTask2Scores(defaultTaskScores());
+        setFeedback({ task1: "", task2: "" });
       }
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load submission"));
@@ -147,22 +124,74 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
     void load();
   }, [load]);
 
-  const overall = useMemo(() => computeOverall(scores), [scores]);
+  const aiStatus = submission?.aiEvaluation?.status;
+  const aiProcessing =
+    aiStatus === "queued" || aiStatus === "processing";
+
+  useEffect(() => {
+    if (!aiProcessing) return;
+    const timer = window.setInterval(() => {
+      void load();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [aiProcessing, load]);
+
+  const task1Annotations = useMemo(
+    () => parseAnnotations(submission?.aiEvaluation?.task1Annotations),
+    [submission?.aiEvaluation?.task1Annotations],
+  );
+  const task2Annotations = useMemo(
+    () => parseAnnotations(submission?.aiEvaluation?.task2Annotations),
+    [submission?.aiEvaluation?.task2Annotations],
+  );
+
+  const aiSuggestedTask1 = fromAiSuggestedScores(
+    submission?.aiEvaluation?.task1SuggestedScores ?? null,
+    "task1",
+  );
+  const aiSuggestedTask2 = fromAiSuggestedScores(
+    submission?.aiEvaluation?.task2SuggestedScores ?? null,
+    "task2",
+  );
+
+  const task1Band = averageTaskBand(task1Scores);
+  const task2Band = averageTaskBand(task2Scores);
+  const overall = computeWritingOverallBand(task1Band, task2Band);
+  const alreadyGraded = submission?.status === "graded";
+  const sla = formatSla(submission?.slaMinutesRemaining ?? null);
+
+  const activePrompt =
+    activeTask === "task1" ? submission?.task1Prompt : submission?.task2Prompt;
+  const activeVisual =
+    activeTask === "task1"
+      ? submission?.task1VisualCaption
+      : submission?.task2VisualCaption;
+  const activeText =
+    activeTask === "task1" ? submission?.task1Text : submission?.task2Text;
+  const activeWordCount =
+    activeTask === "task1"
+      ? submission?.task1WordCount ?? 0
+      : submission?.task2WordCount ?? 0;
+  const activeAnnotations =
+    activeTask === "task1" ? task1Annotations : task2Annotations;
+  const activeScores = activeTask === "task1" ? task1Scores : task2Scores;
+  const activeFeedback =
+    activeTask === "task1" ? feedback.task1 : feedback.task2;
+  const activeAiSuggested =
+    activeTask === "task1" ? aiSuggestedTask1 : aiSuggestedTask2;
+  const activeHasResponse = taskHasResponse(activeText);
+  const aiReady =
+    aiStatus === "ready" &&
+    activeHasResponse &&
+    activeAiSuggested !== null;
 
   async function handleSubmit() {
     setSubmitting(true);
     setConfirmOpen(false);
     try {
-      const criteriaScores = Object.fromEntries(
-        WRITING_CRITERIA.map((label) => [
-          WRITING_CRITERIA_API_KEYS[label],
-          scores[label],
-        ]),
-      );
       await scoreWriting(submissionId, {
-        criteriaScores,
+        criteriaScores: toCriteriaPayload(task1Scores, task2Scores, feedback),
         overallBand: overall,
-        feedback: feedback.trim() || undefined,
       });
       toast("Grade submitted", {
         description: `${submission?.studentName} · Writing band ${overall.toFixed(1)}`,
@@ -179,7 +208,31 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
     }
   }
 
-  const alreadyGraded = submission?.status === "graded";
+  function setActiveScore(criterion: keyof TaskScores, value: number) {
+    if (activeTask === "task1") {
+      setTask1Scores((prev) => ({ ...prev, [criterion]: value }));
+    } else {
+      setTask2Scores((prev) => ({ ...prev, [criterion]: value }));
+    }
+  }
+
+  function setActiveFeedback(value: string) {
+    setFeedback((prev) =>
+      activeTask === "task1"
+        ? { ...prev, task1: value }
+        : { ...prev, task2: value },
+    );
+  }
+
+  function applyAiSuggestions() {
+    if (activeTask === "task1" && aiSuggestedTask1) {
+      setTask1Scores(aiSuggestedTask1);
+    }
+    if (activeTask === "task2" && aiSuggestedTask2) {
+      setTask2Scores(aiSuggestedTask2);
+    }
+    setAiDismissed((prev) => ({ ...prev, [activeTask]: true }));
+  }
 
   return (
     <ApiDataShell
@@ -189,99 +242,136 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
       emptyMessage="Submission not found."
     >
       {submission && (
-        <div className="p-4 lg:p-6 xl:p-8">
-          <div className="mx-auto max-w-6xl space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <Link
-                  href="/teacher/grading"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-navy"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to queue
-                </Link>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-navy">
-                  Grade Writing · {submission.studentName}
-                </h1>
-                <p className="mt-1 text-sm text-muted">
-                  Score Task 1 &amp; Task 2 against the IELTS Writing rubric.
-                </p>
+        <div className="flex min-h-full flex-col">
+          <div className="space-y-5 p-4 pb-6 lg:p-6 lg:pb-6 xl:p-8 xl:pb-6">
+            <div className="mx-auto max-w-7xl space-y-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <Link
+                    href="/teacher/grading"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-navy"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to queue
+                  </Link>
+                  <h1 className="mt-2 text-2xl font-bold tracking-tight text-navy">
+                    Grade Writing · {submission.studentName}
+                  </h1>
+                  <p className="mt-1 text-sm text-muted">
+                    {formatSubmittedAt(submission.submittedAt)} · T1 ·{" "}
+                    {formatWordCount(submission.task1WordCount)} · T2 ·{" "}
+                    {formatWordCount(submission.task2WordCount)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {alreadyGraded && (
+                    <span className="inline-flex h-fit items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
+                      Already graded
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold",
+                      sla.tone === "overdue" && "bg-red-50 text-red-600",
+                      sla.tone === "warn" && "bg-amber-50 text-amber-700",
+                      sla.tone === "ok" && "bg-slate-100 text-muted",
+                    )}
+                  >
+                    <Clock className="h-3 w-3" />
+                    {sla.label}
+                  </span>
+                </div>
               </div>
-              {alreadyGraded && (
-                <span className="inline-flex h-fit items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
-                  Already graded
-                </span>
-              )}
-            </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="space-y-6">
-                <TaskPanel
-                  title="Task 1"
-                  wordCount={submission.task1WordCount}
-                  text={submission.task1Text}
-                />
-                <TaskPanel
-                  title="Task 2"
-                  wordCount={submission.task2WordCount}
-                  text={submission.task2Text}
-                />
+              <div className="flex gap-1 border-b border-border">
+                {(
+                  [
+                    ["task1", "Task 1", submission.task1WordCount],
+                    ["task2", "Task 2", submission.task2WordCount],
+                  ] as const
+                ).map(([key, label, words]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveTask(key)}
+                    className={cn(
+                      "-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors",
+                      activeTask === key
+                        ? key === "task1"
+                          ? "border-sky-500 font-semibold text-sky-700"
+                          : "border-violet-500 font-semibold text-violet-700"
+                        : "border-transparent font-medium text-muted hover:text-navy",
+                    )}
+                  >
+                    <span>{label}</span>
+                    <span className="ml-1.5 font-normal tabular-nums text-muted">
+                      · {formatWordCount(words)}
+                    </span>
+                  </button>
+                ))}
               </div>
 
-              <div className="space-y-4">
-                <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-amber-500" />
-                    <h2 className="font-semibold text-navy">Band Scoring</h2>
-                  </div>
-
-                  <div className="mt-4 space-y-5">
-                    {WRITING_CRITERIA.map((criterion) => (
-                      <ScoreRow
-                        key={criterion}
-                        label={criterion}
-                        value={scores[criterion]}
-                        onChange={(v) =>
-                          setScores((prev) => ({ ...prev, [criterion]: v }))
-                        }
-                      />
-                    ))}
-                  </div>
-
-                  <div className="mt-5 rounded-lg bg-sky-50 px-4 py-3">
-                    <p className="text-xs font-medium text-muted">Overall Band</p>
-                    <p className="text-3xl font-bold text-sky-600">
-                      {overall.toFixed(1)}
-                    </p>
-                  </div>
-
-                  <textarea
-                    placeholder="Add written feedback for the candidate…"
-                    value={feedback}
-                    onChange={(e) => setFeedback(e.target.value)}
-                    rows={5}
-                    className="mt-4 w-full resize-none rounded-lg border border-border bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-sky-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100"
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+                <div className="space-y-4">
+                  <PromptCard
+                    task={activeTask}
+                    prompt={activePrompt ?? null}
+                    visualCaption={activeVisual ?? null}
                   />
 
-                  <Button
-                    variant="danger"
-                    size="default"
-                    className="mt-4 w-full"
-                    loading={submitting}
-                    onClick={() => setConfirmOpen(true)}
-                  >
-                    <Save className="h-4 w-4" />
-                    {alreadyGraded ? "Update Grade" : "Save & Submit Grade"}
-                  </Button>
+                  {aiProcessing && (
+                    <div className="flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-4 py-2.5 text-sm text-violet-800">
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                      AI analysis running — highlights will appear shortly. You
+                      can grade manually in the meantime.
+                    </div>
+                  )}
+
+                  <AnnotatedEssay
+                    text={activeText ?? null}
+                    annotations={aiProcessing ? [] : activeAnnotations}
+                    wordCount={activeWordCount}
+                  />
+
+                  {submission.aiConfigured &&
+                    submission.aiEvaluation?.status === "failed" && (
+                      <p className="text-sm text-amber-700">
+                        AI evaluation unavailable:{" "}
+                        {submission.aiEvaluation.errorMessage ??
+                          "Please grade manually."}
+                      </p>
+                    )}
                 </div>
+
+                <WritingScorePanel
+                  task={activeTask}
+                  scores={activeScores}
+                  feedback={activeFeedback}
+                  aiSuggested={activeAiSuggested}
+                  aiVisible={aiReady && !aiDismissed[activeTask]}
+                  onScoreChange={setActiveScore}
+                  onFeedbackChange={setActiveFeedback}
+                  onApplyAi={applyAiSuggestions}
+                  onDismissAi={() =>
+                    setAiDismissed((prev) => ({ ...prev, [activeTask]: true }))
+                  }
+                />
               </div>
             </div>
           </div>
 
+          <WritingGradingFooter
+            task1Band={task1Band}
+            task2Band={task2Band}
+            submitting={submitting}
+            alreadyGraded={alreadyGraded}
+            onSubmit={() => setConfirmOpen(true)}
+          />
+
           <ConfirmDialog
             open={confirmOpen}
             title={alreadyGraded ? "Update writing grade" : "Submit writing grade"}
-            message={`Record an overall band of ${overall.toFixed(1)} for ${submission.studentName}? Results release once all four skills are graded.`}
+            message={`Record an overall band of ${overall.toFixed(1)} for ${submission.studentName}? Results release once all required skills are graded.`}
             confirmLabel={alreadyGraded ? "Update grade" : "Submit grade"}
             onConfirm={handleSubmit}
             onCancel={() => setConfirmOpen(false)}

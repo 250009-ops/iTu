@@ -4,8 +4,15 @@ import type {
   getTeacherDashboard,
   getTeacherEarnings,
   getTeacherProfile,
+  getTeacherSpeakingSessions,
+  SpeakingSessionListItem,
 } from "@/lib/api/teachers";
-import type { getWritingQueue } from "@/lib/api/grading";
+import type {
+  getSpeakingQueue,
+  getWritingGradingHub,
+  getWritingQueue,
+  WritingHubRow,
+} from "@/lib/api/grading";
 import {
   fromSpeakingCriteriaPayload,
   speakingCriteria,
@@ -15,6 +22,8 @@ import {
 
 type Dashboard = Awaited<ReturnType<typeof getTeacherDashboard>>;
 type WritingQueue = Awaited<ReturnType<typeof getWritingQueue>>;
+type WritingGradingHub = Awaited<ReturnType<typeof getWritingGradingHub>>;
+type SpeakingQueue = Awaited<ReturnType<typeof getSpeakingQueue>>;
 type Earnings = Awaited<ReturnType<typeof getTeacherEarnings>>;
 type Availability = Awaited<ReturnType<typeof getTeacherAvailability>>;
 type Profile = Awaited<ReturnType<typeof getTeacherProfile>>;
@@ -52,6 +61,47 @@ function getMonday(date: Date) {
   return d;
 }
 
+export function getWeekMonday(date: Date) {
+  return getMonday(date);
+}
+
+export function avatarColorFromName(name: string) {
+  const palette = [
+    { bg: "bg-violet-100", text: "text-violet-700", dot: "bg-violet-500" },
+    { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
+    { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
+    { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" },
+    { bg: "bg-sky-100", text: "text-sky-700", dot: "bg-sky-500" },
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return palette[Math.abs(hash) % palette.length];
+}
+
+export type ScheduleBlock = {
+  id: string;
+  status: SlotStatus;
+  startMinutes: number;
+  endMinutes: number;
+  startLabel: string;
+  endLabel: string;
+  slotIds: string[];
+  studentName: string | null;
+  studentInitials: string | null;
+};
+
+export type AvailabilityDay = {
+  key: DayKey;
+  dayOfWeek: number;
+  label: string;
+  date: string;
+  monthDay: string;
+  isOff: boolean;
+  blocks: ScheduleBlock[];
+};
+
 function mapSlotStatus(status: string): SlotStatus {
   if (status === "booked") return "booked";
   if (status === "blocked") return "blocked";
@@ -76,6 +126,14 @@ export function mapTeacherStats(data: Dashboard) {
       sub: "Awaiting grading",
       trend: null,
       tone: "violet" as const,
+    },
+    {
+      id: "speaking",
+      label: "Pending Speaking",
+      value: String(data.stats.speakingQueue ?? 0),
+      sub: "Awaiting grading",
+      trend: null,
+      tone: "rose" as const,
     },
     {
       id: "earnings",
@@ -115,7 +173,271 @@ export function mapSpeakingSchedule(data: Dashboard) {
   }));
 }
 
+export type SpeakingSessionUiStatus =
+  | "upcoming"
+  | "live"
+  | "awaiting_grade"
+  | "graded";
+
+export type MappedSpeakingSessionItem = {
+  id: string;
+  studentName: string;
+  initials: string;
+  colors: ReturnType<typeof avatarColorFromName>;
+  timeRange: string;
+  dateLabel: string;
+  dateTimeLabel: string;
+  sessionSubtitle: string;
+  uiStatus: SpeakingSessionUiStatus;
+  overallBand: number | null;
+  criteria: { fc: number; lex: number; gra: number; pr: number } | null;
+  recordingUrl: string | null;
+  scheduledAt: string | null;
+};
+
+function formatSpeakingTimeRange(
+  scheduledAt: string | null,
+  endsAt: string | null,
+): string {
+  if (!scheduledAt) return "TBD";
+  const start = new Date(scheduledAt);
+  const end = endsAt ? new Date(endsAt) : new Date(start.getTime() + 20 * 60_000);
+  const fmt = (d: Date) =>
+    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+function examTypeLabel(examType: string): string {
+  if (examType === "general_training" || examType === "general") {
+    return "IELTS General Training Speaking";
+  }
+  return "IELTS Academic Speaking";
+}
+
+function mapSpeakingCriteriaScores(
+  criteriaScores: Record<string, number> | null | undefined,
+): { fc: number; lex: number; gra: number; pr: number } | null {
+  if (!criteriaScores) return null;
+  const fc =
+    criteriaScores.fluencyCoherence ?? criteriaScores.fluency ?? null;
+  const lex =
+    criteriaScores.lexicalResource ?? criteriaScores.lexical ?? null;
+  const gra = criteriaScores.grammar ?? null;
+  const pr = criteriaScores.pronunciation ?? null;
+  if (
+    typeof fc !== "number" ||
+    typeof lex !== "number" ||
+    typeof gra !== "number" ||
+    typeof pr !== "number"
+  ) {
+    return null;
+  }
+  return { fc, lex, gra, pr };
+}
+
+function mapSpeakingSessionItem(
+  item: SpeakingSessionListItem,
+): MappedSpeakingSessionItem {
+  const scheduledAt = item.scheduledAt;
+  const dateLabel = scheduledAt
+    ? new Date(scheduledAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
+    : "—";
+  const timeOnly = scheduledAt
+    ? new Date(scheduledAt).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+
+  return {
+    id: item.id,
+    studentName: item.studentName,
+    initials: initialsFromName(item.studentName),
+    colors: avatarColorFromName(item.studentName),
+    timeRange: formatSpeakingTimeRange(item.scheduledAt, item.endsAt),
+    dateLabel,
+    dateTimeLabel: `${dateLabel} · ${formatSpeakingTimeRange(item.scheduledAt, item.endsAt)}`,
+    sessionSubtitle: `${formatSpeakingTimeRange(item.scheduledAt, item.endsAt)} · ${examTypeLabel(item.examType)}`,
+    uiStatus: item.uiStatus,
+    overallBand: item.grade?.overallBand ?? null,
+    criteria: mapSpeakingCriteriaScores(item.grade?.criteriaScores),
+    recordingUrl: item.recordingUrl,
+    scheduledAt: item.scheduledAt,
+  };
+}
+
+export function mapTeacherSpeakingSessions(
+  data: Awaited<ReturnType<typeof getTeacherSpeakingSessions>>,
+) {
+  return {
+    today: data.today.map(mapSpeakingSessionItem),
+    upcoming: data.upcoming.map(mapSpeakingSessionItem),
+    completed: data.completed.map(mapSpeakingSessionItem),
+    counts: data.counts,
+    nextSession: data.nextSession
+      ? mapSpeakingSessionItem(data.nextSession)
+      : null,
+    minutesUntilNext: data.minutesUntilNext,
+  };
+}
+
 export function mapWritingQueue(queue: WritingQueue) {
+  return queue.map((item) => mapWritingHubRow(item));
+}
+
+function formatSlaLabel(minutes: number | null): {
+  label: string;
+  tone: "ok" | "warn" | "overdue";
+} {
+  if (minutes === null) {
+    return { label: "48h SLA", tone: "ok" };
+  }
+  if (minutes > 0) {
+    if (minutes < 60) {
+      return { label: `${minutes}m left`, tone: minutes <= 240 ? "warn" : "ok" };
+    }
+    const hours = Math.ceil(minutes / 60);
+    return { label: `${hours}h left`, tone: minutes <= 240 ? "warn" : "ok" };
+  }
+  const overdueMinutes = Math.abs(minutes);
+  if (overdueMinutes < 60) {
+    return { label: `${overdueMinutes}m overdue`, tone: "overdue" };
+  }
+  const hours = Math.ceil(overdueMinutes / 60);
+  return { label: `${hours}h overdue`, tone: "overdue" };
+}
+
+function mapWritingCriteriaScores(
+  criteriaScores: Record<string, unknown> | null | undefined,
+): { ta: number; cc: number; lr: number; gra: number } | null {
+  if (!criteriaScores) return null;
+
+  const task1 = criteriaScores.task1 as Record<string, number> | undefined;
+  const task2 = criteriaScores.task2 as Record<string, number> | undefined;
+  if (task1 && task2) {
+    const ta1 = task1.taskAchievement;
+    const ta2 = task2.taskResponse;
+    const cc1 = task1.coherenceCohesion;
+    const cc2 = task2.coherenceCohesion;
+    const lr1 = task1.lexicalResource;
+    const lr2 = task2.lexicalResource;
+    const gra1 = task1.grammar;
+    const gra2 = task2.grammar;
+    if (
+      typeof ta1 === "number" &&
+      typeof ta2 === "number" &&
+      typeof cc1 === "number" &&
+      typeof cc2 === "number" &&
+      typeof lr1 === "number" &&
+      typeof lr2 === "number" &&
+      typeof gra1 === "number" &&
+      typeof gra2 === "number"
+    ) {
+      return {
+        ta: Math.round(((ta1 + ta2) / 2) * 2) / 2,
+        cc: Math.round(((cc1 + cc2) / 2) * 2) / 2,
+        lr: Math.round(((lr1 + lr2) / 2) * 2) / 2,
+        gra: Math.round(((gra1 + gra2) / 2) * 2) / 2,
+      };
+    }
+  }
+
+  const ta =
+    (criteriaScores as Record<string, number>).taskAchievement ??
+    (criteriaScores as Record<string, number>).ta ??
+    null;
+  const cc =
+    (criteriaScores as Record<string, number>).coherenceCohesion ??
+    (criteriaScores as Record<string, number>).cc ??
+    null;
+  const lr =
+    (criteriaScores as Record<string, number>).lexicalResource ??
+    (criteriaScores as Record<string, number>).lr ??
+    null;
+  const gra =
+    (criteriaScores as Record<string, number>).grammar ??
+    (criteriaScores as Record<string, number>).gra ??
+    null;
+  if (
+    typeof ta !== "number" ||
+    typeof cc !== "number" ||
+    typeof lr !== "number" ||
+    typeof gra !== "number"
+  ) {
+    return null;
+  }
+  return { ta, cc, lr, gra };
+}
+
+export type MappedWritingSubmission = {
+  id: string;
+  studentName: string;
+  initials: string;
+  colors: ReturnType<typeof avatarColorFromName>;
+  dateLabel: string;
+  timeLabel: string;
+  submittedLabel: string;
+  task1WordCount: number;
+  task2WordCount: number;
+  status: GradingStatus;
+  sla: ReturnType<typeof formatSlaLabel>;
+  slaSortKey: number;
+  overallBand: number | null;
+  criteria: ReturnType<typeof mapWritingCriteriaScores>;
+};
+
+function mapWritingHubRow(item: WritingHubRow): MappedWritingSubmission {
+  const submitted = new Date(item.submittedAt);
+  const dateLabel = submitted.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  const timeLabel = submitted.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return {
+    id: item.id,
+    studentName: item.studentName,
+    initials: initialsFromName(item.studentName),
+    colors: avatarColorFromName(item.studentName),
+    dateLabel,
+    timeLabel,
+    submittedLabel: `${dateLabel} ${timeLabel}`,
+    task1WordCount: item.task1WordCount,
+    task2WordCount: item.task2WordCount,
+    status: item.status as GradingStatus,
+    sla: formatSlaLabel(item.slaMinutesRemaining),
+    slaSortKey: item.slaMinutesRemaining ?? Number.MAX_SAFE_INTEGER,
+    overallBand: item.grade?.overallBand ?? null,
+    criteria: mapWritingCriteriaScores(item.grade?.criteriaScores),
+  };
+}
+
+export function mapWritingGradingHub(data: WritingGradingHub) {
+  return {
+    pending: data.pending.map(mapWritingHubRow),
+    inReview: data.inReview.map(mapWritingHubRow),
+    completed: data.completed.map(mapWritingHubRow),
+    counts: data.counts,
+    stats: data.stats,
+  };
+}
+
+export function mapGradingSummary(queue: WritingQueue) {
+  const submissions = mapWritingQueue(queue);
+  return {
+    pendingGrading: submissions.filter((s) => s.status === "pending").length,
+    inReview: submissions.filter((s) => s.status === "in_review").length,
+    submissions,
+  };
+}
+
+export function mapSpeakingQueue(queue: SpeakingQueue) {
   return queue.map((item) => {
     const date = new Date(item.date).toLocaleDateString("en-US", {
       month: "short",
@@ -127,21 +449,10 @@ export function mapWritingQueue(queue: WritingQueue) {
       initials: initialsFromName(item.studentName),
       date,
       submittedAt: date,
-      slaHours: item.slaHours,
-      urgent: item.urgent,
       status: item.status as GradingStatus,
-      wordCount: item.task1WordCount + item.task2WordCount,
+      scheduledAt: item.scheduledAt,
     };
   });
-}
-
-export function mapGradingSummary(queue: WritingQueue) {
-  const submissions = mapWritingQueue(queue);
-  return {
-    pendingGrading: submissions.filter((s) => s.status === "pending").length,
-    inReview: submissions.filter((s) => s.status === "in_review").length,
-    submissions,
-  };
 }
 
 export function mapTeacherEarnings(data: Earnings) {
@@ -280,94 +591,153 @@ export function mapTeacherEarnings(data: Earnings) {
   };
 }
 
-export function mapTeacherAvailability(data: Availability) {
-  const weekStart = getMonday(new Date());
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 7);
+export function mapTeacherAvailability(data: Availability, weekOffset = 0) {
+  const weekStart = data.weekStart
+    ? new Date(data.weekStart)
+    : getMonday(new Date());
+  if (!data.weekStart) {
+    weekStart.setDate(weekStart.getDate() + weekOffset * 7);
+  }
 
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const activeDays = new Set(data.weekly.map((w) => w.dayOfWeek));
+  const daysOff = 7 - activeDays.size;
+
+  const days: AvailabilityDay[] = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
+    const dayOfWeek = d.getDay();
+    const key = DAY_KEYS[dayOfWeek] as DayKey;
+    const isOff = !activeDays.has(dayOfWeek);
+
+    const daySlots = data.slots
+      .filter((slot) => {
+        const startsAt = new Date(slot.startsAt);
+        return (
+          startsAt.getFullYear() === d.getFullYear() &&
+          startsAt.getMonth() === d.getMonth() &&
+          startsAt.getDate() === d.getDate()
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+      );
+
+    const blocks = mergeDaySlots(daySlots);
+
     return {
-      key: DAY_KEYS[d.getDay()] as DayKey,
+      key,
+      dayOfWeek,
       label: d.toLocaleDateString("en-US", { weekday: "short" }),
       date: String(d.getDate()),
+      monthDay: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      isOff,
+      blocks,
     };
   });
-
-  const weekSlots = data.slots.filter((slot) => {
-    const startsAt = new Date(slot.startsAt);
-    return startsAt >= weekStart && startsAt < weekEnd;
-  });
-
-  const timeSet = new Set<string>();
-  for (const slot of weekSlots) {
-    timeSet.add(formatSlotTime(new Date(slot.startsAt)));
-  }
-  for (const weekly of data.weekly) {
-    timeSet.add(weekly.startTime);
-    timeSet.add(weekly.endTime);
-  }
-
-  const timeSlots = Array.from(timeSet).sort((a, b) => {
-    const parse = (value: string) => {
-      const match = value.match(/(\d+):(\d+)/);
-      if (!match) return 0;
-      let hours = Number(match[1]);
-      const minutes = Number(match[2]);
-      if (/pm/i.test(value) && hours < 12) hours += 12;
-      if (/am/i.test(value) && hours === 12) hours = 0;
-      return hours * 60 + minutes;
-    };
-    return parse(a) - parse(b);
-  });
-
-  const slotGrid: Record<string, Partial<Record<DayKey, SlotStatus>>> = {};
-  const slotIdGrid: Record<string, Partial<Record<DayKey, string>>> = {};
-  for (const slot of weekSlots) {
-    const startsAt = new Date(slot.startsAt);
-    const dayKey = DAY_KEYS[startsAt.getDay()] as DayKey;
-    const time = formatSlotTime(startsAt);
-    slotGrid[time] = slotGrid[time] ?? {};
-    slotGrid[time][dayKey] = mapSlotStatus(slot.status);
-    slotIdGrid[time] = slotIdGrid[time] ?? {};
-    slotIdGrid[time][dayKey] = slot.id;
-  }
 
   const weekLabelEnd = new Date(weekStart);
   weekLabelEnd.setDate(weekStart.getDate() + 6);
 
+  const open = data.slots.filter((s) => s.status === "available").length;
+  const booked = data.slots.filter((s) => s.status === "booked").length;
+  const blocked = data.slots.filter((s) => s.status === "blocked").length;
+
   return {
-    label: `Week of ${weekStart.toLocaleDateString("en-US", {
-      month: "long",
+    weekStart,
+    weekOffset,
+    label: `${weekStart.toLocaleDateString("en-US", {
+      month: "short",
       day: "numeric",
     })} – ${weekLabelEnd.toLocaleDateString("en-US", {
-      month: "long",
+      month: "short",
       day: "numeric",
-      year: "numeric",
     })}`,
+    isCurrentWeek: weekOffset === 0,
     stats: {
-      available: weekSlots.filter((s) => s.status === "available").length,
-      booked: weekSlots.filter((s) => s.status === "booked").length,
-      blocked: weekSlots.filter((s) => s.status === "blocked").length,
-      sessionDuration: data.weekly[0]
-        ? `${data.weekly[0].slotDuration}-minute speaking sessions`
-        : "20-minute speaking sessions",
+      open,
+      booked,
+      blocked,
+      daysOff,
+      sessionDuration: `${data.slotDuration}-minute speaking sessions`,
     },
+    slotDuration: data.slotDuration,
+    bufferMinutes: data.bufferMinutes,
     days,
-    timeSlots:
-      timeSlots.length > 0
-        ? timeSlots
-        : ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM"],
-    slotGrid,
     weekly: data.weekly,
-    getSlotStatus(time: string, day: DayKey): SlotStatus {
-      return slotGrid[time]?.[day] ?? "empty";
-    },
-    getSlotId(time: string, day: DayKey): string | null {
-      return slotIdGrid[time]?.[day] ?? null;
-    },
+    upcoming: data.upcoming.map((item) => {
+      const startsAt = new Date(item.startsAt);
+      return {
+        id: item.id,
+        studentName: item.studentName,
+        initials: initialsFromName(item.studentName),
+        speakingSessionId: item.speakingSessionId ?? null,
+        label: `${startsAt.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })} · ${startsAt.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`,
+        colors: avatarColorFromName(item.studentName),
+      };
+    }),
+    gridStartHour: 7,
+    gridEndHour: 18,
   };
+}
+
+function mergeDaySlots(
+  slots: Availability["slots"],
+): ScheduleBlock[] {
+  if (slots.length === 0) return [];
+
+  const blocks: ScheduleBlock[] = [];
+  let current: ScheduleBlock | null = null;
+
+  for (const slot of slots) {
+    const startsAt = new Date(slot.startsAt);
+    const endsAt = new Date(slot.endsAt);
+    const status = mapSlotStatus(slot.status);
+    const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
+    const endMinutes = endsAt.getHours() * 60 + endsAt.getMinutes();
+
+    if (
+      !current ||
+      current.status !== status ||
+      startMinutes > current.endMinutes + 1 ||
+      (status === "booked" &&
+        current.studentName !== (slot.studentName ?? null))
+    ) {
+      if (current) blocks.push(current);
+      current = {
+        id: slot.id,
+        status,
+        startMinutes,
+        endMinutes,
+        startLabel: formatTime24(startsAt),
+        endLabel: formatTime24(endsAt),
+        slotIds: [slot.id],
+        studentName: slot.studentName,
+        studentInitials: slot.studentName
+          ? initialsFromName(slot.studentName)
+          : null,
+      };
+    } else {
+      current.endMinutes = endMinutes;
+      current.endLabel = formatTime24(endsAt);
+      current.slotIds.push(slot.id);
+    }
+  }
+
+  if (current) blocks.push(current);
+  return blocks;
+}
+
+function formatTime24(date: Date) {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
 function mapCredentials(profile: Profile) {

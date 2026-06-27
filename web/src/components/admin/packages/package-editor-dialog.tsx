@@ -15,6 +15,9 @@ import type {
   ExamTypeValue,
 } from "@/lib/admin/types";
 import { getErrorMessage } from "@/lib/api/errors";
+import { getNextMockNumber } from "@/lib/api/admin";
+
+type SkillId = "listening" | "reading" | "writing" | "speaking";
 
 type FormState = {
   title: string;
@@ -23,6 +26,7 @@ type FormState = {
   price: string;
   currency: string;
   examType: ExamTypeValue;
+  skills: SkillId[];
   mostPopular: boolean;
   isActive: boolean;
   rating: string;
@@ -35,6 +39,18 @@ type FormState = {
   speakingBankId: string;
 };
 
+const PACKAGE_SKILL_PRESETS: { id: string; label: string; skills: SkillId[] }[] = [
+  {
+    id: "full",
+    label: "Full mock (L + R + W + S)",
+    skills: ["listening", "reading", "writing", "speaking"],
+  },
+  { id: "speaking", label: "Speaking only", skills: ["speaking"] },
+  { id: "writing", label: "Writing only", skills: ["writing"] },
+  { id: "listening", label: "Listening only", skills: ["listening"] },
+  { id: "reading", label: "Reading only", skills: ["reading"] },
+];
+
 const emptyForm: FormState = {
   title: "",
   slug: "",
@@ -42,6 +58,7 @@ const emptyForm: FormState = {
   price: "",
   currency: "USD",
   examType: "ACADEMIC",
+  skills: ["listening", "reading", "writing", "speaking"],
   mostPopular: false,
   isActive: true,
   rating: "",
@@ -62,23 +79,38 @@ function isPublishedStatus(status: string) {
   return status.toLowerCase().replace(/-/g, "_") === "published";
 }
 
+function normalizeSkills(raw: unknown): SkillId[] {
+  if (!Array.isArray(raw)) {
+    return ["listening", "reading", "writing", "speaking"];
+  }
+  const allowed = new Set<SkillId>(["listening", "reading", "writing", "speaking"]);
+  return raw
+    .map((entry) => String(entry).toLowerCase() as SkillId)
+    .filter((skill) => allowed.has(skill));
+}
+
 function TestSelect({
   label,
   type,
   value,
   options,
+  currentPackageId,
   onChange,
 }: {
   label: string;
   type: ContentTestType;
   value: string;
   options: AdminContentTestOption[];
+  currentPackageId?: string;
   onChange: (v: string) => void;
 }) {
   const filtered = options.filter((o) => o.type === type);
-  const selectable = filtered.filter(
-    (o) => isPublishedStatus(o.status) || o.id === value,
-  );
+  const selectable = filtered.filter((o) => {
+    if (o.id === value) return true;
+    if (!isPublishedStatus(o.status)) return false;
+    if (!o.isPackaged) return true;
+    return o.assignedPackageId === currentPackageId;
+  });
   const selected = filtered.find((o) => o.id === value);
 
   return (
@@ -89,18 +121,22 @@ function TestSelect({
         onChange={(e) => onChange(e.target.value)}
         className="h-10 w-full"
       >
-        <option value="">Not linked</option>
+        <option value="">Select a published test…</option>
         {selectable.map((o) => (
           <option key={o.id} value={o.id}>
             {o.code} · {o.title}
-            {!isPublishedStatus(o.status) ? " (draft)" : ""}
+            {o.isPackaged && o.assignedPackageId !== currentPackageId
+              ? " (in use)"
+              : ""}
           </option>
         ))}
       </Select>
       {selected && (
         <p className="text-xs text-muted">
           {selected.code} · {selected.title}
-          {!isPublishedStatus(selected.status) ? " · draft (legacy link)" : ""}
+          {selected.assignedMockLabel
+            ? ` · locked to ${selected.assignedMockLabel}`
+            : ""}
         </p>
       )}
     </div>
@@ -112,9 +148,11 @@ export function PackageEditorDialog() {
   const { toast } = useToast();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [mockPreview, setMockPreview] = useState<string | null>(null);
 
   const pkg = editor.pkg;
   const isEdit = pkg !== null;
+  const hasEnrollments = (pkg?.enrollmentCount ?? 0) > 0;
 
   useEffect(() => {
     if (!editor.open) return;
@@ -126,6 +164,7 @@ export function PackageEditorDialog() {
         price: String(pkg.price),
         currency: pkg.currency,
         examType: pkg.examType,
+        skills: normalizeSkills(pkg.skills),
         mostPopular: pkg.mostPopular,
         isActive: pkg.isActive,
         rating: pkg.rating != null ? String(pkg.rating) : "",
@@ -137,10 +176,30 @@ export function PackageEditorDialog() {
         writingTestId: pkg.writingTestId ?? "",
         speakingBankId: pkg.speakingBankId ?? "",
       });
+      setMockPreview(pkg.mockLabel ?? null);
     } else {
       setForm(emptyForm);
+      setMockPreview(null);
     }
   }, [editor.open, pkg]);
+
+  useEffect(() => {
+    if (!editor.open || isEdit) return;
+    let cancelled = false;
+    void getNextMockNumber(form.skills).then((next) => {
+      if (cancelled) return;
+      setMockPreview(next.mockLabel);
+      if (!form.title.trim()) {
+        setForm((f) => ({
+          ...f,
+          title: next.mockLabel.replace("Full Mock", "Full Academic Mock"),
+        }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editor.open, isEdit, form.skills]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -164,6 +223,16 @@ export function PackageEditorDialog() {
     form.reviewCount.trim() !== "" &&
     (Number.isNaN(reviewCountValue) || reviewCountValue < 0);
 
+  const contentComplete = useMemo(() => {
+    const needs: Record<SkillId, string> = {
+      listening: form.listeningTestId,
+      reading: form.readingTestId,
+      writing: form.writingTestId,
+      speaking: form.speakingBankId,
+    };
+    return form.skills.every((skill) => Boolean(needs[skill]?.trim()));
+  }, [form]);
+
   const previewSlug = form.slug.trim() || pkg?.slug;
   const siteHref = previewSlug
     ? `/mock-exams?package=${encodeURIComponent(previewSlug)}`
@@ -179,6 +248,13 @@ export function PackageEditorDialog() {
       });
       return;
     }
+    if (form.isActive && !contentComplete) {
+      toast("Select exam content", {
+        description: "Assign one published test for each skill before activating.",
+        variant: "warning",
+      });
+      return;
+    }
     setSaving(true);
     try {
       await savePackage(pkg?.id ?? null, {
@@ -188,6 +264,7 @@ export function PackageEditorDialog() {
         price: priceValue,
         currency: form.currency,
         examType: form.examType,
+        skills: form.skills,
         mostPopular: form.mostPopular,
         isActive: form.isActive,
         rating: ratingValue,
@@ -200,10 +277,18 @@ export function PackageEditorDialog() {
           .split("\n")
           .map((l) => l.trim())
           .filter(Boolean),
-        listeningTestId: form.listeningTestId || null,
-        readingTestId: form.readingTestId || null,
-        writingTestId: form.writingTestId || null,
-        speakingBankId: form.speakingBankId || null,
+        listeningTestId: form.skills.includes("listening")
+          ? form.listeningTestId || null
+          : null,
+        readingTestId: form.skills.includes("reading")
+          ? form.readingTestId || null
+          : null,
+        writingTestId: form.skills.includes("writing")
+          ? form.writingTestId || null
+          : null,
+        speakingBankId: form.skills.includes("speaking")
+          ? form.speakingBankId || null
+          : null,
       });
       toast(isEdit ? "Package updated" : "Package created", {
         description: `${form.title.trim()} · $${priceValue} ${form.currency}`,
@@ -232,10 +317,10 @@ export function PackageEditorDialog() {
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-navy">
-              {isEdit ? "Edit Package" : "New Package"}
+              {isEdit ? "Edit Package" : "Create Package"}
             </h2>
             <p className="text-sm text-muted">
-              {isEdit ? pkg?.title : "Define a new mock exam product."}
+              {mockPreview ?? (isEdit ? pkg?.mockLabel : "Assign one unique test per skill.")}
             </p>
           </div>
           <button
@@ -249,13 +334,40 @@ export function PackageEditorDialog() {
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+          {!isEdit && (
+            <div className="space-y-1.5">
+              <label className={labelCls}>Package type</label>
+              <Select
+                value={
+                  PACKAGE_SKILL_PRESETS.find(
+                    (p) => p.skills.join("+") === form.skills.join("+"),
+                  )?.id ?? "full"
+                }
+                onChange={(e) => {
+                  const preset = PACKAGE_SKILL_PRESETS.find((p) => p.id === e.target.value);
+                  if (preset) set("skills", preset.skills);
+                }}
+                className="h-10 w-full"
+              >
+                {PACKAGE_SKILL_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted">
+                Each package type has its own mock number sequence. A test can only belong to one package.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className={labelCls}>Title</label>
             <Input
               value={form.title}
               error={titleInvalid}
               onChange={(e) => set("title", e.target.value)}
-              placeholder="Full Academic Mock"
+              placeholder="Full Academic Mock 002"
             />
           </div>
 
@@ -380,7 +492,7 @@ export function PackageEditorDialog() {
             <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-navy">Active</p>
-                <p className="text-xs text-muted">Visible &amp; bookable.</p>
+                <p className="text-xs text-muted">Visible &amp; bookable when content is assigned.</p>
               </div>
               <Switch
                 checked={form.isActive}
@@ -415,40 +527,53 @@ export function PackageEditorDialog() {
 
           <div className="space-y-4 rounded-lg border border-border bg-slate-50 p-4 pb-5">
             <div>
-              <p className="text-sm font-semibold text-navy">Linked exam content</p>
+              <p className="text-sm font-semibold text-navy">Package content</p>
               <p className="text-xs text-muted">
-                Only published tests appear in the picker. Existing draft links stay until you change them.
+                Pick one published test per included skill. Tests already used in another package are hidden.
+                {hasEnrollments ? " Content is locked because students have enrolled." : ""}
               </p>
             </div>
             <div className="grid grid-cols-1 gap-4">
-              <TestSelect
-                label="Listening test"
-                type="LISTENING"
-                value={form.listeningTestId}
-                options={contentTests}
-                onChange={(v) => set("listeningTestId", v)}
-              />
-              <TestSelect
-                label="Reading test"
-                type="READING"
-                value={form.readingTestId}
-                options={contentTests}
-                onChange={(v) => set("readingTestId", v)}
-              />
-              <TestSelect
-                label="Writing test"
-                type="WRITING"
-                value={form.writingTestId}
-                options={contentTests}
-                onChange={(v) => set("writingTestId", v)}
-              />
-              <TestSelect
-                label="Speaking bank"
-                type="SPEAKING"
-                value={form.speakingBankId}
-                options={contentTests}
-                onChange={(v) => set("speakingBankId", v)}
-              />
+              {form.skills.includes("listening") && (
+                <TestSelect
+                  label="Listening test"
+                  type="LISTENING"
+                  value={form.listeningTestId}
+                  options={contentTests}
+                  currentPackageId={pkg?.id}
+                  onChange={(v) => set("listeningTestId", v)}
+                />
+              )}
+              {form.skills.includes("reading") && (
+                <TestSelect
+                  label="Reading test"
+                  type="READING"
+                  value={form.readingTestId}
+                  options={contentTests}
+                  currentPackageId={pkg?.id}
+                  onChange={(v) => set("readingTestId", v)}
+                />
+              )}
+              {form.skills.includes("writing") && (
+                <TestSelect
+                  label="Writing test"
+                  type="WRITING"
+                  value={form.writingTestId}
+                  options={contentTests}
+                  currentPackageId={pkg?.id}
+                  onChange={(v) => set("writingTestId", v)}
+                />
+              )}
+              {form.skills.includes("speaking") && (
+                <TestSelect
+                  label="Speaking bank"
+                  type="SPEAKING"
+                  value={form.speakingBankId}
+                  options={contentTests}
+                  currentPackageId={pkg?.id}
+                  onChange={(v) => set("speakingBankId", v)}
+                />
+              )}
             </div>
           </div>
         </div>

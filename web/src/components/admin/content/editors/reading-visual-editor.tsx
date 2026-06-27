@@ -14,15 +14,20 @@ import {
 } from "@/lib/admin/content/factories";
 import {
   collectOrderedNumbers,
-  defaultPartitionBlurb,
+  readingPassageStartNumber,
   renumberReadingContent,
   remapAnswerKeyByOrder,
+  remapAnswerKeyForReadingContent,
   validatePartitionGroups,
   partitionStatusesForModule,
 } from "@/lib/admin/content/numbering";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
 import type { QuestionGroup, ReadingContent } from "@/lib/exam/types";
+import {
+  nextPassageMarker,
+  normalizePassageMarker,
+} from "@/lib/exam/passage-sections";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -43,6 +48,17 @@ export function ReadingVisualEditor({
   const [activeIdx, setActiveIdx] = useState(0);
   const passages = content.passages ?? [];
   const passage = passages[activeIdx];
+
+  function startNumberForPassage(index: number): number {
+    return readingPassageStartNumber(passages, index);
+  }
+
+  function questionRangeText(groups: QuestionGroup[]): string {
+    const nums = collectOrderedNumbers(groups);
+    if (nums.length === 0) return "questions";
+    const sorted = [...new Set(nums)].sort((a, b) => a - b);
+    return `questions ${sorted[0]}–${sorted[sorted.length - 1]}`;
+  }
 
   if (!passage) {
     return (
@@ -67,7 +83,10 @@ export function ReadingVisualEditor({
     nextPassages[activeIdx] = {
       ...passage,
       groups,
-      blurb: groups.length > 0 ? defaultPartitionBlurb("reading", passage.part) : passage.blurb,
+      blurb:
+        groups.length > 0
+          ? `Read the text and answer ${questionRangeText(groups)}.`
+          : passage.blurb,
     };
     const next = { ...content, passages: nextPassages };
     recomputeTotalQuestions(next);
@@ -76,14 +95,8 @@ export function ReadingVisualEditor({
   }
 
   function renumberAll() {
-    const oldNums = collectOrderedNumbers(
-      passages.flatMap((p) => p.groups ?? []),
-    );
     const renumbered = renumberReadingContent(content);
-    const newNums = collectOrderedNumbers(
-      renumbered.passages.flatMap((p) => p.groups ?? []),
-    );
-    const remapped = remapAnswerKeyByOrder(answerKey, oldNums, newNums);
+    const remapped = remapAnswerKeyForReadingContent(answerKey, content, renumbered);
     recomputeTotalQuestions(renumbered);
     onContentChange(renumbered);
     onAnswerKeyChange(syncAnswerKey("reading", renumbered, remapped));
@@ -194,7 +207,7 @@ export function ReadingVisualEditor({
                 paragraphs: [
                   ...passage.paragraphs,
                   {
-                    marker: String.fromCharCode(65 + passage.paragraphs.length),
+                    marker: nextPassageMarker(passage.paragraphs),
                     text: "",
                   },
                 ],
@@ -214,7 +227,14 @@ export function ReadingVisualEditor({
                   paragraphs[idx] = { ...para, marker: e.target.value };
                   updatePassage({ paragraphs });
                 }}
-                className="h-8 w-16 text-center font-bold"
+                onBlur={(e) => {
+                  const normalized = normalizePassageMarker(e.target.value);
+                  if (normalized === (para.marker ?? "")) return;
+                  const paragraphs = [...passage.paragraphs];
+                  paragraphs[idx] = { ...para, marker: normalized || undefined };
+                  updatePassage({ paragraphs });
+                }}
+                className="h-8 w-16 text-center font-bold uppercase"
                 placeholder="A"
               />
               <Button
@@ -223,7 +243,11 @@ export function ReadingVisualEditor({
                 className="ml-auto h-8 text-red-600"
                 onClick={() => {
                   const paragraphs = passage.paragraphs.filter((_, i) => i !== idx);
-                  updatePassage({ paragraphs: paragraphs.length ? paragraphs : [{ text: "" }] });
+                  updatePassage({
+                    paragraphs: paragraphs.length
+                      ? paragraphs
+                      : [{ marker: "A", text: "" }],
+                  });
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -248,6 +272,7 @@ export function ReadingVisualEditor({
         groups={passage.groups}
         module="reading"
         partNumber={passage.part}
+        partitionFromOverride={startNumberForPassage(activeIdx)}
         testId={testId}
         answerKey={answerKey}
         passageParagraphs={passage.paragraphs}

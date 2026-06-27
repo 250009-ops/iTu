@@ -10,7 +10,27 @@ export type TeacherSpeciality = "writing" | "speaking" | "both";
 
 export type OrderStatus = "paid" | "refunded" | "failed" | "pending";
 
-export type PaymentMethod = "visa" | "mastercard" | "paypal" | "apple_pay";
+export type PaymentMethod =
+  | "visa"
+  | "mastercard"
+  | "paypal"
+  | "apple_pay"
+  | "complimentary";
+
+export type ExamTypeKind = "academic" | "general_training";
+
+export type Student = {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  targetBand: number | null;
+  examType: ExamTypeKind;
+  country: string | null;
+  emailVerified: boolean;
+  enrollments: number;
+  joined: string;
+};
 
 export type TicketType =
   | "regrade_request"
@@ -68,6 +88,23 @@ export type Examiner = {
   totalEarned: number;
   joined: string;
   speciality: TeacherSpeciality;
+};
+
+export type TeacherApplication = {
+  ieltsWritingBand?: number;
+  ieltsSpeakingBand?: number;
+  yearsExperience?: number;
+  qualifications?: string[];
+  certificateUrls?: string[];
+  phone?: string | null;
+  submittedAt?: string;
+};
+
+export type ExaminerDetail = Examiner & {
+  bio?: string | null;
+  languages?: string[];
+  credentials?: string[];
+  application?: TeacherApplication | null;
 };
 
 export type Order = {
@@ -130,6 +167,7 @@ export type ContentTest = {
   lastUpdated: string;
   author: string;
   linkedPackages: number;
+  assignedMockLabel?: string | null;
 };
 
 export type ExamTypeValue = "ACADEMIC" | "GENERAL_TRAINING";
@@ -142,6 +180,10 @@ export type AdminContentTestOption = {
   title: string;
   type: ContentTestType;
   status: string;
+  assignedPackageId?: string | null;
+  assignedPackageTitle?: string | null;
+  assignedMockLabel?: string | null;
+  isPackaged?: boolean;
 };
 
 export type AdminPackage = {
@@ -152,6 +194,9 @@ export type AdminPackage = {
   price: number;
   currency: string;
   examType: ExamTypeValue;
+  packageKind?: string;
+  mockNumber?: number;
+  mockLabel?: string;
   mostPopular: boolean;
   rating: number | null;
   reviewCount: number;

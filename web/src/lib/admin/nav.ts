@@ -5,6 +5,7 @@ export type AdminNavIcon =
   | "user-check"
   | "radio"
   | "users"
+  | "graduation-cap"
   | "receipt"
   | "alert-triangle"
   | "bar-chart"
@@ -41,6 +42,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     label: "Management",
     items: [
       { label: "Teachers", href: "/admin/teachers", icon: "user-check" },
+      { label: "Students", href: "/admin/students", icon: "graduation-cap" },
       {
         label: "Live Monitor",
         href: "/admin/sessions",

@@ -9,13 +9,13 @@ End-to-end manual test plan for the student portal. Alex Johnson is the primary 
 | API | http://localhost:3001/api/v1 | `cd api && npm run start:dev` |
 | Frontend | http://localhost:3000 | `cd web && npm run dev` |
 
-## Demo accounts
+## Local seed accounts
 
 | Role | Login | Password | Use for |
 |------|-------|----------|---------|
-| **Student (Alex)** | `student` | `student` | This guide — full student journey |
-| Teacher | `teacher` | `teacher` | Grading & speaking after Alex completes sections |
-| Admin | `admin` | `admin` | Live monitor, enrollments, orders |
+| **Student (Alex)** | `student@example.com` | `student` | This guide — full student journey |
+| Teacher | `teacher@example.com` | `teacher` | Grading & speaking after Alex completes sections |
+| Admin | `serkinov393@gmail.com` | See the owner-provided/admin-seed password | Live monitor, enrollments, orders |
 
 ## Reset Alex to fresh state
 

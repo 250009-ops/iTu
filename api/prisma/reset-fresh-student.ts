@@ -1,10 +1,10 @@
 /**
- * Reset Alex Johnson (student/student) to a fresh account with no mocks booked.
+ * Reset Alex Johnson to a fresh account with no mocks booked.
  * Run anytime during QA: npm run db:reset-student
  */
 import { PrismaClient, SlotStatus } from '@prisma/client';
 
-const STUDENT_EMAIL = 'student';
+const STUDENT_EMAIL = 'student@example.com';
 
 const prisma = new PrismaClient();
 

@@ -49,7 +49,7 @@ export function WelcomeSection() {
           {examType}
           {" · "}
           <span className="font-semibold text-foreground">{mocksCompleted}</span>{" "}
-          mocks completed
+          {mocksCompleted === 1 ? "mock completed" : "mocks completed"}
         </p>
       </div>
       <Link href="/student/browse" className="shrink-0">

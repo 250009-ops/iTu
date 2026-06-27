@@ -38,6 +38,98 @@ function normalizeCompletionLines(raw: unknown): Json[] {
   });
 }
 
+function resolveMatchingSection(question: Json, fallback?: string): string {
+  const section = typeof question.section === 'string' ? question.section.trim() : '';
+  if (section) return section.toUpperCase();
+  const prompt = typeof question.prompt === 'string' ? question.prompt : '';
+  const fromPrompt = prompt.match(/section\s+([A-Z])/i)?.[1];
+  if (fromPrompt) return fromPrompt.toUpperCase();
+  return fallback?.toUpperCase() ?? '';
+}
+
+function normalizeMatchingHeadingsGroup(group: Json): Json {
+  const rawQuestions = asArray<Json>(group.questions);
+  const legacyExample = rawQuestions.find((q) => q.isExample === true);
+  let example = isObject(group.example) ? group.example : undefined;
+
+  if (legacyExample && !example) {
+    const section = resolveMatchingSection(legacyExample);
+    const headingId =
+      typeof legacyExample.exampleHeadingId === 'string'
+        ? legacyExample.exampleHeadingId.trim()
+        : '';
+    if (section && headingId) {
+      example = { section, headingId };
+    }
+  } else if (example) {
+    const section =
+      typeof example.section === 'string' ? example.section.trim().toUpperCase() : '';
+    const headingId =
+      typeof example.headingId === 'string' ? example.headingId.trim() : '';
+    example = section && headingId ? { section, headingId } : undefined;
+  }
+
+  const exampleSection =
+    example && typeof example.section === 'string'
+      ? example.section.trim().toUpperCase()
+      : undefined;
+
+  const questions = rawQuestions
+    .filter((q) => q.isExample !== true)
+    .map((q) => ({
+      n: q.n,
+      prompt: q.prompt,
+      section: q.section,
+    }))
+    .filter((q) => {
+      if (!exampleSection) return true;
+      return resolveMatchingSection(q) !== exampleSection;
+    });
+
+  return { ...group, example, questions };
+}
+
+function normalizeOptions(raw: unknown): Json[] {
+  return asArray<Json>(raw)
+    .map((o) => ({
+      id: typeof o.id === 'string' ? o.id.trim() : String(o.id ?? '').trim(),
+      label: typeof o.label === 'string' ? o.label : '',
+    }))
+    .filter((o) => o.id);
+}
+
+function normalizeMcqSingleGroup(group: Json): Json {
+  let example = isObject(group.example) ? group.example : undefined;
+
+  if (example) {
+    const options = normalizeOptions(example.options);
+    let answerId =
+      typeof example.answerId === 'string' ? example.answerId.trim() : '';
+    if (!options.some((o) => o.id === answerId)) {
+      answerId = typeof options[0]?.id === 'string' ? options[0].id : '';
+    }
+    if (!answerId || options.length < 2) {
+      example = undefined;
+    } else {
+      example = {
+        prompt: typeof example.prompt === 'string' ? example.prompt : '',
+        options,
+        answerId,
+      };
+    }
+  }
+
+  return {
+    ...group,
+    example,
+    questions: asArray<Json>(group.questions).map((q) => ({
+      ...q,
+      prompt: typeof q.prompt === 'string' ? q.prompt : '',
+      options: normalizeOptions(q.options),
+    })),
+  };
+}
+
 function repairQuestionGroup(group: unknown): Json {
   if (!isObject(group)) {
     return { type: 'instruction_screen', body: '' };
@@ -45,18 +137,36 @@ function repairQuestionGroup(group: unknown): Json {
   const g = group;
   switch (g.type) {
     case 'map_labeling':
-      return { ...g, options: asArray(g.options), zones: asArray(g.zones) };
+      return {
+        ...g,
+        layoutMode: g.layoutMode === 'place_list' ? 'place_list' : 'zones',
+        answerMode: g.answerMode === 'text' ? 'text' : 'option',
+        options: asArray(g.options),
+        zones: asArray(g.zones),
+        mapMarkers: asArray(g.mapMarkers),
+        questions: asArray(g.questions),
+      };
     case 'matching':
-    case 'matching_headings':
     case 'matching_features':
       return {
         ...g,
+        reuseOptions:
+          g.reuseOptions !== false &&
+          (g.reuseOptions === true ||
+            /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ''))),
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
+    case 'matching_headings':
+      return normalizeMatchingHeadingsGroup({
+        ...g,
+        options: asArray(g.options),
+        questions: asArray(g.questions),
+      });
     case 'flowchart_completion':
       return {
         ...g,
+        answerMode: g.answerMode === 'text' ? 'text' : 'option',
         options: asArray(g.options),
         nodes: asArray(g.nodes),
       };
@@ -75,12 +185,19 @@ function repairQuestionGroup(group: unknown): Json {
         sectionLabels: asArray(g.sectionLabels),
       };
     case 'mcq_single':
+      return normalizeMcqSingleGroup({ ...g, questions: asArray(g.questions) });
     case 'short_answer':
     case 'tfng':
     case 'yng':
       return { ...g, questions: asArray(g.questions) };
     case 'mcq_multi':
-      return { ...g, options: asArray(g.options), numbers: asArray(g.numbers) };
+      return {
+        ...g,
+        selectionMode: g.selectionMode === 'per_question' ? 'per_question' : 'shared',
+        answerOrdering: g.answerOrdering === 'fixed' ? 'fixed' : 'any',
+        options: asArray(g.options),
+        numbers: asArray(g.numbers),
+      };
     case 'note_completion':
     case 'form_completion':
     case 'summary_completion':

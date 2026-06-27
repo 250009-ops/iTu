@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { useStudentResultsData } from "@/contexts/student-results-context";
+import type { SkillId } from "@/lib/api/mappers/student";
 import {
   CHART_AXIS_TICK,
   CHART_GRID_STROKE,
@@ -28,7 +29,15 @@ const series = [
 export function ScoreProgressionChart() {
   const { data: results } = useStudentResultsData();
   if (!results?.released || !results.scoreProgression.length) return null;
-  const data = results.scoreProgression;
+
+  const chartData = results.scoreProgression;
+  const packageSkills = new Set(results.packageSkills);
+  const visibleSeries = series.filter(
+    (s) => s.key === "overall" || packageSkills.has(s.key as SkillId),
+  );
+  const delta = results.overallImprovement;
+  const deltaPositive = delta > 0;
+  const deltaNegative = delta < 0;
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -39,14 +48,30 @@ export function ScoreProgressionChart() {
             Score Progression
           </h3>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-          <TrendingUp className="h-3 w-3" />+{results.overallImprovement} overall
-        </span>
+        {delta !== 0 && (
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              deltaPositive
+                ? "bg-emerald-50 text-emerald-700"
+                : deltaNegative
+                  ? "bg-rose-50 text-rose-700"
+                  : "bg-gray-50 text-gray-600"
+            }`}
+          >
+            {deltaPositive ? (
+              <TrendingUp className="h-3 w-3" />
+            ) : (
+              <TrendingDown className="h-3 w-3" />
+            )}
+            {deltaPositive ? "+" : ""}
+            {delta} overall
+          </span>
+        )}
       </div>
 
       <div className="mt-4">
         <ResponsiveContainer width="100%" height={190}>
-          <LineChart data={data} margin={{ left: -8, right: 8, top: 8, bottom: 0 }}>
+          <LineChart data={chartData} margin={{ left: -8, right: 8, top: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="4 4" stroke={CHART_GRID_STROKE} vertical={false} />
             <XAxis
               dataKey="date"
@@ -55,8 +80,8 @@ export function ScoreProgressionChart() {
               tickLine={false}
             />
             <YAxis
-              domain={[4.5, 9]}
-              ticks={[4.5, 6.5, 9]}
+              domain={[0, 9]}
+              ticks={[0, 3, 6, 9]}
               tick={{ ...CHART_AXIS_TICK, fontSize: 9 }}
               axisLine={false}
               tickLine={false}
@@ -64,11 +89,15 @@ export function ScoreProgressionChart() {
             />
             <Tooltip
               content={
-                <ChartTooltip formatValue={(v) => v.toFixed(1)} />
+                <ChartTooltip
+                  formatValue={(v) =>
+                    v == null || Number.isNaN(v) ? "—" : v.toFixed(1)
+                  }
+                />
               }
               cursor={{ stroke: "#cbd5e1", strokeWidth: 1 }}
             />
-            {series.map((s) => (
+            {visibleSeries.map((s) => (
               <Line
                 key={s.key}
                 type="monotone"
@@ -76,6 +105,7 @@ export function ScoreProgressionChart() {
                 name={s.label}
                 stroke={s.color}
                 strokeWidth={s.width}
+                connectNulls
                 dot={s.key === "overall" ? { r: 3.5, fill: s.color, strokeWidth: 0 } : false}
                 activeDot={{ r: 5, fill: s.color, stroke: "#fff", strokeWidth: 2 }}
                 opacity={s.key === "overall" ? 1 : 0.75}
@@ -86,7 +116,7 @@ export function ScoreProgressionChart() {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-        {series.map((s) => (
+        {visibleSeries.map((s) => (
           <div key={s.key} className="flex items-center gap-1.5">
             <span
               className="h-2 w-3 rounded-full"

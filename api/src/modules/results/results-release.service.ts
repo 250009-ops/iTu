@@ -53,11 +53,10 @@ export class ResultsReleaseService {
       if (!attempt) return false;
       if (skill === ExamSkill.WRITING) return !!attempt.writingSubmission?.grade;
       if (skill === ExamSkill.SPEAKING) return !!attempt.speakingSession?.grade;
-      // Listening / Reading are auto-scored on submit.
-      return (
-        attempt.submittedAt != null &&
-        (attempt.band != null || attempt.rawScore != null)
-      );
+      // Listening / Reading are auto-scored on submit — require submission plus a score.
+      if (attempt.submittedAt == null) return false;
+      if (attempt.band != null) return true;
+      return attempt.rawScore != null;
     };
 
     const allGraded =

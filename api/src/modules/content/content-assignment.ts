@@ -4,24 +4,8 @@ import {
   Prisma,
   PrismaClient,
 } from '@prisma/client';
+import { SKILL_TO_TEST_FIELD } from '../../common/package-kind';
 import { packageExamSkills } from './package-skills';
-
-const SKILL_TYPE = {
-  LISTENING: 'LISTENING',
-  READING: 'READING',
-  WRITING: 'WRITING',
-  SPEAKING: 'SPEAKING',
-} as const;
-
-const SKILL_FIELD: Record<
-  ExamSkill,
-  'listeningTestId' | 'readingTestId' | 'writingTestId' | 'speakingBankId'
-> = {
-  LISTENING: 'listeningTestId',
-  READING: 'readingTestId',
-  WRITING: 'writingTestId',
-  SPEAKING: 'speakingBankId',
-};
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -34,136 +18,167 @@ type PackageForAssignment = {
   speakingBankId: string | null;
 };
 
-/**
- * Returns the ordered list of eligible published test ids for a package + skill.
- * Priority: the package content pool; otherwise the explicit FK; otherwise all
- * published tests of that type (legacy fallback).
- */
-async function eligibleTestIds(
+/** The single pinned test for a package skill (pool entry or legacy FK). */
+export async function packageTestIdForSkill(
   tx: Tx,
   pkg: PackageForAssignment,
   skill: ExamSkill,
-): Promise<string[]> {
-  const pool = await tx.packageContentTest.findMany({
+): Promise<string | null> {
+  const pool = await tx.packageContentTest.findFirst({
     where: {
       packageId: pkg.id,
       skill,
       test: { status: ContentTestStatus.PUBLISHED },
     },
-    select: { testId: true, test: { select: { updatedAt: true } } },
-    orderBy: { createdAt: 'asc' },
+    select: { testId: true },
   });
-  if (pool.length > 0) {
-    return pool.map((p) => p.testId);
-  }
+  if (pool) return pool.testId;
 
-  const explicit = pkg[SKILL_FIELD[skill]];
-  if (explicit) {
-    const linked = await tx.contentTest.findUnique({
-      where: { id: explicit },
-      select: { id: true, status: true },
-    });
-    if (linked?.status === ContentTestStatus.PUBLISHED) {
-      return [linked.id];
-    }
-  }
+  const explicit = pkg[SKILL_TO_TEST_FIELD[skill]];
+  if (!explicit) return null;
 
-  const all = await tx.contentTest.findMany({
-    where: {
-      type: SKILL_TYPE[skill],
-      status: ContentTestStatus.PUBLISHED,
-    },
-    orderBy: { updatedAt: 'desc' },
-    select: { id: true },
+  const linked = await tx.contentTest.findUnique({
+    where: { id: explicit },
+    select: { id: true, status: true },
   });
-  return all.map((t) => t.id);
+  if (linked?.status === ContentTestStatus.PUBLISHED) {
+    return linked.id;
+  }
+  return null;
 }
 
-/** Test ids this student has already been assigned for a skill (most recent first). */
-async function takenTestIds(
+/** Content test ids this student has finished (submitted section attempts). */
+export async function studentFinishedTestIds(
   tx: Tx,
   studentId: string,
-  skill: ExamSkill,
-): Promise<string[]> {
+): Promise<Set<string>> {
   const attempts = await tx.sectionAttempt.findMany({
     where: {
-      skill,
       contentTestId: { not: null },
+      submittedAt: { not: null },
       session: { enrollment: { studentId } },
     },
-    select: { contentTestId: true, createdAt: true },
-    orderBy: { createdAt: 'desc' },
+    select: { contentTestId: true },
   });
-  return attempts
-    .map((a) => a.contentTestId)
-    .filter((id): id is string => id != null);
+  return new Set(
+    attempts
+      .map((a) => a.contentTestId)
+      .filter((id): id is string => id != null),
+  );
 }
 
 export type SkillAssignment = {
   skill: ExamSkill;
   testId: string | null;
-  /** True when every eligible test had already been taken (pool exhausted). */
-  recycled: boolean;
+};
+
+export type PackageContentAvailability = {
+  skill: ExamSkill;
+  testId: string | null;
+  testCode: string | null;
+  alreadyTaken: boolean;
+  canPurchase: boolean;
 };
 
 /**
- * Picks a content test per package skill for a new enrollment, preferring tests
- * the student has never seen. When the pool is exhausted it recycles the
- * least-recently-taken test rather than failing.
+ * Resolves the pinned test per skill for a package. Throws when a required
+ * skill has no published test assigned.
  */
 export async function assignContentTests(
   tx: Tx,
-  studentId: string,
+  _studentId: string,
   pkg: PackageForAssignment,
 ): Promise<SkillAssignment[]> {
   const skills = packageExamSkills(pkg.skills);
   const assignments: SkillAssignment[] = [];
 
   for (const skill of skills) {
-    const eligible = await eligibleTestIds(tx, pkg, skill);
-    if (eligible.length === 0) {
-      assignments.push({ skill, testId: null, recycled: false });
-      continue;
-    }
-
-    const taken = await takenTestIds(tx, studentId, skill);
-    const takenSet = new Set(taken);
-    const unseen = eligible.filter((id) => !takenSet.has(id));
-
-    if (unseen.length > 0) {
-      assignments.push({ skill, testId: unseen[0]!, recycled: false });
-      continue;
-    }
-
-    // Exhausted: recycle the test taken longest ago (last in most-recent list)
-    // that is still eligible.
-    const recycleOrder = [...taken].reverse();
-    const recycled =
-      recycleOrder.find((id) => eligible.includes(id)) ?? eligible[0]!;
-    assignments.push({ skill, testId: recycled, recycled: true });
+    const testId = await packageTestIdForSkill(tx, pkg, skill);
+    assignments.push({ skill, testId });
   }
 
   return assignments;
 }
 
-/**
- * How many unique eligible tests remain unseen for a student on a package.
- * Used to surface re-purchase guidance ("X of Y unique tests remaining").
- */
+/** Whether a student may book this package (no finished overlap, tests assigned). */
+export async function evaluatePackageAvailability(
+  tx: Tx,
+  studentId: string,
+  pkg: PackageForAssignment,
+): Promise<{
+  canPurchase: boolean;
+  perSkill: PackageContentAvailability[];
+  blockingReason: string | null;
+}> {
+  const skills = packageExamSkills(pkg.skills);
+  const finished = await studentFinishedTestIds(tx, studentId);
+  const perSkill: PackageContentAvailability[] = [];
+  let canPurchase = true;
+  let blockingReason: string | null = null;
+
+  for (const skill of skills) {
+    const testId = await packageTestIdForSkill(tx, pkg, skill);
+    let testCode: string | null = null;
+    if (testId) {
+      const test = await tx.contentTest.findUnique({
+        where: { id: testId },
+        select: { code: true },
+      });
+      testCode = test?.code ?? null;
+    }
+
+    const alreadyTaken = testId != null && finished.has(testId);
+    const skillAvailable = testId != null && !alreadyTaken;
+
+    if (testId == null) {
+      canPurchase = false;
+      if (!blockingReason) {
+        blockingReason = `This package is missing a published ${skill.toLowerCase()} test.`;
+      }
+    } else if (alreadyTaken) {
+      canPurchase = false;
+      if (!blockingReason) {
+        blockingReason = `You have already completed ${testCode ?? 'this test'} and cannot purchase this package again.`;
+      }
+    }
+
+    perSkill.push({
+      skill,
+      testId,
+      testCode,
+      alreadyTaken,
+      canPurchase: skillAvailable,
+    });
+  }
+
+  const priorEnrollment = await tx.enrollment.findFirst({
+    where: {
+      studentId,
+      packageId: pkg.id,
+      status: { notIn: ['CANCELLED'] },
+    },
+    select: { enrollmentCode: true },
+  });
+  if (priorEnrollment) {
+    canPurchase = false;
+    blockingReason =
+      blockingReason ??
+      `You have already enrolled in this package (${priorEnrollment.enrollmentCode}). Re-purchase is not allowed.`;
+  }
+
+  return { canPurchase, perSkill, blockingReason };
+}
+
+/** @deprecated Use evaluatePackageAvailability instead. */
 export async function remainingUniqueAttempts(
   tx: Tx,
   studentId: string,
   pkg: PackageForAssignment,
 ): Promise<{ skill: ExamSkill; total: number; remaining: number }[]> {
-  const skills = packageExamSkills(pkg.skills);
-  const result: { skill: ExamSkill; total: number; remaining: number }[] = [];
-
-  for (const skill of skills) {
-    const eligible = await eligibleTestIds(tx, pkg, skill);
-    const taken = new Set(await takenTestIds(tx, studentId, skill));
-    const remaining = eligible.filter((id) => !taken.has(id)).length;
-    result.push({ skill, total: eligible.length, remaining });
-  }
-
-  return result;
+  const result = await evaluatePackageAvailability(tx, studentId, pkg);
+  return result.perSkill.map((s) => ({
+    skill: s.skill,
+    total: s.testId ? 1 : 0,
+    remaining: s.canPurchase ? 1 : 0,
+  }));
 }

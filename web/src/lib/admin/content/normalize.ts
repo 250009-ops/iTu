@@ -15,6 +15,8 @@ import type {
   WritingContent,
 } from "@/lib/exam/types";
 import { normalizeCompletionLines } from "@/lib/exam/inline-content";
+import { normalizeMatchingHeadingsGroup } from "@/lib/exam/matching-headings";
+import { normalizeMcqSingleGroup } from "@/lib/exam/mcq-single";
 
 function asArray<T>(value: unknown, fallback: T[] = []): T[] {
   return Array.isArray(value) ? value : fallback;
@@ -26,20 +28,37 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "map_labeling":
       return {
         ...g,
+        layoutMode: g.layoutMode === "place_list" ? "place_list" : "zones",
+        answerMode: g.answerMode === "text" ? "text" : "option",
         options: asArray(g.options),
         zones: asArray(g.zones),
+        mapMarkers: asArray(g.mapMarkers),
+        questions: asArray(g.questions),
       };
     case "matching":
+      return {
+        ...g,
+        reuseOptions: g.reuseOptions !== false && (g.reuseOptions === true || /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ""))),
+        options: asArray(g.options),
+        questions: asArray(g.questions),
+      };
     case "matching_headings":
+      return normalizeMatchingHeadingsGroup({
+        ...g,
+        options: asArray(g.options),
+        questions: asArray(g.questions),
+      });
     case "matching_features":
       return {
         ...g,
+        reuseOptions: g.reuseOptions !== false && (g.reuseOptions === true || /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ""))),
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
     case "flowchart_completion":
       return {
         ...g,
+        answerMode: g.answerMode === "text" ? "text" : "option",
         options: asArray(g.options),
         nodes: asArray(g.nodes),
       };
@@ -58,7 +77,10 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         sectionLabels: asArray(g.sectionLabels),
       };
     case "mcq_single":
-      return { ...g, questions: asArray(g.questions) } as QuestionGroup;
+      return normalizeMcqSingleGroup({
+        ...g,
+        questions: asArray(g.questions),
+      });
     case "short_answer":
     case "tfng":
     case "yng":
@@ -66,6 +88,8 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "mcq_multi":
       return {
         ...g,
+        selectionMode: g.selectionMode === "per_question" ? "per_question" : "shared",
+        answerOrdering: g.answerOrdering === "fixed" ? "fixed" : "any",
         options: asArray(g.options),
         numbers: asArray(g.numbers),
       };

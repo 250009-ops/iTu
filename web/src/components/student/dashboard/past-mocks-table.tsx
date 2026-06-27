@@ -3,14 +3,20 @@
 import Link from "next/link";
 import { ArrowRight, FileText } from "lucide-react";
 import { useStudentDashboardData } from "@/contexts/student-dashboard-context";
+import { formatBandDisplay } from "@/lib/api/mappers/student";
 import { cn } from "@/lib/utils";
+
+const skillColumns = [
+  { key: "listening" as const, label: "L" },
+  { key: "reading" as const, label: "R" },
+  { key: "writing" as const, label: "W" },
+  { key: "speaking" as const, label: "S" },
+];
 
 function BandBadge({ score }: { score: number | null }) {
   if (score == null) {
     return <span className="text-xs text-muted">—</span>;
   }
-
-  const label = Number.isInteger(score) ? `${score}.0` : score.toFixed(1);
 
   return (
     <span
@@ -23,19 +29,21 @@ function BandBadge({ score }: { score: number | null }) {
             : "bg-amber-50 text-amber-700",
       )}
     >
-      {label}
+      {formatBandDisplay(score)}
     </span>
   );
-}
-
-function formatBand(score: number | null) {
-  if (score == null) return "—";
-  return score % 1 === 0 ? score.toFixed(1) : score.toString();
 }
 
 export function PastMocksTable() {
   const { data } = useStudentDashboardData();
   const pastMocks = data?.pastMocks ?? [];
+
+  const visibleColumns =
+    pastMocks[0]?.packageSkills?.length
+      ? skillColumns.filter((col) =>
+          pastMocks[0]!.packageSkills!.includes(col.key),
+        )
+      : skillColumns;
 
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
@@ -56,14 +64,15 @@ export function PastMocksTable() {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[480px] text-sm">
             <thead>
               <tr className="border-b border-border bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-muted">
                 <th className="px-5 py-3">Date</th>
-                <th className="px-3 py-3 text-center">L</th>
-                <th className="px-3 py-3 text-center">R</th>
-                <th className="px-3 py-3 text-center">W</th>
-                <th className="px-3 py-3 text-center">S</th>
+                {visibleColumns.map((col) => (
+                  <th key={col.key} className="px-3 py-3 text-center">
+                    {col.label}
+                  </th>
+                ))}
                 <th className="px-3 py-3 text-center">Overall</th>
                 <th className="px-5 py-3 text-right">Report</th>
               </tr>
@@ -74,27 +83,27 @@ export function PastMocksTable() {
                   "en-US",
                   { month: "short", day: "numeric", year: "numeric" },
                 );
+                const columns =
+                  mock.packageSkills?.length
+                    ? skillColumns.filter((col) =>
+                        mock.packageSkills!.includes(col.key),
+                      )
+                    : visibleColumns;
+
                 return (
                   <tr key={mock.id} className="transition-colors hover:bg-slate-50/50">
                     <td className="px-5 py-4">
                       <p className="font-medium text-foreground">{dateLabel}</p>
                       <p className="text-xs text-muted">{mock.package}</p>
                     </td>
-                    <td className="px-3 py-4 text-center">
-                      <BandBadge score={mock.listening} />
-                    </td>
-                    <td className="px-3 py-4 text-center">
-                      <BandBadge score={mock.reading} />
-                    </td>
-                    <td className="px-3 py-4 text-center">
-                      <BandBadge score={mock.writing} />
-                    </td>
-                    <td className="px-3 py-4 text-center">
-                      <BandBadge score={mock.speaking} />
-                    </td>
+                    {columns.map((col) => (
+                      <td key={col.key} className="px-3 py-4 text-center">
+                        <BandBadge score={mock[col.key]} />
+                      </td>
+                    ))}
                     <td className="px-3 py-4 text-center">
                       <span className="text-base font-bold text-navy">
-                        {formatBand(mock.overall)}
+                        {formatBandDisplay(mock.overall)}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">

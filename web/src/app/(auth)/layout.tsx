@@ -1,5 +1,6 @@
 import { AuthLayoutGate } from "@/components/auth/auth-layout-gate";
 import { AuthMarketingPanel } from "@/components/auth/auth-marketing-panel";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 export default function AuthLayout({
   children,
@@ -14,7 +15,7 @@ export default function AuthLayout({
         </div>
         <div className="flex flex-1 flex-col bg-white">
           <div className="flex flex-1 items-center justify-center p-6 sm:p-10 lg:p-12">
-            <div className="w-full max-w-md animate-fade-in">{children}</div>
+            <AuthShell>{children}</AuthShell>
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@
  * Usage:
  *   VPS_PASSWORD=... node deploy/production-deploy.mjs
  */
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
@@ -60,6 +60,17 @@ async function main() {
   );
 
   console.log(`==> Uploading to ${VPS.host}...`);
+  await exec(conn, 'mkdir -p /var/www/itestu/deploy/env');
+  for (const [localRel, remote] of [
+    ['deploy/env/api.env', '/var/www/itestu/deploy/env/api.env'],
+    ['deploy/env/web.env.local', '/var/www/itestu/deploy/env/web.env.local'],
+  ]) {
+    const localPath = join(ROOT, localRel);
+    if (existsSync(localPath)) {
+      console.log(`==> Uploading ${localRel}...`);
+      await upload(sftp, localPath, remote);
+    }
+  }
   await upload(sftp, tarPath, '/var/www/itestu/production.tar.gz');
 
   await exec(conn, `
@@ -67,6 +78,14 @@ set -e
 cd /var/www/itestu/app
 tar -xzf /var/www/itestu/production.tar.gz
 rm /var/www/itestu/production.tar.gz
+# Remove files deleted in refactors (tar extract does not delete stale paths)
+rm -f web/src/components/teacher/availability/availability-grid.tsx \\
+  web/src/components/teacher/availability/availability-header.tsx \\
+  web/src/components/teacher/availability/working-hours-dialog.tsx \\
+  web/src/components/teacher/speaking/speaking-empty-state.tsx \\
+  web/src/components/teacher/grading/grading-header.tsx \\
+  web/src/components/teacher/grading/submissions-table.tsx \\
+  web/src/components/teacher/grading/grading-queue-empty.tsx
 mkdir -p /var/www/itestu/deploy/nginx
 for f in deploy-rebuild.sh ensure-local-media.sh; do
   if [ -f "/var/www/itestu/app/deploy/$f" ]; then

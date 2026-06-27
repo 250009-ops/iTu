@@ -33,6 +33,8 @@ export type StudentDashboardResponse = {
     daysUntil: number;
     hoursUntil: number;
     minutesUntil: number;
+    mockStarted?: boolean;
+    hasPastResults?: boolean;
     skills: { name: string; status: string }[];
     packageSkills?: string[];
   } | null;
@@ -42,6 +44,7 @@ export type StudentDashboardResponse = {
     enrollmentCode: string;
     mockDate: string;
     package: string;
+    packageSkills?: string[];
     listening: number | null;
     reading: number | null;
     writing: number | null;

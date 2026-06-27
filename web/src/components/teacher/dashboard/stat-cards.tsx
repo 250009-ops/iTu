@@ -21,11 +21,16 @@ const toneStyles = {
     card: "border-amber-100 bg-amber-50",
     icon: "bg-amber-100 text-amber-600",
   },
+  rose: {
+    card: "border-rose-100 bg-rose-50",
+    icon: "bg-rose-100 text-rose-600",
+  },
 };
 
 const iconMap = {
   sessions: Mic,
   writing: PenLine,
+  speaking: Mic,
   earnings: DollarSign,
   rating: Star,
 };
@@ -34,7 +39,7 @@ export function TeacherStatCards() {
   const { teacherStats } = useTeacherDashboard();
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {teacherStats.map((stat) => {
         const styles = toneStyles[stat.tone];
         const Icon = iconMap[stat.id as keyof typeof iconMap];

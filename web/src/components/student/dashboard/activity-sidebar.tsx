@@ -78,6 +78,26 @@ export function ActivityFeed() {
 }
 
 export function PreparationTip() {
+  const { data } = useStudentDashboardData();
+  const skills = data?.upcomingMock?.packageSkills ?? [];
+  const hasWriting = skills.includes("writing");
+  const hasSpeaking = skills.includes("speaking");
+  const hasListening = skills.includes("listening");
+  const hasReading = skills.includes("reading");
+
+  let tip =
+    "Book a mock that matches your target exam format and complete all sections under timed conditions.";
+  if (hasWriting && !hasSpeaking) {
+    tip =
+      "Practice timed writing tasks — aim for 150+ words in 20 min for Task 1 and 250+ in 40 min for Task 2.";
+  } else if (hasSpeaking && !hasWriting) {
+    tip =
+      "Record yourself answering Part 2 cue cards for 2 minutes, then review fluency, vocabulary, and pronunciation.";
+  } else if (hasListening || hasReading) {
+    tip =
+      "Use official-style practice tests with strict timing — review wrong answers to spot question-type patterns.";
+  }
+
   return (
     <div className="rounded-xl bg-navy p-5 text-white shadow-sm">
       <div className="flex items-center gap-2 text-amber-400">
@@ -86,10 +106,7 @@ export function PreparationTip() {
           Preparation Tip
         </span>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-slate-300">
-        Practice timed writing tasks — aim for 150+ words in 20 min for Task 1 and
-        250+ in 40 min for Task 2.
-      </p>
+      <p className="mt-3 text-sm leading-relaxed text-slate-300">{tip}</p>
       <Link
         href="/student/browse"
         className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-amber-400 hover:text-amber-300"

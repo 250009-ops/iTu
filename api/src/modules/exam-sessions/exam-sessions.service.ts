@@ -34,6 +34,7 @@ import {
   packageIncludesExamSkill,
 } from '../content/package-skills';
 import { normalizeContentForType } from '../content/content-normalize';
+import { injectWritingTask1ImageUrl } from '../content/content.utils';
 import { ResultsReleaseService } from '../results/results-release.service';
 
 @Injectable()
@@ -699,7 +700,7 @@ export class ExamSessionsService {
         content: true,
         durationMin: true,
         mediaAssets: {
-          select: { key: true, url: true },
+          select: { key: true, url: true, sizeBytes: true },
         },
       },
     });
@@ -752,6 +753,15 @@ export class ExamSessionsService {
       } = safeContent;
       const { mediaAssets: _assets, ...rest } = test;
       return { ...rest, content: studentContent };
+    }
+
+    if (skill === ExamSkill.WRITING && test.mediaAssets.length > 0) {
+      const { mediaAssets: _assets, ...rest } = test;
+      const content = injectWritingTask1ImageUrl(
+        safeContent,
+        test.mediaAssets,
+      );
+      return { ...rest, content };
     }
 
     const { mediaAssets: _assets, ...rest } = test;

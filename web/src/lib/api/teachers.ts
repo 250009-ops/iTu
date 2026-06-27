@@ -5,6 +5,7 @@ export function getTeacherDashboard() {
     stats: {
       sessionsToday: number;
       writingQueue: number;
+      speakingQueue: number;
       rating: number | null;
       totalEarned: number;
     };
@@ -17,8 +18,39 @@ export function getTeacherDashboard() {
   }>("/teachers/dashboard");
 }
 
-export function getTeacherAvailability() {
+export function getTeacherSpeakingSessions() {
   return apiFetch<{
+    today: SpeakingSessionListItem[];
+    upcoming: SpeakingSessionListItem[];
+    completed: SpeakingSessionListItem[];
+    counts: { today: number; upcoming: number; completed: number };
+    nextSession: SpeakingSessionListItem | null;
+    minutesUntilNext: number | null;
+  }>("/teachers/speaking-sessions");
+}
+
+export type SpeakingSessionListItem = {
+  id: string;
+  studentName: string;
+  scheduledAt: string | null;
+  endsAt: string | null;
+  status: string;
+  uiStatus: "upcoming" | "live" | "awaiting_grade" | "graded";
+  examType: string;
+  packageTitle: string;
+  grade: {
+    overallBand: number;
+    criteriaScores: Record<string, number>;
+  } | null;
+  recordingUrl: string | null;
+};
+
+export function getTeacherAvailability(weekStart?: string) {
+  const query = weekStart ? `?weekStart=${encodeURIComponent(weekStart)}` : "";
+  return apiFetch<{
+    slotDuration: number;
+    bufferMinutes: number;
+    weekStart: string;
     weekly: {
       dayOfWeek: number;
       startTime: string;
@@ -30,24 +62,39 @@ export function getTeacherAvailability() {
       startsAt: string;
       endsAt: string;
       status: string;
+      studentName: string | null;
     }[];
-  }>("/teachers/availability");
+    upcoming: {
+      id: string;
+      startsAt: string;
+      endsAt: string;
+      studentName: string;
+      speakingSessionId: string | null;
+    }[];
+  }>(`/teachers/availability${query}`);
 }
 
 export function updateTeacherAvailability(
   slots: { dayOfWeek: number; startTime: string; endTime: string }[],
+  slotDuration?: number,
 ) {
   return apiFetch<{ updated: number; slotsGenerated?: number }>(
     "/teachers/availability",
     {
       method: "PUT",
-      body: { slots },
+      body: { slots, slotDuration },
     },
   );
 }
 
 export function blockTeacherSlot(slotId: string) {
   return apiFetch<{ blocked: boolean }>(`/teachers/slots/${slotId}/block`, {
+    method: "PATCH",
+  });
+}
+
+export function unblockTeacherSlot(slotId: string) {
+  return apiFetch<{ unblocked: boolean }>(`/teachers/slots/${slotId}/unblock`, {
     method: "PATCH",
   });
 }

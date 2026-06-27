@@ -12,6 +12,7 @@ export type AdminPackagePayload = {
   price?: number;
   currency?: string;
   examType?: ExamTypeValue;
+  skills?: string[];
   mostPopular?: boolean;
   rating?: number | null;
   reviewCount?: number;
@@ -29,6 +30,16 @@ export function getAdminPackages() {
     packages: AdminPackage[];
     contentTests: AdminContentTestOption[];
   }>("/admin/packages");
+}
+
+export function getNextMockNumber(skills: string[]) {
+  const q = encodeURIComponent(JSON.stringify(skills));
+  return apiFetch<{
+    packageKind: string;
+    packageKindLabel: string;
+    mockNumber: number;
+    mockLabel: string;
+  }>(`/admin/packages/next-mock-number?skills=${q}`);
 }
 
 export function createPackage(payload: AdminPackagePayload) {
@@ -128,6 +139,45 @@ export function getAdminEnrollments() {
   }>("/admin/enrollments");
 }
 
+export function getAdminStudents() {
+  return apiFetch<
+    {
+      id: string;
+      name: string;
+      email: string;
+      targetBand: number | null;
+      examType: string;
+      country: string | null;
+      emailVerified: boolean;
+      enrollments: number;
+      createdAt: string;
+    }[]
+  >("/admin/students");
+}
+
+export type GrantEnrollmentBody = {
+  studentId: string;
+  packageId: string;
+  mockDate: string;
+  mockTime: string;
+  writingTeacherId?: string;
+  speakingTeacherId?: string;
+  speakingSlotId?: string;
+};
+
+export function grantEnrollment(body: GrantEnrollmentBody) {
+  return apiFetch<{
+    enrollmentId: string;
+    enrollmentCode: string;
+    orderId: string;
+    orderCode: string;
+    sessionCode: string;
+    amount: number;
+    currency: string;
+    status: string;
+  }>("/admin/enrollments/grant", { method: "POST", body });
+}
+
 export function getAdminTeachers() {
   return apiFetch<
     {
@@ -139,8 +189,35 @@ export function getAdminTeachers() {
       sessions: number;
       totalEarned: number;
       speciality: string;
+      createdAt: string;
     }[]
   >("/admin/teachers");
+}
+
+export function getAdminTeacher(id: string) {
+  return apiFetch<{
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+    rating: number | null;
+    sessions: number;
+    totalEarned: number;
+    speciality: string;
+    createdAt: string;
+    bio?: string | null;
+    languages?: unknown;
+    credentials?: unknown;
+    application?: {
+      ieltsWritingBand?: number;
+      ieltsSpeakingBand?: number;
+      yearsExperience?: number;
+      qualifications?: string[];
+      certificateUrls?: string[];
+      phone?: string | null;
+      submittedAt?: string;
+    } | null;
+  }>(`/admin/teachers/${id}`);
 }
 
 export function updateTeacherStatus(
@@ -327,6 +404,7 @@ export function getContentTests(type?: string) {
       questionCount?: number;
       authorName?: string;
       linkedPackages?: number;
+      assignedMockLabel?: string | null;
     }[]
   >(`/admin/content/tests${q}`);
 }

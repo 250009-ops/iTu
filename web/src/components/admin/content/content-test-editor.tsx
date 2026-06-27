@@ -161,7 +161,11 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
   }
 
   useEffect(() => {
-    if (tab === "preview" && testId && module === "listening") {
+    if (
+      tab === "preview" &&
+      testId &&
+      (module === "listening" || module === "writing")
+    ) {
       refreshMediaAssets();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when opening preview

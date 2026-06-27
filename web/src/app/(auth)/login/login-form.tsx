@@ -109,7 +109,7 @@ export default function LoginForm() {
       setAuthError(
         getErrorMessage(
           error,
-          "Invalid email or password. Try admin / admin for demo access.",
+          "Invalid email or password.",
         ),
       );
     } finally {
@@ -274,14 +274,6 @@ export default function LoginForm() {
           {!loading && <ArrowRight className="h-4 w-4" />}
         </Button>
       </form>
-      )}
-
-      {!twoFactorStep && (
-      <div className="rounded-lg border border-dashed border-border bg-slate-50 px-3 py-2.5 text-center text-xs text-muted">
-        <span className="font-medium text-foreground">Demo:</span>{" "}
-        student · teacher · admin{" "}
-        <span className="text-slate-400">(same as password)</span>
-      </div>
       )}
 
       <p className="text-center text-sm text-muted">

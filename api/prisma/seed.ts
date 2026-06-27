@@ -69,8 +69,9 @@ async function main() {
 
   const admin = await prisma.user.create({
     data: {
-      email: 'admin',
+      email: 'serkinov393@gmail.com',
       name: 'System Admin',
+      emailVerifiedAt: new Date(),
       passwordHash: adminHash,
       role: UserRole.ADMIN,
     },
@@ -78,8 +79,9 @@ async function main() {
 
   const teacherUser = await prisma.user.create({
     data: {
-      email: 'teacher',
+      email: 'teacher@example.com',
       name: 'Dr. Sarah Chen',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -108,6 +110,7 @@ async function main() {
     data: {
       email: 'emma.williams@example.com',
       name: 'Emma Williams',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -135,6 +138,7 @@ async function main() {
     data: {
       email: 'daniel.whitfield@example.com',
       name: 'Daniel Whitfield',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -162,6 +166,7 @@ async function main() {
     data: {
       email: 'michael.torres@example.com',
       name: 'Michael Torres',
+      emailVerifiedAt: new Date(),
       passwordHash: teacherHash,
       role: UserRole.TEACHER,
       teacherProfile: {
@@ -187,8 +192,9 @@ async function main() {
 
   const studentUser = await prisma.user.create({
     data: {
-      email: 'student',
+      email: 'student@example.com',
       name: 'Alex Johnson',
+      emailVerifiedAt: new Date(),
       passwordHash,
       role: UserRole.STUDENT,
       studentProfile: {
@@ -267,42 +273,167 @@ async function main() {
     },
   });
 
-  const mockPackage = await prisma.mockTestPackage.create({
+  let mockPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'listening+reading+writing+speaking', mockNumber: 1 },
+  });
+
+  if (!mockPackage) {
+    mockPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'full-academic-mock',
+        title: 'Full Academic Mock 001',
+        description:
+          'All four skills in one day. IELTS Academic — for university, visa, and professional registration.',
+        price: 49.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'listening+reading+writing+speaking',
+        mockNumber: 1,
+        mostPopular: true,
+        rating: 4.9,
+        reviewCount: 1240,
+        skills: ['listening', 'reading', 'writing', 'speaking'],
+        included: [
+          'Pick your certified examiner',
+          'Full band report within 24 hours',
+          'Criteria-level written feedback',
+          'Score progression tracking',
+          'Secure exam environment',
+        ],
+        rules: [
+          'No pause or rewind',
+          'Server-authoritative timers',
+          'Strict exam-day integrity',
+          'All scores released together',
+        ],
+        listeningTestId: listeningTest.id,
+        readingTestId: readingTest.id,
+        writingTestId: writingTest.id,
+        speakingBankId: speakingBank.id,
+      },
+    });
+  }
+
+  await prisma.packageContentTest.createMany({
+    data: [
+      { packageId: mockPackage.id, testId: listeningTest.id, skill: 'LISTENING' },
+      { packageId: mockPackage.id, testId: readingTest.id, skill: 'READING' },
+      { packageId: mockPackage.id, testId: writingTest.id, skill: 'WRITING' },
+      { packageId: mockPackage.id, testId: speakingBank.id, skill: 'SPEAKING' },
+    ],
+  });
+
+  const speakingOnlyBank = await prisma.contentTest.create({
     data: {
-      slug: 'full-academic-mock',
-      title: 'Full Academic Mock',
-      description:
-        'All four skills in one day. IELTS Academic — for university, visa, and professional registration.',
-      price: 49.0,
-      currency: 'USD',
-      examType: ExamType.ACADEMIC,
-      mostPopular: true,
-      rating: 4.9,
-      reviewCount: 1240,
-      skills: ['listening', 'reading', 'writing', 'speaking'],
-      included: [
-        'Pick your certified examiner',
-        'Full band report within 24 hours',
-        'Criteria-level written feedback',
-        'Score progression tracking',
-        'Secure exam environment',
-      ],
-      rules: [
-        'No pause or rewind',
-        'Server-authoritative timers',
-        'Strict exam-day integrity',
-        'All scores released together',
-      ],
-      listeningTestId: listeningTest.id,
-      readingTestId: readingTest.id,
-      writingTestId: writingTest.id,
-      speakingBankId: speakingBank.id,
+      code: 'SPK-BANK-001',
+      title: 'Speaking Bank 001',
+      type: ContentTestType.SPEAKING,
+      status: ContentTestStatus.PUBLISHED,
+      durationMin: 15,
+      publishedAt: new Date(),
+      content: loadExamJson('speaking.json'),
     },
   });
 
-  await prisma.mockTestPackage.createMany({
-    data: [
-      {
+  const writingOnlyTest = await prisma.contentTest.create({
+    data: {
+      code: 'WRI-ACAD-001',
+      title: 'Writing — Academic Mock 001',
+      type: ContentTestType.WRITING,
+      status: ContentTestStatus.PUBLISHED,
+      durationMin: 60,
+      publishedAt: new Date(),
+      content: loadExamJson('writing.json'),
+    },
+  });
+
+  let speakingOnlyPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'speaking', mockNumber: 1 },
+  });
+
+  if (!speakingOnlyPackage) {
+    speakingOnlyPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'speaking-only',
+        title: 'Speaking Only 001',
+        description:
+          'A single live Speaking session with a certified examiner, with criteria-level feedback.',
+        price: 22.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'speaking',
+        mockNumber: 1,
+        mostPopular: false,
+        rating: 4.9,
+        reviewCount: 430,
+        skills: ['speaking'],
+        included: [
+          'Pick your certified examiner',
+          'Speaking score within 24 hours',
+          'Criteria-level speaking feedback',
+          'Part 1, 2 & 3 transcript notes',
+        ],
+        rules: ['Live video session', '11–14 minutes', 'Recorded for examiner reference'],
+        speakingBankId: speakingOnlyBank.id,
+      },
+    });
+  }
+
+  await prisma.packageContentTest.create({
+    data: {
+      packageId: speakingOnlyPackage.id,
+      testId: speakingOnlyBank.id,
+      skill: 'SPEAKING',
+    },
+  });
+
+  let writingOnlyPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'writing', mockNumber: 1 },
+  });
+
+  if (!writingOnlyPackage) {
+    writingOnlyPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'writing-only',
+        title: 'Writing Only 001',
+        description:
+          'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
+        price: 18.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'writing',
+        mockNumber: 1,
+        mostPopular: false,
+        rating: 4.8,
+        reviewCount: 320,
+        skills: ['writing'],
+        included: [
+          'Expert examiner grading',
+          'Task 1 + Task 2 feedback',
+          'Criteria-level breakdown',
+          'Turnaround within 24 hours',
+        ],
+        rules: ['60-minute window', 'Live word counter', 'Spell-check disabled'],
+        writingTestId: writingOnlyTest.id,
+      },
+    });
+  }
+
+  await prisma.packageContentTest.create({
+    data: {
+      packageId: writingOnlyPackage.id,
+      testId: writingOnlyTest.id,
+      skill: 'WRITING',
+    },
+  });
+
+  let generalTrainingPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'listening+reading+writing+speaking', mockNumber: 2 },
+  });
+
+  if (!generalTrainingPackage) {
+    generalTrainingPackage = await prisma.mockTestPackage.create({
+      data: {
         slug: 'general-training-mock',
         title: 'General Training Mock',
         description:
@@ -310,9 +441,12 @@ async function main() {
         price: 45.0,
         currency: 'USD',
         examType: ExamType.GENERAL_TRAINING,
+        packageKind: 'listening+reading+writing+speaking',
+        mockNumber: 2,
         mostPopular: false,
         rating: 4.8,
         reviewCount: 680,
+        isActive: false,
         skills: ['listening', 'reading', 'writing', 'speaking'],
         included: [
           'Pick your certified examiner',
@@ -328,68 +462,8 @@ async function main() {
           'All scores released together',
         ],
       },
-      {
-        slug: 'speaking-only',
-        title: 'Speaking Only',
-        description:
-          'A single live Speaking session with a certified examiner, with criteria-level feedback.',
-        price: 22.0,
-        currency: 'USD',
-        examType: ExamType.ACADEMIC,
-        mostPopular: false,
-        rating: 4.9,
-        reviewCount: 430,
-        skills: ['speaking'],
-        included: [
-          'Pick your certified examiner',
-          'Speaking score within 24 hours',
-          'Criteria-level speaking feedback',
-          'Part 1, 2 & 3 transcript notes',
-        ],
-        rules: ['Live video session', '11–14 minutes', 'Recorded for examiner reference'],
-      },
-      {
-        slug: 'writing-only',
-        title: 'Writing Only',
-        description:
-          'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
-        price: 18.0,
-        currency: 'USD',
-        examType: ExamType.ACADEMIC,
-        mostPopular: false,
-        rating: 4.8,
-        reviewCount: 320,
-        skills: ['writing'],
-        included: [
-          'Expert examiner grading',
-          'Task 1 + Task 2 feedback',
-          'Criteria-level breakdown',
-          'Turnaround within 24 hours',
-        ],
-        rules: ['60-minute window', 'Live word counter', 'Spell-check disabled'],
-      },
-    ],
-  });
-
-  await prisma.mockTestPackage.updateMany({
-    where: { slug: 'general-training-mock' },
-    data: {
-      listeningTestId: listeningTest.id,
-      readingTestId: readingTest.id,
-      writingTestId: writingTest.id,
-      speakingBankId: speakingBank.id,
-    },
-  });
-
-  await prisma.mockTestPackage.updateMany({
-    where: { slug: 'speaking-only' },
-    data: { speakingBankId: speakingBank.id },
-  });
-
-  await prisma.mockTestPackage.updateMany({
-    where: { slug: 'writing-only' },
-    data: { writingTestId: writingTest.id },
-  });
+    });
+  }
 
   await seedBandTables();
 
@@ -431,6 +505,20 @@ async function main() {
     danielUser.teacherProfile!.id,
     michaelUser.teacherProfile!.id,
   ];
+
+  // Weekly templates so the teacher availability page matches bookable slots.
+  await prisma.teacherAvailability.createMany({
+    data: speakingTeacherIds.flatMap((teacherId) =>
+      [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+        teacherId,
+        dayOfWeek,
+        startTime: '09:00',
+        endTime: '17:00',
+        slotDuration: 30,
+      })),
+    ),
+  });
+
   const rollingSlots: {
     teacherId: string;
     startsAt: Date;
@@ -467,7 +555,7 @@ async function main() {
   }
   await prisma.teacherSlot.createMany({ data: rollingSlots });
 
-  // Alex Johnson (student/student) is seeded as a fresh user — no bookings yet.
+  // Alex Johnson is seeded as a fresh user with no bookings yet.
   // Use the booking wizard to test the full student journey from scratch.
 
   await prisma.notification.createMany({
@@ -520,7 +608,7 @@ async function main() {
   });
 
   console.log('Seed complete.');
-  console.log('Demo accounts: student/student, teacher/teacher, admin/admin');
+  console.log('Seed accounts created for local development.');
   console.log('Fresh student: Alex Johnson — book a mock via Browse Mocks');
   console.log('Reset Alex anytime: npm run db:reset-student');
 }

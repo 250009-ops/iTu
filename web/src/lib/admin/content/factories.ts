@@ -9,6 +9,11 @@ import type {
 } from "@/lib/exam/types";
 import { defaultMatchOptions } from "@/lib/admin/content/match-editor-helpers";
 import { newId } from "@/lib/admin/content/utils";
+import { defaultMatchingHeadingsInstruction } from "@/lib/exam/matching-headings";
+import {
+  defaultListeningMatchingHint,
+  defaultMatchingFeaturesHint,
+} from "@/lib/exam/matching-options";
 
 export function emptyReadingContent(title = "Reading"): ReadingContent {
   return {
@@ -159,7 +164,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionGroup["type"], string> = {
   sentence_completion: "Sentence completion",
   table_completion: "Table completion",
   mcq_single: "Multiple choice (single)",
-  mcq_multi: "Multiple choice (choose two)",
+  mcq_multi: "Multiple choice (choose multiple)",
   matching: "Matching",
   matching_headings: "Matching headings",
   matching_information: "Matching information",
@@ -222,7 +227,8 @@ export function createQuestionGroup(
         to,
         instruction:
           "Look at the following statements and the list of options below.",
-        hint: "Drag the correct letter next to each question. NB You may use any letter more than once.",
+        hint: defaultListeningMatchingHint(true),
+        reuseOptions: true,
         options: defaultMatchOptions(5),
         questions: [{ n: from, prompt: "" }],
       };
@@ -232,8 +238,7 @@ export function createQuestionGroup(
         type,
         from,
         to,
-        instruction:
-          "The text has six sections, A–F. Choose the correct heading for each section.",
+        instruction: defaultMatchingHeadingsInstruction(["A"]),
         hint: "Drag the correct heading into each section.",
         options: [
           { id: "i", label: "i. Heading one" },
@@ -314,6 +319,7 @@ export function createQuestionGroup(
         prompt: "",
         numbers: [from, from + 1],
         maxSelections: 2,
+        selectionMode: "shared",
         options: [
           { id: "A", label: "" },
           { id: "B", label: "" },
@@ -329,6 +335,7 @@ export function createQuestionGroup(
         instruction: "Label the map below.",
         hint: "Drag the correct letter next to each location.",
         imageLabel: "Map",
+        answerMode: "option",
         options: [
           { id: "A", label: "A" },
           { id: "B", label: "B" },
@@ -362,6 +369,7 @@ export function createQuestionGroup(
         to,
         instruction: "Complete the flow-chart below.",
         hint: "Choose SIX answers from the box and write the correct letter next to questions.",
+        answerMode: "option",
         title: "Process overview",
         options: [
           { id: "A", label: "A. Step one" },
@@ -384,7 +392,11 @@ export function createQuestionGroup(
         body: "You will hear a number of different recordings and you will have to answer questions on what you hear.\n\nThere will be time for you to read the questions and you will have a chance to check your work.\n\nAll the recordings will be played once only.",
         buttonLabel: "Next",
       };
-    case "matching_features":
+    case "matching_features": {
+      const options = defaultMatchOptions(7).map((o) => ({
+        ...o,
+        label: `Person ${o.id}`,
+      }));
       return {
         id,
         type,
@@ -392,13 +404,12 @@ export function createQuestionGroup(
         to,
         instruction:
           "Look at the following statements and the list of people below.",
-        hint: "Match each statement with the correct person, A–G. NB You may use any letter more than once.",
+        hint: defaultMatchingFeaturesHint(options, true),
+        reuseOptions: true,
         listTitle: "List of people",
-        options: defaultMatchOptions(7).map((o) => ({
-          ...o,
-          label: `Person ${o.id}`,
-        })),
+        options,
         questions: [{ n: from, prompt: "" }],
       };
+    }
   }
 }

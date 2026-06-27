@@ -5,6 +5,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { GradingService } from './grading.service';
+import type { WritingCriteriaScoresPayload } from './writing-band-validation';
 
 @ApiTags('grading')
 @ApiBearerAuth()
@@ -18,6 +19,16 @@ export class GradingController {
     return this.grading.getWritingQueue(user);
   }
 
+  @Get('writing-hub')
+  getWritingGradingHub(@CurrentUser() user: RequestUser) {
+    return this.grading.getWritingGradingHub(user);
+  }
+
+  @Get('speaking-queue')
+  getSpeakingQueue(@CurrentUser() user: RequestUser) {
+    return this.grading.getSpeakingQueue(user);
+  }
+
   @Get('writing/:id')
   getWritingSubmission(
     @Param('id') id: string,
@@ -26,13 +37,21 @@ export class GradingController {
     return this.grading.getWritingSubmission(id, user);
   }
 
+  @Post('writing/:id/ai-evaluate')
+  triggerWritingAiEvaluation(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.grading.triggerWritingAiEvaluation(id, user);
+  }
+
   @Post('writing/:id/score')
   scoreWriting(
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
     @Body()
     body: {
-      criteriaScores: Record<string, number>;
+      criteriaScores: WritingCriteriaScoresPayload;
       overallBand: number;
       feedback?: string;
     },

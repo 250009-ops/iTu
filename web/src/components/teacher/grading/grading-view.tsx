@@ -1,8 +1,7 @@
 "use client";
 
 import { ApiDataShell } from "@/components/shared/api-data-shell";
-import { GradingHeader } from "@/components/teacher/grading/grading-header";
-import { SubmissionsTable } from "@/components/teacher/grading/submissions-table";
+import { WritingGradingHub } from "@/components/teacher/grading/writing-grading-hub";
 import {
   TeacherGradingProvider,
   useTeacherGrading,
@@ -22,9 +21,8 @@ function GradingContent() {
   return (
     <ApiDataShell loading={loading} error={error}>
       <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-6xl space-y-6">
-          <GradingHeader />
-          <SubmissionsTable />
+        <div className="mx-auto max-w-6xl">
+          <WritingGradingHub />
         </div>
       </div>
     </ApiDataShell>
