@@ -57,8 +57,16 @@ function playHeadphoneTestTone(): Promise<void> {
 
 export function useCheckInDevices(requiredIcons: CheckInDeviceIcon[]) {
   const iconsKey = requiredIcons.join(",");
+  // Stabilize the icon list by value. The parent rebuilds this array on every
+  // render (devices.map(...)), so depending on its identity caused the reset
+  // effect below to fire on every render — wiping every device confirmation and
+  // keeping the Start button permanently disabled.
+  const icons = useMemo<CheckInDeviceIcon[]>(
+    () => (iconsKey ? (iconsKey.split(",") as CheckInDeviceIcon[]) : []),
+    [iconsKey],
+  );
   const [states, setStates] = useState<Record<CheckInDeviceIcon, DeviceState>>(() =>
-    initialState(requiredIcons),
+    initialState(icons),
   );
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -68,9 +76,9 @@ export function useCheckInDevices(requiredIcons: CheckInDeviceIcon[]) {
   }, []);
 
   useEffect(() => {
-    setStates(initialState(requiredIcons));
+    setStates(initialState(icons));
     stopPreview();
-  }, [iconsKey, requiredIcons, stopPreview]);
+  }, [icons, stopPreview]);
 
   useEffect(() => () => stopPreview(), [stopPreview]);
 
@@ -98,10 +106,10 @@ export function useCheckInDevices(requiredIcons: CheckInDeviceIcon[]) {
   }, [setDevice]);
 
   useEffect(() => {
-    if (requiredIcons.includes("wifi")) {
+    if (icons.includes("wifi")) {
       void checkWifi();
     }
-  }, [requiredIcons, checkWifi]);
+  }, [icons, checkWifi]);
 
   const checkHeadphones = useCallback(async () => {
     setDevice("headphones", {
@@ -243,8 +251,8 @@ export function useCheckInDevices(requiredIcons: CheckInDeviceIcon[]) {
   );
 
   const allPassed = useMemo(
-    () => requiredIcons.every((icon) => states[icon]?.verdict === "pass"),
-    [requiredIcons, states],
+    () => icons.every((icon) => states[icon]?.verdict === "pass"),
+    [icons, states],
   );
 
   return {
