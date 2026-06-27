@@ -79,7 +79,11 @@ async function main() {
     }
 
     for (const link of links) {
-      if (assignedTests.has(link.testId)) {
+      // L/R/W papers stay globally exclusive; SPEAKING banks are reusable pools
+      // that may be shared across packages, so they skip the dedup/steal logic.
+      const isExclusive = link.skill !== 'SPEAKING';
+
+      if (isExclusive && assignedTests.has(link.testId)) {
         console.warn(
           `Test ${link.testId} already assigned — clearing duplicate FK on package ${pkg.slug}`,
         );
@@ -87,38 +91,49 @@ async function main() {
         if (link.skill === 'LISTENING') data.listeningTestId = null;
         if (link.skill === 'READING') data.readingTestId = null;
         if (link.skill === 'WRITING') data.writingTestId = null;
-        if (link.skill === 'SPEAKING') data.speakingBankId = null;
         await prisma.mockTestPackage.update({ where: { id: pkg.id }, data });
         continue;
       }
 
-      assignedTests.add(link.testId);
+      if (isExclusive) assignedTests.add(link.testId);
+
       const byPackageSkill = await prisma.packageContentTest.findUnique({
         where: {
           packageId_skill: { packageId: pkg.id, skill: link.skill },
         },
       });
       if (byPackageSkill) {
+        if (byPackageSkill.testId !== link.testId) {
+          await prisma.packageContentTest.update({
+            where: { id: byPackageSkill.id },
+            data: { testId: link.testId },
+          });
+        }
         continue;
       }
 
-      const existingPool = await prisma.packageContentTest.findFirst({
-        where: { testId: link.testId },
-      });
-      if (existingPool) {
-        await prisma.packageContentTest.update({
-          where: { id: existingPool.id },
-          data: { packageId: pkg.id, skill: link.skill },
+      // For exclusive skills, move an orphaned pool row to this package; speaking
+      // banks always get their own per-package row.
+      if (isExclusive) {
+        const existingPool = await prisma.packageContentTest.findFirst({
+          where: { testId: link.testId },
         });
-      } else {
-        await prisma.packageContentTest.create({
-          data: {
-            packageId: pkg.id,
-            testId: link.testId,
-            skill: link.skill,
-          },
-        });
+        if (existingPool) {
+          await prisma.packageContentTest.update({
+            where: { id: existingPool.id },
+            data: { packageId: pkg.id, skill: link.skill },
+          });
+          continue;
+        }
       }
+
+      await prisma.packageContentTest.create({
+        data: {
+          packageId: pkg.id,
+          testId: link.testId,
+          skill: link.skill,
+        },
+      });
     }
   }
 

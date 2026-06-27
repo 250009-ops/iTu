@@ -1076,22 +1076,31 @@ export class AdminService {
       }
     }
 
-    const existingAssignments = await this.prisma.packageContentTest.findMany({
-      where: {
-        testId: { in: allIds },
-        ...(excludePackageId ? { packageId: { not: excludePackageId } } : {}),
-      },
-      include: {
-        test: { select: { code: true } },
-        package: { select: { mockNumber: true, packageKind: true, title: true } },
-      },
-    });
+    // Listening/Reading/Writing papers are single-use and must stay exclusive to
+    // one package. Speaking banks are reusable topic pools, so they're exempt from
+    // the cross-package conflict check.
+    const exclusiveIds = pool
+      .filter((entry) => entry.skill !== 'speaking')
+      .flatMap((entry) => entry.testIds);
 
-    if (existingAssignments.length > 0) {
-      const conflict = existingAssignments[0]!;
-      throw new BadRequestException(
-        `Test ${conflict.test.code} is already used in ${formatMockNumber(conflict.package.packageKind, conflict.package.mockNumber)} (${conflict.package.title})`,
-      );
+    if (exclusiveIds.length > 0) {
+      const existingAssignments = await this.prisma.packageContentTest.findMany({
+        where: {
+          testId: { in: exclusiveIds },
+          ...(excludePackageId ? { packageId: { not: excludePackageId } } : {}),
+        },
+        include: {
+          test: { select: { code: true } },
+          package: { select: { mockNumber: true, packageKind: true, title: true } },
+        },
+      });
+
+      if (existingAssignments.length > 0) {
+        const conflict = existingAssignments[0]!;
+        throw new BadRequestException(
+          `Test ${conflict.test.code} is already used in ${formatMockNumber(conflict.package.packageKind, conflict.package.mockNumber)} (${conflict.package.title})`,
+        );
+      }
     }
   }
 

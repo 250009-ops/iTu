@@ -128,14 +128,17 @@ export async function evaluatePackageAvailability(
     }
 
     const alreadyTaken = testId != null && finished.has(testId);
-    const skillAvailable = testId != null && !alreadyTaken;
+    // Speaking banks are reusable topic pools shared across packages, so a prior
+    // completed speaking session must not block booking another package.
+    const blocksOnReuse = skill !== ExamSkill.SPEAKING;
+    const skillAvailable = testId != null && (!alreadyTaken || !blocksOnReuse);
 
     if (testId == null) {
       canPurchase = false;
       if (!blockingReason) {
         blockingReason = `This package is missing a published ${skill.toLowerCase()} test.`;
       }
-    } else if (alreadyTaken) {
+    } else if (alreadyTaken && blocksOnReuse) {
       canPurchase = false;
       if (!blockingReason) {
         blockingReason = `You have already completed ${testCode ?? 'this test'} and cannot purchase this package again.`;

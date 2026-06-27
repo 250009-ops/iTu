@@ -55,25 +55,17 @@ async function main() {
     }
 
     for (const link of links) {
-      const existing = await prisma.packageContentTest.findUnique({
-        where: { testId: link.testId },
-      });
-      if (existing && existing.packageId !== pkg.id) {
-        console.warn(
-          `Skipping ${link.testId} for package ${pkg.slug}: already assigned to ${existing.packageId}`,
-        );
-        continue;
-      }
       await prisma.packageContentTest.upsert({
-        where: { testId: link.testId },
+        where: {
+          packageId_skill: { packageId: pkg.id, skill: link.skill },
+        },
         create: {
           packageId: pkg.id,
           testId: link.testId,
           skill: link.skill,
         },
         update: {
-          packageId: pkg.id,
-          skill: link.skill,
+          testId: link.testId,
         },
       });
     }

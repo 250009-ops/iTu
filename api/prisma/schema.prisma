@@ -352,11 +352,13 @@ model ContentTest {
   @@map("content_tests")
 }
 
-/// One published test per skill per package. Each test is globally exclusive.
+/// One published test per skill per package. Listening/Reading/Writing papers are
+/// globally exclusive (enforced in app logic); SPEAKING banks are reusable pools
+/// and may be linked to multiple packages.
 model PackageContentTest {
   id        String    @id @default(cuid())
   packageId String    @map("package_id")
-  testId    String    @unique @map("test_id")
+  testId    String    @map("test_id")
   skill     ExamSkill
   createdAt DateTime  @default(now()) @map("created_at")
 
@@ -365,6 +367,7 @@ model PackageContentTest {
 
   @@unique([packageId, skill])
   @@index([packageId, skill])
+  @@index([testId])
   @@map("package_content_tests")
 }
 

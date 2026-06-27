@@ -104,10 +104,14 @@ function TestSelect({
   currentPackageId?: string;
   onChange: (v: string) => void;
 }) {
+  // Speaking banks are reusable topic pools, so they may be shared across
+  // packages. Listening/Reading/Writing papers stay exclusive to one package.
+  const reusable = type === "SPEAKING";
   const filtered = options.filter((o) => o.type === type);
   const selectable = filtered.filter((o) => {
     if (o.id === value) return true;
     if (!isPublishedStatus(o.status)) return false;
+    if (reusable) return true;
     if (!o.isPackaged) return true;
     return o.assignedPackageId === currentPackageId;
   });
@@ -126,7 +130,9 @@ function TestSelect({
           <option key={o.id} value={o.id}>
             {o.code} · {o.title}
             {o.isPackaged && o.assignedPackageId !== currentPackageId
-              ? " (in use)"
+              ? reusable
+                ? " (shared)"
+                : " (in use)"
               : ""}
           </option>
         ))}
@@ -529,7 +535,7 @@ export function PackageEditorDialog() {
             <div>
               <p className="text-sm font-semibold text-navy">Package content</p>
               <p className="text-xs text-muted">
-                Pick one published test per included skill. Tests already used in another package are hidden.
+                Pick one published test per included skill. Listening, Reading and Writing papers already used in another package are hidden; speaking banks can be reused across packages.
                 {hasEnrollments ? " Content is locked because students have enrolled." : ""}
               </p>
             </div>
