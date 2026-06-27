@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SpeakingContent, SpeakingPart1Topic } from "@/lib/exam/types";
-import { emptyPart1Topic } from "@/lib/speaking/content";
+import { emptySpeakingTopic } from "@/lib/speaking/content";
+import { cn } from "@/lib/utils";
 
 type Props = {
   content: SpeakingContent;
@@ -65,14 +66,22 @@ function QuestionListEditor({
   );
 }
 
-function Part1TopicsEditor({
+function SpeakingTopicsEditor({
   topics,
   onChange,
+  tone,
 }: {
   topics: SpeakingPart1Topic[];
   onChange: (topics: SpeakingPart1Topic[]) => void;
+  tone: "sky" | "violet";
 }) {
-  const items = topics.length > 0 ? topics : [emptyPart1Topic()];
+  const items = topics.length > 0 ? topics : [emptySpeakingTopic()];
+  const badgeClass =
+    tone === "sky"
+      ? "bg-sky-100 text-sky-700"
+      : "bg-violet-100 text-violet-700";
+  const borderClass =
+    tone === "sky" ? "border-sky-100" : "border-violet-100";
 
   function updateTopic(index: number, patch: Partial<SpeakingPart1Topic>) {
     const next = [...items];
@@ -112,10 +121,15 @@ function Part1TopicsEditor({
       {items.map((topic, topicIndex) => (
         <div
           key={topicIndex}
-          className="rounded-lg border border-sky-100 bg-white p-4 shadow-sm"
+          className={cn("rounded-lg border bg-white p-4 shadow-sm", borderClass)}
         >
           <div className="mb-3 flex items-start gap-2">
-            <span className="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700">
+            <span
+              className={cn(
+                "mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                badgeClass,
+              )}
+            >
               {topicIndex + 1}
             </span>
             <div className="min-w-0 flex-1 space-y-2">
@@ -132,7 +146,7 @@ function Part1TopicsEditor({
               className="mt-6 shrink-0 text-red-600"
               onClick={() => {
                 const next = items.filter((_, i) => i !== topicIndex);
-                onChange(next.length ? next : [emptyPart1Topic()]);
+                onChange(next.length ? next : [emptySpeakingTopic()]);
               }}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -177,7 +191,7 @@ function Part1TopicsEditor({
       <Button
         variant="secondary"
         size="sm"
-        onClick={() => onChange([...items, emptyPart1Topic()])}
+        onClick={() => onChange([...items, emptySpeakingTopic()])}
       >
         <Plus className="h-3.5 w-3.5" /> Add topic
       </Button>
@@ -256,8 +270,9 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
             visible to the student.
           </p>
         </div>
-        <Part1TopicsEditor
-          topics={content.part1Topics ?? [emptyPart1Topic()]}
+        <SpeakingTopicsEditor
+          tone="sky"
+          topics={content.part1Topics ?? [emptySpeakingTopic()]}
           onChange={(part1Topics) =>
             onContentChange({ ...content, part1Topics, part1Questions: undefined })
           }
@@ -338,11 +353,21 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
       </div>
 
       <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4">
-        <QuestionListEditor
-          label="Part 3 — Discussion questions"
-          hint="Examiner-only. Shown in the live console — not visible to the student."
-          questions={content.part3Questions ?? [""]}
-          onChange={(part3Questions) => onContentChange({ ...content, part3Questions })}
+        <div className="mb-4">
+          <Label className="text-xs font-semibold text-navy">
+            Part 3 — Discussion topics &amp; questions
+          </Label>
+          <p className="text-xs text-muted">
+            Examiner-only. Group abstract discussion questions by theme for the
+            live console — not visible to the student.
+          </p>
+        </div>
+        <SpeakingTopicsEditor
+          tone="violet"
+          topics={content.part3Topics ?? [emptySpeakingTopic()]}
+          onChange={(part3Topics) =>
+            onContentChange({ ...content, part3Topics, part3Questions: undefined })
+          }
         />
       </div>
     </div>

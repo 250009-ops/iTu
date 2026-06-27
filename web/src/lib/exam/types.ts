@@ -312,7 +312,9 @@ export interface SpeakingContent {
   part1Topics?: SpeakingPart1Topic[];
   /** @deprecated Use part1Topics — kept for legacy content migration. */
   part1Questions?: string[];
-  /** Part 3 discussion questions (examiner-only). */
+  /** Part 3 discussion topic pools with questions (examiner-only). */
+  part3Topics?: SpeakingPart1Topic[];
+  /** @deprecated Use part3Topics — kept for legacy content migration. */
   part3Questions?: string[];
   /** Optional examiner notes during Part 2 (prep/speak/rounding-off). */
   part2ExaminerNotes?: string[];

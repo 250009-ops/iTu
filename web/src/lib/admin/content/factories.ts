@@ -136,10 +136,18 @@ export function emptySpeakingContent(title = "Speaking"): SpeakingContent {
         questions: ["What do you usually do in your free time?"],
       },
     ],
-    part3Questions: [
-      "Why do you think this topic is important?",
-      "Has this changed in recent years?",
-      "What might happen in the future?",
+    part3Topics: [
+      {
+        title: "Importance & change",
+        questions: [
+          "Why do you think this topic is important?",
+          "Has this changed in recent years?",
+        ],
+      },
+      {
+        title: "Future",
+        questions: ["What might happen in the future?"],
+      },
     ],
     part2ExaminerNotes: [
       "Give the candidate 1 minute to prepare.",

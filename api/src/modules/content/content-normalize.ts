@@ -244,8 +244,13 @@ function repairWritingContent(c: Json): Json {
   return { ...c, tasks: asArray(c.tasks) };
 }
 
-function repairPart1Topics(c: Json): Json[] {
-  const rawTopics = asArray(c.part1Topics) as Json[];
+function repairTopicGroups(
+  c: Json,
+  topicsKey: 'part1Topics' | 'part3Topics',
+  legacyKey: 'part1Questions' | 'part3Questions',
+  legacyTitle: string,
+): Json[] {
+  const rawTopics = asArray(c[topicsKey]) as Json[];
   const topics = rawTopics
     .map((topic) => {
       if (!isObject(topic)) return null;
@@ -260,11 +265,11 @@ function repairPart1Topics(c: Json): Json[] {
 
   if (topics.length > 0) return topics;
 
-  const legacy = asArray(c.part1Questions).filter(
+  const legacy = asArray(c[legacyKey]).filter(
     (q) => typeof q === 'string' && q.trim(),
   );
   if (legacy.length > 0) {
-    return [{ title: 'General questions', questions: legacy }];
+    return [{ title: legacyTitle, questions: legacy }];
   }
 
   return [];
@@ -274,8 +279,18 @@ function repairSpeakingContent(c: Json): Json {
   return {
     ...c,
     parts: asArray(c.parts),
-    part1Topics: repairPart1Topics(c),
-    part3Questions: asArray(c.part3Questions),
+    part1Topics: repairTopicGroups(
+      c,
+      'part1Topics',
+      'part1Questions',
+      'General questions',
+    ),
+    part3Topics: repairTopicGroups(
+      c,
+      'part3Topics',
+      'part3Questions',
+      'General discussion',
+    ),
     part2ExaminerNotes: asArray(c.part2ExaminerNotes),
   };
 }

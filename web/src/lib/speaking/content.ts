@@ -14,9 +14,9 @@ export type ExaminerPartDef = {
   title: string;
   durationLabel: string;
   targetSeconds: number;
-  /** Flat prompt list (Part 2/3, or legacy Part 1). */
+  /** Flat prompt list (Part 2 notes, or legacy flat Part 1/3). */
   prompts: string[];
-  /** Part 1 topic groupings when configured in Content Studio. */
+  /** Part 1/3 topic groupings when configured in Content Studio. */
   topics?: ExaminerPart1Topic[];
   cueCard?: { topic: string; bullets: string[] };
 };
@@ -45,11 +45,26 @@ const DEFAULT_PART2_NOTES: string[] = [
   "Ask one or two rounding-off questions afterwards.",
 ];
 
-const DEFAULT_PART3: string[] = [
-  "What skills do you think are most important for young people today?",
-  "Do you think some skills are becoming less useful over time?",
-  "How has technology changed the way people learn new skills?",
-  "Should governments invest more in skills training? Why?",
+const DEFAULT_PART3_TOPICS: ExaminerPart1Topic[] = [
+  {
+    title: "Skills & education",
+    questions: [
+      "What skills do you think are most important for young people today?",
+      "Do you think some skills are becoming less useful over time?",
+    ],
+  },
+  {
+    title: "Technology & learning",
+    questions: [
+      "How has technology changed the way people learn new skills?",
+    ],
+  },
+  {
+    title: "Policy & society",
+    questions: [
+      "Should governments invest more in skills training? Why?",
+    ],
+  },
 ];
 
 export function formatPartDuration(seconds: number): string {
@@ -58,23 +73,27 @@ export function formatPartDuration(seconds: number): string {
   return `~${mins} minutes`;
 }
 
-function normalizePart1Topics(content: SpeakingContent): ExaminerPart1Topic[] {
-  const rawTopics = content.part1Topics ?? [];
-  const topics = rawTopics
+function normalizeTopicGroups(
+  topics: SpeakingPart1Topic[] | undefined,
+  legacyQuestions: string[] | undefined,
+  legacyTitle: string,
+  defaults: ExaminerPart1Topic[],
+): ExaminerPart1Topic[] {
+  const normalized = (topics ?? [])
     .map((topic) => ({
       title: topic.title?.trim() ?? "",
       questions: (topic.questions ?? []).filter((q) => q.trim().length > 0),
     }))
     .filter((topic) => topic.title || topic.questions.length > 0);
 
-  if (topics.length > 0) return topics;
+  if (normalized.length > 0) return normalized;
 
-  const legacy = content.part1Questions?.filter((q) => q.trim().length > 0) ?? [];
+  const legacy = legacyQuestions?.filter((q) => q.trim().length > 0) ?? [];
   if (legacy.length > 0) {
-    return [{ title: "General questions", questions: legacy }];
+    return [{ title: legacyTitle, questions: legacy }];
   }
 
-  return DEFAULT_PART1_TOPICS;
+  return defaults;
 }
 
 /** Build examiner part definitions from published speaking content. */
@@ -84,10 +103,18 @@ export function buildExaminerParts(content: SpeakingContent): ExaminerPartDef[] 
   const p2 = parts.find((p) => p.part === 2);
   const p3 = parts.find((p) => p.part === 3);
 
-  const part1Topics = normalizePart1Topics(content);
-  const part1Prompts = part1Topics.flatMap((topic) => topic.questions);
-  const part3Questions =
-    content.part3Questions?.filter((q) => q.trim().length > 0) ?? DEFAULT_PART3;
+  const part1Topics = normalizeTopicGroups(
+    content.part1Topics,
+    content.part1Questions,
+    "General questions",
+    DEFAULT_PART1_TOPICS,
+  );
+  const part3Topics = normalizeTopicGroups(
+    content.part3Topics,
+    content.part3Questions,
+    "General discussion",
+    DEFAULT_PART3_TOPICS,
+  );
   const part2Notes =
     content.part2ExaminerNotes?.filter((q) => q.trim().length > 0) ??
     DEFAULT_PART2_NOTES;
@@ -101,7 +128,7 @@ export function buildExaminerParts(content: SpeakingContent): ExaminerPartDef[] 
       title: p1?.title ?? "Introduction & Interview",
       durationLabel: p1 ? formatPartDuration(p1.durationSec) : "4–5 minutes",
       targetSeconds: p1?.durationSec ?? 300,
-      prompts: part1Prompts,
+      prompts: part1Topics.flatMap((topic) => topic.questions),
       topics: part1Topics,
     },
     {
@@ -120,9 +147,14 @@ export function buildExaminerParts(content: SpeakingContent): ExaminerPartDef[] 
       title: p3?.title ?? "Two-way Discussion",
       durationLabel: p3 ? formatPartDuration(p3.durationSec) : "4–5 minutes",
       targetSeconds: p3?.durationSec ?? 300,
-      prompts: part3Questions,
+      prompts: part3Topics.flatMap((topic) => topic.questions),
+      topics: part3Topics,
     },
   ];
+}
+
+export function partUsesTopics(part: ExaminerPartDef | undefined): boolean {
+  return part?.part !== 2 && Boolean(part?.topics?.length);
 }
 
 export function promptForPhase(
@@ -131,7 +163,7 @@ export function promptForPhase(
   phase: SpeakingPhase,
   topicIndex = 0,
 ): string {
-  if (part.part === 1 && part.topics?.length) {
+  if ((part.part === 1 || part.part === 3) && part.topics?.length) {
     const topic = part.topics[topicIndex] ?? part.topics[0];
     return topic?.questions[promptIndex] ?? "";
   }
@@ -148,17 +180,21 @@ export function promptForPhase(
   return part.prompts[promptIndex] ?? "";
 }
 
-export function emptyPart1Topic(): SpeakingPart1Topic {
+export function emptySpeakingTopic(): SpeakingPart1Topic {
   return { title: "", questions: [""] };
 }
+
+/** @deprecated Use emptySpeakingTopic */
+export const emptyPart1Topic = emptySpeakingTopic;
 
 /** Strip examiner-only fields before sending content to students. */
 export function sanitizeSpeakingContentForStudent(
   content: Record<string, unknown>,
 ): Record<string, unknown> {
   const {
-    part1Topics: _topics,
+    part1Topics: _t1,
     part1Questions: _p1,
+    part3Topics: _t3,
     part3Questions: _p3,
     part2ExaminerNotes: _notes,
     ...student

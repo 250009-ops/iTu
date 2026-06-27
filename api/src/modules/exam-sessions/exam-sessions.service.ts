@@ -752,6 +752,7 @@ export class ExamSessionsService {
       const {
         part1Topics: _topics,
         part1Questions: _p1,
+        part3Topics: _t3,
         part3Questions: _p3,
         part2ExaminerNotes: _notes,
         ...studentContent

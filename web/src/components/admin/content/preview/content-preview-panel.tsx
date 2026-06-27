@@ -306,7 +306,20 @@ function SpeakingPreview({ content }: { content: SpeakingContent }) {
           },
         ]
       : []);
-  const p3 = content.part3Questions?.filter((q) => q.trim()) ?? [];
+  const p3Topics =
+    content.part3Topics?.filter(
+      (topic) =>
+        topic.title.trim() ||
+        (topic.questions ?? []).some((q) => q.trim()),
+    ) ??
+    (content.part3Questions?.filter((q) => q.trim()).length
+      ? [
+          {
+            title: "General discussion",
+            questions: content.part3Questions.filter((q) => q.trim()),
+          },
+        ]
+      : []);
 
   return (
     <div className="space-y-4 rounded-xl border border-border bg-white p-6">
@@ -345,14 +358,23 @@ function SpeakingPreview({ content }: { content: SpeakingContent }) {
           ))}
         </ul>
       </div>
-      {p3.length > 0 && (
+      {p3Topics.length > 0 && (
         <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
-          <p className="text-xs font-bold uppercase text-muted">Part 3 questions (examiner)</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
-            {p3.map((q) => (
-              <li key={q}>{q}</li>
+          <p className="text-xs font-bold uppercase text-muted">
+            Part 3 topics (examiner)
+          </p>
+          <div className="mt-3 space-y-3">
+            {p3Topics.map((topic) => (
+              <div key={topic.title}>
+                <p className="text-sm font-semibold text-navy">{topic.title}</p>
+                <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+                  {(topic.questions ?? []).filter((q) => q.trim()).map((q) => (
+                    <li key={q}>{q}</li>
+                  ))}
+                </ol>
+              </div>
             ))}
-          </ol>
+          </div>
         </div>
       )}
     </div>

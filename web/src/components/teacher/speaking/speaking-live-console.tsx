@@ -24,6 +24,7 @@ import {
 import { emptySpeakingContent } from "@/lib/admin/content/factories";
 import {
   buildExaminerParts,
+  partUsesTopics,
   promptForPhase,
 } from "@/lib/speaking/content";
 import { useCountdown } from "@/lib/exam/use-countdown";
@@ -167,14 +168,14 @@ export function SpeakingLiveConsole() {
 
   function nextPrompt() {
     if (!current) return;
-    if (current.part === 1 && current.topics?.length) {
-      const topic = current.topics[topicIndex];
+    if (partUsesTopics(current)) {
+      const topic = current.topics![topicIndex];
       if (!topic) return;
       if (promptIndex < topic.questions.length - 1) {
         setPromptIndex((i) => i + 1);
         return;
       }
-      if (topicIndex < current.topics.length - 1) {
+      if (topicIndex < current.topics!.length - 1) {
         setTopicIndex((i) => i + 1);
         setPromptIndex(0);
       }
@@ -186,13 +187,13 @@ export function SpeakingLiveConsole() {
 
   function prevPrompt() {
     if (!current) return;
-    if (current.part === 1 && current.topics?.length) {
+    if (partUsesTopics(current)) {
       if (promptIndex > 0) {
         setPromptIndex((i) => i - 1);
         return;
       }
       if (topicIndex > 0) {
-        const prevTopic = current.topics[topicIndex - 1];
+        const prevTopic = current.topics![topicIndex - 1];
         setTopicIndex((i) => i - 1);
         setPromptIndex(Math.max(0, (prevTopic?.questions.length ?? 1) - 1));
       }
@@ -201,19 +202,19 @@ export function SpeakingLiveConsole() {
     setPromptIndex((i) => Math.max(0, i - 1));
   }
 
-  const part1Topics =
-    current?.part === 1 && current.topics?.length ? current.topics : [];
-  const activeTopic = part1Topics[topicIndex];
-  const activeQuestionTotal = activeTopic?.questions.length ?? current?.prompts.length ?? 0;
+  const activeTopics = partUsesTopics(current) ? current!.topics! : [];
+  const activeTopic = activeTopics[topicIndex];
+  const activeQuestionTotal =
+    activeTopic?.questions.length ?? current?.prompts.length ?? 0;
   const canNextPrompt =
     current &&
-    (current.part === 1 && part1Topics.length
+    (partUsesTopics(current)
       ? promptIndex < activeQuestionTotal - 1 ||
-        topicIndex < part1Topics.length - 1
+        topicIndex < activeTopics.length - 1
       : promptIndex < current.prompts.length - 1);
   const canPrevPrompt =
     current &&
-    (current.part === 1 && part1Topics.length
+    (partUsesTopics(current)
       ? promptIndex > 0 || topicIndex > 0
       : promptIndex > 0);
 
@@ -282,7 +283,7 @@ export function SpeakingLiveConsole() {
                       <>
                         <p className="text-xs font-bold uppercase tracking-widest text-sky-300">
                           Part {partNum} · {current?.title ?? "Speaking"}
-                          {activePart === 1 && activeTopic?.title && (
+                          {activeTopic?.title && activePart !== 2 && (
                             <span className="ml-2 text-white/70">
                               · {activeTopic.title}
                             </span>
@@ -351,9 +352,9 @@ export function SpeakingLiveConsole() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {activePart === 1 && part1Topics.length > 1 && (
+            {activePart !== 2 && activeTopics.length > 1 && (
               <div className="flex flex-wrap gap-1">
-                {part1Topics.map((topic, idx) => (
+                {activeTopics.map((topic, idx) => (
                   <button
                     key={`${topic.title}-${idx}`}
                     type="button"
@@ -364,7 +365,9 @@ export function SpeakingLiveConsole() {
                     className={cn(
                       "rounded-lg px-2.5 py-1 text-[11px] font-semibold transition",
                       topicIndex === idx
-                        ? "bg-sky-500 text-white"
+                        ? activePart === 3
+                          ? "bg-violet-500 text-white"
+                          : "bg-sky-500 text-white"
                         : "bg-white/10 text-white/75 hover:bg-white/20",
                     )}
                   >

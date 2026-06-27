@@ -252,9 +252,22 @@ export function buildPublishChecklist(
         sum + (topic.questions ?? []).filter((q) => q.trim()).length,
       legacyP1,
     );
-    const p3 = Array.isArray(c.part3Questions)
+    const p3Topics = Array.isArray(c.part3Topics)
+      ? (c.part3Topics as SpeakingPart1Topic[])
+      : [];
+    const legacyP3 = Array.isArray(c.part3Questions)
       ? (c.part3Questions as string[]).filter((q) => q.trim()).length
       : 0;
+    const p3TopicCount = p3Topics.filter(
+      (topic) =>
+        topic.title?.trim() ||
+        (topic.questions ?? []).some((q) => q.trim()),
+    ).length;
+    const p3QuestionCount = p3Topics.reduce(
+      (sum, topic) =>
+        sum + (topic.questions ?? []).filter((q) => q.trim()).length,
+      legacyP3,
+    );
     items.push({
       id: "parts",
       label: `${parts}/3 speaking parts defined`,
@@ -272,10 +285,10 @@ export function buildPublishChecklist(
       hint: "Add at least 2 Part 1 topics with 3+ questions total.",
     });
     items.push({
-      id: "part3-questions",
-      label: `${p3} Part 3 discussion questions`,
-      ok: p3 >= 3,
-      hint: "Add at least 3 Part 3 questions for the examiner console.",
+      id: "part3-topics",
+      label: `${p3TopicCount} Part 3 topics · ${p3QuestionCount} questions`,
+      ok: p3TopicCount >= 2 && p3QuestionCount >= 3,
+      hint: "Add at least 2 Part 3 discussion topics with 3+ questions total.",
     });
   }
 

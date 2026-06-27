@@ -159,8 +159,13 @@ function repairWritingContent(raw: object): WritingContent {
   return { ...c, tasks: tasks as WritingContent["tasks"] };
 }
 
-function repairPart1Topics(c: SpeakingContent): SpeakingPart1Topic[] {
-  const rawTopics = asArray(c.part1Topics) as Partial<SpeakingPart1Topic>[];
+function repairTopicGroups(
+  c: SpeakingContent,
+  topicsKey: "part1Topics" | "part3Topics",
+  legacyKey: "part1Questions" | "part3Questions",
+  legacyTitle: string,
+): SpeakingPart1Topic[] {
+  const rawTopics = asArray(c[topicsKey]) as Partial<SpeakingPart1Topic>[];
   const topics = rawTopics
     .map((topic) => ({
       title: typeof topic.title === "string" ? topic.title : "",
@@ -170,11 +175,11 @@ function repairPart1Topics(c: SpeakingContent): SpeakingPart1Topic[] {
 
   if (topics.length > 0) return topics;
 
-  const legacy = asArray(c.part1Questions).filter(
+  const legacy = asArray(c[legacyKey]).filter(
     (q): q is string => typeof q === "string" && q.trim().length > 0,
   );
   if (legacy.length > 0) {
-    return [{ title: "General questions", questions: legacy }];
+    return [{ title: legacyTitle, questions: legacy }];
   }
 
   return [];
@@ -187,7 +192,6 @@ function repairSpeakingContent(raw: object): SpeakingContent {
   if (parts.length === 0) {
     return emptySpeakingContent();
   }
-  const part1Topics = repairPart1Topics(c);
   return {
     ...c,
     parts: parts as SpeakingContent["parts"],
@@ -195,8 +199,8 @@ function repairSpeakingContent(raw: object): SpeakingContent {
       ...cueCard,
       bullets: asArray(cueCard.bullets, [""]),
     },
-    part1Topics,
-    part3Questions: asArray(c.part3Questions),
+    part1Topics: repairTopicGroups(c, "part1Topics", "part1Questions", "General questions"),
+    part3Topics: repairTopicGroups(c, "part3Topics", "part3Questions", "General discussion"),
     part2ExaminerNotes: asArray(c.part2ExaminerNotes),
   };
 }
