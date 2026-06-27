@@ -33,12 +33,13 @@ import {
   normalizeMatchingHeadingsGroup,
   resolveMatchingSection,
 } from "@/lib/exam/matching-headings";
+import { normalizeMcqSingleGroup } from "@/lib/exam/mcq-single";
 import {
   inferMatchingReuseOptions,
   matchingHintWithReuse,
 } from "@/lib/exam/matching-options";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
-import type { FlowchartCompletionGroup, MatchingFeaturesGroup, MatchingGroup, QuestionGroup } from "@/lib/exam/types";
+import type { FlowchartCompletionGroup, MatchingFeaturesGroup, MatchingGroup, McqSingleGroup, QuestionGroup } from "@/lib/exam/types";
 
 type Props = {
   group: QuestionGroup;
@@ -202,10 +203,136 @@ function renderBody(
         />
       );
 
-    case "mcq_single":
+    case "mcq_single": {
+      const mcqGroup = normalizeMcqSingleGroup(group as McqSingleGroup);
+
+      function commit(patch: Partial<McqSingleGroup>) {
+        onChange({ ...mcqGroup, ...patch });
+      }
+
+      function defaultExampleOptions() {
+        const template = mcqGroup.questions[0]?.options;
+        if (template?.length) {
+          return template.map((o) => ({ id: o.id, label: "" }));
+        }
+        return [
+          { id: "A", label: "" },
+          { id: "B", label: "" },
+          { id: "C", label: "" },
+        ];
+      }
+
       return (
         <div className="space-y-4">
-          {group.questions.map((q, qIdx) => (
+          <p className="text-xs text-muted">
+            Optionally show one pre-filled example question — it does not use a question
+            number and is not scored (Cambridge-style).
+          </p>
+
+          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-amber-950">
+              <input
+                type="checkbox"
+                checked={Boolean(mcqGroup.example)}
+                onChange={(e) => {
+                  if (!e.target.checked) {
+                    commit({ example: undefined });
+                    return;
+                  }
+                  const options = defaultExampleOptions();
+                  commit({
+                    example: {
+                      prompt: "",
+                      options,
+                      answerId: options[options.length - 1]?.id ?? "C",
+                    },
+                  });
+                }}
+                className="rounded border-border"
+              />
+              Example question (pre-filled, not scored)
+            </label>
+            {mcqGroup.example && (
+              <div className="space-y-2">
+                <Input
+                  value={mcqGroup.example.prompt}
+                  onChange={(e) =>
+                    commit({
+                      example: { ...mcqGroup.example!, prompt: e.target.value },
+                    })
+                  }
+                  placeholder="Example question prompt"
+                />
+                {mcqGroup.example.options.map((opt, oIdx) => (
+                  <div key={opt.id} className="flex items-center gap-2 pl-2">
+                    <span className="w-6 shrink-0 text-xs font-bold text-muted">{opt.id}</span>
+                    <Input
+                      value={opt.label}
+                      onChange={(e) => {
+                        const options = [...mcqGroup.example!.options];
+                        options[oIdx] = { ...opt, label: e.target.value };
+                        commit({ example: { ...mcqGroup.example!, options } });
+                      }}
+                      placeholder={`Option ${opt.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
+                      disabled={mcqGroup.example!.options.length <= 2}
+                      onClick={() => {
+                        const options = mcqGroup.example!.options.filter((_, i) => i !== oIdx);
+                        let answerId = mcqGroup.example!.answerId;
+                        if (answerId === opt.id) {
+                          answerId = options[0]?.id ?? "";
+                        }
+                        commit({ example: { ...mcqGroup.example!, options, answerId } });
+                      }}
+                      aria-label={`Remove example option ${opt.id}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-2 pl-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      const id = nextMatchOptionId(mcqGroup.example!.options);
+                      const options = [...mcqGroup.example!.options, { id, label: "" }];
+                      commit({ example: { ...mcqGroup.example!, options } });
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add option
+                  </Button>
+                  <label className="flex items-center gap-2 text-xs text-amber-950">
+                    <span className="font-medium">Correct answer</span>
+                    <select
+                      value={mcqGroup.example.answerId}
+                      onChange={(e) =>
+                        commit({
+                          example: { ...mcqGroup.example!, answerId: e.target.value },
+                        })
+                      }
+                      className="h-8 rounded-md border border-border bg-white px-2 text-sm"
+                    >
+                      {mcqGroup.example.options.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {mcqGroup.questions.map((q, qIdx) => (
             <div key={`${q.n}-${qIdx}`} className="space-y-2 rounded-lg border border-border bg-white p-3">
               <div className="flex items-center gap-2">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-xs font-bold text-white">
@@ -214,9 +341,9 @@ function renderBody(
                 <Input
                   value={q.prompt}
                   onChange={(e) => {
-                    const questions = [...group.questions];
+                    const questions = [...mcqGroup.questions];
                     questions[qIdx] = { ...q, prompt: e.target.value };
-                    onChange({ ...group, questions });
+                    commit({ questions });
                   }}
                   placeholder="Question prompt"
                 />
@@ -232,12 +359,12 @@ function renderBody(
                   variant="secondary"
                   size="sm"
                   className="h-8 shrink-0 px-2 text-red-600 disabled:opacity-40"
-                  disabled={group.questions.length <= 1}
+                  disabled={mcqGroup.questions.length <= 1}
                   onClick={() => {
-                    const next = removeQuestionAt(group.questions, qIdx, 1);
+                    const next = removeQuestionAt(mcqGroup.questions, qIdx, 1);
                     if (!next) return;
                     onAnswerKeyChange(removeAnswerKeyEntry(answerKey, q.n));
-                    onChange({ ...group, questions: next });
+                    commit({ questions: next });
                   }}
                   aria-label={`Remove question ${q.n}`}
                 >
@@ -250,11 +377,11 @@ function renderBody(
                   <Input
                     value={opt.label}
                     onChange={(e) => {
-                      const questions = [...group.questions];
+                      const questions = [...mcqGroup.questions];
                       const options = [...q.options];
                       options[oIdx] = { ...opt, label: e.target.value };
                       questions[qIdx] = { ...q, options };
-                      onChange({ ...group, questions });
+                      commit({ questions });
                     }}
                     placeholder={`Option ${opt.id}`}
                   />
@@ -266,12 +393,12 @@ function renderBody(
                     disabled={q.options.length <= 2}
                     onClick={() => {
                       const options = q.options.filter((_, i) => i !== oIdx);
-                      const questions = [...group.questions];
+                      const questions = [...mcqGroup.questions];
                       questions[qIdx] = { ...q, options };
                       if (answerKey[String(q.n)] === opt.id) {
                         onAnswerKeyChange(removeAnswerKeyEntry(answerKey, q.n));
                       }
-                      onChange({ ...group, questions });
+                      commit({ questions });
                     }}
                     aria-label={`Remove option ${opt.id}`}
                   >
@@ -287,12 +414,12 @@ function renderBody(
                   className="h-8 text-xs"
                   onClick={() => {
                     const id = nextMatchOptionId(q.options);
-                    const questions = [...group.questions];
+                    const questions = [...mcqGroup.questions];
                     questions[qIdx] = {
                       ...q,
                       options: [...q.options, { id, label: "" }],
                     };
-                    onChange({ ...group, questions });
+                    commit({ questions });
                   }}
                 >
                   <Plus className="h-3.5 w-3.5" /> Add option
@@ -305,14 +432,13 @@ function renderBody(
             variant="secondary"
             size="sm"
             onClick={() => {
-              const last = group.questions[group.questions.length - 1];
-              const n = (last?.n ?? group.to) + 1;
-              const template = last ?? group.questions[0];
-              onChange({
-                ...group,
+              const last = mcqGroup.questions[mcqGroup.questions.length - 1];
+              const n = (last?.n ?? mcqGroup.to) + 1;
+              const template = last ?? mcqGroup.questions[0];
+              commit({
                 to: n,
                 questions: [
-                  ...group.questions,
+                  ...mcqGroup.questions,
                   {
                     n,
                     prompt: "",
@@ -333,6 +459,7 @@ function renderBody(
           </Button>
         </div>
       );
+    }
 
     case "matching_headings": {
       const mhGroup = normalizeMatchingHeadingsGroup(group as MatchingGroup);

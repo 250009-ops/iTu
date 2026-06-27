@@ -66,8 +66,16 @@ export interface TableCompletionGroup extends BaseGroup {
   rows: InlineNode[][][];
 }
 
+export interface McqSingleExample {
+  prompt: string;
+  options: Option[];
+  answerId: string;
+}
+
 export interface McqSingleGroup extends BaseGroup {
   type: "mcq_single";
+  /** Pre-filled Cambridge-style example — not scored, no question number. */
+  example?: McqSingleExample;
   questions: { n: number; prompt: string; options: Option[] }[];
 }
 

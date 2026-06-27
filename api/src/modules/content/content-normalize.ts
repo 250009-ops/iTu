@@ -89,6 +89,47 @@ function normalizeMatchingHeadingsGroup(group: Json): Json {
   return { ...group, example, questions };
 }
 
+function normalizeOptions(raw: unknown): Json[] {
+  return asArray<Json>(raw)
+    .map((o) => ({
+      id: typeof o.id === 'string' ? o.id.trim() : String(o.id ?? '').trim(),
+      label: typeof o.label === 'string' ? o.label.trim() : '',
+    }))
+    .filter((o) => o.id);
+}
+
+function normalizeMcqSingleGroup(group: Json): Json {
+  let example = isObject(group.example) ? group.example : undefined;
+
+  if (example) {
+    const options = normalizeOptions(example.options);
+    let answerId =
+      typeof example.answerId === 'string' ? example.answerId.trim() : '';
+    if (!options.some((o) => o.id === answerId)) {
+      answerId = typeof options[0]?.id === 'string' ? options[0].id : '';
+    }
+    if (!answerId || options.length < 2) {
+      example = undefined;
+    } else {
+      example = {
+        prompt: typeof example.prompt === 'string' ? example.prompt.trim() : '',
+        options,
+        answerId,
+      };
+    }
+  }
+
+  return {
+    ...group,
+    example,
+    questions: asArray<Json>(group.questions).map((q) => ({
+      ...q,
+      prompt: typeof q.prompt === 'string' ? q.prompt : '',
+      options: normalizeOptions(q.options),
+    })),
+  };
+}
+
 function repairQuestionGroup(group: unknown): Json {
   if (!isObject(group)) {
     return { type: 'instruction_screen', body: '' };
@@ -144,6 +185,7 @@ function repairQuestionGroup(group: unknown): Json {
         sectionLabels: asArray(g.sectionLabels),
       };
     case 'mcq_single':
+      return normalizeMcqSingleGroup({ ...g, questions: asArray(g.questions) });
     case 'short_answer':
     case 'tfng':
     case 'yng':

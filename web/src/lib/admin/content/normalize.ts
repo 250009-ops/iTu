@@ -16,6 +16,7 @@ import type {
 } from "@/lib/exam/types";
 import { normalizeCompletionLines } from "@/lib/exam/inline-content";
 import { normalizeMatchingHeadingsGroup } from "@/lib/exam/matching-headings";
+import { normalizeMcqSingleGroup } from "@/lib/exam/mcq-single";
 
 function asArray<T>(value: unknown, fallback: T[] = []): T[] {
   return Array.isArray(value) ? value : fallback;
@@ -76,7 +77,10 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         sectionLabels: asArray(g.sectionLabels),
       };
     case "mcq_single":
-      return { ...g, questions: asArray(g.questions) } as QuestionGroup;
+      return normalizeMcqSingleGroup({
+        ...g,
+        questions: asArray(g.questions),
+      });
     case "short_answer":
     case "tfng":
     case "yng":

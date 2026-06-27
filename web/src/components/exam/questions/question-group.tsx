@@ -206,8 +206,33 @@ function GroupBody({
     }
 
     case "mcq_single": {
+      const example = group.example;
       return (
         <div className="space-y-4">
+          {example && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+              <p className="mb-2 text-[13px] font-semibold text-slate-800">Example</p>
+              {example.prompt.trim() && (
+                <p className="mb-3 text-[15px] text-slate-800">{example.prompt}</p>
+              )}
+              <div className="space-y-1.5">
+                {example.options.map((opt) => {
+                  const isAnswer = opt.id === example.answerId;
+                  return (
+                    <p
+                      key={opt.id}
+                      className={cn(
+                        "text-[14px]",
+                        isAnswer ? "font-medium text-navy" : "text-slate-600",
+                      )}
+                    >
+                      {isAnswer ? `( ${opt.id} ) ${opt.label}` : `${opt.id} ${opt.label}`}
+                    </p>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {group.questions.map((q) => {
             const value = answers[q.n] as string | null;
             return (
