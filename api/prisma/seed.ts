@@ -18,6 +18,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import * as fs from 'fs';
 import * as path from 'path';
+import { defaultBandRowsForSkill } from '../src/common/ielts-band-tables';
 
 function loadExamJson(filename: string): object {
   const filePath = path.join(__dirname, 'data', filename);
@@ -823,37 +824,21 @@ async function seedPayouts(teacherIds: string[]) {
 }
 
 async function seedBandTables() {
-  const listeningBands = [
-    { raw: 39, band: 9.0 },
-    { raw: 37, band: 8.5 },
-    { raw: 35, band: 8.0 },
-    { raw: 32, band: 7.0 },
-    { raw: 30, band: 6.5 },
-    { raw: 26, band: 6.0 },
-    { raw: 23, band: 5.5 },
-    { raw: 18, band: 5.0 },
-  ];
-
-  const readingBands = [
-    { raw: 39, band: 9.0 },
-    { raw: 37, band: 8.5 },
-    { raw: 35, band: 8.0 },
-    { raw: 30, band: 7.0 },
-    { raw: 27, band: 6.5 },
-    { raw: 23, band: 6.0 },
-    { raw: 19, band: 5.5 },
-    { raw: 15, band: 5.0 },
-  ];
-
-  for (const row of listeningBands) {
-    await prisma.bandConversionTable.create({
-      data: { skill: ExamSkill.LISTENING, rawScore: row.raw, band: row.band },
-    });
-  }
-  for (const row of readingBands) {
-    await prisma.bandConversionTable.create({
-      data: { skill: ExamSkill.READING, rawScore: row.raw, band: row.band },
-    });
+  for (const skill of [ExamSkill.LISTENING, ExamSkill.READING] as const) {
+    for (const row of defaultBandRowsForSkill(skill)) {
+      await prisma.bandConversionTable.upsert({
+        where: {
+          skill_rawScore: { skill, rawScore: row.rawScore },
+        },
+        create: {
+          skill,
+          rawScore: row.rawScore,
+          band: row.band,
+          isActive: true,
+        },
+        update: { band: row.band, isActive: true },
+      });
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ExamSkill, Prisma } from '@prisma/client';
+import { lookupBandFromRawScore } from '../../common/band-resolution';
 import { PrismaService } from '../../prisma/prisma.service';
 import { matchAnswer, normalizeAnswer } from './answer-matching';
 
@@ -62,7 +63,7 @@ export class AutoScoringService {
       }
     }
 
-    const band = await this.lookupBand(skill, rawScore);
+    const band = await lookupBandFromRawScore(this.prisma, skill, rawScore);
     return { rawScore, band };
   }
 
@@ -73,29 +74,11 @@ export class AutoScoringService {
     return matchAnswer(submitted, expected);
   }
 
-  private async lookupBand(
-    skill: ExamSkill,
-    rawScore: number,
-  ): Promise<number | null> {
-    const row = await this.prisma.bandConversionTable.findFirst({
-      where: { skill, rawScore, isActive: true },
-      orderBy: { rawScore: 'desc' },
-    });
-    if (row) return row.band;
-
-    const nearest = await this.prisma.bandConversionTable.findFirst({
-      where: { skill, rawScore: { lte: rawScore }, isActive: true },
-      orderBy: { rawScore: 'desc' },
-    });
-    if (nearest?.band != null) return nearest.band;
-    return 2.5;
-  }
-
   /** Resolve a band from a stored raw score (e.g. when backfilling results). */
   async lookupBandFromRawScore(
     skill: ExamSkill,
     rawScore: number,
   ): Promise<number | null> {
-    return this.lookupBand(skill, rawScore);
+    return lookupBandFromRawScore(this.prisma, skill, rawScore);
   }
 }

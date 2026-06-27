@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
 import { moduleBadges } from "@/lib/admin/constants";
+import { lookupBandFromRaw, parseScoreInput } from "@/lib/admin/band-lookup";
 import type { ModuleKey } from "@/lib/admin/types";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -94,24 +95,33 @@ export function EnrollmentDetailDialog({
 
   async function handleSaveSkill(skill: string) {
     const draft = drafts[skill];
-    if (!draft?.band.trim()) return;
-    const band = Number(draft.band);
-    if (Number.isNaN(band)) return;
+    if (!draft) return;
+
+    const mod = skill as ModuleKey;
+    const isAuto = mod === "listening" || mod === "reading";
+    const rawScore = parseScoreInput(draft.rawScore);
+    const manualBand = parseScoreInput(draft.band);
+
+    if (isAuto) {
+      if (rawScore == null) return;
+    } else if (manualBand == null) {
+      return;
+    }
 
     setActing(true);
     try {
-      const rawScore =
-        draft.rawScore.trim() !== "" ? Number(draft.rawScore) : undefined;
       await overrideSectionScore(
         enrollmentId,
         skill as "listening" | "reading" | "writing" | "speaking",
-        {
-          band,
-          ...(rawScore != null && !Number.isNaN(rawScore) ? { rawScore } : {}),
-        },
+        isAuto
+          ? { rawScore: rawScore! }
+          : { band: manualBand! },
       );
+      const savedBand = isAuto
+        ? lookupBandFromRaw(mod, rawScore!)
+        : manualBand;
       toast("Score updated", {
-        description: `${skill.charAt(0).toUpperCase() + skill.slice(1)} band set to ${band}.`,
+        description: `${skill.charAt(0).toUpperCase() + skill.slice(1)} band set to ${savedBand ?? "—"}.`,
         variant: "success",
       });
       await load();
@@ -124,6 +134,24 @@ export function EnrollmentDetailDialog({
     } finally {
       setActing(false);
     }
+  }
+
+  function updateRawScore(skill: string, value: string) {
+    const mod = skill as ModuleKey;
+    const rawScore = parseScoreInput(value);
+    const autoBand =
+      (mod === "listening" || mod === "reading") && rawScore != null
+        ? lookupBandFromRaw(mod, rawScore)
+        : null;
+
+    setDrafts((prev) => ({
+      ...prev,
+      [skill]: {
+        ...prev[skill],
+        rawScore: value,
+        band: autoBand != null ? String(autoBand) : prev[skill]?.band ?? "",
+      },
+    }));
   }
 
   return (
@@ -215,6 +243,7 @@ export function EnrollmentDetailDialog({
                           max={9}
                           step={0.5}
                           value={draft.band}
+                          readOnly={isAuto}
                           onChange={(e) =>
                             setDrafts((prev) => ({
                               ...prev,
@@ -224,7 +253,10 @@ export function EnrollmentDetailDialog({
                               },
                             }))
                           }
-                          className="mt-0.5 h-8 w-20"
+                          className={cn(
+                            "mt-0.5 h-8 w-20",
+                            isAuto && "bg-slate-50 text-navy",
+                          )}
                           disabled={!skill.submitted}
                         />
                       </div>
@@ -234,15 +266,10 @@ export function EnrollmentDetailDialog({
                           <Input
                             type="number"
                             min={0}
+                            max={40}
                             value={draft.rawScore}
                             onChange={(e) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [skill.skill]: {
-                                  ...prev[skill.skill],
-                                  rawScore: e.target.value,
-                                },
-                              }))
+                              updateRawScore(skill.skill, e.target.value)
                             }
                             className="mt-0.5 h-8 w-20"
                             disabled={!skill.submitted}

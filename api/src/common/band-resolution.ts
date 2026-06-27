@@ -1,5 +1,6 @@
 import { ExamSkill } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { bandFromRawScoreTable } from './ielts-band-tables';
 
 export async function lookupBandFromRawScore(
   prisma: PrismaService,
@@ -17,8 +18,8 @@ export async function lookupBandFromRawScore(
     orderBy: { rawScore: 'desc' },
   });
   if (nearest?.band != null) return nearest.band;
-  if (rawScore >= 0) return 2.5;
-  return null;
+
+  return bandFromRawScoreTable(skill, rawScore);
 }
 
 export async function resolveAttemptBand(
@@ -29,7 +30,6 @@ export async function resolveAttemptBand(
     rawScore: number | null;
   },
 ): Promise<number | null> {
-  if (attempt.band != null) return attempt.band;
   const skill = attempt.skill as ExamSkill;
   if (
     (skill === ExamSkill.LISTENING || skill === ExamSkill.READING) &&
@@ -37,6 +37,7 @@ export async function resolveAttemptBand(
   ) {
     return lookupBandFromRawScore(prisma, skill, attempt.rawScore);
   }
+  if (attempt.band != null) return attempt.band;
   return null;
 }
 

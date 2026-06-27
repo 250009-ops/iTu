@@ -179,7 +179,7 @@ export class AdminController {
   overrideSectionScore(
     @Param('id') id: string,
     @Param('skill') skill: 'listening' | 'reading' | 'writing' | 'speaking',
-    @Body() body: { band: number; rawScore?: number; reason?: string },
+    @Body() body: { band?: number; rawScore?: number; reason?: string },
     @CurrentUser() user: RequestUser,
   ) {
     return this.admin.overrideSectionScore(id, skill, body, user.id);

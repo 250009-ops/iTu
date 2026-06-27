@@ -187,7 +187,7 @@ export function rescoreAllListeningReading() {
 export function overrideSectionScore(
   enrollmentId: string,
   skill: "listening" | "reading" | "writing" | "speaking",
-  body: { band: number; rawScore?: number; reason?: string },
+  body: { band?: number; rawScore?: number; reason?: string },
 ) {
   return apiFetch(
     `/admin/enrollments/${encodeURIComponent(enrollmentId)}/scores/${skill}`,

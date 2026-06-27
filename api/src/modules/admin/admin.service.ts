@@ -16,6 +16,11 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import {
+  lookupBandFromRawScore,
+  overallBandFromSkillBands,
+  resolveAttemptBand,
+} from '../../common/band-resolution';
 import { MailService } from '../../common/mail/mail.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -379,32 +384,36 @@ export class AdminService {
     const packageSkills = packageExamSkills(enrollment.package.skills);
     const attempts = enrollment.examSession?.sectionAttempts ?? [];
 
-    const skills = packageSkills.map((skill) => {
-      const attempt = attempts.find((a) => a.skill === skill);
-      const grade =
-        attempt?.writingSubmission?.grade ?? attempt?.speakingSession?.grade;
-      return {
-        skill: skill.toLowerCase(),
-        submitted: attempt?.submittedAt != null,
-        rawScore: attempt?.rawScore ?? null,
-        band: attempt?.band ?? grade?.overallBand ?? null,
-        contentTest: attempt?.contentTest
-          ? {
-              id: attempt.contentTest.id,
-              code: attempt.contentTest.code,
-              title: attempt.contentTest.title,
-            }
-          : null,
-      };
-    });
+    const skills = await Promise.all(
+      packageSkills.map(async (skill) => {
+        const attempt = attempts.find((a) => a.skill === skill);
+        const grade =
+          attempt?.writingSubmission?.grade ??
+          attempt?.speakingSession?.grade;
+        const band = attempt
+          ? await resolveAttemptBand(this.prisma, {
+              skill: attempt.skill,
+              band: attempt.band ?? grade?.overallBand ?? null,
+              rawScore: attempt.rawScore,
+            })
+          : null;
+        return {
+          skill: skill.toLowerCase(),
+          submitted: attempt?.submittedAt != null,
+          rawScore: attempt?.rawScore ?? null,
+          band,
+          contentTest: attempt?.contentTest
+            ? {
+                id: attempt.contentTest.id,
+                code: attempt.contentTest.code,
+                title: attempt.contentTest.title,
+              }
+            : null,
+        };
+      }),
+    );
 
-    const bands = skills
-      .map((s) => s.band)
-      .filter((b): b is number => b !== null);
-    const overallBand =
-      bands.length > 0
-        ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2
-        : null;
+    const overallBand = overallBandFromSkillBands(skills.map((s) => s.band));
 
     return {
       id: enrollment.id,
@@ -478,14 +487,33 @@ export class AdminService {
   async overrideSectionScore(
     enrollmentId: string,
     skill: 'listening' | 'reading' | 'writing' | 'speaking',
-    body: { band: number; rawScore?: number; reason?: string },
+    body: { band?: number; rawScore?: number; reason?: string },
     actorId: string,
   ) {
-    if (body.band < 0 || body.band > 9 || body.band % 0.5 !== 0) {
-      throw new BadRequestException('Band must be between 0 and 9 in 0.5 steps');
+    const targetSkill = skill.toUpperCase() as ExamSkill;
+    const isAutoScored =
+      targetSkill === ExamSkill.LISTENING || targetSkill === ExamSkill.READING;
+
+    let band = body.band;
+    if (isAutoScored && body.rawScore != null) {
+      const computed = await lookupBandFromRawScore(
+        this.prisma,
+        targetSkill,
+        body.rawScore,
+      );
+      if (computed == null) {
+        throw new BadRequestException(
+          `Could not resolve band for raw score ${body.rawScore}`,
+        );
+      }
+      band = computed;
     }
 
-    const targetSkill = skill.toUpperCase() as ExamSkill;
+    if (band == null || band < 0 || band > 9 || band % 0.5 !== 0) {
+      throw new BadRequestException(
+        'Band must be between 0 and 9 in 0.5 steps',
+      );
+    }
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
       include: {
@@ -512,15 +540,13 @@ export class AdminService {
       throw new BadRequestException(`No ${skill} section found`);
     }
 
-    const isAutoScored =
-      targetSkill === ExamSkill.LISTENING || targetSkill === ExamSkill.READING;
     const previous = { band: attempt.band, rawScore: attempt.rawScore };
 
     await this.prisma.$transaction(async (tx) => {
       await tx.sectionAttempt.update({
         where: { id: attempt.id },
         data: {
-          band: body.band,
+          band,
           ...(isAutoScored && body.rawScore != null
             ? { rawScore: body.rawScore }
             : {}),
@@ -530,14 +556,14 @@ export class AdminService {
       if (targetSkill === ExamSkill.WRITING && attempt.writingSubmission?.grade) {
         await tx.grade.update({
           where: { id: attempt.writingSubmission.grade.id },
-          data: { overallBand: body.band },
+          data: { overallBand: band },
         });
       }
 
       if (targetSkill === ExamSkill.SPEAKING && attempt.speakingSession?.grade) {
         await tx.grade.update({
           where: { id: attempt.speakingSession.grade.id },
-          data: { overallBand: body.band },
+          data: { overallBand: band },
         });
       }
     });
@@ -549,10 +575,10 @@ export class AdminService {
       action: AuditAction.ADMIN_SCORE_OVERRIDE,
       entity: 'enrollment',
       entityId: enrollmentId,
-      metadata: { skill, band: body.band, rawScore: body.rawScore, reason: body.reason, previous },
+      metadata: { skill, band, rawScore: body.rawScore, reason: body.reason, previous },
     });
 
-    return { updated: true, skill, band: body.band };
+    return { updated: true, skill, band };
   }
 
   async exportEnrollmentPdfs(enrollmentIds: string[], actorId: string) {

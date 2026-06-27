@@ -7,6 +7,11 @@ import { ExamSkill } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { packageExamSkills } from '../content/package-skills';
+import {
+  lookupBandFromRawScore,
+  overallBandFromSkillBands,
+  resolveAttemptBand,
+} from '../../common/band-resolution';
 import { ResultsPdfService } from './results-pdf.service';
 
 @Injectable()
@@ -60,25 +65,10 @@ export class ResultsService {
         const attempts = e.examSession?.sectionAttempts ?? [];
         const bands: number[] = [];
         for (const attempt of attempts) {
-          let band = attempt.band;
-          if (
-            (attempt.skill === ExamSkill.LISTENING ||
-              attempt.skill === ExamSkill.READING) &&
-            band == null &&
-            attempt.rawScore != null
-          ) {
-            band = await this.lookupBandFromRaw(
-              attempt.skill,
-              attempt.rawScore,
-            );
-          }
+          const band = await resolveAttemptBand(this.prisma, attempt);
           if (band != null) bands.push(band);
         }
-        const overall =
-          bands.length > 0
-            ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) /
-              2
-            : null;
+        const overall = overallBandFromSkillBands(bands);
 
         return {
           enrollmentCode: e.enrollmentCode,
@@ -192,39 +182,12 @@ export class ResultsService {
     }
   }
 
-  private async lookupBandFromRaw(
-    skill: ExamSkill,
-    rawScore: number,
-  ): Promise<number | null> {
-    const row = await this.prisma.bandConversionTable.findFirst({
-      where: { skill, rawScore, isActive: true },
-      orderBy: { rawScore: 'desc' },
-    });
-    if (row) return row.band;
-
-    const nearest = await this.prisma.bandConversionTable.findFirst({
-      where: { skill, rawScore: { lte: rawScore }, isActive: true },
-      orderBy: { rawScore: 'desc' },
-    });
-    if (nearest?.band != null) return nearest.band;
-    if (rawScore >= 0) return 2.5;
-    return null;
-  }
-
   private async resolveAttemptBand(attempt: {
     skill: string;
     band: number | null;
     rawScore: number | null;
   }): Promise<number | null> {
-    if (attempt.band != null) return attempt.band;
-    const skill = attempt.skill as ExamSkill;
-    if (
-      (skill === ExamSkill.LISTENING || skill === ExamSkill.READING) &&
-      attempt.rawScore != null
-    ) {
-      return this.lookupBandFromRaw(skill, attempt.rawScore);
-    }
-    return null;
+    return resolveAttemptBand(this.prisma, attempt);
   }
 
   private async buildReleasedPayload(enrollment: {
@@ -274,10 +237,7 @@ export class ResultsService {
     const bands = skills
       .map((s) => s.band)
       .filter((b): b is number => b !== null);
-    const overallBand =
-      bands.length > 0
-        ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2
-        : null;
+    const overallBand = overallBandFromSkillBands(bands);
 
     return {
       released: true as const,

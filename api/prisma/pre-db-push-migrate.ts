@@ -2,7 +2,8 @@
  * Runs before `prisma db push` on production so new unique constraints succeed.
  * Assigns distinct packageKind + mockNumber per row and dedupes content pool links.
  */
-import { PrismaClient } from '@prisma/client';
+import { ExamSkill, PrismaClient } from '@prisma/client';
+import { defaultBandRowsForSkill, bandFromRawScoreTable } from '../src/common/ielts-band-tables';
 
 const prisma = new PrismaClient();
 
@@ -176,6 +177,54 @@ async function main() {
     data: { emailVerifiedAt: new Date() },
   });
   console.log(`Marked ${legacyVerified.count} legacy account(s) as email verified.`);
+
+  const activeBandRows = await prisma.bandConversionTable.count({
+    where: { isActive: true },
+  });
+  if (activeBandRows < 41) {
+    console.log('Seeding IELTS Academic band conversion table (0–40)...');
+    for (const skill of [ExamSkill.LISTENING, ExamSkill.READING] as const) {
+      for (const row of defaultBandRowsForSkill(skill)) {
+        await prisma.bandConversionTable.upsert({
+          where: {
+            skill_rawScore: { skill, rawScore: row.rawScore },
+          },
+          create: {
+            skill,
+            rawScore: row.rawScore,
+            band: row.band,
+            isActive: true,
+          },
+          update: { band: row.band, isActive: true },
+        });
+      }
+    }
+    console.log('Band conversion table ready.');
+  }
+
+  const lrAttempts = await prisma.sectionAttempt.findMany({
+    where: {
+      skill: { in: [ExamSkill.LISTENING, ExamSkill.READING] },
+      rawScore: { not: null },
+      submittedAt: { not: null },
+    },
+    select: { id: true, skill: true, rawScore: true, band: true },
+  });
+
+  let bandsFixed = 0;
+  for (const attempt of lrAttempts) {
+    const expected = bandFromRawScoreTable(attempt.skill, attempt.rawScore!);
+    if (expected != null && attempt.band !== expected) {
+      await prisma.sectionAttempt.update({
+        where: { id: attempt.id },
+        data: { band: expected },
+      });
+      bandsFixed++;
+    }
+  }
+  if (bandsFixed > 0) {
+    console.log(`Synced band scores for ${bandsFixed} L/R section attempt(s).`);
+  }
 }
 
 main()
