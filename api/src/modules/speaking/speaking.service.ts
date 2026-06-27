@@ -16,9 +16,6 @@ import {
 } from './dto/update-speaking-state.dto';
 import { LivekitService } from './livekit.service';
 
-const SPEAKING_EARLY_JOIN_MINUTES = 5;
-const SPEAKING_SLOT_DURATION_MINUTES = 20;
-
 type PartTimestamps = Record<string, string> & {
   egressId?: string;
   recordingStartedAt?: string;
@@ -513,64 +510,25 @@ export class SpeakingService {
     status: SpeakingSessionStatus;
     startedAt: Date | null;
   }) {
-    if (
-      session.startedAt ||
-      session.status === SpeakingSessionStatus.ACTIVE
-    ) {
-      return {
-        allowed: true,
-        opensAt: null as Date | null,
-        closesAt: null as Date | null,
-        message: null as string | null,
-      };
-    }
-
+    // Time-based join windows have been removed. Candidates can join as soon as
+    // their session exists and is not finished — examiner readiness (not the
+    // clock) gates the student's "Join" button. This prevents late-running or
+    // early schedules from locking candidates out of their speaking exam.
     if (session.status === SpeakingSessionStatus.COMPLETED) {
       return {
         allowed: false,
-        opensAt: null,
-        closesAt: null,
+        opensAt: null as Date | null,
+        closesAt: null as Date | null,
         message: 'This speaking session has ended.',
       };
     }
 
-    if (!session.scheduledAt) {
-      return {
-        allowed: true,
-        opensAt: null,
-        closesAt: null,
-        message: null,
-      };
-    }
-
-    const start = session.scheduledAt;
-    const opensAt = new Date(
-      start.getTime() - SPEAKING_EARLY_JOIN_MINUTES * 60 * 1000,
-    );
-    const closesAt = new Date(
-      start.getTime() + SPEAKING_SLOT_DURATION_MINUTES * 60 * 1000,
-    );
-    const now = Date.now();
-
-    if (now < opensAt.getTime()) {
-      return {
-        allowed: false,
-        opensAt,
-        closesAt,
-        message: `Speaking opens ${SPEAKING_EARLY_JOIN_MINUTES} minutes before your scheduled slot.`,
-      };
-    }
-
-    if (now > closesAt.getTime()) {
-      return {
-        allowed: false,
-        opensAt,
-        closesAt,
-        message: 'This speaking slot window has ended.',
-      };
-    }
-
-    return { allowed: true, opensAt, closesAt, message: null };
+    return {
+      allowed: true,
+      opensAt: null as Date | null,
+      closesAt: null as Date | null,
+      message: null as string | null,
+    };
   }
 
   private assertJoinWindow(session: {
