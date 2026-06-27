@@ -18,6 +18,10 @@ export type SpeakingState = {
   recordingEnabled: boolean;
   recordingActive: boolean;
   recordingUrl: string | null;
+  joinAllowed?: boolean;
+  joinOpensAt?: string | null;
+  joinClosesAt?: string | null;
+  joinMessage?: string | null;
 };
 
 export type SpeakingJoinResponse = {

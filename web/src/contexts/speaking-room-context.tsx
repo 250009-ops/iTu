@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -38,6 +39,7 @@ import {
   type SpeakingPhase,
   type SpeakingSyncMessage,
 } from "@/lib/speaking/sync";
+import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 
 type SpeakingRoomRole = "examiner" | "student";
 
@@ -111,7 +113,10 @@ export function SpeakingRoomProvider({
         } catch (joinErr) {
           const message =
             joinErr instanceof Error ? joinErr.message : "Failed to join room";
-          if (isLivekitConfigError(message) || !currentState.livekitConfigured) {
+          if (
+            isLivekitConfigError(message) ||
+            !currentState.livekitConfigured
+          ) {
             join = {
               token: "",
               serverUrl: "",
@@ -121,6 +126,8 @@ export function SpeakingRoomProvider({
               livekitConfigured: false,
               recordingEnabled: false,
             };
+          } else if (currentState.joinAllowed === false && currentState.joinMessage) {
+            throw new Error(currentState.joinMessage);
           } else {
             throw joinErr;
           }
@@ -357,6 +364,11 @@ function SpeakingRoomInner({
   const remoteParticipant = pickRemoteParticipant(
     participants,
   ) as RemoteParticipant | undefined;
+  const prepBellRef = useRef(false);
+
+  useEffect(() => {
+    prepBellRef.current = false;
+  }, [shell.phase]);
 
   useEffect(() => {
     const onData = (payload: Uint8Array) => {
@@ -367,6 +379,10 @@ function SpeakingRoomInner({
       }
       if (message.type === "session-end") {
         setPhaseState("complete");
+      }
+      if (message.type === "prep-end" && !prepBellRef.current) {
+        prepBellRef.current = true;
+        playPrepEndBell();
       }
     };
 

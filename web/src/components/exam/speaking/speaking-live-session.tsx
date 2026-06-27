@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, CircleDot, Loader2, Radio } from "lucide-react";
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import type { SpeakingContent } from "@/lib/exam/types";
@@ -11,6 +11,7 @@ import { startSection, submitSection } from "@/lib/api/exam";
 import { useAuth, getInitials } from "@/hooks/use-auth";
 import { useSpeakingRoom } from "@/contexts/speaking-room-context";
 import { SpeakingVideoLayout } from "@/components/speaking/speaking-video-layout";
+import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 import { phaseToPart, type SpeakingPhase } from "@/lib/speaking/sync";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +27,7 @@ export function SpeakingLiveSession({
   const { session: authSession } = useAuth();
   const studentInitials = getInitials(authSession?.name ?? "Student");
   const examinerInitials = getInitials(content.examiner);
-  const { phase, state } = useSpeakingRoom();
+  const { phase, state, leaveRoom, publishSync } = useSpeakingRoom();
   const [started, setStarted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const elapsed = useStopwatch(true);
@@ -41,10 +42,17 @@ export function SpeakingLiveSession({
   useEffect(() => {
     if (phase !== "complete" || submitting) return;
     setSubmitting(true);
-    void submitSection(sessionId, "speaking")
-      .then(() => onComplete())
-      .catch(() => onComplete());
-  }, [phase, sessionId, onComplete, submitting]);
+    void (async () => {
+      try {
+        await submitSection(sessionId, "speaking");
+        await leaveRoom();
+      } catch {
+        // still finish the flow
+      } finally {
+        onComplete();
+      }
+    })();
+  }, [phase, sessionId, onComplete, submitting, leaveRoom]);
 
   const activePart = phaseToPart(phase);
   const partMeta = content.parts[activePart - 1];
@@ -94,6 +102,7 @@ export function SpeakingLiveSession({
               <CueCardController
                 content={content}
                 phase={phase === "part2-prep" ? "prep" : "speak"}
+                onPrepEnd={() => void publishSync({ type: "prep-end" })}
               />
             ) : undefined
           }
@@ -177,13 +186,22 @@ function SessionProgress({
 function CueCardController({
   content,
   phase,
+  onPrepEnd,
 }: {
   content: SpeakingContent;
   phase: "prep" | "speak";
+  onPrepEnd?: () => void;
 }) {
   const card = content.cueCard;
   const seconds = phase === "prep" ? card.prepSeconds : card.speakSeconds;
-  const remaining = useCountdown(seconds);
+  const prepEndedRef = useRef(false);
+
+  const remaining = useCountdown(seconds, () => {
+    if (phase !== "prep" || prepEndedRef.current) return;
+    prepEndedRef.current = true;
+    playPrepEndBell();
+    onPrepEnd?.();
+  });
 
   return (
     <SpeakingCueCard
@@ -191,6 +209,7 @@ function CueCardController({
       bullets={card.bullets}
       phase={phase}
       remaining={remaining}
+      prepEnded={phase === "prep" && remaining <= 0}
     />
   );
 }

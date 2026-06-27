@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NextSessionHero } from "@/components/teacher/speaking/next-session-hero";
 import { SpeakingCompletedTable } from "@/components/teacher/speaking/speaking-completed-table";
 import {
@@ -28,8 +28,12 @@ function cnCount(active: boolean) {
 }
 
 export function SpeakingHubView() {
-  const { hub, hubLoading, hubError } = useTeacherSpeaking();
+  const { hub, hubLoading, hubError, refreshHub } = useTeacherSpeaking();
   const [tab, setTab] = useState<SpeakingTab>("today");
+
+  useEffect(() => {
+    void refreshHub();
+  }, [refreshHub]);
 
   if (hubLoading) {
     return (

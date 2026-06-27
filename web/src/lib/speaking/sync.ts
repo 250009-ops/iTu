@@ -11,7 +11,8 @@ export type SpeakingPhase = (typeof SPEAKING_PHASES)[number];
 export type SpeakingSyncMessage =
   | { type: "phase"; phase: SpeakingPhase }
   | { type: "session-end" }
-  | { type: "examiner-ready" };
+  | { type: "examiner-ready" }
+  | { type: "prep-end" };
 
 export const SPEAKING_SYNC_TOPIC = "ielts-speaking";
 
@@ -25,7 +26,7 @@ export function decodeSyncMessage(payload: Uint8Array): SpeakingSyncMessage | nu
     if (parsed.type === "phase" && SPEAKING_PHASES.includes(parsed.phase)) {
       return parsed;
     }
-    if (parsed.type === "session-end" || parsed.type === "examiner-ready") {
+    if (parsed.type === "session-end" || parsed.type === "examiner-ready" || parsed.type === "prep-end") {
       return parsed;
     }
     return null;

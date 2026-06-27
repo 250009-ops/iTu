@@ -16,6 +16,9 @@ import {
 } from './dto/update-speaking-state.dto';
 import { LivekitService } from './livekit.service';
 
+const SPEAKING_EARLY_JOIN_MINUTES = 5;
+const SPEAKING_SLOT_DURATION_MINUTES = 20;
+
 type PartTimestamps = Record<string, string> & {
   egressId?: string;
   recordingStartedAt?: string;
@@ -101,6 +104,7 @@ export class SpeakingService {
     }
 
     const role = this.resolveRole(session, user);
+    this.assertJoinWindow(session);
     const roomName = this.livekit.roomNameForSession(session.id);
     const partTimestamps = this.partTimestamps(session.partTimestamps);
 
@@ -486,7 +490,100 @@ export class SpeakingService {
       recordingEnabled: this.livekit.isRecordingEnabled(),
       recordingActive,
       recordingUrl: session.recordingUrl,
+      ...this.joinAccessFields(session),
     };
+  }
+
+  private joinAccessFields(session: {
+    scheduledAt: Date | null;
+    status: SpeakingSessionStatus;
+    startedAt: Date | null;
+  }) {
+    const access = this.joinAccess(session);
+    return {
+      joinAllowed: access.allowed,
+      joinOpensAt: access.opensAt,
+      joinClosesAt: access.closesAt,
+      joinMessage: access.message,
+    };
+  }
+
+  private joinAccess(session: {
+    scheduledAt: Date | null;
+    status: SpeakingSessionStatus;
+    startedAt: Date | null;
+  }) {
+    if (
+      session.startedAt ||
+      session.status === SpeakingSessionStatus.ACTIVE
+    ) {
+      return {
+        allowed: true,
+        opensAt: null as Date | null,
+        closesAt: null as Date | null,
+        message: null as string | null,
+      };
+    }
+
+    if (session.status === SpeakingSessionStatus.COMPLETED) {
+      return {
+        allowed: false,
+        opensAt: null,
+        closesAt: null,
+        message: 'This speaking session has ended.',
+      };
+    }
+
+    if (!session.scheduledAt) {
+      return {
+        allowed: true,
+        opensAt: null,
+        closesAt: null,
+        message: null,
+      };
+    }
+
+    const start = session.scheduledAt;
+    const opensAt = new Date(
+      start.getTime() - SPEAKING_EARLY_JOIN_MINUTES * 60 * 1000,
+    );
+    const closesAt = new Date(
+      start.getTime() + SPEAKING_SLOT_DURATION_MINUTES * 60 * 1000,
+    );
+    const now = Date.now();
+
+    if (now < opensAt.getTime()) {
+      return {
+        allowed: false,
+        opensAt,
+        closesAt,
+        message: `Speaking opens ${SPEAKING_EARLY_JOIN_MINUTES} minutes before your scheduled slot.`,
+      };
+    }
+
+    if (now > closesAt.getTime()) {
+      return {
+        allowed: false,
+        opensAt,
+        closesAt,
+        message: 'This speaking slot window has ended.',
+      };
+    }
+
+    return { allowed: true, opensAt, closesAt, message: null };
+  }
+
+  private assertJoinWindow(session: {
+    scheduledAt: Date | null;
+    status: SpeakingSessionStatus;
+    startedAt: Date | null;
+  }) {
+    const access = this.joinAccess(session);
+    if (!access.allowed) {
+      throw new BadRequestException(
+        access.message ?? 'Speaking session is not available to join yet',
+      );
+    }
   }
 }
 

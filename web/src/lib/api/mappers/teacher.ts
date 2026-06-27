@@ -918,5 +918,6 @@ export function mapSpeakingSession(data: SpeakingSession) {
     teacherNotes: data.teacherNotes ?? "",
     status: data.status,
     recordingUrl: data.recordingUrl ?? null,
+    scheduledAt: data.scheduledAt ?? null,
   };
 }

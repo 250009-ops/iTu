@@ -8,6 +8,7 @@ interface SpeakingCueCardProps {
   bullets: string[];
   phase: "prep" | "speak";
   remaining: number;
+  prepEnded?: boolean;
 }
 
 export function SpeakingCueCard({
@@ -15,6 +16,7 @@ export function SpeakingCueCard({
   bullets,
   phase,
   remaining,
+  prepEnded,
 }: SpeakingCueCardProps) {
   return (
     <div className="w-full max-w-md animate-fade-in rounded-2xl border border-amber-200 bg-[#fffdf5] p-6 shadow-2xl">
@@ -41,13 +43,28 @@ export function SpeakingCueCard({
         ))}
       </ul>
 
-      <div className="mt-5 rounded-xl border border-amber-200 bg-white p-3 text-center">
+      <div
+        className={`mt-5 rounded-xl border p-3 text-center ${
+          prepEnded
+            ? "border-rose-300 bg-rose-50"
+            : "border-amber-200 bg-white"
+        }`}
+      >
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
           {phase === "prep" ? "Preparation time" : "Speaking time"}
         </p>
-        <p className="mt-0.5 text-3xl font-bold tabular-nums text-navy">
+        <p
+          className={`mt-0.5 text-3xl font-bold tabular-nums ${
+            prepEnded ? "text-rose-700" : "text-navy"
+          }`}
+        >
           {formatClock(remaining)}
         </p>
+        {prepEnded && (
+          <p className="mt-2 text-[12px] font-semibold text-rose-700">
+            Preparation ended — wait for your examiner to start Part 2.
+          </p>
+        )}
       </div>
     </div>
   );

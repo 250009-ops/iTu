@@ -4,6 +4,10 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Play } from "lucide-react";
 import { LiveScoringPanel } from "@/components/teacher/speaking/live-scoring-panel";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
+import {
+  formatJoinOpensAt,
+  speakingJoinAccess,
+} from "@/lib/speaking/slot-access";
 import { Button } from "@/components/ui/button";
 
 export function SpeakingSessionDetail() {
@@ -38,6 +42,7 @@ export function SpeakingSessionDetail() {
 
   const sessionCompleted =
     session.status === "completed" || session.activePhase === "complete";
+  const slotAccess = speakingJoinAccess(session.scheduledAt);
 
   return (
     <div className="p-4 lg:p-6 xl:p-8">
@@ -124,13 +129,27 @@ export function SpeakingSessionDetail() {
                 video, content-driven prompts from the published bank, and
                 in-call scoring.
               </p>
+              {!slotAccess.allowed && slotAccess.tooEarly && slotAccess.opensAt && (
+                <p className="mt-3 text-sm text-amber-800">
+                  Opens at {formatJoinOpensAt(slotAccess.opensAt)} (5 minutes
+                  before the scheduled start).
+                </p>
+              )}
               <Link
-                href={`/teacher/speaking?session=${sessionId}&live=1`}
+                href={
+                  slotAccess.allowed
+                    ? `/teacher/speaking?session=${sessionId}&live=1`
+                    : "#"
+                }
                 className="mt-4 inline-block"
+                aria-disabled={!slotAccess.allowed}
+                onClick={(e) => {
+                  if (!slotAccess.allowed) e.preventDefault();
+                }}
               >
-                <Button variant="danger" size="lg">
+                <Button variant="danger" size="lg" disabled={!slotAccess.allowed}>
                   <Play className="h-4 w-4 fill-current" />
-                  Enter live console
+                  {slotAccess.allowed ? "Enter live console" : "Opens soon"}
                 </Button>
               </Link>
             </>

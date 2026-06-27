@@ -57,7 +57,7 @@ function ScoreRow({
 
 export function ScoringSidebar() {
   const router = useRouter();
-  const { session, sessionId, refreshSession } = useTeacherSpeaking();
+  const { session, sessionId, refreshSession, refreshHub } = useTeacherSpeaking();
   const [scores, setScores] = useState(
     session?.defaultScores ?? {
       fluency: 7,
@@ -105,6 +105,7 @@ export function ScoringSidebar() {
       // the LiveKit room provider, which disconnects the examiner's mic/camera
       // and returns to the (now graded) session summary.
       await refreshSession();
+      await refreshHub();
       router.push(`/teacher/speaking?session=${sessionId}`);
     } catch (err) {
       toast("Could not submit grade", {

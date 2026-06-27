@@ -7,6 +7,7 @@ import type {
   MappedSpeakingSessionItem,
   SpeakingSessionUiStatus,
 } from "@/lib/api/mappers/teacher";
+import { speakingJoinAccess } from "@/lib/speaking/slot-access";
 import { cn } from "@/lib/utils";
 
 function StatusBadge({
@@ -84,12 +85,21 @@ function SessionAction({ session }: { session: MappedSpeakingSessionItem }) {
     session.uiStatus === "live"
       ? `/teacher/speaking?session=${session.id}&live=1`
       : `/teacher/speaking?session=${session.id}`;
+  const slotAccess = speakingJoinAccess(session.scheduledAt);
+  const canOpenLive =
+    session.uiStatus === "live" ? slotAccess.allowed : true;
 
   return (
-    <Link href={href}>
-      <Button variant="danger" size="sm">
+    <Link
+      href={canOpenLive ? href : "#"}
+      aria-disabled={!canOpenLive}
+      onClick={(e) => {
+        if (!canOpenLive) e.preventDefault();
+      }}
+    >
+      <Button variant="danger" size="sm" disabled={!canOpenLive}>
         <Play className="h-3.5 w-3.5 fill-current" />
-        Open console
+        {canOpenLive ? "Open console" : "Opens soon"}
       </Button>
     </Link>
   );

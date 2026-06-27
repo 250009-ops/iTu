@@ -20,6 +20,10 @@ import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { SpeakingRoomProvider } from "@/contexts/speaking-room-context";
 import { getStudentSpeakingState, type SpeakingState } from "@/lib/api/speaking";
 import { useDeviceCheck } from "@/hooks/use-device-check";
+import {
+  formatJoinOpensAt,
+  speakingJoinAccess,
+} from "@/lib/speaking/slot-access";
 import { cn } from "@/lib/utils";
 
 type Stage = "waiting" | "rules" | "live" | "complete";
@@ -69,6 +73,14 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    if (speakingState?.status !== "completed" || stage !== "waiting") return;
+    const id = window.setTimeout(() => {
+      router.replace("/student/mock-day");
+    }, 2000);
+    return () => window.clearTimeout(id);
+  }, [speakingState?.status, stage, router]);
+
   if (loading || !content) {
     return <ApiDataShell loading={loading} error={error ?? stateError} />;
   }
@@ -83,7 +95,7 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
         <SpeakingLiveSession
           sessionId={sessionId}
           content={content}
-          onComplete={() => setStage("complete")}
+          onComplete={() => router.replace("/student/mock-day")}
         />
       </SpeakingRoomProvider>
     );
@@ -170,6 +182,13 @@ function WaitingRoom({
   );
   const deviceCheck = useDeviceCheck();
   const examinerReady = speakingState?.examinerReady ?? false;
+  const slotAccess = speakingJoinAccess(speakingState?.scheduledAt);
+  const canJoin =
+    examinerReady &&
+    deviceCheck.micOk &&
+    deviceCheck.cameraOk &&
+    slotAccess.allowed &&
+    speakingState?.joinAllowed !== false;
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-8">
@@ -272,14 +291,32 @@ function WaitingRoom({
       </div>
 
       <div className="mt-6 flex flex-col items-center">
+        {!slotAccess.allowed && slotAccess.tooEarly && slotAccess.opensAt && (
+          <p className="mb-3 max-w-md text-center text-[13px] text-amber-800">
+            Your speaking slot opens at{" "}
+            <span className="font-semibold">{formatJoinOpensAt(slotAccess.opensAt)}</span>{" "}
+            (5 minutes before the scheduled start). Please wait here.
+          </p>
+        )}
+        {!slotAccess.allowed && slotAccess.tooLate && (
+          <p className="mb-3 max-w-md text-center text-[13px] text-rose-700">
+            {speakingState?.joinMessage ?? slotAccess.message}
+          </p>
+        )}
         <button
           type="button"
-          disabled={!examinerReady || !deviceCheck.micOk || !deviceCheck.cameraOk}
+          disabled={!canJoin}
           onClick={onJoin}
           className="flex items-center gap-2 rounded-xl bg-brand-red px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-red-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ShieldCheck size={16} />
-          {examinerReady ? "Join session" : "Waiting for examiner to be ready"}
+          {!slotAccess.allowed
+            ? slotAccess.tooEarly
+              ? "Waiting for your scheduled slot"
+              : "Session unavailable"
+            : examinerReady
+              ? "Join session"
+              : "Waiting for examiner to be ready"}
         </button>
         <p className="mt-2 text-[12px] text-slate-400">
           You will review the test rules before joining the live video call.

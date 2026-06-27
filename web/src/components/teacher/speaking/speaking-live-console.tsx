@@ -26,6 +26,9 @@ import {
   buildExaminerParts,
   promptForPhase,
 } from "@/lib/speaking/content";
+import { useCountdown } from "@/lib/exam/use-countdown";
+import { formatClock } from "@/lib/exam/helpers";
+import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 import { formatElapsed, type SpeakingPart } from "@/lib/speaking/scoring";
 import { phaseToPart, type SpeakingPhase } from "@/lib/speaking/sync";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -42,12 +45,14 @@ export function SpeakingLiveConsole() {
     contentLoading,
     contentError,
     refreshSession,
+    refreshHub,
   } = useTeacherSpeaking();
   const {
     phase,
     setPhase,
     endSession,
     leaveRoom,
+    publishSync,
     state,
     participantCount,
     livekitConfigured,
@@ -92,6 +97,10 @@ export function SpeakingLiveConsole() {
     timerRef.current = null;
   }, [sessionEnded]);
 
+  const prepSeconds =
+    speakingContent?.cueCard?.prepSeconds ??
+    emptySpeakingContent().cueCard.prepSeconds;
+
   if (!session || !sessionId) return null;
 
   function prepUrl() {
@@ -123,6 +132,7 @@ export function SpeakingLiveConsole() {
       await endSession();
       await leaveRoom();
       await refreshSession();
+      await refreshHub();
       router.push(prepUrl());
       toast("Speaking session ended", {
         description: `${studentName} can now finish their exam flow.`,
@@ -314,10 +324,17 @@ export function SpeakingLiveConsole() {
             )}
 
             {activePart === 2 && phase === "part2-prep" && (
-              <Button size="sm" onClick={() => void advancePart2()}>
-                Start Part 2 speaking
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <>
+                <ExaminerPart2PrepTimer
+                  key={`part2-prep-${prepSeconds}`}
+                  prepSeconds={prepSeconds}
+                  onPrepEnd={() => void publishSync({ type: "prep-end" })}
+                />
+                <Button size="sm" onClick={() => void advancePart2()}>
+                  Start Part 2 speaking
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
             )}
 
             <Button
@@ -351,5 +368,35 @@ export function SpeakingLiveConsole() {
         onCancel={() => setEndConfirmOpen(false)}
       />
     </div>
+  );
+}
+
+function ExaminerPart2PrepTimer({
+  prepSeconds,
+  onPrepEnd,
+}: {
+  prepSeconds: number;
+  onPrepEnd: () => void;
+}) {
+  const endedRef = useRef(false);
+  const remaining = useCountdown(prepSeconds, () => {
+    if (endedRef.current) return;
+    endedRef.current = true;
+    playPrepEndBell();
+    onPrepEnd();
+  });
+
+  return (
+    <span
+      className={cn(
+        "rounded-lg px-3 py-1.5 text-xs font-bold tabular-nums",
+        remaining <= 0
+          ? "bg-rose-500/30 text-rose-100"
+          : "bg-amber-500/20 text-amber-100",
+      )}
+    >
+      Prep {formatClock(remaining)}
+      {remaining <= 0 ? " · Start speaking" : ""}
+    </span>
   );
 }
