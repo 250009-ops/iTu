@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useStudentProfileData } from "@/contexts/student-profile-context";
+import { formatBandDisplay } from "@/lib/api/mappers/student";
 
 function ChartTooltip({
   active,
@@ -48,7 +49,7 @@ export function ProfileScoreHistory() {
   const data = profile.scoreHistory;
   const gain =
     data.length > 1
-      ? (data[data.length - 1]!.overall - data[0]!.overall).toFixed(1)
+      ? formatBandDisplay(data[data.length - 1]!.overall - data[0]!.overall)
       : null;
 
   if (data.length === 0) {

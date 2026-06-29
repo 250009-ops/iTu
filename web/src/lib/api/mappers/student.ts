@@ -15,6 +15,7 @@ import {
   secondsUntil,
   splitCountdown,
 } from "@/lib/student/datetime";
+import { fromCriteriaPayload } from "@/lib/writing/scoring";
 
 type CatalogPackage = Awaited<ReturnType<typeof listPackages>>[number];
 type MockDayApi = Awaited<ReturnType<typeof getMockDayHub>>;
@@ -378,7 +379,7 @@ export function mapMockDayHub(data: MockDayApi) {
         color: SKILL_COLORS[skill] ?? "#2563EB",
         result: s.completed
           ? s.band != null
-            ? { score: s.band.toFixed(1), label: "Band score" }
+            ? { score: formatBandDisplay(coerceBand(s.band)), label: "Band score" }
             : s.rawScore != null
               ? { score: String(s.rawScore), label: "Raw score" }
               : { score: "—", label: "Complete" }
@@ -588,7 +589,8 @@ function skillBand(
   skills: { skill: string; band: number | null }[] | undefined,
   skill: SkillId,
 ) {
-  return skills?.find((s) => s.skill === skill)?.band ?? null;
+  const row = skills?.find((s) => s.skill === skill);
+  return coerceBand(row?.band);
 }
 
 const CRITERIA_LABELS: Record<string, string> = {
@@ -604,9 +606,81 @@ function prettyCriterionLabel(key: string): string {
   return CRITERIA_LABELS[key] ?? key;
 }
 
-export function formatBandDisplay(band: number | null, pending = false): string {
-  if (band == null) return pending ? "Pending" : "—";
-  return Number.isInteger(band) ? `${band}` : band.toFixed(1);
+/** Coerce API/JSON band values (number, numeric string) for display math. */
+export function coerceBand(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isNaN(n) ? null : n;
+  }
+  return null;
+}
+
+function criterionPart(label: string, sublabel: string, value: number): ModulePart {
+  return {
+    label,
+    sublabel,
+    tag: value >= 7 ? "Strong" : value >= 6 ? "Good" : "Develop",
+    tagTone: (value >= 7 ? "emerald" : value >= 6 ? "amber" : "rose") as PartTone,
+    value,
+    max: 9,
+    unit: "band",
+  };
+}
+
+const WRITING_CRITERION_KEYS: Record<string, string> = {
+  taskAchievement: "Task Achievement",
+  taskResponse: "Task Response",
+  coherenceCohesion: "Coherence & Cohesion",
+  lexicalResource: "Lexical Resource",
+  grammar: "Grammatical Range & Accuracy",
+  taskBand: "Task band",
+};
+
+function buildCriteriaParts(
+  skill: SkillId,
+  criteriaScores: Record<string, unknown>,
+): ModulePart[] {
+  if (skill === "writing" && fromCriteriaPayload(criteriaScores)) {
+    const parts: ModulePart[] = [];
+    for (const [taskKey, taskLabel] of [
+      ["task1", "Task 1"],
+      ["task2", "Task 2"],
+    ] as const) {
+      const task = criteriaScores[taskKey];
+      if (!task || typeof task !== "object") continue;
+      for (const [key, raw] of Object.entries(task as Record<string, unknown>)) {
+        if (key === "feedback") continue;
+        const value = coerceBand(raw);
+        if (value == null) continue;
+        const label =
+          key === "taskBand"
+            ? `${taskLabel} overall`
+            : (WRITING_CRITERION_KEYS[key] ?? prettyCriterionLabel(key));
+        parts.push(criterionPart(label, taskLabel, value));
+      }
+    }
+    return parts;
+  }
+
+  return Object.entries(criteriaScores)
+    .map(([key, raw]) => {
+      if (raw != null && typeof raw === "object") return null;
+      const value = coerceBand(raw);
+      if (value == null) return null;
+      return criterionPart(prettyCriterionLabel(key), "Criterion", value);
+    })
+    .filter((part): part is ModulePart => part != null);
+}
+
+export function formatBandDisplay(
+  band: number | string | null | undefined,
+  pending = false,
+): string {
+  const n = coerceBand(band);
+  if (n == null) return pending ? "Pending" : "—";
+  return Number.isInteger(n) ? `${n}` : n.toFixed(1);
 }
 
 function buildModuleDetail(
@@ -614,31 +688,26 @@ function buildModuleDetail(
   band: number | null,
   rawScore: number | null | undefined,
   feedback?: string | null,
-  criteriaScores?: Record<string, number>,
+  criteriaScores?: Record<string, unknown>,
 ): ModuleDetail {
+  const resolvedBand = coerceBand(band);
   if (criteriaScores && Object.keys(criteriaScores).length > 0) {
-    const parts = Object.entries(criteriaScores).map(([key, value]) => ({
-      label: prettyCriterionLabel(key),
-      sublabel: "Criterion",
-      tag: value >= 7 ? "Strong" : value >= 6 ? "Good" : "Develop",
-      tagTone: (value >= 7 ? "emerald" : value >= 6 ? "amber" : "rose") as PartTone,
-      value,
-      max: 9,
-      unit: "band" as const,
-    }));
-    return {
-      summary:
-        feedback ??
-        (band != null
-          ? `Band ${band} for ${SKILL_META[skill].name}.`
-          : `${SKILL_META[skill].name} criteria scores recorded.`),
-      band,
-      pending: band == null,
-      parts,
-      focus:
-        feedback ??
-        `Keep practising ${SKILL_META[skill].name.toLowerCase()} under timed conditions.`,
-    };
+    const parts = buildCriteriaParts(skill, criteriaScores);
+    if (parts.length > 0) {
+      return {
+        summary:
+          feedback ??
+          (resolvedBand != null
+            ? `Band ${formatBandDisplay(resolvedBand)} for ${SKILL_META[skill].name}.`
+            : `${SKILL_META[skill].name} criteria scores recorded.`),
+        band: resolvedBand,
+        pending: resolvedBand == null,
+        parts,
+        focus:
+          feedback ??
+          `Keep practising ${SKILL_META[skill].name.toLowerCase()} under timed conditions.`,
+      };
+    }
   }
 
   const parts: ModulePart[] = [];
@@ -656,13 +725,13 @@ function buildModuleDetail(
     });
   }
 
-  if (band != null) {
+  if (resolvedBand != null) {
     parts.push({
       label: SKILL_META[skill].name,
       sublabel: "Band score",
-      tag: band >= 7 ? "Strong" : band >= 6 ? "Good" : "Develop",
-      tagTone: (band >= 7 ? "emerald" : band >= 6 ? "amber" : "rose") as PartTone,
-      value: band,
+      tag: resolvedBand >= 7 ? "Strong" : resolvedBand >= 6 ? "Good" : "Develop",
+      tagTone: (resolvedBand >= 7 ? "emerald" : resolvedBand >= 6 ? "amber" : "rose") as PartTone,
+      value: resolvedBand,
       max: 9,
       unit: "band",
     });
@@ -681,11 +750,11 @@ function buildModuleDetail(
   return {
     summary:
       feedback ??
-      (band != null
-        ? `${SKILL_META[skill].name} band score: ${band}.`
+      (resolvedBand != null
+        ? `${SKILL_META[skill].name} band score: ${formatBandDisplay(resolvedBand)}.`
         : `${SKILL_META[skill].name} raw score: ${rawScore ?? "—"}.`),
-    band,
-    pending: band == null,
+    band: resolvedBand,
+    pending: resolvedBand == null,
     parts,
     focus:
       feedback ??
@@ -699,6 +768,7 @@ function deriveImprovements(
 ): ImprovementOpportunity[] {
   const goal = targetBand ?? 7;
   return skills
+    .map((s) => ({ ...s, band: coerceBand(s.band) }))
     .filter((s) => s.band != null)
     .sort((a, b) => (a.band ?? 0) - (b.band ?? 0))
     .slice(0, 4)
@@ -796,24 +866,25 @@ export function mapStudentResults(
   );
   const previousOverall =
     selectedIndex >= 0
-      ? (list[selectedIndex + 1]?.overallBand ?? null)
-      : (list[1]?.overallBand ?? null);
+      ? coerceBand(list[selectedIndex + 1]?.overallBand)
+      : coerceBand(list[1]?.overallBand);
 
   const skills: SkillResult[] = packageSkillIds.map((id) => {
     const row = skillsApi.find((s) => s.skill === id);
+    const band = coerceBand(row?.band);
     return {
       id,
       name: SKILL_META[id]?.name ?? id,
-      band: row?.band ?? null,
+      band,
       rawScore: row?.rawScore ?? null,
       delta: 0,
-      pending: row?.band == null,
+      pending: band == null,
     };
   });
 
   const overallBand =
-    detail.overallBand ??
-    latest.overallBand ??
+    coerceBand(detail.overallBand) ??
+    coerceBand(latest.overallBand) ??
     overallFromSkills(skills.map((s) => ({ skill: s.id, band: s.band }))) ??
     0;
 
@@ -821,7 +892,8 @@ export function mapStudentResults(
     previousOverall != null
       ? Math.round((overallBand - previousOverall) * 2) / 2
       : 0;
-  const firstOverall = list[list.length - 1]?.overallBand ?? overallBand;
+  const firstOverall =
+    coerceBand(list[list.length - 1]?.overallBand) ?? overallBand;
   const overallImprovement =
     Math.round((overallBand - firstOverall) * 2) / 2;
 
@@ -832,10 +904,10 @@ export function mapStudentResults(
         id,
         buildModuleDetail(
           id,
-          row?.band ?? null,
+          coerceBand(row?.band),
           row?.rawScore,
           row?.feedback,
-          row?.criteriaScores,
+          row?.criteriaScores as Record<string, unknown> | undefined,
         ),
       ];
     }),
@@ -847,7 +919,8 @@ export function mapStudentResults(
     const itemSkills = itemDetail?.skills ?? [];
     return {
       date: formatShortDate(item.mockDate),
-      overall: item.overallBand ?? itemDetail?.overallBand ?? null,
+      overall:
+        coerceBand(item.overallBand) ?? coerceBand(itemDetail?.overallBand),
       listening: skillBand(itemSkills, "listening"),
       reading: skillBand(itemSkills, "reading"),
       writing: skillBand(itemSkills, "writing"),
@@ -858,11 +931,11 @@ export function mapStudentResults(
   const attempts: AttemptRow[] = list.map((item, index) => {
     const itemDetail = detailByCode[item.enrollmentCode];
     const itemSkills = itemDetail?.skills ?? [];
-    const overall = item.overallBand ?? itemDetail?.overallBand ?? null;
+    const overall =
+      coerceBand(item.overallBand) ?? coerceBand(itemDetail?.overallBand);
     const prev =
-      list[index + 1]?.overallBand ??
-      detailByCode[list[index + 1]?.enrollmentCode ?? ""]?.overallBand ??
-      null;
+      coerceBand(list[index + 1]?.overallBand) ??
+      coerceBand(detailByCode[list[index + 1]?.enrollmentCode ?? ""]?.overallBand);
     return {
       id: item.enrollmentCode,
       date: formatLongDate(item.mockDate),
@@ -914,7 +987,9 @@ export function mapStudentResults(
     availableAttempts: list.map((item) => ({
       enrollmentCode: item.enrollmentCode,
       label: `${item.package} · ${formatShortDate(item.mockDate)}`,
-      overallBand: item.overallBand ?? detailByCode[item.enrollmentCode]?.overallBand ?? null,
+      overallBand: coerceBand(item.overallBand) ??
+        coerceBand(detailByCode[item.enrollmentCode]?.overallBand) ??
+        null,
     })),
   };
 }
@@ -973,9 +1048,12 @@ export function mapStudentProfile(
   displayName: string,
 ): StudentProfileUi {
   const scoreHistory = (api?.scoreHistory ?? []).map((entry) => {
-    const bands = entry.bands ?? [];
+    const bands = (entry.bands ?? []).map((b) => ({
+      skill: b.skill,
+      band: coerceBand(b.band),
+    }));
     const overall = overallFromSkills(bands) ?? 0;
-    const writing = bands.find((b) => b.skill === "writing")?.band ?? 0;
+    const writing = coerceBand(bands.find((b) => b.skill === "writing")?.band) ?? 0;
     return {
       date: formatShortDate(entry.date),
       overall,

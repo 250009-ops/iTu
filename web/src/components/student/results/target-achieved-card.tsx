@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Target, Trophy } from "lucide-react";
 import { useStudentResultsData } from "@/contexts/student-results-context";
+import { formatBandDisplay } from "@/lib/api/mappers/student";
 
 export function TargetAchievedCard() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export function TargetAchievedCard() {
             Target Achieved!
           </h3>
           <p className="text-amber-700" style={{ fontSize: "12px" }}>
-            Band {data.targetBand.toFixed(1)} Goal Reached
+            Band {formatBandDisplay(data.targetBand)} Goal Reached
           </p>
         </div>
       </div>
@@ -36,7 +37,7 @@ export function TargetAchievedCard() {
         style={{ fontSize: "13px" }}
       >
         <Target size={15} />
-        Book Next Mock (Target {nextTarget.toFixed(1)})
+        Book Next Mock (Target {formatBandDisplay(nextTarget)})
       </button>
     </div>
   );

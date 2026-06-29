@@ -40,7 +40,7 @@ export function getResult(enrollmentId: string) {
       band: number | null;
       rawScore: number | null;
       feedback?: string | null;
-      criteriaScores?: Record<string, number>;
+      criteriaScores?: Record<string, unknown>;
     }[];
   }>(`/results/${enrollmentId}`);
 }

@@ -100,7 +100,7 @@ export function OverallScoreCard() {
                 {targetAchieved && targetBand != null && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    Target {targetBand.toFixed(1)} Achieved
+                    Target {formatBandDisplay(targetBand)} Achieved
                   </span>
                 )}
               </div>

@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { useStudentResultsData } from "@/contexts/student-results-context";
 import type { SkillId } from "@/lib/api/mappers/student";
+import { formatBandDisplay } from "@/lib/api/mappers/student";
 import {
   CHART_AXIS_TICK,
   CHART_GRID_STROKE,
@@ -91,7 +92,7 @@ export function ScoreProgressionChart() {
               content={
                 <ChartTooltip
                   formatValue={(v) =>
-                    v == null || Number.isNaN(v) ? "—" : v.toFixed(1)
+                    v == null || Number.isNaN(Number(v)) ? "—" : formatBandDisplay(Number(v))
                   }
                 />
               }
