@@ -116,12 +116,15 @@ export function ModuleBreakdown() {
         </div>
 
         {detail.parts.length > 0 ? (
-          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {detail.parts.map((part) => {
+          <div
+            key={active}
+            className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4"
+          >
+            {detail.parts.map((part, index) => {
               const tone = toneStyles[part.tagTone];
               return (
                 <div
-                  key={part.label}
+                  key={`${part.sublabel}-${part.label}-${index}`}
                   className="rounded-xl border border-gray-100 p-4"
                 >
                   <div className="flex items-start justify-between gap-2">

@@ -691,7 +691,11 @@ function buildModuleDetail(
   criteriaScores?: Record<string, unknown>,
 ): ModuleDetail {
   const resolvedBand = coerceBand(band);
-  if (criteriaScores && Object.keys(criteriaScores).length > 0) {
+  const hasCriteria =
+    (skill === "writing" || skill === "speaking") &&
+    criteriaScores &&
+    Object.keys(criteriaScores).length > 0;
+  if (hasCriteria) {
     const parts = buildCriteriaParts(skill, criteriaScores);
     if (parts.length > 0) {
       return {

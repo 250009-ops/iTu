@@ -83,8 +83,38 @@ for (const part of writingParts) {
   formatBandDisplay(part.value);
 }
 
+const listeningParts = mapped.moduleDetails.listening?.parts ?? [];
+const readingParts = mapped.moduleDetails.reading?.parts ?? [];
+const speakingParts = mapped.moduleDetails.speaking?.parts ?? [];
+
+for (const [skill, parts] of [
+  ["listening", listeningParts],
+  ["reading", readingParts],
+] as const) {
+  const bad = parts.filter((p) => p.sublabel === "Task 1" || p.sublabel === "Task 2");
+  if (bad.length > 0) {
+    console.error(`FAIL: ${skill} must not show writing task criteria`);
+    process.exit(1);
+  }
+  if (parts.length !== 2) {
+    console.error(`FAIL: ${skill} expected raw + band parts, got ${parts.length}`);
+    process.exit(1);
+  }
+}
+
+if (speakingParts.length < 4) {
+  console.error(`FAIL: expected speaking criterion parts, got ${speakingParts.length}`);
+  process.exit(1);
+}
+if (speakingParts.some((p) => p.sublabel === "Task 1" || p.sublabel === "Task 2")) {
+  console.error("FAIL: speaking must not show writing task criteria");
+  process.exit(1);
+}
+
 formatBandDisplay("6.5");
 formatBandDisplay(null);
 
 console.log("OK: mapStudentResults handles nested writing criteria");
-console.log(`  overallBand=${mapped.overallBand} writingParts=${writingParts.length}`);
+console.log(
+  `  overallBand=${mapped.overallBand} writing=${writingParts.length} listening=${listeningParts.length} speaking=${speakingParts.length}`,
+);
