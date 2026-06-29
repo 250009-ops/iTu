@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AttemptsHistory } from "@/components/student/results/attempts-history";
 import { ImprovementOpportunities } from "@/components/student/results/improvement-opportunities";
 import { ModuleBreakdown } from "@/components/student/results/module-breakdown";
@@ -19,7 +21,18 @@ import {
 
 export function ResultsView() {
   return (
-    <StudentResultsProvider>
+    <Suspense fallback={<ResultsLoadingSkeleton />}>
+      <ResultsViewWithParams />
+    </Suspense>
+  );
+}
+
+function ResultsViewWithParams() {
+  const searchParams = useSearchParams();
+  const enrollmentCode = searchParams.get("enrollment");
+
+  return (
+    <StudentResultsProvider initialEnrollmentCode={enrollmentCode}>
       <ResultsContent />
     </StudentResultsProvider>
   );

@@ -798,9 +798,12 @@ export function mapPendingStudentResults(
     mockDate: string;
     package: string;
     message: string;
+    packageSkills?: string[];
   },
   targetBand: number | null = null,
+  examTypeLabel = "Academic IELTS",
 ): StudentResultsData {
+  const packageSkills = (pending.packageSkills ?? []) as SkillId[];
   return {
     released: false,
     message: pending.message,
@@ -809,8 +812,10 @@ export function mapPendingStudentResults(
     dateLabel: formatLongDate(pending.mockDate),
     title: `${pending.package} — ${formatLongDate(pending.mockDate)}`,
     subtitle: `Mock ID: ${pending.enrollmentCode}`,
-    examType: "Academic IELTS",
-    examFormat: "Academic",
+    examType: examTypeLabel,
+    examFormat: examTypeLabel.includes("General")
+      ? "General Training"
+      : "Academic",
     overallBand: 0,
     bandLabel: "Pending",
     targetBand,
@@ -824,7 +829,7 @@ export function mapPendingStudentResults(
     improvementOpportunities: [],
     targetMessage: "",
     nextSteps: [],
-    packageSkills: [],
+    packageSkills,
     selectedEnrollmentCode: pending.enrollmentCode,
     availableAttempts: [],
   };
@@ -853,6 +858,7 @@ export function mapStudentResults(
           message: detail.message ?? "Results are not yet available.",
         },
         targetBand,
+        examTypeLabel,
       ),
       examType: examTypeLabel,
       examFormat: examTypeLabel.includes("General")
@@ -873,15 +879,28 @@ export function mapStudentResults(
       ? coerceBand(list[selectedIndex + 1]?.overallBand)
       : coerceBand(list[1]?.overallBand);
 
+  const previousDetail =
+    selectedIndex >= 0
+      ? detailByCode[list[selectedIndex + 1]?.enrollmentCode ?? ""]
+      : undefined;
+  const previousSkills = previousDetail?.skills ?? [];
+
   const skills: SkillResult[] = packageSkillIds.map((id) => {
     const row = skillsApi.find((s) => s.skill === id);
     const band = coerceBand(row?.band);
+    const prevBand = coerceBand(
+      previousSkills.find((s) => s.skill === id)?.band,
+    );
+    const delta =
+      band != null && prevBand != null
+        ? Math.round((band - prevBand) * 2) / 2
+        : 0;
     return {
       id,
       name: SKILL_META[id]?.name ?? id,
       band,
       rawScore: row?.rawScore ?? null,
-      delta: 0,
+      delta: delta > 0 ? delta : 0,
       pending: band == null,
     };
   });
@@ -1040,6 +1059,7 @@ export type StudentProfileUi = {
   scoreHistory: { date: string; overall: number; writing: number }[];
   personalBests: { module: string; band: number; color: string }[];
   recentActivity: {
+    id: string;
     title: string;
     sub: string;
     dot: string;
@@ -1051,7 +1071,8 @@ export function mapStudentProfile(
   api: ProfileApi,
   displayName: string,
 ): StudentProfileUi {
-  const scoreHistory = (api?.scoreHistory ?? []).map((entry) => {
+  const chronologicalHistory = [...(api?.scoreHistory ?? [])].reverse();
+  const scoreHistory = chronologicalHistory.map((entry) => {
     const bands = (entry.bands ?? []).map((b) => ({
       skill: b.skill,
       band: coerceBand(b.band),
@@ -1092,18 +1113,26 @@ export function mapStudentProfile(
   const recentActivity = (api?.scoreHistory ?? []).slice(0, 4).map((entry, i) => {
     const overall = overallFromSkills(entry.bands ?? []) ?? 0;
     return {
+      id: `${entry.date}-${i}`,
       title: `Mock results published`,
-      sub: `Band ${overall} — ${formatLongDate(entry.date)}`,
+      sub: `Band ${formatBandDisplay(overall)} — ${formatLongDate(entry.date)}`,
       dot: i === 0 ? "bg-amber-400" : "bg-gray-300",
       icon: "star" as const,
     };
   });
 
+  const avgGainPerMock =
+    scoreHistory.length > 1
+      ? (scoreHistory[scoreHistory.length - 1]!.overall -
+          scoreHistory[0]!.overall) /
+        Math.max(scoreHistory.length - 1, 1)
+      : null;
+
   return {
     name: displayName,
     candidateType: examLabel,
-    memberSince: scoreHistory.length
-      ? formatLongDate(api!.scoreHistory[api!.scoreHistory.length - 1]!.date)
+    memberSince: api?.memberSince
+      ? formatLongDate(api.memberSince)
       : "Recently",
     targetBand: api?.targetBand ?? null,
     examType:
@@ -1128,7 +1157,9 @@ export function mapStudentProfile(
       {
         label: "Best Band",
         value: bestOverall > 0 ? bestOverall.toFixed(1) : "—",
-        sub: scoreHistory[0] ? scoreHistory[0].date : "No mocks yet",
+        sub: scoreHistory.length
+          ? scoreHistory[scoreHistory.length - 1]!.date
+          : "No mocks yet",
       },
       {
         label: "Mocks Taken",
@@ -1143,15 +1174,12 @@ export function mapStudentProfile(
       {
         label: "Avg Gain",
         value:
-          scoreHistory.length > 1
-            ? `+${(
-                (scoreHistory[scoreHistory.length - 1]!.overall -
-                  scoreHistory[0]!.overall) /
-                Math.max(scoreHistory.length - 1, 1)
-              ).toFixed(1)}`
+          avgGainPerMock != null
+            ? `${avgGainPerMock >= 0 ? "+" : ""}${avgGainPerMock.toFixed(1)}`
             : "—",
         sub: "per mock",
-        highlight: scoreHistory.length > 1,
+        highlight:
+          avgGainPerMock != null && avgGainPerMock > 0,
       },
     ],
     mockPackage: (() => {

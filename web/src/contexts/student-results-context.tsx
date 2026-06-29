@@ -15,8 +15,14 @@ type StudentResultsContextValue = {
 const StudentResultsContext =
   createContext<StudentResultsContextValue | null>(null);
 
-export function StudentResultsProvider({ children }: { children: ReactNode }) {
-  const value = useStudentResults();
+export function StudentResultsProvider({
+  children,
+  initialEnrollmentCode,
+}: {
+  children: ReactNode;
+  initialEnrollmentCode?: string | null;
+}) {
+  const value = useStudentResults(initialEnrollmentCode);
   return (
     <StudentResultsContext.Provider value={value}>
       {children}

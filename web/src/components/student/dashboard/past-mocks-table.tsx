@@ -3,15 +3,30 @@
 import Link from "next/link";
 import { ArrowRight, FileText } from "lucide-react";
 import { useStudentDashboardData } from "@/contexts/student-dashboard-context";
-import { formatBandDisplay } from "@/lib/api/mappers/student";
+import { formatBandDisplay, type SkillId } from "@/lib/api/mappers/student";
 import { cn } from "@/lib/utils";
 
-const skillColumns = [
-  { key: "listening" as const, label: "L" },
-  { key: "reading" as const, label: "R" },
-  { key: "writing" as const, label: "W" },
-  { key: "speaking" as const, label: "S" },
+const skillColumns: { key: SkillId; label: string }[] = [
+  { key: "listening", label: "L" },
+  { key: "reading", label: "R" },
+  { key: "writing", label: "W" },
+  { key: "speaking", label: "S" },
 ];
+
+function unionSkillColumns(
+  mocks: { packageSkills?: string[] }[],
+): typeof skillColumns {
+  const keys = new Set<SkillId>();
+  for (const mock of mocks) {
+    const skills = mock.packageSkills?.length
+      ? mock.packageSkills
+      : skillColumns.map((c) => c.key);
+    for (const skill of skills) {
+      keys.add(skill as SkillId);
+    }
+  }
+  return skillColumns.filter((col) => keys.has(col.key));
+}
 
 function BandBadge({ score }: { score: number | null }) {
   if (score == null) {
@@ -38,12 +53,7 @@ export function PastMocksTable() {
   const { data } = useStudentDashboardData();
   const pastMocks = data?.pastMocks ?? [];
 
-  const visibleColumns =
-    pastMocks[0]?.packageSkills?.length
-      ? skillColumns.filter((col) =>
-          pastMocks[0]!.packageSkills!.includes(col.key),
-        )
-      : skillColumns;
+  const visibleColumns = unionSkillColumns(pastMocks);
 
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
@@ -83,12 +93,11 @@ export function PastMocksTable() {
                   "en-US",
                   { month: "short", day: "numeric", year: "numeric" },
                 );
-                const columns =
-                  mock.packageSkills?.length
-                    ? skillColumns.filter((col) =>
-                        mock.packageSkills!.includes(col.key),
-                      )
-                    : visibleColumns;
+                const rowSkills = new Set(
+                  (mock.packageSkills?.length
+                    ? mock.packageSkills
+                    : visibleColumns.map((c) => c.key)) as SkillId[],
+                );
 
                 return (
                   <tr key={mock.id} className="transition-colors hover:bg-slate-50/50">
@@ -96,9 +105,11 @@ export function PastMocksTable() {
                       <p className="font-medium text-foreground">{dateLabel}</p>
                       <p className="text-xs text-muted">{mock.package}</p>
                     </td>
-                    {columns.map((col) => (
+                    {visibleColumns.map((col) => (
                       <td key={col.key} className="px-3 py-4 text-center">
-                        <BandBadge score={mock[col.key]} />
+                        <BandBadge
+                          score={rowSkills.has(col.key) ? mock[col.key] : null}
+                        />
                       </td>
                     ))}
                     <td className="px-3 py-4 text-center">
@@ -108,7 +119,7 @@ export function PastMocksTable() {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <Link
-                        href="/student/results"
+                        href={`/student/results?enrollment=${encodeURIComponent(mock.enrollmentCode)}`}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-navy hover:text-navy"
                       >
                         <FileText className="h-3.5 w-3.5" />

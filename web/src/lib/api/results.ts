@@ -20,6 +20,7 @@ export function getPendingResult() {
     enrollmentCode: string;
     mockDate: string;
     package: string;
+    packageSkills?: string[];
     resultsStatus: string;
     message: string;
   } | null>("/results/pending");

@@ -356,6 +356,7 @@ export class StudentsService {
       targetBand: profile.targetBand,
       examType: profile.examType.toLowerCase(),
       country: profile.country,
+      memberSince: profile.user.createdAt,
       publishToLeaderboard: profile.publishToLeaderboard,
       notificationPrefs: profile.notificationPrefs as
         | Record<string, boolean>

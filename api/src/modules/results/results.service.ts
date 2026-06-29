@@ -109,6 +109,9 @@ export class ResultsService {
       enrollmentCode: enrollment.enrollmentCode,
       mockDate: enrollment.mockDate,
       package: enrollment.package.title,
+      packageSkills: packageExamSkills(enrollment.package.skills).map((s) =>
+        s.toLowerCase(),
+      ),
       resultsStatus: enrollment.resultsStatus.toLowerCase(),
       message:
         enrollment.status === 'AWAITING_RESULTS' ||

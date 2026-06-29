@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ProfileHero,
@@ -29,7 +29,13 @@ const VALID_TABS: ProfileTab[] = [
 export function ProfileView() {
   return (
     <StudentProfileProvider>
-      <Suspense fallback={<ProfileViewContent initialTab="overview" />}>
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-6xl px-6 py-16 text-center text-sm text-muted">
+            Loading profile…
+          </div>
+        }
+      >
         <ProfileViewWithParams />
       </Suspense>
     </StudentProfileProvider>
@@ -38,17 +44,28 @@ export function ProfileView() {
 
 function ProfileViewWithParams() {
   const searchParams = useSearchParams();
+  return <ProfileViewContent searchParams={searchParams} />;
+}
+
+function ProfileViewContent({
+  searchParams,
+}: {
+  searchParams: ReturnType<typeof useSearchParams>;
+}) {
   const requested = searchParams.get("tab");
   const initialTab: ProfileTab =
     requested && VALID_TABS.includes(requested as ProfileTab)
       ? (requested as ProfileTab)
       : "overview";
-  return <ProfileViewContent initialTab={initialTab} />;
-}
-
-function ProfileViewContent({ initialTab }: { initialTab: ProfileTab }) {
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const { profile, loading, error } = useStudentProfileData();
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && VALID_TABS.includes(tab as ProfileTab)) {
+      setActiveTab(tab as ProfileTab);
+    }
+  }, [searchParams]);
 
   return (
     <ApiDataShell loading={loading} error={error} empty={!profile}>

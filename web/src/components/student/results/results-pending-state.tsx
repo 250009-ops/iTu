@@ -20,7 +20,11 @@ import {
   resultsPreviewSkills,
   resultsWhatYouGet,
 } from "@/lib/student/results-preview";
-import type { StudentResultsData } from "@/lib/api/mappers/student";
+import {
+  formatBandDisplay,
+  type SkillId,
+  type StudentResultsData,
+} from "@/lib/api/mappers/student";
 
 const skillIcons = {
   listening: Headphones,
@@ -32,7 +36,24 @@ const skillIcons = {
 const navyGradient =
   "linear-gradient(135deg, #0a1628 0%, #1B2A4A 55%, #1e3a70 100%)";
 
+const skillColumns: { key: SkillId; label: string }[] = [
+  { key: "listening", label: "L" },
+  { key: "reading", label: "R" },
+  { key: "writing", label: "W" },
+  { key: "speaking", label: "S" },
+];
+
 export function ResultsPendingState({ data }: { data: StudentResultsData }) {
+  const previewSkills =
+    data.packageSkills.length > 0
+      ? resultsPreviewSkills.filter((skill) =>
+          data.packageSkills.includes(skill.id),
+        )
+      : resultsPreviewSkills;
+  const tableColumns =
+    data.packageSkills.length > 0
+      ? skillColumns.filter((col) => data.packageSkills.includes(col.key))
+      : skillColumns;
   return (
     <div className="min-h-full bg-gray-50/60">
       <ResultsShellHeader
@@ -97,7 +118,7 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-6 sm:grid-cols-4">
-            {resultsPreviewSkills.map((skill) => {
+            {previewSkills.map((skill) => {
               const Icon = skillIcons[skill.id];
               return (
                 <div
@@ -121,7 +142,7 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
           <div className="space-y-6 lg:col-span-2">
             <div className="rounded-2xl border border-gray-100 bg-white opacity-90 shadow-sm">
               <div className="flex flex-wrap gap-1 border-b border-gray-100 px-2 sm:px-4">
-                {resultsPreviewSkills.map((skill, index) => {
+                {previewSkills.map((skill, index) => {
                   const Icon = skillIcons[skill.id];
                   return (
                     <div
@@ -147,9 +168,9 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
                 <p className="mt-3 font-semibold text-gray-700">
                   Module breakdown is being graded
                 </p>
-                <p className="mt-1 max-w-sm text-sm text-muted">
-                  Detailed criteria scores and examiner feedback for each skill
-                  unlock once your Writing and Speaking are graded.
+                  <p className="mt-1 max-w-sm text-sm text-muted">
+                  Detailed criteria scores and examiner feedback unlock once
+                  human-graded sections are complete.
                 </p>
               </div>
             </div>
@@ -168,10 +189,11 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
                     <tr className="border-b border-gray-100 text-xs font-semibold uppercase tracking-wide text-gray-400">
                       <th className="px-5 py-3 sm:px-6">Mock</th>
                       <th className="px-3 py-3">Date</th>
-                      <th className="px-3 py-3">L</th>
-                      <th className="px-3 py-3">R</th>
-                      <th className="px-3 py-3">W</th>
-                      <th className="px-3 py-3">S</th>
+                      {tableColumns.map((col) => (
+                        <th key={col.key} className="px-3 py-3">
+                          {col.label}
+                        </th>
+                      ))}
                       <th className="px-3 py-3">Overall</th>
                     </tr>
                   </thead>
@@ -181,10 +203,11 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
                         {data.title}
                       </td>
                       <td className="px-3 py-4 text-gray-500">{data.dateLabel}</td>
-                      <td className="px-3 py-4 text-gray-300">—</td>
-                      <td className="px-3 py-4 text-gray-300">—</td>
-                      <td className="px-3 py-4 text-gray-300">—</td>
-                      <td className="px-3 py-4 text-gray-300">—</td>
+                      {tableColumns.map((col) => (
+                        <td key={col.key} className="px-3 py-4 text-gray-300">
+                          —
+                        </td>
+                      ))}
                       <td className="px-3 py-4">
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
                           <Clock size={11} />

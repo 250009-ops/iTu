@@ -36,7 +36,7 @@ export function ProfileRecentActivity() {
           {activities.map((item) => {
             const Icon = iconMap[item.icon];
             return (
-              <div key={item.title} className="flex items-center gap-3">
+              <div key={item.id} className="flex items-center gap-3">
                 <span className={`h-2 w-2 shrink-0 rounded-full ${item.dot}`} />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-gray-900" style={{ fontSize: "13px" }}>

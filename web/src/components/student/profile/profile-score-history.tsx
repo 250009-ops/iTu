@@ -49,8 +49,9 @@ export function ProfileScoreHistory() {
   const data = profile.scoreHistory;
   const gain =
     data.length > 1
-      ? formatBandDisplay(data[data.length - 1]!.overall - data[0]!.overall)
+      ? data[data.length - 1]!.overall - data[0]!.overall
       : null;
+  const gainLabel = gain != null ? formatBandDisplay(gain) : null;
 
   if (data.length === 0) {
     return (
@@ -77,9 +78,9 @@ export function ProfileScoreHistory() {
             Score History
           </h3>
         </div>
-        {gain != null && Number(gain) > 0 && (
+        {gainLabel != null && gain != null && gain > 0 && (
           <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-600" style={{ fontSize: "11px" }}>
-            +{gain}
+            +{gainLabel}
           </span>
         )}
       </div>

@@ -34,7 +34,7 @@ export function ProfilePersonalInfo() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const personal = profile?.personal;
-  const [values, setValues] = useState<Record<FieldKey, string>>({
+  const [draft, setDraft] = useState<Record<FieldKey, string>>({
     fullName: "",
     email: "",
     phone: "",
@@ -42,7 +42,6 @@ export function ProfilePersonalInfo() {
     nationality: "",
     cityCountry: "",
   });
-  const [draft, setDraft] = useState<Record<FieldKey, string>>(values);
   const [targetBand, setTargetBand] = useState("");
   const [examType, setExamType] = useState<"academic" | "general_training">(
     "academic",
@@ -50,20 +49,18 @@ export function ProfilePersonalInfo() {
 
   if (!profile || !personal) return null;
 
-  const displayValues = editing
-    ? values
-    : {
-        fullName: personal.fullName,
-        email: personal.email,
-        phone: personal.phone,
-        dateOfBirth: personal.dateOfBirth,
-        nationality: personal.nationality,
-        cityCountry: personal.cityCountry,
-      };
+  const personalValues = {
+    fullName: personal.fullName,
+    email: personal.email,
+    phone: personal.phone,
+    dateOfBirth: personal.dateOfBirth,
+    nationality: personal.nationality,
+    cityCountry: personal.cityCountry,
+  };
 
   function startEdit() {
     if (!profile) return;
-    setDraft(displayValues);
+    setDraft(personalValues);
     setTargetBand(profile.targetBand != null ? String(profile.targetBand) : "");
     setExamType(profile.examType);
     setEditing(true);
@@ -81,7 +78,6 @@ export function ProfilePersonalInfo() {
         examType,
         ...(targetBand ? { targetBand: Number(targetBand) } : {}),
       });
-      setValues(draft);
       setEditing(false);
       toast("Personal information updated", { variant: "success" });
     } catch {
@@ -160,7 +156,7 @@ export function ProfilePersonalInfo() {
                 />
               ) : (
                 <p className="font-semibold text-gray-900" style={{ fontSize: "14px" }}>
-                  {displayValues[field.key]}
+                  {personalValues[field.key]}
                 </p>
               )}
             </div>

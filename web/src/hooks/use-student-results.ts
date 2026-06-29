@@ -20,11 +20,18 @@ function examTypeLabel(examType?: string) {
   }
 }
 
-export function useStudentResults() {
+function syncEnrollmentParam(code: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("enrollment", code);
+  window.history.replaceState(null, "", url.toString());
+}
+
+export function useStudentResults(initialEnrollmentCode?: string | null) {
   const [data, setData] = useState<StudentResultsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const selectedCodeRef = useRef<string | null>(null);
+  const selectedCodeRef = useRef<string | null>(initialEnrollmentCode ?? null);
   const listCacheRef = useRef<Awaited<ReturnType<typeof listResults>>>([]);
   const detailCacheRef = useRef<
     Record<string, Awaited<ReturnType<typeof getResult>>>
@@ -32,8 +39,15 @@ export function useStudentResults() {
   const targetBandRef = useRef<number | null>(null);
   const examTypeRef = useRef("Academic IELTS");
 
+  useEffect(() => {
+    if (initialEnrollmentCode) {
+      selectedCodeRef.current = initialEnrollmentCode;
+    }
+  }, [initialEnrollmentCode]);
+
   const applySelection = useCallback((code: string) => {
     selectedCodeRef.current = code;
+    syncEnrollmentParam(code);
     setData(
       mapStudentResults(
         listCacheRef.current,
@@ -62,7 +76,13 @@ export function useStudentResults() {
         detailCacheRef.current = {};
         selectedCodeRef.current = null;
         if (pending) {
-          setData(mapPendingStudentResults(pending, targetBandRef.current));
+          setData(
+            mapPendingStudentResults(
+              pending,
+              targetBandRef.current,
+              examTypeRef.current,
+            ),
+          );
         } else {
           setData(null);
         }
@@ -79,7 +99,10 @@ export function useStudentResults() {
       listCacheRef.current = list;
       detailCacheRef.current = detailByCode;
 
-      const preferred = selectedCodeRef.current ?? list[0]!.enrollmentCode;
+      const preferred =
+        selectedCodeRef.current ??
+        initialEnrollmentCode ??
+        list[0]!.enrollmentCode;
       const resolvedCode = list.some((item) => item.enrollmentCode === preferred)
         ? preferred
         : list[0]!.enrollmentCode;
@@ -90,7 +113,7 @@ export function useStudentResults() {
     } finally {
       setLoading(false);
     }
-  }, [applySelection]);
+  }, [applySelection, initialEnrollmentCode]);
 
   const selectAttempt = useCallback(
     (enrollmentCode: string) => {

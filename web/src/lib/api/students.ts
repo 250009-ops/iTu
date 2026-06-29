@@ -69,6 +69,7 @@ export type StudentProfileResponse = {
   targetBand: number | null;
   examType: string;
   country: string | null;
+  memberSince?: string;
   publishToLeaderboard: boolean;
   notificationPrefs: Record<string, boolean> | null;
   package: {
