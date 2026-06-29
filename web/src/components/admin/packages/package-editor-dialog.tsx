@@ -75,7 +75,7 @@ const labelCls = "text-xs font-semibold text-navy";
 const textareaCls =
   "flex w-full resize-y rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy/20 focus-visible:border-navy min-h-[6rem]";
 
-function isPublishedStatus(status: string) {
+function isLinkableForPackage(status: string) {
   return status.toLowerCase().replace(/-/g, "_") === "published";
 }
 
@@ -95,6 +95,7 @@ function TestSelect({
   value,
   options,
   currentPackageId,
+  disabled = false,
   onChange,
 }: {
   label: string;
@@ -102,6 +103,7 @@ function TestSelect({
   value: string;
   options: AdminContentTestOption[];
   currentPackageId?: string;
+  disabled?: boolean;
   onChange: (v: string) => void;
 }) {
   // Speaking banks are reusable topic pools, so they may be shared across
@@ -110,7 +112,7 @@ function TestSelect({
   const filtered = options.filter((o) => o.type === type);
   const selectable = filtered.filter((o) => {
     if (o.id === value) return true;
-    if (!isPublishedStatus(o.status)) return false;
+    if (!isLinkableForPackage(o.status)) return false;
     if (reusable) return true;
     if (!o.isPackaged) return true;
     return o.assignedPackageId === currentPackageId;
@@ -124,6 +126,7 @@ function TestSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="h-10 w-full"
+        disabled={disabled}
       >
         <option value="">Select a published test…</option>
         {selectable.map((o) => (
@@ -140,9 +143,11 @@ function TestSelect({
       {selected && (
         <p className="text-xs text-muted">
           {selected.code} · {selected.title}
-          {selected.assignedMockLabel
-            ? ` · locked to ${selected.assignedMockLabel}`
-            : ""}
+          {selected.assignedMockLabels && selected.assignedMockLabels.length > 1
+            ? ` · shared in ${selected.assignedMockLabels.join(", ")}`
+            : selected.assignedMockLabel
+              ? ` · locked to ${selected.assignedMockLabel}`
+              : ""}
         </p>
       )}
     </div>
@@ -150,15 +155,19 @@ function TestSelect({
 }
 
 export function PackageEditorDialog() {
-  const { editor, closeEditor, savePackage, contentTests } = useAdminPackages();
+  const { editor, closeEditor, openEditor, savePackage, replacePackage, resetPackagePilot, contentTests } =
+    useAdminPackages();
   const { toast } = useToast();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [resettingPilot, setResettingPilot] = useState(false);
   const [mockPreview, setMockPreview] = useState<string | null>(null);
 
   const pkg = editor.pkg;
   const isEdit = pkg !== null;
   const hasEnrollments = (pkg?.enrollmentCount ?? 0) > 0;
+  const contentLocked = hasEnrollments;
 
   useEffect(() => {
     if (!editor.open) return;
@@ -308,6 +317,60 @@ export function PackageEditorDialog() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleReplaceMock() {
+    if (!pkg) return;
+    if (
+      !window.confirm(
+        "Replace this mock?\n\nThe current package will be archived and its Listening/Reading/Writing papers released for reuse. A new inactive copy opens so you can adjust content before activating.",
+      )
+    ) {
+      return;
+    }
+    setReplacing(true);
+    try {
+      const result = await replacePackage(pkg.id);
+      toast("Mock replaced", {
+        description: `${result.replacement.title} is ready to review. Activate when content is correct.`,
+        variant: "success",
+      });
+      openEditor(result.replacement);
+    } catch (err) {
+      toast("Replace failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setReplacing(false);
+    }
+  }
+
+  async function handleResetPilot() {
+    if (!pkg) return;
+    if (
+      !window.confirm(
+        "Reset pilot data for this package?\n\nAll enrollments, orders, and exam sessions will be permanently deleted. Package content stays linked so you can rerun the same mock.\n\nBlocked while a student exam is in progress.",
+      )
+    ) {
+      return;
+    }
+    setResettingPilot(true);
+    try {
+      const result = await resetPackagePilot(pkg.id);
+      toast("Pilot reset complete", {
+        description: `Cleared ${result.clearedEnrollments} enrollment(s), ${result.clearedOrders} order(s), ${result.clearedSessions} session(s). Content selects are unlocked.`,
+        variant: "success",
+      });
+      closeEditor();
+    } catch (err) {
+      toast("Pilot reset failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setResettingPilot(false);
     }
   }
 
@@ -532,12 +595,40 @@ export function PackageEditorDialog() {
           </div>
 
           <div className="space-y-4 rounded-lg border border-border bg-slate-50 p-4 pb-5">
-            <div>
-              <p className="text-sm font-semibold text-navy">Package content</p>
-              <p className="text-xs text-muted">
-                Pick one published test per included skill. Listening, Reading and Writing papers already used in another package are hidden; speaking banks can be reused across packages.
-                {hasEnrollments ? " Content is locked because students have enrolled." : ""}
-              </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-navy">Package content</p>
+                <p className="text-xs text-muted">
+                  Pick one published test per included skill. Listening, Reading and Writing
+                  papers already used in another package are hidden; speaking banks can be
+                  reused across packages.
+                  {contentLocked
+                    ? " Content is locked because students have enrolled — reset pilot to rerun the same mock, or replace mock for a new package version."
+                    : ""}
+                </p>
+              </div>
+              {contentLocked && pkg && (
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={resettingPilot}
+                    disabled={replacing}
+                    onClick={() => void handleResetPilot()}
+                  >
+                    Reset pilot
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={replacing}
+                    disabled={resettingPilot}
+                    onClick={() => void handleReplaceMock()}
+                  >
+                    Replace mock
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 gap-4">
               {form.skills.includes("listening") && (
@@ -547,6 +638,7 @@ export function PackageEditorDialog() {
                   value={form.listeningTestId}
                   options={contentTests}
                   currentPackageId={pkg?.id}
+                  disabled={contentLocked}
                   onChange={(v) => set("listeningTestId", v)}
                 />
               )}
@@ -557,6 +649,7 @@ export function PackageEditorDialog() {
                   value={form.readingTestId}
                   options={contentTests}
                   currentPackageId={pkg?.id}
+                  disabled={contentLocked}
                   onChange={(v) => set("readingTestId", v)}
                 />
               )}
@@ -567,6 +660,7 @@ export function PackageEditorDialog() {
                   value={form.writingTestId}
                   options={contentTests}
                   currentPackageId={pkg?.id}
+                  disabled={contentLocked}
                   onChange={(v) => set("writingTestId", v)}
                 />
               )}
@@ -577,6 +671,7 @@ export function PackageEditorDialog() {
                   value={form.speakingBankId}
                   options={contentTests}
                   currentPackageId={pkg?.id}
+                  disabled={contentLocked}
                   onChange={(v) => set("speakingBankId", v)}
                 />
               )}
@@ -585,10 +680,10 @@ export function PackageEditorDialog() {
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-border px-6 py-4">
-          <Button variant="secondary" size="sm" onClick={closeEditor} disabled={saving}>
+          <Button variant="secondary" size="sm" onClick={closeEditor} disabled={saving || replacing || resettingPilot}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
+          <Button variant="primary" size="sm" loading={saving} disabled={replacing || resettingPilot} onClick={handleSave}>
             {isEdit ? "Save Changes" : "Create Package"}
           </Button>
         </div>

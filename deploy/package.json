@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "production": "node production-deploy.mjs",
-    "hotfix": "node hotfix-deploy.mjs"
+    "hotfix": "node hotfix-deploy.mjs",
+    "verify": "node verify-production.mjs"
   },
   "dependencies": {
     "ssh2": "^1.17.0"

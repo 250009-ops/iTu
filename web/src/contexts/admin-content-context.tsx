@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  archiveContentTest,
   createContentTest,
   cloneContentTest,
   deleteContentTest,
@@ -16,6 +17,7 @@ import {
   importAnswerKeyCsv,
   importContentTest,
   publishContentTest,
+  retireAndDuplicateContentTest,
   revertContentTestToDraft,
   submitContentTestForReview,
   updateContentTest,
@@ -52,6 +54,12 @@ type ContentValue = {
   updateTest: (id: string, payload: UpdateTestPayload) => Promise<void>;
   publishTest: (id: string) => Promise<void>;
   cloneTest: (id: string, code: string, title: string) => Promise<{ id: string }>;
+  archiveTest: (id: string) => Promise<void>;
+  retireAndDuplicate: (
+    id: string,
+    code: string,
+    title: string,
+  ) => Promise<{ archived: boolean; activePackageLinks: number; cloneId: string }>;
   deleteTest: (id: string) => Promise<void>;
   submitForReview: (id: string) => Promise<void>;
   revertToDraft: (id: string) => Promise<void>;
@@ -98,6 +106,28 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
       await refresh();
       setSelectedTestId(cloned.id);
       return { id: cloned.id };
+    },
+    [refresh],
+  );
+
+  const archiveTest = useCallback(
+    async (id: string) => {
+      await archiveContentTest(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const retireAndDuplicate = useCallback(
+    async (id: string, code: string, title: string) => {
+      const result = await retireAndDuplicateContentTest(id, { code, title });
+      await refresh();
+      setSelectedTestId(result.clone.id);
+      return {
+        archived: result.archived,
+        activePackageLinks: result.activePackageLinks,
+        cloneId: result.clone.id,
+      };
     },
     [refresh],
   );
@@ -162,6 +192,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
         published: 0,
         underReview: 0,
         drafts: 0,
+        archived: 0,
       },
       selectedTestId,
       setSelectedTestId,
@@ -169,6 +200,8 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
       updateTest,
       publishTest,
       cloneTest,
+      archiveTest,
+      retireAndDuplicate,
       deleteTest,
       submitForReview,
       revertToDraft,
@@ -185,6 +218,8 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     updateTest,
     publishTest,
     cloneTest,
+    archiveTest,
+    retireAndDuplicate,
     deleteTest,
     submitForReview,
     revertToDraft,

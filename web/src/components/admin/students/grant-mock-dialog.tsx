@@ -14,10 +14,10 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { useAdminStudents } from "@/contexts/admin-students-context";
-import { getAdminPackages } from "@/lib/api/admin";
+import { getGrantablePackagesForStudent } from "@/lib/api/admin";
 import { getAvailability, listTeachers } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
-import type { AdminPackage, Student } from "@/lib/admin/types";
+import type { Student } from "@/lib/admin/types";
 import {
   clampMockTimeForDate,
   defaultMockTimeForDate,
@@ -52,6 +52,7 @@ type GrantPackage = {
   currency: string;
   needsWriting: boolean;
   needsSpeaking: boolean;
+  mockLabel?: string;
 };
 
 type StepId = "package" | "date" | "writing" | "speaking" | "review";
@@ -84,7 +85,14 @@ function packageSkillIds(skills: unknown[]): string[] {
     .filter(Boolean);
 }
 
-function toGrantPackage(pkg: AdminPackage): GrantPackage {
+function toGrantPackage(pkg: {
+  id: string;
+  title: string;
+  price: number;
+  currency: string;
+  skills: unknown[];
+  mockLabel?: string;
+}): GrantPackage {
   const ids = packageSkillIds(pkg.skills);
   return {
     id: pkg.id,
@@ -93,6 +101,7 @@ function toGrantPackage(pkg: AdminPackage): GrantPackage {
     currency: pkg.currency,
     needsWriting: ids.includes("writing"),
     needsSpeaking: ids.includes("speaking"),
+    mockLabel: pkg.mockLabel,
   };
 }
 
@@ -150,12 +159,10 @@ export function GrantMockDialog({
   useEffect(() => {
     let cancelled = false;
     setPackagesLoading(true);
-    void getAdminPackages()
+    void getGrantablePackagesForStudent(student.id)
       .then((res) => {
         if (cancelled) return;
-        setPackages(
-          res.packages.filter((p) => p.isActive).map(toGrantPackage),
-        );
+        setPackages(res.packages.map(toGrantPackage));
       })
       .catch((err) => {
         if (!cancelled) setError(getErrorMessage(err, "Could not load packages"));
@@ -166,7 +173,7 @@ export function GrantMockDialog({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [student.id]);
 
   const loadTeachers = useCallback(async () => {
     setTeachersLoading(true);
@@ -349,7 +356,8 @@ export function GrantMockDialog({
               </div>
             ) : packages.length === 0 ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                No active packages available. Activate a package first.
+                {student.name} has no grantable mocks — they may have already completed or
+                enrolled in every active package.
               </p>
             ) : (
               <div className="space-y-2">
@@ -367,6 +375,9 @@ export function GrantMockDialog({
                   >
                     <div>
                       <p className="font-semibold text-navy">{pkg.title}</p>
+                      {pkg.mockLabel && (
+                        <p className="text-xs font-medium text-sky-700">{pkg.mockLabel}</p>
+                      )}
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {pkg.needsWriting && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">

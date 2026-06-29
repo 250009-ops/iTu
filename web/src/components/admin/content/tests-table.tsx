@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -39,6 +38,11 @@ const statusStyles: Record<
     dot: "bg-amber-500",
     pill: "bg-amber-50 text-amber-700",
   },
+  archived: {
+    label: "Retired",
+    dot: "bg-slate-400",
+    pill: "bg-slate-100 text-slate-500",
+  },
 };
 
 const moduleBadge: Record<ContentModule, string> = {
@@ -59,6 +63,8 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
     tests: contentTests,
     publishTest,
     cloneTest,
+    archiveTest,
+    retireAndDuplicate,
     submitForReview,
     revertToDraft,
     setSelectedTestId,
@@ -68,6 +74,7 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
   const [query, setQuery] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [cloningId, setCloningId] = useState<string | null>(null);
+  const [retiringId, setRetiringId] = useState<string | null>(null);
   const moduleLabel = contentModuleLabels[module];
 
   async function handlePublish(id: string, name: string) {
@@ -123,6 +130,60 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
       });
     } finally {
       setCloningId(null);
+    }
+  }
+
+  async function handleRetireAndDuplicate(id: string, name: string) {
+    setRetiringId(id);
+    try {
+      const code = suggestTestCode(module);
+      const title = `${name.replace(/\s+\d+$/, "").trim()} Copy`;
+      const result = await retireAndDuplicate(
+        id,
+        code,
+        title || defaultTestTitle(module),
+      );
+      onEditTest?.();
+      toast(result.archived ? "Test retired" : "Draft copy created", {
+        description: result.archived
+          ? `${name} was retired and ${title} is ready to edit, publish, and assign.`
+          : result.activePackageLinks > 0
+            ? `${title} is ready to edit. Update ${result.activePackageLinks} active package(s), then retire the original.`
+            : `${title} is ready to edit and publish.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Retire failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setRetiringId(null);
+    }
+  }
+
+  async function handleRetire(id: string, name: string) {
+    if (
+      !window.confirm(
+        `Retire ${name}?\n\nIt will be hidden from new package assignments. Existing exam history is preserved.`,
+      )
+    ) {
+      return;
+    }
+    setRetiringId(id);
+    try {
+      await archiveTest(id);
+      toast("Test retired", {
+        description: `${name} is archived and no longer available for new packages.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Retire failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setRetiringId(null);
     }
   }
 
@@ -282,13 +343,56 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                             >
                               Preview
                             </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 px-3"
+                              loading={retiringId === test.id}
+                              onClick={() => void handleRetireAndDuplicate(test.id, test.name)}
+                            >
+                              Retire &amp; duplicate
+                            </Button>
+                            {(test.activePackageLinks ?? 0) === 0 && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-8 px-3"
+                                loading={retiringId === test.id}
+                                onClick={() => void handleRetire(test.id, test.name)}
+                              >
+                                Retire
+                              </Button>
+                            )}
                             {test.assignedMockLabel ? (
-                              <Link
-                                href="/admin/packages"
-                                className="flex h-8 items-center px-2 text-xs font-semibold text-sky-600 hover:text-sky-700"
+                              <span
+                                className="flex h-8 max-w-[10rem] items-center truncate px-2 text-xs font-semibold text-sky-600"
+                                title={
+                                  test.assignedMockLabels?.length
+                                    ? test.assignedMockLabels.join(", ")
+                                    : test.assignedMockLabel
+                                }
                               >
                                 {test.assignedMockLabel}
-                              </Link>
+                              </span>
+                            ) : null}
+                          </>
+                        ) : test.status === "archived" ? (
+                          <>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 px-3"
+                              onClick={() => {
+                                onPreviewTest?.();
+                                setSelectedTestId(test.id);
+                              }}
+                            >
+                              Preview
+                            </Button>
+                            {test.assignedMockLabel ? (
+                              <span className="flex h-8 items-center px-2 text-xs text-muted">
+                                {test.assignedMockLabel}
+                              </span>
                             ) : null}
                           </>
                         ) : test.status === "review" ? (

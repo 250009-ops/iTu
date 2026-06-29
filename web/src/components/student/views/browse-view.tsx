@@ -28,7 +28,7 @@ function BrowseContent() {
       loading={loading}
       error={error}
       empty={!products.length}
-      emptyMessage="No mock packages available right now."
+      emptyMessage="No mocks are available for you to book right now. You may have already completed or enrolled in every active package."
     >
       <div className="p-4 lg:p-6 xl:p-8">
         <div className="mx-auto max-w-5xl space-y-8">

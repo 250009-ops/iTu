@@ -51,14 +51,32 @@ export function updatePackage(id: string, payload: AdminPackagePayload) {
 }
 
 export function deletePackage(id: string) {
-  return apiFetch<{ archived?: boolean; deleted?: boolean }>(
+  return apiFetch<{ archived?: boolean; deleted?: boolean; releasedContent?: boolean }>(
     `/admin/packages/${id}`,
     { method: "DELETE" },
   );
 }
 
 export function clonePackage(id: string) {
-  return apiFetch("/admin/packages/" + id + "/clone", { method: "POST" });
+  return apiFetch<{ package: AdminPackage }>(
+    "/admin/packages/" + id + "/clone",
+    { method: "POST" },
+  );
+}
+
+export function replacePackage(id: string) {
+  return apiFetch<{ archivedId: string; replacement: AdminPackage }>(
+    `/admin/packages/${id}/replace`,
+    { method: "POST" },
+  );
+}
+
+export function resetPackagePilot(id: string) {
+  return apiFetch<{
+    clearedEnrollments: number;
+    clearedOrders: number;
+    clearedSessions: number;
+  }>(`/admin/packages/${id}/reset-pilot`, { method: "POST" });
 }
 
 export function updateTicket(
@@ -294,6 +312,22 @@ export function grantEnrollment(body: GrantEnrollmentBody) {
   }>("/admin/enrollments/grant", { method: "POST", body });
 }
 
+export type GrantablePackage = {
+  id: string;
+  title: string;
+  slug: string;
+  price: number;
+  currency: string;
+  skills: unknown[];
+  mockLabel: string;
+};
+
+export function getGrantablePackagesForStudent(studentId: string) {
+  return apiFetch<{ packages: GrantablePackage[] }>(
+    `/admin/students/${studentId}/grantable-packages`,
+  );
+}
+
 export function getAdminTeachers() {
   return apiFetch<
     {
@@ -520,7 +554,9 @@ export function getContentTests(type?: string) {
       questionCount?: number;
       authorName?: string;
       linkedPackages?: number;
+      activePackageLinks?: number;
       assignedMockLabel?: string | null;
+      assignedMockLabels?: string[];
     }[]
   >(`/admin/content/tests${q}`);
 }
@@ -675,6 +711,27 @@ export function cloneContentTest(
     `/admin/content/tests/${id}/clone`,
     { method: "POST", body: payload },
   );
+}
+
+export function archiveContentTest(id: string) {
+  return apiFetch<{ id: string; code: string; status: string }>(
+    `/admin/content/tests/${id}/archive`,
+    { method: "POST" },
+  );
+}
+
+export function retireAndDuplicateContentTest(
+  id: string,
+  payload: { code: string; title: string },
+) {
+  return apiFetch<{
+    clone: { id: string; code: string; title: string };
+    archived: boolean;
+    activePackageLinks: number;
+  }>(`/admin/content/tests/${id}/retire-and-duplicate`, {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export function deleteContentTest(id: string) {

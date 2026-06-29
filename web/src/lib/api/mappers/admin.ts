@@ -140,6 +140,7 @@ function normalizeTicketStatus(status: string): TicketStatus {
 
 function normalizeTestStatus(status: string): TestStatus {
   const s = status.toLowerCase().replace(/-/g, "_");
+  if (s === "archived") return "archived";
   if (s === "under_review") return "review";
   if (s === "published" || s === "draft" || s === "review") return s;
   if (s.includes("publish")) return "published";
@@ -615,7 +616,9 @@ export function mapContentTests(tests: ContentTests) {
     lastUpdated: formatShortDate(t.updatedAt),
     author: t.authorName ?? "Admin",
     linkedPackages: t.linkedPackages ?? 0,
+    activePackageLinks: t.activePackageLinks ?? 0,
     assignedMockLabel: t.assignedMockLabel ?? null,
+    assignedMockLabels: t.assignedMockLabels ?? [],
   }));
 
   const counts = {
@@ -637,6 +640,7 @@ export function mapContentTests(tests: ContentTests) {
     published: mapped.filter((t) => t.status === "published").length,
     underReview: mapped.filter((t) => t.status === "review").length,
     drafts: mapped.filter((t) => t.status === "draft").length,
+    archived: mapped.filter((t) => t.status === "archived").length,
   };
 
   return { tests: mapped, moduleTabs, summary };

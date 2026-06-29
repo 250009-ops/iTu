@@ -1,36 +1,20 @@
 import {
-  ContentTestStatus,
-  ContentTestType,
   ExamSkill,
   type MockTestPackage,
   PrismaClient,
 } from '@prisma/client';
+import { packageTestIdForSkill } from './content-assignment';
 import { packageIncludesExamSkill } from './package-skills';
 
 type PackageContentFields = Pick<
   MockTestPackage,
-  'listeningTestId' | 'readingTestId' | 'writingTestId' | 'speakingBankId' | 'skills'
+  | 'id'
+  | 'listeningTestId'
+  | 'readingTestId'
+  | 'writingTestId'
+  | 'speakingBankId'
+  | 'skills'
 >;
-
-const SKILL_FIELD: Record<
-  ExamSkill,
-  keyof Pick<
-    MockTestPackage,
-    'listeningTestId' | 'readingTestId' | 'writingTestId' | 'speakingBankId'
-  >
-> = {
-  LISTENING: 'listeningTestId',
-  READING: 'readingTestId',
-  WRITING: 'writingTestId',
-  SPEAKING: 'speakingBankId',
-};
-
-const SKILL_TO_TYPE: Record<ExamSkill, ContentTestType> = {
-  LISTENING: ContentTestType.LISTENING,
-  READING: ContentTestType.READING,
-  WRITING: ContentTestType.WRITING,
-  SPEAKING: ContentTestType.SPEAKING,
-};
 
 /** True when the package JSON `skills` array includes this exam skill. */
 export function packageIncludesSkill(
@@ -41,33 +25,26 @@ export function packageIncludesSkill(
 }
 
 export function explicitPackageContentTestId(
-  pkg: PackageContentFields,
+  pkg: Omit<PackageContentFields, 'id'>,
   skill: ExamSkill,
 ): string | null {
-  const id = pkg[SKILL_FIELD[skill]];
+  const field =
+    skill === ExamSkill.LISTENING
+      ? 'listeningTestId'
+      : skill === ExamSkill.READING
+        ? 'readingTestId'
+        : skill === ExamSkill.WRITING
+          ? 'writingTestId'
+          : 'speakingBankId';
+  const id = pkg[field];
   return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
 /**
- * Resolve the content test id for a package skill.
- * Uses explicit package FK when set; otherwise falls back to the latest
- * published test of that type when the package includes the skill.
+ * Resolve the pinned content test for a package skill.
+ * Uses the content pool row or legacy package FK only — never guesses from
+ * "latest published" tests, which would silently serve the wrong exam paper.
  */
-async function latestPublishedTestId(
-  prisma: PrismaClient,
-  skill: ExamSkill,
-): Promise<string | null> {
-  const test = await prisma.contentTest.findFirst({
-    where: {
-      type: SKILL_TO_TYPE[skill],
-      status: ContentTestStatus.PUBLISHED,
-    },
-    orderBy: { updatedAt: 'desc' },
-    select: { id: true },
-  });
-  return test?.id ?? null;
-}
-
 export async function resolvePackageContentTestId(
   prisma: PrismaClient,
   pkg: PackageContentFields,
@@ -79,16 +56,5 @@ export async function resolvePackageContentTestId(
 
   if (!skillIncluded) return null;
 
-  const explicit = explicitPackageContentTestId(pkg, skill);
-  if (explicit) {
-    const linked = await prisma.contentTest.findUnique({
-      where: { id: explicit },
-      select: { id: true, status: true },
-    });
-    if (linked?.status === ContentTestStatus.PUBLISHED) {
-      return linked.id;
-    }
-  }
-
-  return latestPublishedTestId(prisma, skill);
+  return packageTestIdForSkill(prisma, pkg, skill);
 }

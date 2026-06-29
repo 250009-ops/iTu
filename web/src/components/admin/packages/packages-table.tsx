@@ -44,7 +44,9 @@ export function PackagesTable() {
       const result = await removePackage(target.id);
       toast(result.archived ? "Package archived" : "Package deleted", {
         description: result.archived
-          ? `${target.title} has booking history, so it was hidden instead of deleted.`
+          ? result.releasedContent
+            ? `${target.title} was hidden and its L/R/W papers were released for reuse in other packages.`
+            : `${target.title} has booking history, so it was hidden instead of deleted.`
           : `${target.title} has been removed.`,
         variant: "success",
       });
@@ -58,14 +60,18 @@ export function PackagesTable() {
 
   async function handleDuplicate(pkg: AdminPackage) {
     try {
-      await duplicatePackage(pkg.id);
+      const duplicated = await duplicatePackage(pkg.id);
+      openEditor(duplicated);
       toast("Package duplicated", {
-        description: `${pkg.title} Copy was created as inactive — review and activate when ready.`,
+        description: `${duplicated.title} was created inactive — review content and activate when ready.`,
         variant: "success",
       });
     } catch (err) {
       toast("Failed to duplicate package", {
-        description: getErrorMessage(err, "Please try again."),
+        description: getErrorMessage(
+          err,
+          "Exclusive L/R/W papers may still be linked to the source package. Archive the source or use Replace mock instead.",
+        ),
         variant: "warning",
       });
     }
@@ -212,7 +218,7 @@ export function PackagesTable() {
         title={pendingDelete ? `Delete ${pendingDelete.title}?` : ""}
         message={
           pendingDelete && (pendingDelete.enrollmentCount > 0 || pendingDelete.orderCount > 0)
-            ? "This package has booking history, so it will be archived (hidden from students) rather than permanently deleted."
+            ? "This package has booking history, so it will be archived (hidden from students). When no students are mid-exam, its Listening/Reading/Writing papers will be released for reuse."
             : "This package will be permanently removed. This cannot be undone."
         }
         confirmLabel={

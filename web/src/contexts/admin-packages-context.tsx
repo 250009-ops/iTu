@@ -13,6 +13,8 @@ import {
   createPackage,
   deletePackage,
   getAdminPackages,
+  replacePackage as replacePackageApi,
+  resetPackagePilot as resetPackagePilotApi,
   updatePackage,
   type AdminPackagePayload,
 } from "@/lib/api/admin";
@@ -38,8 +40,21 @@ type PackagesValue = {
   openEditor: (pkg: AdminPackage | null) => void;
   closeEditor: () => void;
   savePackage: (id: string | null, payload: AdminPackagePayload) => Promise<void>;
-  removePackage: (id: string) => Promise<{ archived?: boolean; deleted?: boolean }>;
-  duplicatePackage: (id: string) => Promise<void>;
+  removePackage: (id: string) => Promise<{
+    archived?: boolean;
+    deleted?: boolean;
+    releasedContent?: boolean;
+  }>;
+  duplicatePackage: (id: string) => Promise<AdminPackage>;
+  replacePackage: (id: string) => Promise<{
+    archivedId: string;
+    replacement: AdminPackage;
+  }>;
+  resetPackagePilot: (id: string) => Promise<{
+    clearedEnrollments: number;
+    clearedOrders: number;
+    clearedSessions: number;
+  }>;
   refresh: () => Promise<void>;
 };
 
@@ -100,8 +115,27 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
 
   const duplicatePackage = useCallback(
     async (id: string) => {
-      await clonePackage(id);
+      const result = await clonePackage(id);
       await refresh();
+      return result.package;
+    },
+    [refresh],
+  );
+
+  const replacePackage = useCallback(
+    async (id: string) => {
+      const result = await replacePackageApi(id);
+      await refresh();
+      return result;
+    },
+    [refresh],
+  );
+
+  const resetPackagePilot = useCallback(
+    async (id: string) => {
+      const result = await resetPackagePilotApi(id);
+      await refresh();
+      return result;
     },
     [refresh],
   );
@@ -119,6 +153,8 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
       savePackage,
       removePackage,
       duplicatePackage,
+      replacePackage,
+      resetPackagePilot,
       refresh,
     }),
     [
@@ -133,6 +169,8 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
       savePackage,
       removePackage,
       duplicatePackage,
+      replacePackage,
+      resetPackagePilot,
       refresh,
     ],
   );

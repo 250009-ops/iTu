@@ -46,7 +46,7 @@ export type SlaState = "active" | "overdue" | "resolved";
 
 export type ReportTimeframe = "jun" | "q2" | "ytd";
 
-export type TestStatus = "published" | "draft" | "review";
+export type TestStatus = "published" | "draft" | "review" | "archived";
 
 export type ContentModule = "listening" | "reading" | "writing" | "speaking";
 
@@ -167,7 +167,9 @@ export type ContentTest = {
   lastUpdated: string;
   author: string;
   linkedPackages: number;
+  activePackageLinks?: number;
   assignedMockLabel?: string | null;
+  assignedMockLabels?: string[];
 };
 
 export type ExamTypeValue = "ACADEMIC" | "GENERAL_TRAINING";
@@ -183,6 +185,7 @@ export type AdminContentTestOption = {
   assignedPackageId?: string | null;
   assignedPackageTitle?: string | null;
   assignedMockLabel?: string | null;
+  assignedMockLabels?: string[];
   isPackaged?: boolean;
 };
 

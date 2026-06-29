@@ -13,6 +13,12 @@ import {
   ResultsStatus,
   SlotStatus,
 } from '@prisma/client';
+import {
+  ACTIVE_PACKAGE_ENROLLMENT_STATUSES,
+  activeEnrollmentsBlockContentRelease,
+  EXCLUSIVE_PACKAGE_SKILLS,
+} from './package-lifecycle';
+import { purgeEnrollments } from './enrollment-cleanup';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
@@ -51,6 +57,12 @@ import {
   SKILL_TO_TEST_FIELD,
 } from '../../common/package-kind';
 import { packageExamSkills } from '../content/package-skills';
+import {
+  findContentTestPackageAssignments,
+  groupAssignmentsByTestId,
+  summarizeAssignmentsForTest,
+} from '../content/content-package-assignments';
+import { filterPackagesAvailableToStudent } from '../content/content-assignment';
 
 const SKILL_ACCENTS = [
   { id: 'listening', name: 'Listening', detail: '~32 min · plays once', badge: 'Auto-scored', color: 'sky' },
@@ -846,6 +858,40 @@ export class AdminService {
     }));
   }
 
+  /** Active packages a student may receive via complimentary grant or self-checkout. */
+  async getGrantablePackagesForStudent(studentId: string) {
+    const student = await this.prisma.studentProfile.findUnique({
+      where: { id: studentId },
+      select: { id: true },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const packages = await this.prisma.mockTestPackage.findMany({
+      where: { isActive: true },
+      orderBy: [{ mostPopular: 'desc' }, { title: 'asc' }],
+    });
+
+    const grantable = await filterPackagesAvailableToStudent(
+      this.prisma,
+      studentId,
+      packages,
+    );
+
+    return {
+      packages: grantable.map((pkg) => ({
+        id: pkg.id,
+        title: pkg.title,
+        slug: pkg.slug,
+        price: pkg.price,
+        currency: pkg.currency,
+        skills: pkg.skills,
+        mockLabel: formatMockNumber(pkg.packageKind, pkg.mockNumber),
+      })),
+    };
+  }
+
   /**
    * Admin-initiated complimentary enrollment. Reuses the shared booking
    * provisioning so the granted mock behaves identically to a paid one
@@ -1091,7 +1137,7 @@ export class AdminService {
   // ─── Packages & Pricing ──────────────────────────────────────────────────
 
   async getPackages() {
-    const [packages, tests, poolRows] = await Promise.all([
+    const [packages, tests, allAssignments] = await Promise.all([
       this.prisma.mockTestPackage.findMany({
         orderBy: [{ isActive: 'desc' }, { mostPopular: 'desc' }, { price: 'desc' }],
         include: {
@@ -1102,35 +1148,10 @@ export class AdminService {
         select: { id: true, code: true, title: true, type: true, status: true },
         orderBy: { updatedAt: 'desc' },
       }),
-      this.prisma.packageContentTest.findMany({
-        select: {
-          testId: true,
-          skill: true,
-          package: {
-            select: {
-              id: true,
-              title: true,
-              mockNumber: true,
-              packageKind: true,
-            },
-          },
-        },
-      }),
+      findContentTestPackageAssignments(this.prisma),
     ]);
 
-    const assignmentByTestId = new Map(
-      poolRows.map((row) => [
-        row.testId,
-        {
-          packageId: row.package.id,
-          packageTitle: row.package.title,
-          mockNumber: row.package.mockNumber,
-          packageKind: row.package.packageKind,
-          mockLabel: formatMockNumber(row.package.packageKind, row.package.mockNumber),
-          skill: row.skill,
-        },
-      ]),
-    );
+    const assignmentsByTestId = groupAssignmentsByTestId(allAssignments);
 
     return {
       packages: packages.map((pkg) => ({
@@ -1160,17 +1181,20 @@ export class AdminService {
         updatedAt: pkg.updatedAt,
       })),
       contentTests: tests.map((t) => {
-        const assignment = assignmentByTestId.get(t.id);
+        const summary = summarizeAssignmentsForTest(
+          assignmentsByTestId.get(t.id) ?? [],
+        );
         return {
           id: t.id,
           code: t.code,
           title: t.title,
           type: t.type,
           status: t.status,
-          assignedPackageId: assignment?.packageId ?? null,
-          assignedPackageTitle: assignment?.packageTitle ?? null,
-          assignedMockLabel: assignment?.mockLabel ?? null,
-          isPackaged: Boolean(assignment),
+          assignedPackageId: summary.assignedPackageId,
+          assignedPackageTitle: summary.assignedPackageTitle,
+          assignedMockLabel: summary.assignedMockLabel,
+          assignedMockLabels: summary.assignedMockLabels,
+          isPackaged: summary.isPackaged,
         };
       }),
     };
@@ -1273,6 +1297,37 @@ export class AdminService {
     return created;
   }
 
+  private mapPackageSnapshot(
+    pkg: Prisma.MockTestPackageGetPayload<object>,
+  ) {
+    return {
+      id: pkg.id,
+      slug: pkg.slug,
+      title: pkg.title,
+      description: pkg.description,
+      price: pkg.price,
+      currency: pkg.currency,
+      examType: pkg.examType,
+      packageKind: pkg.packageKind,
+      mockNumber: pkg.mockNumber,
+      mockLabel: formatMockNumber(pkg.packageKind, pkg.mockNumber),
+      mostPopular: pkg.mostPopular,
+      rating: pkg.rating,
+      reviewCount: pkg.reviewCount,
+      skills: pkg.skills,
+      included: pkg.included,
+      rules: pkg.rules,
+      listeningTestId: pkg.listeningTestId,
+      readingTestId: pkg.readingTestId,
+      writingTestId: pkg.writingTestId,
+      speakingBankId: pkg.speakingBankId,
+      isActive: pkg.isActive,
+      enrollmentCount: 0,
+      orderCount: 0,
+      updatedAt: pkg.updatedAt,
+    };
+  }
+
   async clonePackage(id: string, actorId: string) {
     const source = await this.prisma.mockTestPackage.findUnique({
       where: { id },
@@ -1296,12 +1351,146 @@ export class AdminService {
         skills: (source.skills as string[]) ?? DEFAULT_PACKAGE_SKILLS,
         included: (source.included as string[]) ?? [],
         rules: (source.rules as string[]) ?? [],
+        listeningTestId: source.listeningTestId ?? undefined,
+        readingTestId: source.readingTestId ?? undefined,
+        writingTestId: source.writingTestId ?? undefined,
+        speakingBankId: source.speakingBankId ?? undefined,
         isActive: false,
       },
       actorId,
     );
 
-    return cloned;
+    return { package: this.mapPackageSnapshot(cloned) };
+  }
+
+  /**
+   * Archive the current package (releasing exclusive L/R/W tests when safe),
+   * then create an inactive successor with the same content links so admins can
+   * adjust metadata or swap tests before activating for a new cohort.
+   */
+  async replacePackage(id: string, actorId: string) {
+    const source = await this.prisma.mockTestPackage.findUnique({
+      where: { id },
+      include: { _count: { select: { enrollments: true, orders: true } } },
+    });
+    if (!source) throw new NotFoundException('Package not found');
+
+    const activeEnrollments = await this.countActivePackageEnrollments(id);
+    if (activeEnrollmentsBlockContentRelease(activeEnrollments)) {
+      throw new BadRequestException(
+        'Cannot replace this mock while students have active bookings or exams in progress. Wait until they finish or cancel those enrollments.',
+      );
+    }
+
+    const successorTitle = source.title.replace(/\s+—\s+new$/i, '').trim();
+    const title = `${successorTitle} — new`;
+    const slug = await this.resolveSlug(title);
+    const skills = (source.skills as string[]) ?? DEFAULT_PACKAGE_SKILLS;
+
+    const createDto = {
+      title,
+      slug,
+      description: source.description ?? undefined,
+      price: source.price,
+      currency: source.currency,
+      examType: source.examType,
+      mostPopular: false,
+      rating: source.rating ?? undefined,
+      reviewCount: source.reviewCount,
+      skills,
+      included: (source.included as string[]) ?? [],
+      rules: (source.rules as string[]) ?? [],
+      listeningTestId: source.listeningTestId ?? undefined,
+      readingTestId: source.readingTestId ?? undefined,
+      writingTestId: source.writingTestId ?? undefined,
+      speakingBankId: source.speakingBankId ?? undefined,
+      isActive: false,
+    };
+
+    if (source._count.enrollments === 0 && source._count.orders === 0) {
+      await this.prisma.mockTestPackage.delete({ where: { id } });
+      await this.audit.log({
+        userId: actorId,
+        action: AuditAction.ADMIN_PACKAGE_DELETE,
+        entity: 'mock_test_package',
+        entityId: id,
+        metadata: { deleted: true, replaced: true },
+      });
+    } else {
+      await this.archivePackage(id, actorId, { releaseExclusiveContent: true });
+    }
+
+    const replacement = await this.createPackage(createDto, actorId);
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_PACKAGE_UPDATE,
+      entity: 'mock_test_package',
+      entityId: replacement.id,
+      metadata: {
+        replacedFrom: id,
+        mockLabel: formatMockNumber(replacement.packageKind, replacement.mockNumber),
+      },
+    });
+
+    return {
+      archivedId: id,
+      replacement: this.mapPackageSnapshot(replacement),
+    };
+  }
+
+  /**
+   * Wipe all enrollments, orders, and exam sessions for a package so a failed
+   * pilot can be rerun on the same mock. Blocks while a student exam is IN_PROGRESS.
+   */
+  async resetPackagePilot(id: string, actorId: string) {
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id },
+      include: { _count: { select: { enrollments: true, orders: true } } },
+    });
+    if (!pkg) throw new NotFoundException('Package not found');
+
+    const inProgress = await this.prisma.enrollment.count({
+      where: { packageId: id, status: EnrollmentStatus.IN_PROGRESS },
+    });
+    if (inProgress > 0) {
+      throw new BadRequestException(
+        'Cannot reset pilot while a student exam is in progress. Force-submit or suspend the live session first (Admin → Live monitor).',
+      );
+    }
+
+    const purged = await purgeEnrollments(this.prisma, { packageId: id });
+
+    const orphanOrders = await this.prisma.order.findMany({
+      where: { packageId: id },
+      select: { id: true },
+    });
+    let orphanOrdersDeleted = 0;
+    if (orphanOrders.length > 0) {
+      const orderIds = orphanOrders.map((o) => o.id);
+      await this.prisma.refund.deleteMany({ where: { orderId: { in: orderIds } } });
+      await this.prisma.order.deleteMany({ where: { id: { in: orderIds } } });
+      orphanOrdersDeleted = orderIds.length;
+    }
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_PACKAGE_PILOT_RESET,
+      entity: 'mock_test_package',
+      entityId: id,
+      metadata: {
+        clearedEnrollments: purged.enrollments,
+        clearedOrders: purged.orders + orphanOrdersDeleted,
+        clearedSessions: purged.sessions,
+        mockLabel: formatMockNumber(pkg.packageKind, pkg.mockNumber),
+      },
+    });
+
+    return {
+      clearedEnrollments: purged.enrollments,
+      clearedOrders: purged.orders + orphanOrdersDeleted,
+      clearedSessions: purged.sessions,
+    };
   }
 
   async updatePackage(id: string, dto: UpdatePackageDto, actorId: string) {
@@ -1602,10 +1791,16 @@ export class AdminService {
       throw new BadRequestException('One or more linked content tests were not found');
     }
 
-    const unpublished = tests.filter((t) => t.status !== ContentTestStatus.PUBLISHED);
-    if (unpublished.length > 0) {
+    const blocked = tests.filter((t) => t.status !== ContentTestStatus.PUBLISHED);
+    if (blocked.length > 0) {
+      const codes = blocked.map((t) => t.code).join(', ');
+      const hasArchived = blocked.some(
+        (t) => t.status === ContentTestStatus.ARCHIVED,
+      );
       throw new BadRequestException(
-        `Only published tests can be linked to packages (${unpublished.map((t) => t.code).join(', ')})`,
+        hasArchived
+          ? `Retired tests cannot be linked to packages (${codes}). Assign a published replacement.`
+          : `Only published tests can be linked to packages (${codes})`,
       );
     }
   }
@@ -1619,18 +1814,9 @@ export class AdminService {
 
     // Preserve referential history: archive packages that have activity.
     if (pkg._count.enrollments > 0 || pkg._count.orders > 0) {
-      await this.prisma.mockTestPackage.update({
-        where: { id },
-        data: { isActive: false },
-      });
-      await this.audit.log({
-        userId: actorId,
-        action: AuditAction.ADMIN_PACKAGE_DELETE,
-        entity: 'mock_test_package',
-        entityId: id,
-        metadata: { archived: true },
-      });
-      return { archived: true };
+      const releasedContent = await this.tryReleaseExclusivePackageContent(id);
+      await this.archivePackage(id, actorId, { alreadyReleased: releasedContent });
+      return { archived: true, releasedContent };
     }
 
     await this.prisma.mockTestPackage.delete({ where: { id } });
@@ -1642,6 +1828,84 @@ export class AdminService {
       metadata: { deleted: true },
     });
     return { deleted: true };
+  }
+
+  private async countActivePackageEnrollments(packageId: string): Promise<number> {
+    return this.prisma.enrollment.count({
+      where: {
+        packageId,
+        status: { in: [...ACTIVE_PACKAGE_ENROLLMENT_STATUSES] },
+      },
+    });
+  }
+
+  /** Clears exclusive L/R/W bindings so papers can be linked to another package. */
+  private async releaseExclusivePackageContent(packageId: string) {
+    await this.prisma.$transaction([
+      this.prisma.packageContentTest.deleteMany({
+        where: {
+          packageId,
+          skill: { in: [...EXCLUSIVE_PACKAGE_SKILLS] },
+        },
+      }),
+      this.prisma.mockTestPackage.update({
+        where: { id: packageId },
+        data: {
+          listeningTestId: null,
+          readingTestId: null,
+          writingTestId: null,
+        },
+      }),
+    ]);
+  }
+
+  /**
+   * Release exclusive papers when no students are mid-booking or mid-exam.
+   * Returns whether content was released.
+   */
+  private async tryReleaseExclusivePackageContent(
+    packageId: string,
+  ): Promise<boolean> {
+    const active = await this.countActivePackageEnrollments(packageId);
+    if (activeEnrollmentsBlockContentRelease(active)) return false;
+    await this.releaseExclusivePackageContent(packageId);
+    return true;
+  }
+
+  private async archivePackage(
+    id: string,
+    actorId: string,
+    options?: { releaseExclusiveContent?: boolean; alreadyReleased?: boolean },
+  ) {
+    if (options?.releaseExclusiveContent) {
+      const active = await this.countActivePackageEnrollments(id);
+      if (activeEnrollmentsBlockContentRelease(active)) {
+        throw new BadRequestException(
+          'Cannot release exam content while students have active bookings or exams in progress.',
+        );
+      }
+      if (!options.alreadyReleased) {
+        await this.releaseExclusivePackageContent(id);
+      }
+    }
+
+    await this.prisma.mockTestPackage.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_PACKAGE_DELETE,
+      entity: 'mock_test_package',
+      entityId: id,
+      metadata: {
+        archived: true,
+        releasedContent: Boolean(
+          options?.releaseExclusiveContent || options?.alreadyReleased,
+        ),
+      },
+    });
   }
 
   // ─── Disputes ────────────────────────────────────────────────────────────

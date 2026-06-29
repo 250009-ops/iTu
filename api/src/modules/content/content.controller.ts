@@ -107,6 +107,20 @@ export class ContentController {
     return this.content.cloneTest(id, body.code, body.title, user.id);
   }
 
+  @Post('tests/:id/archive')
+  archiveTest(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.content.archiveTest(id, user.id);
+  }
+
+  @Post('tests/:id/retire-and-duplicate')
+  retireAndDuplicate(
+    @Param('id') id: string,
+    @Body() body: { code: string; title: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.content.retireAndDuplicate(id, body.code, body.title, user.id);
+  }
+
   @Patch('tests/:id')
   updateTest(
     @Param('id') id: string,

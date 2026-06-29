@@ -20,6 +20,7 @@ import {
 } from '../../common/band-resolution';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CatalogService } from '../catalog/catalog.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -41,7 +42,13 @@ export class StudentsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private catalog: CatalogService,
   ) {}
+
+  async listCatalogPackages(user: RequestUser) {
+    this.requireStudent(user);
+    return this.catalog.listPackagesForStudent(user.studentProfileId!);
+  }
 
   async getDashboard(user: RequestUser) {
     this.requireStudent(user);

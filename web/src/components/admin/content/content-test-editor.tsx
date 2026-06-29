@@ -14,7 +14,11 @@ import {
   isPublishReady,
   PublishChecklist,
 } from "@/components/admin/content/publish-checklist";
-import { moduleUsesAnswerKey } from "@/lib/admin/content-templates";
+import {
+  defaultTestTitle,
+  moduleUsesAnswerKey,
+  suggestTestCode,
+} from "@/lib/admin/content-templates";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
 import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
@@ -51,14 +55,22 @@ type Props = {
 };
 
 export function ContentTestEditor({ module, testId, initialTab = "visual" }: Props) {
-  const { updateTest, publishTest, submitForReview, revertToDraft, deleteTest, tests } =
-    useAdminContent();
+  const {
+    updateTest,
+    publishTest,
+    submitForReview,
+    revertToDraft,
+    deleteTest,
+    retireAndDuplicate,
+    tests,
+  } = useAdminContent();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [retiring, setRetiring] = useState(false);
   const [tab, setTab] = useState<EditorTab>(initialTab);
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
@@ -180,6 +192,7 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
   }
 
   const contentReady = loadedTestId === testId;
+  const isLocked = status === "published" || status === "archived";
 
   if (loading || !contentReady) {
     return (
@@ -194,6 +207,14 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
 
   async function handleSave(): Promise<boolean> {
     if (!testId) return false;
+    if (isLocked) {
+      toast("Test is locked", {
+        description:
+          "Published tests cannot be edited. Duplicate this test from the table to make changes.",
+        variant: "warning",
+      });
+      return false;
+    }
 
     setSaving(true);
     try {
@@ -304,6 +325,35 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
     }
   }
 
+  async function handleRetireAndDuplicate() {
+    if (!testId) return;
+    setRetiring(true);
+    try {
+      const nextCode = suggestTestCode(module);
+      const nextTitle = `${title.replace(/\s+\d+$/, "").trim() || code} Copy`;
+      const result = await retireAndDuplicate(
+        testId,
+        nextCode,
+        nextTitle || defaultTestTitle(module),
+      );
+      toast(result.archived ? "Test retired" : "Draft copy created", {
+        description: result.archived
+          ? `${title} was retired. Edit and publish ${nextTitle}, then assign it in your package.`
+          : result.activePackageLinks > 0
+            ? `Edit and publish ${nextTitle}, update ${result.activePackageLinks} active package(s), then retire the original.`
+            : `Edit and publish ${nextTitle}, then assign it in your package.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Retire failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setRetiring(false);
+    }
+  }
+
   const tabs: { id: EditorTab; label: string }[] = [
     { id: "visual", label: "Visual editor" },
     { id: "preview", label: "Preview" },
@@ -317,54 +367,83 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
           <p className="mt-0.5 font-mono text-xs text-muted">{code}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" loading={saving} onClick={() => void handleSave()}>
-            Save draft
-          </Button>
-          {status === "draft" && (
+          {status === "published" && (
             <Button
               variant="secondary"
               size="sm"
-              loading={reviewing}
-              onClick={() => void handleSubmitReview()}
+              loading={retiring}
+              onClick={() => void handleRetireAndDuplicate()}
             >
-              Submit for review
+              Retire &amp; duplicate
             </Button>
           )}
-          {status === "under_review" && (
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={reviewing}
-              onClick={() => void handleRevertDraft()}
-            >
-              Back to draft
-            </Button>
-          )}
-          {status !== "published" && (
-            <Button
-              variant="primary"
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700"
-              loading={publishing}
-              onClick={() => void handlePublish()}
-            >
-              Publish
-            </Button>
-          )}
-          {status !== "published" && (
-            <Button
-              variant="danger"
-              size="sm"
-              loading={deleting}
-              onClick={() => void handleDelete()}
-            >
-              Delete
-            </Button>
+          {!isLocked && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={saving}
+                onClick={() => void handleSave()}
+              >
+                Save draft
+              </Button>
+              {status === "draft" && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={reviewing}
+                  onClick={() => void handleSubmitReview()}
+                >
+                  Submit for review
+                </Button>
+              )}
+              {status === "under_review" && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={reviewing}
+                  onClick={() => void handleRevertDraft()}
+                >
+                  Back to draft
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700"
+                loading={publishing}
+                onClick={() => void handlePublish()}
+              >
+                Publish
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={deleting}
+                onClick={() => void handleDelete()}
+              >
+                Delete
+              </Button>
+            </>
           )}
         </div>
       </div>
 
       <div className="space-y-5 p-5 pb-8 sm:p-6 sm:pb-10">
+          {isLocked && (
+            <div
+              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              role="status"
+            >
+              This test is{" "}
+              <span className="font-semibold">{status.replace("_", " ")}</span> and
+              locked to protect exam integrity.
+              {status === "published"
+                ? " Use Retire & duplicate to create an editable draft copy."
+                : " Use Clone in the tests table to create an editable copy."}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="edit-title">Title</Label>
@@ -372,6 +451,7 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
                 id="edit-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                disabled={isLocked}
               />
             </div>
             <div className="space-y-2">
@@ -382,6 +462,7 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
                 min={1}
                 value={durationMin}
                 onChange={(e) => setDurationMin(Number(e.target.value))}
+                disabled={isLocked}
               />
             </div>
           </div>
@@ -413,7 +494,10 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
           </div>
 
           {tab === "visual" && (
-            <div className="min-h-0 pb-2">
+            <div
+              className={cn("min-h-0 pb-2", isLocked && "pointer-events-none opacity-75")}
+              aria-disabled={isLocked || undefined}
+            >
               {module === "reading" && (
                 <div className="space-y-5 pt-1">
                   <ReadingVisualEditor

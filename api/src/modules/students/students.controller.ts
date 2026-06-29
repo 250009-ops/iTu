@@ -22,6 +22,11 @@ export class StudentsController {
     return this.students.getDashboard(user);
   }
 
+  @Get('catalog/packages')
+  listCatalogPackages(@CurrentUser() user: RequestUser) {
+    return this.students.listCatalogPackages(user);
+  }
+
   @Get('mock-day')
   getMockDay(@CurrentUser() user: RequestUser) {
     return this.students.getMockDayHub(user);

@@ -52,6 +52,26 @@ VPS_PASSWORD=... npm run production
 
 This uploads `api` + `web`, runs `deploy-rebuild.sh` on the VPS (preserves `deploy/env/api.env`), applies Prisma schema, rebuilds, and restarts PM2.
 
+## Pre-launch checklist
+
+Before activating a package for real students:
+
+1. **Content** — Every included skill has a **published** test assigned in Admin → Packages.
+2. **Listening audio** — Published listening tests linked to the package have `full-audio` (or legacy part tracks) uploaded and files present under `MEDIA_ROOT`.
+3. **Exclusive papers** — No Listening/Reading/Writing test is linked to two active packages (use Replace mock or Retire & duplicate instead of reusing papers).
+4. **Pilot cleanup** — After a failed pilot, use **Reset pilot** on the package (clears enrollments/orders/sessions; keeps content). Do not use Replace mock unless you need a new package row.
+5. **Verify script** — Run production audit:
+
+```bash
+# On VPS / with DATABASE_URL in api/.env
+cd api && npm run verify:production
+
+# From your machine (health + remote DB audit)
+cd deploy && VPS_PASSWORD=... npm run verify
+```
+
+Set `MIGRATION_STRICT_PACKAGE_CONTENT=true` in deploy env if you want `pre-db-push-migrate` to abort on duplicate exclusive assignments instead of only logging them.
+
 **Git pull on server** (when the VPS has a clone):
 
 ```bash

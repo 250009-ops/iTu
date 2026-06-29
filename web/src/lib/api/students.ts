@@ -193,3 +193,24 @@ export function createSupportTicket(body: {
 export function exportPersonalData() {
   return apiFetch<Record<string, unknown>>("/students/me/data-export");
 }
+
+export type StudentCatalogPackage = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  examType: string;
+  mostPopular: boolean;
+  rating: number | null;
+  reviewCount: number;
+  skills: string[];
+  included: string[];
+  rules: string[];
+};
+
+/** Active packages this student may book (excludes completed or enrolled mocks). */
+export function listStudentCatalogPackages() {
+  return apiFetch<StudentCatalogPackage[]>("/students/catalog/packages");
+}

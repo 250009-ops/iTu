@@ -57,6 +57,11 @@ export class AdminController {
     return this.admin.getStudents();
   }
 
+  @Get('students/:studentId/grantable-packages')
+  getGrantablePackagesForStudent(@Param('studentId') studentId: string) {
+    return this.admin.getGrantablePackagesForStudent(studentId);
+  }
+
   @Post('enrollments/grant')
   grantEnrollment(
     @Body() body: GrantEnrollmentDto,
@@ -270,6 +275,16 @@ export class AdminController {
   @Post('packages/:id/clone')
   clonePackage(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.admin.clonePackage(id, user.id);
+  }
+
+  @Post('packages/:id/replace')
+  replacePackage(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.admin.replacePackage(id, user.id);
+  }
+
+  @Post('packages/:id/reset-pilot')
+  resetPackagePilot(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.admin.resetPackagePilot(id, user.id);
   }
 
   @Get('reports/summary')

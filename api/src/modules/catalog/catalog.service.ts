@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { filterPackagesAvailableToStudent } from '../content/content-assignment';
 
 @Injectable()
 export class CatalogService {
@@ -12,6 +13,22 @@ export class CatalogService {
     });
 
     return packages.map((pkg) => this.toCatalogPackage(pkg));
+  }
+
+  /** Active packages the student has not already taken or enrolled in. */
+  async listPackagesForStudent(studentProfileId: string) {
+    const packages = await this.prisma.mockTestPackage.findMany({
+      where: { isActive: true },
+      orderBy: [{ mostPopular: 'desc' }, { price: 'desc' }],
+    });
+
+    const available = await filterPackagesAvailableToStudent(
+      this.prisma,
+      studentProfileId,
+      packages,
+    );
+
+    return available.map((pkg) => this.toCatalogPackage(pkg));
   }
 
   async getPackage(slug: string) {

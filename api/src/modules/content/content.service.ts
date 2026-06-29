@@ -21,6 +21,11 @@ import {
   findContentStructureErrors,
   normalizeContentForType,
 } from './content-normalize';
+import {
+  findContentTestPackageAssignments,
+  groupAssignmentsByTestId,
+  summarizeAssignmentsForTest,
+} from './content-package-assignments';
 import { Prisma } from '@prisma/client';
 
 const AUDIO_MIME = new Set([
@@ -74,7 +79,7 @@ export class ContentService {
     });
 
     const testIds = tests.map((t) => t.id);
-    const [createAudits, poolAssignments] = await Promise.all([
+    const [createAudits, allAssignments] = await Promise.all([
       testIds.length
         ? this.prisma.auditLog.findMany({
             where: {
@@ -87,20 +92,8 @@ export class ContentService {
           })
         : [],
       testIds.length
-        ? this.prisma.packageContentTest.findMany({
-            where: { testId: { in: testIds } },
-            select: {
-              testId: true,
-              package: {
-                select: {
-                  mockNumber: true,
-                  packageKind: true,
-                  title: true,
-                },
-              },
-            },
-          })
-        : [],
+        ? findContentTestPackageAssignments(this.prisma, testIds)
+        : Promise.resolve([]),
     ]);
 
     const authorByTest = new Map<string, string>();
@@ -110,15 +103,13 @@ export class ContentService {
       }
     }
 
-    const packageAssignmentByTest = new Map<
-      string,
-      { mockNumber: number; packageKind: string; title: string }
-    >();
-    for (const row of poolAssignments) {
-      packageAssignmentByTest.set(row.testId, row.package);
-    }
+    const assignmentsByTestId = groupAssignmentsByTestId(allAssignments);
 
-    return tests.map((t) => ({
+    return tests.map((t) => {
+      const summary = summarizeAssignmentsForTest(
+        assignmentsByTestId.get(t.id) ?? [],
+      );
+      return {
       id: t.id,
       code: t.code,
       title: t.title,
@@ -131,11 +122,12 @@ export class ContentService {
       mediaCount: t._count.mediaAssets,
       questionCount: questionCountForTest(t.type, t.content),
       authorName: authorByTest.get(t.id) ?? 'Admin',
-      linkedPackages: packageAssignmentByTest.has(t.id) ? 1 : 0,
-      assignedMockLabel: packageAssignmentByTest.has(t.id)
-        ? `${packageAssignmentByTest.get(t.id)!.title} · Mock ${String(packageAssignmentByTest.get(t.id)!.mockNumber).padStart(3, '0')}`
-        : null,
-    }));
+      linkedPackages: summary.linkedPackages,
+      activePackageLinks: summary.activePackageLinks,
+      assignedMockLabel: summary.assignedMockLabel,
+      assignedMockLabels: summary.assignedMockLabels,
+    };
+    });
   }
 
   async getTest(id: string) {
@@ -186,6 +178,8 @@ export class ContentService {
       where: { id },
     });
     if (!existing) throw new NotFoundException('Test not found');
+
+    await this.assertTestEditable(existing.id, existing.status);
 
     // Repair structural shape on save so we never persist content that can
     // crash the student player (e.g. a question group with non-array `nodes`).
@@ -472,6 +466,85 @@ export class ContentService {
     return cloned;
   }
 
+  async archiveTest(id: string, actorId: string) {
+    const test = await this.prisma.contentTest.findUnique({ where: { id } });
+    if (!test) throw new NotFoundException('Test not found');
+
+    if (test.status !== ContentTestStatus.PUBLISHED) {
+      throw new BadRequestException('Only published tests can be retired.');
+    }
+
+    const activeLinks = await this.countActivePackageLinks(id);
+    if (activeLinks > 0) {
+      throw new BadRequestException(
+        `This test is linked to ${activeLinks} active package(s). Assign a replacement in each package before retiring.`,
+      );
+    }
+
+    const updated = await this.prisma.contentTest.update({
+      where: { id },
+      data: { status: ContentTestStatus.ARCHIVED },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.CONTENT_TEST_ARCHIVE,
+      entity: 'content_test',
+      entityId: id,
+      metadata: { code: updated.code, type: updated.type },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Clone a published test into a new draft, then retire the original when it is
+   * not linked to any active package.
+   */
+  async retireAndDuplicate(
+    id: string,
+    code: string,
+    title: string,
+    actorId: string,
+  ) {
+    const test = await this.prisma.contentTest.findUnique({ where: { id } });
+    if (!test) throw new NotFoundException('Test not found');
+
+    if (test.status !== ContentTestStatus.PUBLISHED) {
+      throw new BadRequestException('Only published tests can be retired.');
+    }
+
+    const activeLinks = await this.countActivePackageLinks(id);
+    const clone = await this.cloneTest(id, code, title, actorId);
+
+    let archived = false;
+    if (activeLinks === 0) {
+      await this.prisma.contentTest.update({
+        where: { id },
+        data: { status: ContentTestStatus.ARCHIVED },
+      });
+      await this.audit.log({
+        userId: actorId,
+        action: AuditAction.CONTENT_TEST_ARCHIVE,
+        entity: 'content_test',
+        entityId: id,
+        metadata: {
+          code: test.code,
+          type: test.type,
+          retiredViaDuplicate: true,
+          cloneId: clone.id,
+        },
+      });
+      archived = true;
+    }
+
+    return {
+      clone,
+      archived,
+      activePackageLinks: activeLinks,
+    };
+  }
+
   async deleteTest(id: string, actorId: string) {
     const test = await this.prisma.contentTest.findUnique({
       where: { id },
@@ -481,16 +554,29 @@ export class ContentService {
 
     if (test.status === ContentTestStatus.PUBLISHED) {
       throw new BadRequestException(
-        'Published tests cannot be deleted. Unpublish is not supported — duplicate and retire instead.',
+        'Published tests cannot be deleted. Duplicate the test, assign the copy to your package, then archive the old package.',
       );
     }
 
-    const linkedPackages = await this.prisma.packageContentTest.count({
-      where: { testId: id },
-    });
-    if (linkedPackages > 0) {
+    if (test.status === ContentTestStatus.ARCHIVED) {
       throw new BadRequestException(
-        `This test is linked to ${linkedPackages} package(s). Remove it from packages before deleting.`,
+        'Archived tests cannot be deleted while exam history may reference them.',
+      );
+    }
+
+    const sectionAttempts = await this.prisma.sectionAttempt.count({
+      where: { contentTestId: id },
+    });
+    if (sectionAttempts > 0) {
+      throw new BadRequestException(
+        `This test was used in ${sectionAttempts} exam section(s) and cannot be deleted.`,
+      );
+    }
+
+    const packageLinkCount = await this.countPackageLinks(id);
+    if (packageLinkCount > 0) {
+      throw new BadRequestException(
+        `This test is linked to ${packageLinkCount} package(s). Remove it from each package before deleting.`,
       );
     }
 
@@ -581,6 +667,8 @@ export class ContentService {
       where: { id: testId },
     });
     if (!test) throw new NotFoundException('Test not found');
+
+    await this.assertTestEditable(test.id, test.status);
 
     if (isAudio) {
       if (test.type !== ContentTestType.LISTENING) {
@@ -704,5 +792,62 @@ export class ContentService {
       default:
         return '.mp3';
     }
+  }
+
+  /** Published/archived tests and any test used in an exam must stay immutable. */
+  private async assertTestEditable(
+    testId: string,
+    status: ContentTestStatus,
+  ) {
+    if (status === ContentTestStatus.PUBLISHED) {
+      throw new BadRequestException(
+        'Published tests cannot be edited. Duplicate the test to make changes, then assign the copy in a new or unlocked package.',
+      );
+    }
+    if (status === ContentTestStatus.ARCHIVED) {
+      throw new BadRequestException('Archived tests cannot be edited.');
+    }
+
+    const sectionAttempts = await this.prisma.sectionAttempt.count({
+      where: { contentTestId: testId },
+    });
+    if (sectionAttempts > 0) {
+      throw new BadRequestException(
+        `This test was used in ${sectionAttempts} exam section(s) and cannot be edited.`,
+      );
+    }
+  }
+
+  /** Count distinct packages referencing a test via pool rows or legacy FKs. */
+  private async countPackageLinks(testId: string): Promise<number> {
+    const [poolRows, fkPackages] = await Promise.all([
+      this.prisma.packageContentTest.findMany({
+        where: { testId },
+        select: { packageId: true },
+      }),
+      this.prisma.mockTestPackage.findMany({
+        where: {
+          OR: [
+            { listeningTestId: testId },
+            { readingTestId: testId },
+            { writingTestId: testId },
+            { speakingBankId: testId },
+          ],
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    const packageIds = new Set<string>();
+    for (const row of poolRows) packageIds.add(row.packageId);
+    for (const pkg of fkPackages) packageIds.add(pkg.id);
+    return packageIds.size;
+  }
+
+  private async countActivePackageLinks(testId: string): Promise<number> {
+    const assignments = await findContentTestPackageAssignments(this.prisma, [
+      testId,
+    ]);
+    return summarizeAssignmentsForTest(assignments).activePackageLinks;
   }
 }

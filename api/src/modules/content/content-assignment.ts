@@ -172,6 +172,18 @@ export async function evaluatePackageAvailability(
   return { canPurchase, perSkill, blockingReason };
 }
 
+/** Active packages this student may book (purchase or complimentary grant). */
+export async function filterPackagesAvailableToStudent<
+  T extends PackageForAssignment,
+>(tx: Tx, studentId: string, packages: T[]): Promise<T[]> {
+  const available: T[] = [];
+  for (const pkg of packages) {
+    const { canPurchase } = await evaluatePackageAvailability(tx, studentId, pkg);
+    if (canPurchase) available.push(pkg);
+  }
+  return available;
+}
+
 /** @deprecated Use evaluatePackageAvailability instead. */
 export async function remainingUniqueAttempts(
   tx: Tx,

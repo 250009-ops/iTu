@@ -4,6 +4,10 @@
  */
 import { ExamSkill, PrismaClient } from '@prisma/client';
 import { defaultBandRowsForSkill, bandFromRawScoreTable } from '../src/common/ielts-band-tables';
+import {
+  detectExclusiveAssignmentConflict,
+  formatExclusiveAssignmentConflict,
+} from '../src/modules/admin/package-content-migration';
 
 const prisma = new PrismaClient();
 
@@ -60,8 +64,11 @@ async function main() {
 
   console.log(`Backfilled mock numbers for ${packages.length} package(s).`);
 
-  // Build pool rows from legacy FKs; keep first package per test when duplicated.
-  const assignedTests = new Set<string>();
+  // Build pool rows from legacy FKs; warn loudly on duplicate exclusive assignments.
+  const assignedTests = new Map<string, { slug: string; skill: string }>();
+  const conflicts: string[] = [];
+  const autoClearDuplicates =
+    process.env.MIGRATION_AUTO_CLEAR_DUPLICATE_FKS === 'true';
 
   for (const pkg of packages) {
     const links: { skill: 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING'; testId: string }[] =
@@ -84,19 +91,37 @@ async function main() {
       // that may be shared across packages, so they skip the dedup/steal logic.
       const isExclusive = link.skill !== 'SPEAKING';
 
-      if (isExclusive && assignedTests.has(link.testId)) {
-        console.warn(
-          `Test ${link.testId} already assigned — clearing duplicate FK on package ${pkg.slug}`,
+      if (isExclusive) {
+        const conflict = detectExclusiveAssignmentConflict(
+          assignedTests,
+          pkg.slug,
+          link.skill,
+          link.testId,
         );
-        const data: Record<string, null> = {};
-        if (link.skill === 'LISTENING') data.listeningTestId = null;
-        if (link.skill === 'READING') data.readingTestId = null;
-        if (link.skill === 'WRITING') data.writingTestId = null;
-        await prisma.mockTestPackage.update({ where: { id: pkg.id }, data });
-        continue;
+        if (conflict) {
+          const message = formatExclusiveAssignmentConflict(conflict);
+          conflicts.push(message);
+          console.error(`[package-content] CONFLICT: ${message}`);
+          console.error(
+            '  Fix in Admin → Packages (archive/replace package or change content) before deploy.',
+          );
+          if (autoClearDuplicates) {
+            console.warn(
+              '  MIGRATION_AUTO_CLEAR_DUPLICATE_FKS=true — clearing duplicate FK (legacy behavior).',
+            );
+            const data: Record<string, null> = {};
+            if (link.skill === 'LISTENING') data.listeningTestId = null;
+            if (link.skill === 'READING') data.readingTestId = null;
+            if (link.skill === 'WRITING') data.writingTestId = null;
+            await prisma.mockTestPackage.update({ where: { id: pkg.id }, data });
+          }
+          continue;
+        }
       }
 
-      if (isExclusive) assignedTests.add(link.testId);
+      if (isExclusive) {
+        assignedTests.set(link.testId, { slug: pkg.slug, skill: link.skill });
+      }
 
       const byPackageSkill = await prisma.packageContentTest.findUnique({
         where: {
@@ -139,6 +164,17 @@ async function main() {
   }
 
   console.log('Content pool pre-migration complete.');
+
+  if (conflicts.length > 0) {
+    console.error(
+      `[package-content] ${conflicts.length} exclusive content conflict(s) detected.`,
+    );
+    if (process.env.MIGRATION_STRICT_PACKAGE_CONTENT === 'true') {
+      throw new Error(
+        'Package content conflicts must be resolved before deploy (set MIGRATION_STRICT_PACKAGE_CONTENT=false to override).',
+      );
+    }
+  }
 
   const hasSuspendedAt = await columnExists('exam_sessions', 'suspended_at');
   if (!hasSuspendedAt) {

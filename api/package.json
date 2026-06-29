@@ -31,6 +31,7 @@
     "content:patch": "npx tsx scripts/patch-content-tests.ts",
     "mail:test": "npx tsx scripts/test-smtp.ts",
     "load:test": "npx tsx scripts/load-test.ts",
+    "verify:production": "npx tsx scripts/verify-production.ts",
     "hardening:smoke": "npm run e2e:smoke && npm run load:test"
   },
   "prisma": {

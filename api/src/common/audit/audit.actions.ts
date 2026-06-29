@@ -28,11 +28,13 @@ export const AuditAction = {
   CONTENT_TEST_SUBMIT_REVIEW: 'content.test.submit_review',
   CONTENT_TEST_IMPORT: 'content.test.import',
   CONTENT_TEST_DELETE: 'content.test.delete',
+  CONTENT_TEST_ARCHIVE: 'content.test.archive',
   CONTENT_MEDIA_UPLOAD: 'content.media.upload',
 
   ADMIN_PACKAGE_CREATE: 'admin.package.create',
   ADMIN_PACKAGE_UPDATE: 'admin.package.update',
   ADMIN_PACKAGE_DELETE: 'admin.package.delete',
+  ADMIN_PACKAGE_PILOT_RESET: 'admin.package.pilot_reset',
   ADMIN_TEACHER_STATUS: 'admin.teacher.status',
   ADMIN_ORDER_REFUND: 'admin.order.refund',
   ADMIN_PAYOUT_UPDATE: 'admin.payout.update',
