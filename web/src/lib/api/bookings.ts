@@ -85,3 +85,13 @@ export function rescheduleBooking(
     status: string;
   }>(`/bookings/${enrollmentId}/reschedule`, { method: "PATCH", body });
 }
+
+export function scheduleSpeakingSlot(
+  enrollmentId: string,
+  body: { speakingSlotId: string },
+) {
+  return apiFetch<{ enrollmentId: string; scheduledAt: string; status: string }>(
+    `/bookings/${enrollmentId}/speaking-slot`,
+    { method: "PATCH", body },
+  );
+}

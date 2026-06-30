@@ -22,7 +22,7 @@ function TimelineDot({ status }: { status: TimelineStatus }) {
 
 export function ScheduleTimeline() {
   const { data } = useStudentMockDayData();
-  if (!data) return null;
+  if (!data || data.status === "missed") return null;
   const items = data.schedule;
 
   return (

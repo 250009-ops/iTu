@@ -70,6 +70,7 @@ function normalizeLifecycle(value: string): LifecycleStatus {
   const v = value.toLowerCase().replace(/-/g, "_");
   if (v === "awaiting_results" || v === "awaiting") return "awaiting_results";
   if (v === "complete" || v === "completed") return "complete";
+  if (v === "missed") return "missed";
   return "in_progress";
 }
 
@@ -267,7 +268,8 @@ export function mapEnrollments(data: EnrollmentsResponse) {
     targetBand: e.targetBand ?? 0,
     country: e.country,
     examDate: formatDate(e.examDate),
-    examTime: e.examTime,
+    examTime: e.examTime ?? "Flexible",
+    adminGranted: Boolean(e.adminGranted),
     completedModules: e.completedModules.map(normalizeModule),
     speakingExaminer: e.speakingExaminer,
     speakingExaminerInitials: initials(e.speakingExaminer),

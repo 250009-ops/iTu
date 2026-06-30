@@ -31,7 +31,7 @@ export function useStudentMockDay() {
   }, [refresh]);
 
   useEffect(() => {
-    if (!data || data.state === "results_released") return;
+    if (!data || data.status === "missed" || data.state === "results_released") return;
     const id = setInterval(() => {
       void refresh(true);
     }, 30_000);

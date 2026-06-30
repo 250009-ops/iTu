@@ -31,9 +31,9 @@ export function MockDaySidebar() {
   const { data, refresh } = useStudentMockDayData();
   const { toast } = useToast();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  if (!data) return null;
+  if (!data || data.status === "missed") return null;
   const { checkIn, speakingTip, sessionCode, hasSpeaking, checkInCompleted } = data;
-  const canReschedule = data.state === "enrolled";
+  const canReschedule = data.canReschedule && data.state === "enrolled";
   const speakingDone = data.speaking.status === "completed";
   const showCheckIn = !checkInCompleted || (hasSpeaking && !speakingDone);
 
@@ -182,7 +182,7 @@ export function MockDaySidebar() {
         <RescheduleDialog
           enrollmentId={data.enrollmentId}
           currentDateIso={data.mockDateIso}
-          currentTime={data.mockTime}
+          currentTime={data.mockTime ?? "09:00"}
           hasSpeaking={hasSpeaking}
           onClose={() => setRescheduleOpen(false)}
           onDone={refresh}

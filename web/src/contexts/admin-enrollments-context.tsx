@@ -9,6 +9,7 @@ import type { Enrollment } from "@/lib/admin/types";
 type EnrollmentsValue = {
   loading: boolean;
   error: string | null;
+  refresh: () => Promise<void>;
   enrollments: Enrollment[];
   summary: ReturnType<typeof mapEnrollments>["summary"];
   lifecyclePipeline: ReturnType<typeof mapEnrollments>["lifecyclePipeline"];
@@ -17,13 +18,14 @@ type EnrollmentsValue = {
 const AdminEnrollmentsContext = createContext<EnrollmentsValue | null>(null);
 
 export function AdminEnrollmentsProvider({ children }: { children: ReactNode }) {
-  const { data, loading, error } = useApiQuery(getAdminEnrollments);
+  const { data, loading, error, refresh } = useApiQuery(getAdminEnrollments);
 
   const value = useMemo<EnrollmentsValue>(() => {
     const mapped = data ? mapEnrollments(data) : null;
     return {
       loading,
       error,
+      refresh,
       enrollments: mapped?.enrollments ?? [],
       summary: mapped?.summary ?? {
         total: 0,
@@ -34,7 +36,7 @@ export function AdminEnrollmentsProvider({ children }: { children: ReactNode }) 
       },
       lifecyclePipeline: mapped?.lifecyclePipeline ?? [],
     };
-  }, [data, loading, error]);
+  }, [data, loading, error, refresh]);
 
   return (
     <AdminEnrollmentsContext.Provider value={value}>

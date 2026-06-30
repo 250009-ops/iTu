@@ -3,6 +3,7 @@
 import { CurrentStatusBanner } from "@/components/student/mock-day/current-status-banner";
 import { ExamRulesBanner } from "@/components/student/mock-day/exam-rules-banner";
 import { MockDayEmptyState } from "@/components/student/mock-day/mock-day-empty-state";
+import { MockDayMissedState } from "@/components/student/mock-day/mock-day-missed-state";
 import { MockDayHeader } from "@/components/student/mock-day/mock-day-header";
 import { MockDayLoadingSkeleton } from "@/components/student/mock-day/mock-day-loading-skeleton";
 import { MockDayShellHeader } from "@/components/student/mock-day/mock-day-shell-header";
@@ -45,6 +46,15 @@ function MockDayContent() {
 
   if (!data) {
     return <MockDayEmptyState />;
+  }
+
+  if (data.status === "missed") {
+    return (
+      <MockDayMissedState
+        packageTitle={data.packageTitle}
+        dateLabel={data.dateLabel}
+      />
+    );
   }
 
   return (

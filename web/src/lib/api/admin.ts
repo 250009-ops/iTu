@@ -149,6 +149,7 @@ export function getAdminEnrollments() {
       activeExams: number;
       awaitingResults: number;
       completed: number;
+      missed?: number;
     };
     enrollments: {
       id: string;
@@ -157,10 +158,11 @@ export function getAdminEnrollments() {
       targetBand: number | null;
       country: string;
       examDate: string;
-      examTime: string;
+      examTime: string | null;
       completedModules: string[];
       speakingExaminer: string;
       writingExaminer: string;
+      adminGranted?: boolean;
       lifecycle: string;
     }[];
   }>("/admin/enrollments");
@@ -302,11 +304,28 @@ export type GrantEnrollmentBody = {
   studentId: string;
   packageId: string;
   mockDate: string;
-  mockTime: string;
+  mockTime?: string;
+  mockDayCutoffTime?: string;
   writingTeacherId?: string;
   speakingTeacherId?: string;
   speakingSlotId?: string;
 };
+
+export function reappointEnrollment(body: {
+  enrollmentId: string;
+  mockDate: string;
+  mockTime?: string;
+  mockDayCutoffTime?: string;
+  writingTeacherId?: string;
+  speakingTeacherId?: string;
+}) {
+  return apiFetch<{
+    enrollmentId: string;
+    enrollmentCode: string;
+    reappointmentOfId: string;
+    priorEnrollmentCode: string;
+  }>("/admin/enrollments/reappoint", { method: "POST", body });
+}
 
 export function grantEnrollment(body: GrantEnrollmentBody) {
   return apiFetch<{

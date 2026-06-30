@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { EnrollmentDetailDialog } from "@/components/admin/enrollments/enrollment-detail-dialog";
+import { ReappointMockDialog } from "@/components/admin/enrollments/reappoint-mock-dialog";
 import {
   allModules,
   lifecycleFilterOptions,
@@ -33,6 +34,11 @@ const lifecycleStyles: Record<
     label: "Complete",
     dot: "bg-emerald-500",
     pill: "bg-emerald-50 text-emerald-700",
+  },
+  missed: {
+    label: "Missed",
+    dot: "bg-rose-500",
+    pill: "bg-rose-50 text-rose-700",
   },
 };
 
@@ -90,13 +96,19 @@ function ExaminerCell({
 }
 
 export function EnrollmentsTable() {
-  const { enrollments } = useAdminEnrollments();
+  const { enrollments, refresh } = useAdminEnrollments();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | LifecycleStatus>(
     "all",
   );
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [reappointTarget, setReappointTarget] = useState<{
+    id: string;
+    enrollmentId: string;
+    studentName: string;
+    adminGranted: boolean;
+  } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const filtered = useMemo(() => {
@@ -227,17 +239,36 @@ export function EnrollmentsTable() {
                       />
                     </td>
                     <td className="px-5 py-4 sm:px-6">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                          lifecycle.pill,
-                        )}
-                      >
+                      <div className="flex flex-col gap-2">
                         <span
-                          className={cn("h-1.5 w-1.5 rounded-full", lifecycle.dot)}
-                        />
-                        {lifecycle.label}
-                      </span>
+                          className={cn(
+                            "inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                            lifecycle.pill,
+                          )}
+                        >
+                          <span
+                            className={cn("h-1.5 w-1.5 rounded-full", lifecycle.dot)}
+                          />
+                          {lifecycle.label}
+                        </span>
+                        {enrollment.lifecycle === "missed" && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReappointTarget({
+                                id: enrollment.id,
+                                enrollmentId: enrollment.enrollmentId,
+                                studentName: enrollment.studentName,
+                                adminGranted: enrollment.adminGranted,
+                              });
+                            }}
+                            className="w-fit rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100"
+                          >
+                            Reappoint
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -278,6 +309,17 @@ export function EnrollmentsTable() {
           open
           onClose={() => setDetailId(null)}
           onUpdated={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+
+      {reappointTarget && (
+        <ReappointMockDialog
+          enrollmentId={reappointTarget.id}
+          enrollmentCode={reappointTarget.enrollmentId}
+          studentName={reappointTarget.studentName}
+          adminGranted={reappointTarget.adminGranted}
+          onClose={() => setReappointTarget(null)}
+          onDone={() => void refresh()}
         />
       )}
     </div>

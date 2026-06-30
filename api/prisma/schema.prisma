@@ -44,6 +44,7 @@ enum EnrollmentStatus {
   AWAITING_RESULTS
   COMPLETED
   CANCELLED
+  MISSED
 }
 
 enum ResultsStatus {
@@ -393,27 +394,36 @@ model Enrollment {
   enrollmentCode   String           @unique @map("enrollment_code")
   studentId        String           @map("student_id")
   packageId        String           @map("package_id")
-  mockDate         DateTime         @map("mock_date")
-  mockTime         String           @map("mock_time")
-  status           EnrollmentStatus @default(ENROLLED)
-  resultsStatus    ResultsStatus    @default(PENDING) @map("results_status")
-  resultPdfUrl     String?          @map("result_pdf_url")
-  writingTeacherId String?          @map("writing_teacher_id")
-  speakingTeacherId String?         @map("speaking_teacher_id")
-  speakingSlotId   String?          @map("speaking_slot_id")
-  adminGranted     Boolean          @default(false) @map("admin_granted")
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
+  mockDate          DateTime         @map("mock_date")
+  /// Null for admin-granted flexible-start mocks; HH:mm for scheduled bookings.
+  mockTime          String?          @map("mock_time")
+  /// Latest time the student may begin the mock on mockDate (platform cutoff).
+  mockDayCutoffAt   DateTime?        @map("mock_day_cutoff_at")
+  /// Set when check-in completes — point of no return for rescheduling.
+  examStartedAt     DateTime?        @map("exam_started_at")
+  missedAt          DateTime?        @map("missed_at")
+  reappointmentOfId String?          @map("reappointment_of_id")
+  status            EnrollmentStatus @default(ENROLLED)
+  resultsStatus     ResultsStatus    @default(PENDING) @map("results_status")
+  resultPdfUrl      String?          @map("result_pdf_url")
+  writingTeacherId  String?          @map("writing_teacher_id")
+  speakingTeacherId String?          @map("speaking_teacher_id")
+  speakingSlotId    String?          @map("speaking_slot_id")
+  adminGranted      Boolean          @default(false) @map("admin_granted")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  student         StudentProfile  @relation(fields: [studentId], references: [id])
-  package         MockTestPackage @relation(fields: [packageId], references: [id])
-  writingTeacher  TeacherProfile? @relation("WritingTeacher", fields: [writingTeacherId], references: [id])
-  speakingTeacher TeacherProfile? @relation("SpeakingTeacher", fields: [speakingTeacherId], references: [id])
-  speakingSlot    TeacherSlot?    @relation(fields: [speakingSlotId], references: [id])
-  order           Order?
-  examSession     ExamSession?
-  tickets         SupportTicket[]
-  review          Review?
+  student           StudentProfile  @relation(fields: [studentId], references: [id])
+  package           MockTestPackage @relation(fields: [packageId], references: [id])
+  writingTeacher    TeacherProfile? @relation("WritingTeacher", fields: [writingTeacherId], references: [id])
+  speakingTeacher   TeacherProfile? @relation("SpeakingTeacher", fields: [speakingTeacherId], references: [id])
+  speakingSlot      TeacherSlot?    @relation(fields: [speakingSlotId], references: [id])
+  reappointmentOf   Enrollment?     @relation("Reappointment", fields: [reappointmentOfId], references: [id])
+  reappointments    Enrollment[]    @relation("Reappointment")
+  order             Order?
+  examSession       ExamSession?
+  tickets           SupportTicket[]
+  review            Review?
 
   @@map("enrollments")
 }

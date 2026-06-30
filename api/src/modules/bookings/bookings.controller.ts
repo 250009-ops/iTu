@@ -16,6 +16,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+import { ScheduleSpeakingSlotDto } from './dto/schedule-speaking-slot.dto';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -66,5 +67,16 @@ export class BookingsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.bookings.rescheduleBooking(enrollmentId, dto, user);
+  }
+
+  @ApiBearerAuth()
+  @Patch(':enrollmentId/speaking-slot')
+  @Roles(UserRole.STUDENT)
+  scheduleSpeakingSlot(
+    @Param('enrollmentId') enrollmentId: string,
+    @Body() dto: ScheduleSpeakingSlotDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.bookings.scheduleSpeakingSlot(enrollmentId, dto, user);
   }
 }

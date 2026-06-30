@@ -16,6 +16,10 @@ import {
 import { RequestUser } from '../../common/types/request-user';
 import { mockStartDateTime } from '../../common/band-resolution';
 import {
+  isFlexibleGrant,
+  mockDayCutoffDateTime,
+} from '../../common/mock-day-policy';
+import {
   AuditAction,
   type AuditActionName,
 } from '../../common/audit/audit.actions';
@@ -24,6 +28,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+import { ScheduleSpeakingSlotDto } from './dto/schedule-speaking-slot.dto';
+import { ReappointEnrollmentDto } from '../admin/dto/reappoint-enrollment.dto';
+import { SettingsService } from '../settings/settings.service';
 import {
   assignContentTests,
   evaluatePackageAvailability,
@@ -41,15 +48,21 @@ export interface ProvisionEnrollmentParams {
   actorUserId: string;
   packageId: string;
   mockDate: string;
-  mockTime: string;
+  /** Required for paid bookings; omit for flexible admin grants. */
+  mockTime?: string | null;
+  mockDayCutoffTime?: string;
   writingTeacherId?: string;
   speakingTeacherId?: string;
   speakingSlotId?: string;
-  /** Only used for paid bookings; ignored when {@link complimentary} is true. */
-  paymentMethod?: string;
+  /** When reappointing a missed mock, link to the prior enrollment. */
+  reappointmentOfId?: string;
   /** When true: $0 order, COMPLIMENTARY payment method, adminGranted enrollment. */
   complimentary?: boolean;
+  /** Reappointment of a paid mock — no charge, not flagged adminGranted. */
+  isReappointment?: boolean;
   auditAction: AuditActionName;
+  /** Only used for paid bookings; ignored when {@link complimentary} is true. */
+  paymentMethod?: string;
 }
 
 @Injectable()
@@ -58,6 +71,7 @@ export class BookingsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private audit: AuditService,
+    private settings: SettingsService,
   ) {}
 
   async getAvailability(date: string, teacherId?: string) {
@@ -165,9 +179,16 @@ export class BookingsService {
     if (needsWriting && !params.writingTeacherId) {
       throw new BadRequestException('Writing examiner is required for this package');
     }
-    if (needsSpeaking && (!params.speakingTeacherId || !params.speakingSlotId)) {
+
+    const flexibleGrant = complimentary && !params.mockTime;
+    if (needsSpeaking && !params.speakingTeacherId) {
       throw new BadRequestException(
-        'Speaking examiner and slot are required for this package',
+        'Speaking examiner is required for this package',
+      );
+    }
+    if (needsSpeaking && !flexibleGrant && !params.speakingSlotId) {
+      throw new BadRequestException(
+        'Speaking slot is required for this package',
       );
     }
     if (!needsWriting && params.writingTeacherId) {
@@ -181,12 +202,34 @@ export class BookingsService {
       );
     }
 
-    if (!/^\d{2}:\d{2}$/.test(params.mockTime)) {
-      throw new BadRequestException('mockTime must be in HH:mm format');
+    const mockDayTimers = await this.settings.getMockDayTimers();
+    const cutoffTime =
+      params.mockDayCutoffTime ?? mockDayTimers.dayCutoffTime;
+    const mockDayCutoffAt = mockDayCutoffDateTime(params.mockDate, cutoffTime);
+
+    if (mockDayCutoffAt.getTime() <= Date.now()) {
+      throw new BadRequestException(
+        'Mock day cutoff must be in the future',
+      );
     }
-    const mockStart = mockStartDateTime(new Date(params.mockDate), params.mockTime);
-    if (mockStart.getTime() <= Date.now()) {
-      throw new BadRequestException('Mock date and time must be in the future');
+
+    const resolvedMockTime = params.mockTime ?? null;
+    if (!flexibleGrant) {
+      if (!resolvedMockTime || !/^\d{2}:\d{2}$/.test(resolvedMockTime)) {
+        throw new BadRequestException('mockTime must be in HH:mm format');
+      }
+      const mockStart = mockStartDateTime(
+        new Date(params.mockDate),
+        resolvedMockTime,
+      );
+      if (mockStart.getTime() <= Date.now()) {
+        throw new BadRequestException('Mock date and time must be in the future');
+      }
+      if (mockStart.getTime() > mockDayCutoffAt.getTime()) {
+        throw new BadRequestException(
+          'Mock start time must be before the day cutoff',
+        );
+      }
     }
 
     const availability = await evaluatePackageAvailability(
@@ -194,7 +237,7 @@ export class BookingsService {
       studentProfileId,
       pkg,
     );
-    if (!availability.canPurchase) {
+    if (!params.reappointmentOfId && !availability.canPurchase) {
       throw new BadRequestException(
         availability.blockingReason ??
           (complimentary
@@ -207,11 +250,14 @@ export class BookingsService {
     const orderCode = await this.generateCode('ORD');
     const sessionCode = await this.generateCode('MOCK');
 
-    const amount = complimentary ? 0 : pkg.price;
+    const amount =
+      complimentary || params.isReappointment ? 0 : pkg.price;
     const paymentMethod = complimentary
       ? PaymentMethod.COMPLIMENTARY
-      : ((params.paymentMethod?.toUpperCase() as PaymentMethod) ??
-        PaymentMethod.CARD);
+      : params.isReappointment
+        ? PaymentMethod.COMPLIMENTARY
+        : ((params.paymentMethod?.toUpperCase() as PaymentMethod) ??
+          PaymentMethod.CARD);
 
     const result = await this.prisma.$transaction(async (tx) => {
       let slot: { id: string; teacherId: string; startsAt: Date } | null =
@@ -249,9 +295,11 @@ export class BookingsService {
           studentId: studentProfileId,
           packageId: params.packageId,
           mockDate: new Date(params.mockDate),
-          mockTime: params.mockTime,
+          mockTime: resolvedMockTime,
+          mockDayCutoffAt,
           status: EnrollmentStatus.ENROLLED,
           adminGranted: complimentary,
+          reappointmentOfId: params.reappointmentOfId ?? null,
           writingTeacherId: params.writingTeacherId ?? null,
           speakingTeacherId:
             params.speakingTeacherId ?? slot?.teacherId ?? null,
@@ -341,12 +389,26 @@ export class BookingsService {
     ]);
 
     if (studentUser) {
+      const dateLabel = new Date(params.mockDate).toLocaleDateString();
+      const cutoffLabel = mockDayCutoffAt.toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      let body: string;
+      if (complimentary && flexibleGrant) {
+        body = `An admin granted you a free mock on ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
+      } else if (params.isReappointment) {
+        body = `Your mock has been reappointed for ${dateLabel}${resolvedMockTime ? ` at ${resolvedMockTime}` : ` — start before ${cutoffLabel}`}.`;
+      } else if (complimentary) {
+        body = `An admin granted you a free mock on ${dateLabel} at ${resolvedMockTime}.`;
+      } else {
+        body = `Your mock is confirmed for ${dateLabel} at ${resolvedMockTime}.`;
+      }
       await this.notifications.create(
         studentUser.id,
-        complimentary ? 'Free mock granted' : 'Mock booked',
-        complimentary
-          ? `An admin has granted you a free mock on ${new Date(params.mockDate).toLocaleDateString()} at ${params.mockTime}.`
-          : `Your mock is confirmed for ${new Date(params.mockDate).toLocaleDateString()} at ${params.mockTime}.`,
+        complimentary ? 'Free mock granted' : params.isReappointment ? 'Mock reappointed' : 'Mock booked',
+        body,
         NotificationType.INFO,
         '/student/mock-day',
       );
@@ -426,6 +488,17 @@ export class BookingsService {
         'Only upcoming mocks that have not started can be rescheduled',
       );
     }
+    if (enrollment.examStartedAt || enrollment.examSession?.checkInAt) {
+      throw new BadRequestException(
+        'Mocks cannot be rescheduled after check-in has started',
+      );
+    }
+
+    const mockDayTimers = await this.settings.getMockDayTimers();
+    const mockDayCutoffAt = mockDayCutoffDateTime(
+      dto.mockDate,
+      mockDayTimers.dayCutoffTime,
+    );
 
     const needsSpeaking = packageExamSkills(enrollment.package.skills).includes(
       ExamSkill.SPEAKING,
@@ -448,6 +521,7 @@ export class BookingsService {
           data: {
             mockDate: new Date(dto.mockDate),
             mockTime: dto.mockTime,
+            mockDayCutoffAt,
           },
         });
         return { updated, slot: null, speakingSessionId: null };
@@ -483,6 +557,7 @@ export class BookingsService {
         data: {
           mockDate: new Date(dto.mockDate),
           mockTime: dto.mockTime,
+          mockDayCutoffAt,
           speakingTeacherId: slot.teacherId,
           speakingSlotId: slot.id,
         },
@@ -554,6 +629,182 @@ export class BookingsService {
       mockTime: result.updated.mockTime,
       status: 'rescheduled',
     };
+  }
+
+  /**
+   * Student schedules a speaking slot from their assigned examiner's availability.
+   * Used for admin-granted mocks where the slot is not chosen at grant time.
+   */
+  async scheduleSpeakingSlot(
+    enrollmentId: string,
+    dto: ScheduleSpeakingSlotDto,
+    user: RequestUser,
+  ) {
+    if (!user.studentProfileId) {
+      throw new ForbiddenException('Only students can schedule speaking slots');
+    }
+
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, studentId: user.studentProfileId },
+      include: {
+        package: true,
+        examSession: {
+          include: {
+            sectionAttempts: { include: { speakingSession: true } },
+          },
+        },
+      },
+    });
+    if (!enrollment?.examSession) {
+      throw new NotFoundException('Enrollment not found');
+    }
+    if (enrollment.status === EnrollmentStatus.MISSED) {
+      throw new BadRequestException('This mock was missed. Ask an admin to reappoint it.');
+    }
+    if (!enrollment.speakingTeacherId) {
+      throw new BadRequestException('No speaking examiner is assigned to this mock');
+    }
+
+    const needsSpeaking = packageExamSkills(enrollment.package.skills).includes(
+      ExamSkill.SPEAKING,
+    );
+    if (!needsSpeaking) {
+      throw new BadRequestException('This package does not include speaking');
+    }
+
+    const slot = await this.prisma.teacherSlot.findUnique({
+      where: { id: dto.speakingSlotId },
+    });
+    if (!slot || slot.status !== SlotStatus.AVAILABLE) {
+      throw new BadRequestException('Speaking slot is no longer available');
+    }
+    if (slot.teacherId !== enrollment.speakingTeacherId) {
+      throw new BadRequestException(
+        'Speaking slot must belong to your assigned examiner',
+      );
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const booked = await tx.teacherSlot.updateMany({
+        where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
+        data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
+      });
+      if (booked.count === 0) {
+        throw new BadRequestException('Speaking slot booking conflict');
+      }
+
+      if (
+        enrollment.speakingSlotId &&
+        enrollment.speakingSlotId !== dto.speakingSlotId
+      ) {
+        await tx.teacherSlot.updateMany({
+          where: { id: enrollment.speakingSlotId },
+          data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+        });
+      }
+
+      const updated = await tx.enrollment.update({
+        where: { id: enrollment.id },
+        data: {
+          speakingSlotId: slot.id,
+          speakingTeacherId: slot.teacherId,
+        },
+      });
+
+      const speakingAttempt = enrollment.examSession!.sectionAttempts.find(
+        (a) => a.skill === ExamSkill.SPEAKING,
+      );
+      let speakingSessionId: string | null = null;
+      if (speakingAttempt?.speakingSession) {
+        await tx.speakingSession.update({
+          where: { id: speakingAttempt.speakingSession.id },
+          data: {
+            teacherId: slot.teacherId,
+            scheduledAt: slot.startsAt,
+          },
+        });
+        speakingSessionId = speakingAttempt.speakingSession.id;
+      } else if (speakingAttempt) {
+        const created = await tx.speakingSession.create({
+          data: {
+            sectionAttemptId: speakingAttempt.id,
+            teacherId: slot.teacherId,
+            status: 'SCHEDULED',
+            scheduledAt: slot.startsAt,
+          },
+        });
+        speakingSessionId = created.id;
+      }
+
+      return { updated, slot, speakingSessionId };
+    });
+
+    const speakingTeacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: result.slot.teacherId },
+      include: { user: true },
+    });
+    if (speakingTeacher && result.speakingSessionId) {
+      await this.notifications.create(
+        speakingTeacher.userId,
+        'Speaking session scheduled',
+        `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
+        NotificationType.REMINDER,
+        `/teacher/speaking?session=${result.speakingSessionId}`,
+      );
+    }
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.BOOKING_RESCHEDULE,
+      entity: 'enrollment',
+      entityId: enrollment.id,
+      metadata: {
+        action: 'schedule_speaking_slot',
+        speakingSlotId: dto.speakingSlotId,
+      },
+    });
+
+    return {
+      enrollmentId: result.updated.id,
+      scheduledAt: result.slot.startsAt,
+      status: 'scheduled',
+    };
+  }
+
+  /**
+   * Admin reappoints a missed mock (granted or paid) on a new day without charging again.
+   */
+  async reappointEnrollment(dto: ReappointEnrollmentDto, actorId: string) {
+    const prior = await this.prisma.enrollment.findUnique({
+      where: { id: dto.enrollmentId },
+      include: { package: true, order: true },
+    });
+    if (!prior) {
+      throw new NotFoundException('Enrollment not found');
+    }
+    if (prior.status !== EnrollmentStatus.MISSED) {
+      throw new BadRequestException(
+        'Only missed mocks can be reappointed',
+      );
+    }
+
+    const flexibleReappoint = prior.adminGranted && !dto.mockTime;
+    const result = await this.provisionEnrollment({
+      studentProfileId: prior.studentId,
+      actorUserId: actorId,
+      packageId: prior.packageId,
+      mockDate: dto.mockDate,
+      mockTime: flexibleReappoint ? null : (dto.mockTime ?? prior.mockTime ?? undefined),
+      mockDayCutoffTime: dto.mockDayCutoffTime,
+      writingTeacherId: dto.writingTeacherId ?? prior.writingTeacherId ?? undefined,
+      speakingTeacherId: dto.speakingTeacherId ?? prior.speakingTeacherId ?? undefined,
+      reappointmentOfId: prior.id,
+      complimentary: prior.adminGranted,
+      isReappointment: !prior.adminGranted,
+      auditAction: AuditAction.ADMIN_ENROLLMENT_GRANT,
+    });
+
+    return { ...result, reappointmentOfId: prior.id, priorEnrollmentCode: prior.enrollmentCode };
   }
 
   /**

@@ -291,11 +291,30 @@ export function mapBrowseProduct(pkg: CatalogPackage) {
 export type BrowseProduct = ReturnType<typeof mapBrowseProduct>;
 
 export function mapMockDayHub(data: MockDayApi) {
+  if ("missed" in data && data.missed) {
+    const missed = data.missed;
+    return {
+      status: "missed" as const,
+      enrollmentId: missed.enrollmentId,
+      enrollmentCode: missed.enrollmentCode,
+      packageTitle: missed.packageTitle,
+      mockDateIso:
+        typeof missed.mockDate === "string"
+          ? missed.mockDate
+          : new Date(missed.mockDate).toISOString(),
+      adminGranted: missed.adminGranted,
+      dateLabel: formatLongDate(new Date(missed.mockDate)),
+    };
+  }
+
   if (!data.enrollment) {
     return null;
   }
 
   const { enrollment, sections = [], speaking } = data;
+  const flexibleStart =
+    Boolean(enrollment.adminGranted) && !enrollment.mockTime;
+  const examStarted = Boolean(enrollment.examStartedAt);
   const hasSpeaking =
     (enrollment.packageSkills ?? []).includes("speaking") ||
     sections.some((s) => s.skill === "speaking");
@@ -306,18 +325,46 @@ export function mapMockDayHub(data: MockDayApi) {
   const speakingScheduled = speaking?.scheduledAt
     ? new Date(speaking.scheduledAt)
     : null;
+  const needsSpeakingSlot =
+    hasSpeaking && !speakingScheduled && Boolean(enrollment.speakingTeacherId);
   const mockDate = new Date(enrollment.mockDate);
   const now = Date.now();
   const checkInCompleted = Boolean(enrollment.checkInCompleted);
-  const mockStart = mockStartDateTime(enrollment.mockDate, enrollment.mockTime);
-  const countdownTarget =
-    hasSpeaking && speakingScheduled ? speakingScheduled : mockStart;
+  const mockCutoff = enrollment.mockDayCutoffAt
+    ? new Date(enrollment.mockDayCutoffAt)
+    : null;
+  const mockStart =
+    enrollment.mockTime != null
+      ? mockStartDateTime(enrollment.mockDate, enrollment.mockTime)
+      : null;
+
+  let countdownTarget: Date;
+  let countdownLabel: string;
+  if (examStarted || checkInCompleted) {
+    countdownTarget = mockCutoff ?? mockStart ?? mockDate;
+    countdownLabel = "TIME UNTIL MOCK ENDS";
+  } else if (flexibleStart && mockCutoff) {
+    countdownTarget = mockCutoff;
+    countdownLabel = "TIME UNTIL MOCK ENDS";
+  } else if (hasSpeaking && speakingScheduled) {
+    countdownTarget = speakingScheduled;
+    countdownLabel = "TIME UNTIL SPEAKING";
+  } else if (mockStart) {
+    countdownTarget = mockStart;
+    countdownLabel = "TIME UNTIL MOCK START";
+  } else if (mockCutoff) {
+    countdownTarget = mockCutoff;
+    countdownLabel = "TIME UNTIL MOCK ENDS";
+  } else {
+    countdownTarget = mockDate;
+    countdownLabel = "TIME UNTIL MOCK START";
+  }
+
   const secondsUntilTarget = secondsUntil(countdownTarget, now);
   const countdownParts = splitCountdown(secondsUntilTarget);
-  const countdownLabel =
-    hasSpeaking && speakingScheduled
-      ? "TIME UNTIL SPEAKING"
-      : "TIME UNTIL MOCK START";
+  const displayTime =
+    enrollment.mockTime ??
+    (mockCutoff ? formatTime(mockCutoff) : "Flexible");
 
   const moduleRail = sections.map((s) => {
     const skill = s.skill as SkillId;
@@ -348,7 +395,7 @@ export function mapMockDayHub(data: MockDayApi) {
       id: "checkin",
       title: "Check-in",
       detail: "Identity verification",
-      time: enrollment.mockTime,
+      time: displayTime,
       status: checkInCompleted ? "completed" : "current",
       isBreak: false,
     },
@@ -375,7 +422,7 @@ export function mapMockDayHub(data: MockDayApi) {
           time:
             skill === "speaking" && speakingScheduled
               ? formatTime(speakingScheduled)
-              : enrollment.mockTime,
+              : displayTime,
           status,
           isBreak: false,
         },
@@ -425,7 +472,7 @@ export function mapMockDayHub(data: MockDayApi) {
         name: SKILL_META[skill]?.name ?? s.skill,
         status,
         detail: SKILL_META[skill]?.detail ?? "",
-        timeRange: enrollment.mockTime,
+        timeRange: displayTime,
         color: SKILL_COLORS[skill] ?? "#2563EB",
         result: s.completed
           ? s.band != null
@@ -446,9 +493,10 @@ export function mapMockDayHub(data: MockDayApi) {
 
   const speakingTime = speakingScheduled
     ? `${formatTime(speakingScheduled)} – ${formatTime(new Date(speakingScheduled.getTime() + 20 * 60 * 1000))}`
-    : enrollment.mockTime;
+    : displayTime;
 
   return {
+    status: "active" as const,
     enrollmentId: enrollment.id,
     sessionCode: enrollment.sessionCode,
     dateLabel: formatLongDate(mockDate),
@@ -460,6 +508,12 @@ export function mapMockDayHub(data: MockDayApi) {
         ? enrollment.mockDate
         : new Date(enrollment.mockDate).toISOString(),
     mockTime: enrollment.mockTime,
+    mockDayCutoffAt: enrollment.mockDayCutoffAt ?? null,
+    flexibleStart,
+    examStarted,
+    needsSpeakingSlot,
+    speakingTeacherId: enrollment.speakingTeacherId ?? null,
+    canReschedule: !examStarted && !checkInCompleted,
     progressPct: Math.round((completedCount / totalModules) * 100),
     modulesComplete: completedCount,
     totalModules,
@@ -488,6 +542,8 @@ export function mapMockDayHub(data: MockDayApi) {
             ? `Speaking starts at ${formatTime(speakingScheduled)} · ${speaking?.examiner ?? "Your examiner"}`
             : checkInCompleted
               ? "Continue your mock exam"
+              : flexibleStart
+              ? "Start your mock anytime before the day cutoff"
               : "Complete check-in to begin",
       message: activeSection
         ? "Stay in fullscreen and follow the on-screen instructions for this section."
@@ -510,9 +566,12 @@ export function mapMockDayHub(data: MockDayApi) {
           : "ready") as SectionStatus,
       detail: "1-on-1 live interview · Parts 1, 2 & 3 · ~20 minutes total",
       timeRange: speakingTime,
+      scheduledAt: speakingScheduled?.toISOString() ?? null,
       scheduledLabel: speakingScheduled
         ? formatTime(speakingScheduled)
-        : enrollment.mockTime,
+        : needsSpeakingSlot
+          ? "Select slot"
+          : displayTime,
       examiner: speaking?.examiner ?? "Your examiner",
       examinerTitle: "Speaking Examiner · IELTS Certified",
       checklist: [

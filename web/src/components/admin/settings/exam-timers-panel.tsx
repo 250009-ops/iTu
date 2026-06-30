@@ -112,6 +112,49 @@ export function ExamTimersPanel() {
         })}
       </div>
 
+      <div className="mt-6 space-y-3 border-t border-border pt-6">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted">
+          Mock day window
+        </p>
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border px-4 py-3">
+          <div>
+            <p className="font-semibold text-navy">Day cutoff time</p>
+            <p className="text-xs text-muted">Latest start time on mock day (24h HH:mm)</p>
+          </div>
+          <Input
+            type="time"
+            value={String(timers.dayCutoffTime ?? "18:00")}
+            onChange={(e) =>
+              setField("exam_timers", "dayCutoffTime", e.target.value)
+            }
+            className="h-9 w-28"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border px-4 py-3">
+          <div>
+            <p className="font-semibold text-navy">Speaking early join</p>
+            <p className="text-xs text-muted">Minutes before slot when Join activates</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={Number(timers.speakingEarlyJoinMin ?? 5)}
+              onChange={(e) =>
+                setField(
+                  "exam_timers",
+                  "speakingEarlyJoinMin",
+                  Number(e.target.value),
+                )
+              }
+              className="h-9 w-16 text-center"
+            />
+            <span className="text-sm text-muted">min</span>
+          </div>
+        </div>
+      </div>
+
       <div className="mt-6 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
         Timer changes apply to exams scheduled after saving. Currently active
         sessions are not affected.

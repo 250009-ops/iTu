@@ -21,6 +21,7 @@ import { ExamSessionsService } from '../exam-sessions/exam-sessions.service';
 import { AdminService } from './admin.service';
 import { ReviewIntegrityDto } from './dto/review-integrity.dto';
 import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
+import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
@@ -68,6 +69,14 @@ export class AdminController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.admin.grantEnrollment(body, user.id);
+  }
+
+  @Post('enrollments/reappoint')
+  reappointEnrollment(
+    @Body() body: ReappointEnrollmentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.reappointEnrollment(body, user.id);
   }
 
   @Get('teachers')

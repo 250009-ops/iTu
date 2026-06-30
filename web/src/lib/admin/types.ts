@@ -1,6 +1,6 @@
 export type LiveSkill = "speaking" | "writing" | "listening" | "reading";
 
-export type LifecycleStatus = "in_progress" | "awaiting_results" | "complete";
+export type LifecycleStatus = "in_progress" | "awaiting_results" | "complete" | "missed";
 
 export type ModuleKey = "listening" | "reading" | "writing" | "speaking";
 
@@ -74,6 +74,7 @@ export type Enrollment = {
   speakingExaminerInitials: string;
   writingExaminer: string;
   writingExaminerInitials: string;
+  adminGranted: boolean;
   lifecycle: LifecycleStatus;
 };
 

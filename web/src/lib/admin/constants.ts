@@ -52,6 +52,7 @@ export const lifecycleFilterOptions: {
   { value: "in_progress", label: "In Progress" },
   { value: "awaiting_results", label: "Awaiting Results" },
   { value: "complete", label: "Complete" },
+  { value: "missed", label: "Missed" },
 ];
 
 export const teacherStatusFilterOptions: {
@@ -226,6 +227,23 @@ export const defaultExamTimers = [
     icon: "alert" as const,
   },
 ];
+
+export const mockDayWindowSettings = [
+  {
+    id: "dayCutoffTime",
+    label: "Mock day cutoff",
+    hint: "Latest time a student may start on mock day (HH:mm)",
+    defaultValue: "18:00",
+    icon: "clock" as const,
+  },
+  {
+    id: "speakingEarlyJoinMin",
+    label: "Speaking early join",
+    hint: "Minutes before slot when Join Session activates",
+    minutes: 5,
+    icon: "mic" as const,
+  },
+] as const;
 
 export const defaultBandConversionTable = [
   { band: "9.0", listening: "39–40", reading: "40", weight: 100 },

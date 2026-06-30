@@ -6,7 +6,7 @@ import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
 
 export function MockDayHeader() {
   const { data } = useStudentMockDayData();
-  if (!data) return null;
+  if (!data || data.status === "missed") return null;
   const { dateLabel, examTitle, mockId } = data;
 
   return (

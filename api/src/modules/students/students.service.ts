@@ -26,6 +26,7 @@ import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { packageExamSkills } from '../content/package-skills';
 import { selectMockDayEnrollment } from './mock-day-enrollment';
+import { EnrollmentLifecycleService } from '../bookings/enrollment-lifecycle.service';
 
 const TICKET_TYPE_MAP: Record<
   NonNullable<CreateSupportTicketDto['type']>,
@@ -43,6 +44,7 @@ export class StudentsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private catalog: CatalogService,
+    private enrollmentLifecycle: EnrollmentLifecycleService,
   ) {}
 
   async listCatalogPackages(user: RequestUser) {
@@ -114,7 +116,10 @@ export class StudentsService {
     let minutesUntil = 0;
     let mockStarted = false;
     if (upcoming) {
-      const start = mockStartDateTime(upcoming.mockDate, upcoming.mockTime);
+      const start =
+        upcoming.mockTime != null
+          ? mockStartDateTime(upcoming.mockDate, upcoming.mockTime)
+          : upcoming.mockDayCutoffAt ?? upcoming.mockDate;
       const countdown = countdownParts(start, now);
       daysUntil = countdown.daysUntil;
       hoursUntil = countdown.hoursUntil;
@@ -229,28 +234,73 @@ export class StudentsService {
   async getMockDayHub(user: RequestUser) {
     this.requireStudent(user);
 
-    const enrollment = selectMockDayEnrollment(
-      await this.prisma.enrollment.findMany({
-        where: {
-          studentId: user.studentProfileId,
-          status: { in: ['ENROLLED', 'IN_PROGRESS'] },
-        },
-        include: {
-          package: true,
-          examSession: {
-            include: {
-              sectionAttempts: {
-                include: { speakingSession: { include: { grade: true } } },
-              },
+    const activeEnrollments = await this.prisma.enrollment.findMany({
+      where: {
+        studentId: user.studentProfileId,
+        status: { in: ['ENROLLED', 'IN_PROGRESS'] },
+      },
+      include: {
+        package: true,
+        examSession: {
+          include: {
+            sectionAttempts: {
+              include: { speakingSession: { include: { grade: true } } },
             },
           },
-          speakingSlot: true,
-          speakingTeacher: { include: { user: true } },
         },
-      }),
-    );
+        speakingSlot: true,
+        speakingTeacher: { include: { user: true } },
+      },
+    });
+
+    for (const candidate of activeEnrollments) {
+      if (candidate.examSession) {
+        await this.enrollmentLifecycle.markMissedIfEligible(candidate.id);
+      }
+    }
+
+    const refreshed = await this.prisma.enrollment.findMany({
+      where: {
+        studentId: user.studentProfileId,
+        status: { in: ['ENROLLED', 'IN_PROGRESS'] },
+      },
+      include: {
+        package: true,
+        examSession: {
+          include: {
+            sectionAttempts: {
+              include: { speakingSession: { include: { grade: true } } },
+            },
+          },
+        },
+        speakingSlot: true,
+        speakingTeacher: { include: { user: true } },
+      },
+    });
+
+    const enrollment = selectMockDayEnrollment(refreshed);
 
     if (!enrollment?.examSession) {
+      const missed = await this.prisma.enrollment.findFirst({
+        where: {
+          studentId: user.studentProfileId,
+          status: 'MISSED',
+        },
+        include: { package: true },
+        orderBy: { missedAt: 'desc' },
+      });
+      if (missed) {
+        return {
+          enrollment: null,
+          missed: {
+            enrollmentId: missed.id,
+            enrollmentCode: missed.enrollmentCode,
+            packageTitle: missed.package.title,
+            mockDate: missed.mockDate,
+            adminGranted: missed.adminGranted,
+          },
+        };
+      }
       return { enrollment: null };
     }
 
@@ -286,6 +336,11 @@ export class StudentsService {
         enrollmentCode: enrollment.enrollmentCode,
         mockDate: enrollment.mockDate,
         mockTime: enrollment.mockTime,
+        mockDayCutoffAt: enrollment.mockDayCutoffAt,
+        adminGranted: enrollment.adminGranted,
+        examStartedAt: enrollment.examStartedAt,
+        speakingTeacherId: enrollment.speakingTeacherId,
+        speakingSlotId: enrollment.speakingSlotId,
         sessionCode: session.sessionCode,
         state: sessionState,
         packageTitle: enrollment.package.title,

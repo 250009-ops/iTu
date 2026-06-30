@@ -36,6 +36,7 @@ import {
 import { normalizeContentForType } from '../content/content-normalize';
 import { injectWritingTask1ImageUrl } from '../content/content.utils';
 import { ResultsReleaseService } from '../results/results-release.service';
+import { canStartMockOnDay } from '../../common/mock-day-policy';
 
 @Injectable()
 export class ExamSessionsService {
@@ -67,15 +68,38 @@ export class ExamSessionsService {
 
     assertTransition(session.state, ExamSessionState.CHECK_IN_OPEN);
 
+    const enrollment = session.enrollment;
+    const startCheck = canStartMockOnDay({
+      mockDate: enrollment.mockDate,
+      mockDayCutoffAt: enrollment.mockDayCutoffAt,
+      adminGranted: enrollment.adminGranted,
+      mockTime: enrollment.mockTime,
+      status: enrollment.status,
+      examStartedAt: enrollment.examStartedAt,
+    });
+    if (!startCheck.allowed) {
+      throw new BadRequestException(
+        startCheck.reason ?? 'Check-in is not available yet',
+      );
+    }
+
+    const now = new Date();
     const updated = await this.prisma.examSession.update({
       where: { id: session.id },
       data: {
         state: ExamSessionState.CHECK_IN_OPEN,
-        checkInAt: new Date(),
+        checkInAt: now,
         version: { increment: 1 },
       },
       include: this.sessionInclude(),
     });
+
+    if (!enrollment.examStartedAt) {
+      await this.prisma.enrollment.update({
+        where: { id: enrollment.id },
+        data: { examStartedAt: now, status: EnrollmentStatus.IN_PROGRESS },
+      });
+    }
 
     await this.audit.log({
       userId: user.id,

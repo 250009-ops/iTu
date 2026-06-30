@@ -12,9 +12,15 @@ export class GrantEnrollmentDto {
   @IsDateString()
   mockDate: string;
 
+  /** Omit for flexible-start grants; student begins anytime before cutoff. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  mockTime: string;
+  mockTime?: string;
+
+  /** Override platform default mock-day cutoff (HH:mm, e.g. 18:00). */
+  @IsOptional()
+  @IsString()
+  mockDayCutoffTime?: string;
 
   @IsOptional()
   @IsString()
@@ -24,6 +30,7 @@ export class GrantEnrollmentDto {
   @IsString()
   speakingTeacherId?: string;
 
+  /** Not required for grants — student schedules from assigned examiner availability. */
   @IsOptional()
   @IsString()
   speakingSlotId?: string;

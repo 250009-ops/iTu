@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   BookOpen,
+  CalendarClock,
   CheckCircle,
   ChevronDown,
   ChevronUp,
@@ -17,6 +18,8 @@ import {
   User,
 } from "lucide-react";
 import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
+import { SpeakingSlotDialog } from "@/components/student/mock-day/speaking-slot-dialog";
+import { speakingJoinAccess } from "@/lib/speaking/slot-access";
 import { cn } from "@/lib/utils";
 
 type SectionStatus = "completed" | "in_progress" | "locked" | "ready";
@@ -65,12 +68,15 @@ function StatusBadge({ status }: { status: SectionStatus }) {
 }
 
 export function SectionCards() {
-  const { data } = useStudentMockDayData();
+  const { data, refresh } = useStudentMockDayData();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [speakingSlotOpen, setSpeakingSlotOpen] = useState(false);
 
-  if (!data) return null;
+  if (!data || data.status === "missed") return null;
   const { sections, speaking, sessionCode, hasSpeaking } = data;
   const speakingDone = speaking.status === "completed";
+  const slotAccess = speakingJoinAccess(speaking.scheduledAt);
+  const canJoinSpeaking = slotAccess.allowed && !speakingDone;
 
   return (
     <div className="space-y-4">
@@ -318,15 +324,33 @@ export function SectionCards() {
                 <CheckCircle size={14} />
                 Completed
               </span>
+            ) : data.needsSpeakingSlot ? (
+              <button
+                type="button"
+                onClick={() => setSpeakingSlotOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 font-semibold text-white hover:bg-rose-700"
+                style={{ fontSize: "13px" }}
+              >
+                <CalendarClock size={14} />
+                Select examiner availability
+              </button>
             ) : (
               <>
                 <Link
                   href={`/exam/${sessionCode}/speaking`}
-                  className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 font-semibold text-white hover:bg-rose-700"
+                  aria-disabled={!canJoinSpeaking}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl px-4 py-2.5 font-semibold text-white",
+                    canJoinSpeaking
+                      ? "bg-rose-600 hover:bg-rose-700"
+                      : "pointer-events-none bg-rose-300",
+                  )}
                   style={{ fontSize: "13px" }}
                 >
                   <Play size={14} fill="white" />
-                  Join Session
+                  {slotAccess.tooEarly
+                    ? "Join opens 5 min before"
+                    : "Join Session"}
                 </Link>
                 <Link
                   href={`/exam/${sessionCode}/check-in`}
@@ -368,6 +392,17 @@ export function SectionCards() {
           </div>
         </div>
       </div>
+      )}
+
+      {speakingSlotOpen && data.speakingTeacherId && (
+        <SpeakingSlotDialog
+          enrollmentId={data.enrollmentId}
+          mockDateIso={data.mockDateIso}
+          teacherId={data.speakingTeacherId}
+          examinerName={speaking.examiner}
+          onClose={() => setSpeakingSlotOpen(false)}
+          onDone={() => void refresh()}
+        />
       )}
     </div>
   );

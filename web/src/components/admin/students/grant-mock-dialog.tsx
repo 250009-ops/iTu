@@ -15,16 +15,10 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { useAdminStudents } from "@/contexts/admin-students-context";
 import { getGrantablePackagesForStudent } from "@/lib/api/admin";
-import { getAvailability, listTeachers } from "@/lib/api/bookings";
+import { listTeachers } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { Student } from "@/lib/admin/types";
-import {
-  clampMockTimeForDate,
-  defaultMockTimeForDate,
-  isMockStartInFuture,
-  localTodayIso,
-  minMockTimeForDate,
-} from "@/lib/student/datetime";
+import { localTodayIso } from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
 type Teacher = {
@@ -36,14 +30,6 @@ type Teacher = {
   status: string;
 };
 
-type Slot = {
-  id: string;
-  teacherId: string;
-  teacherName: string;
-  startsAt: string;
-  endsAt: string;
-  status: string;
-};
 
 type GrantPackage = {
   id: string;
@@ -59,19 +45,11 @@ type StepId = "package" | "date" | "writing" | "speaking" | "review";
 
 const STEP_LABELS: Record<StepId, string> = {
   package: "Mock package",
-  date: "Date & time",
+  date: "Mock day",
   writing: "Writing examiner",
-  speaking: "Speaking slot",
+  speaking: "Speaking examiner",
   review: "Confirm",
 };
-
-function formatSlotTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
 
 function packageSkillIds(skills: unknown[]): string[] {
   return skills
@@ -128,17 +106,12 @@ export function GrantMockDialog({
   const [packageId, setPackageId] = useState<string | null>(null);
 
   const [mockDate, setMockDate] = useState(localTodayIso());
-  const [mockTime, setMockTime] = useState(() =>
-    defaultMockTimeForDate(localTodayIso()),
-  );
 
   const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
   const [writingTeacherId, setWritingTeacherId] = useState<string | null>(null);
+  const [speakingTeachers, setSpeakingTeachers] = useState<Teacher[]>([]);
+  const [speakingTeacherId, setSpeakingTeacherId] = useState<string | null>(null);
   const [teachersLoading, setTeachersLoading] = useState(false);
-
-  const [slots, setSlots] = useState<Slot[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
 
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -154,6 +127,9 @@ export function GrantMockDialog({
 
   const selectedWritingTeacher = writingTeachers.find(
     (t) => t.id === writingTeacherId,
+  );
+  const selectedSpeakingTeacher = speakingTeachers.find(
+    (t) => t.id === speakingTeacherId,
   );
 
   useEffect(() => {
@@ -187,67 +163,41 @@ export function GrantMockDialog({
     }
   }, []);
 
-  const loadSlots = useCallback(async () => {
-    setSlotsLoading(true);
-    setSelectedSlot(null);
+  const loadSpeakingTeachers = useCallback(async () => {
+    setTeachersLoading(true);
     try {
-      const list = await getAvailability(mockDate);
-      setSlots(list.filter((s) => s.status === "available"));
+      const list = await listTeachers("speaking");
+      setSpeakingTeachers(list);
     } catch (err) {
-      setError(getErrorMessage(err, "Could not load speaking slots"));
+      setError(getErrorMessage(err, "Could not load speaking examiners"));
     } finally {
-      setSlotsLoading(false);
+      setTeachersLoading(false);
     }
-  }, [mockDate]);
+  }, []);
 
   useEffect(() => {
     if (currentStep === "writing" && writingTeachers.length === 0) {
       void loadTeachers();
     }
-    if (currentStep === "speaking") {
-      void loadSlots();
+    if (currentStep === "speaking" && speakingTeachers.length === 0) {
+      void loadSpeakingTeachers();
     }
-  }, [currentStep, writingTeachers.length, loadTeachers, loadSlots]);
+  }, [currentStep, writingTeachers.length, speakingTeachers.length, loadTeachers, loadSpeakingTeachers]);
 
   // Reset downstream choices whenever the package changes.
   useEffect(() => {
     setWritingTeacherId(null);
-    setSelectedSlot(null);
+    setSpeakingTeacherId(null);
   }, [packageId]);
-
-  const slotsByTeacher = useMemo(() => {
-    const groups = new Map<string, { name: string; slots: Slot[] }>();
-    for (const slot of slots) {
-      const entry = groups.get(slot.teacherId) ?? {
-        name: slot.teacherName,
-        slots: [],
-      };
-      entry.slots.push(slot);
-      groups.set(slot.teacherId, entry);
-    }
-    return [...groups.values()];
-  }, [slots]);
-
-  const dateTimeError = useMemo(() => {
-    if (currentStep !== "date" || !mockDate || !mockTime) return null;
-    if (!isMockStartInFuture(mockDate, mockTime)) {
-      return "Choose a date and time in the future.";
-    }
-    return null;
-  }, [currentStep, mockDate, mockTime]);
-
-  const minTimeToday = minMockTimeForDate(mockDate);
 
   const canContinue = useMemo(() => {
     if (currentStep === "package") return Boolean(packageId);
-    if (currentStep === "date") {
-      return Boolean(mockDate && mockTime && isMockStartInFuture(mockDate, mockTime));
-    }
+    if (currentStep === "date") return Boolean(mockDate);
     if (currentStep === "writing") return Boolean(writingTeacherId);
-    if (currentStep === "speaking") return Boolean(selectedSlot);
+    if (currentStep === "speaking") return Boolean(speakingTeacherId);
     if (currentStep === "review") return true;
     return false;
-  }, [currentStep, packageId, mockDate, mockTime, writingTeacherId, selectedSlot]);
+  }, [currentStep, packageId, mockDate, writingTeacherId, speakingTeacherId]);
 
   const isLastStep = stepIndex === steps.length - 1;
 
@@ -264,7 +214,7 @@ export function GrantMockDialog({
   async function handleConfirm() {
     if (!selectedPackage) return;
     if (selectedPackage.needsWriting && !writingTeacherId) return;
-    if (selectedPackage.needsSpeaking && !selectedSlot) return;
+    if (selectedPackage.needsSpeaking && !speakingTeacherId) return;
 
     setSubmitting(true);
     setError(null);
@@ -272,16 +222,12 @@ export function GrantMockDialog({
       const result = await grant({
         studentId: student.id,
         packageId: selectedPackage.id,
-        mockDate: new Date(`${mockDate}T${mockTime}:00`).toISOString(),
-        mockTime,
+        mockDate: new Date(`${mockDate}T12:00:00`).toISOString(),
         ...(selectedPackage.needsWriting && writingTeacherId
           ? { writingTeacherId }
           : {}),
-        ...(selectedPackage.needsSpeaking && selectedSlot
-          ? {
-              speakingTeacherId: selectedSlot.teacherId,
-              speakingSlotId: selectedSlot.id,
-            }
+        ...(selectedPackage.needsSpeaking && speakingTeacherId
+          ? { speakingTeacherId }
           : {}),
       });
       toast("Free mock granted", {
@@ -405,50 +351,22 @@ export function GrantMockDialog({
         {currentStep === "date" && (
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-navy">Mock date</label>
+              <label className="text-sm font-semibold text-navy">Mock day</label>
               <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border px-3">
                 <CalendarDays className="h-4 w-4 text-slate-400" />
                 <input
                   type="date"
                   value={mockDate}
                   min={localTodayIso()}
-                  onChange={(e) => {
-                    const nextDate = e.target.value;
-                    setMockDate(nextDate);
-                    setMockTime((prev) =>
-                      clampMockTimeForDate(nextDate, prev || defaultMockTimeForDate(nextDate)),
-                    );
-                  }}
+                  onChange={(e) => setMockDate(e.target.value)}
                   className="h-11 flex-1 bg-transparent text-sm focus:outline-none"
                 />
               </div>
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-navy">Start time</label>
-              <div
-                className={cn(
-                  "mt-1.5 flex items-center gap-2 rounded-lg border px-3",
-                  dateTimeError ? "border-red-300" : "border-border",
-                )}
-              >
-                <input
-                  type="time"
-                  value={mockTime}
-                  min={minTimeToday}
-                  step={60}
-                  onChange={(e) => setMockTime(e.target.value)}
-                  className="h-11 flex-1 bg-transparent text-sm focus:outline-none"
-                />
-              </div>
-              {dateTimeError && (
-                <p className="mt-1.5 text-xs font-medium text-red-600">
-                  {dateTimeError}
-                </p>
-              )}
             </div>
             <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-              This is the appointed exam date and time the student will see in
-              their Mock Day.
+              The student can start anytime on this day before the platform cutoff
+              (default 18:00). Speaking time is chosen by the student from the
+              assigned examiner&apos;s availability.
             </p>
           </div>
         )}
@@ -503,50 +421,51 @@ export function GrantMockDialog({
         {currentStep === "speaking" && (
           <div className="space-y-3">
             <label className="text-sm font-semibold text-navy">
-              Select a speaking slot &amp; examiner
+              Assign a speaking examiner
             </label>
-            {slotsLoading ? (
+            {teachersLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading slots…
+                Loading examiners…
               </div>
-            ) : slotsByTeacher.length === 0 ? (
+            ) : speakingTeachers.length === 0 ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                No available speaking slots on {mockDate}. Try another date.
+                No approved speaking examiners available.
               </p>
             ) : (
-              <div className="space-y-4">
-                {slotsByTeacher.map((group) => (
-                  <div key={group.name}>
-                    <div className="mb-2 flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+              <div className="space-y-2">
+                {speakingTeachers.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSpeakingTeacherId(t.id)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
+                      speakingTeacherId === t.id
+                        ? "border-rose-500 bg-rose-50"
+                        : "border-border bg-white hover:bg-slate-50",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
                         <Mic size={15} />
                       </div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {group.name}
-                      </p>
+                      <div>
+                        <p className="font-semibold text-navy">{t.name}</p>
+                        <p className="text-xs text-muted">{t.email}</p>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {group.slots.map((slot) => (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          onClick={() => setSelectedSlot(slot)}
-                          className={cn(
-                            "rounded-lg border px-3 py-2 text-sm font-semibold",
-                            selectedSlot?.id === slot.id
-                              ? "border-rose-500 bg-rose-500 text-white"
-                              : "border-border bg-white text-foreground hover:bg-slate-50",
-                          )}
-                        >
-                          {formatSlotTime(slot.startsAt)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                    {speakingTeacherId === t.id && (
+                      <Check className="h-4 w-4 text-rose-600" />
+                    )}
+                  </button>
                 ))}
               </div>
             )}
+            <p className="text-xs text-muted">
+              The student will pick a speaking slot from this examiner&apos;s
+              availability on mock day.
+            </p>
           </div>
         )}
 
@@ -566,14 +485,14 @@ export function GrantMockDialog({
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-muted">Mock date</dt>
+                  <dt className="text-muted">Mock day</dt>
                   <dd className="font-medium text-foreground">
                     {new Date(`${mockDate}T00:00`).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
                     })}{" "}
-                    · {mockTime}
+                    · flexible start
                   </dd>
                 </div>
                 {selectedPackage.needsWriting && (
@@ -586,11 +505,9 @@ export function GrantMockDialog({
                 )}
                 {selectedPackage.needsSpeaking && (
                   <div className="flex justify-between">
-                    <dt className="text-muted">Speaking slot</dt>
+                    <dt className="text-muted">Speaking examiner</dt>
                     <dd className="font-medium text-foreground">
-                      {selectedSlot
-                        ? `${formatSlotTime(selectedSlot.startsAt)} · ${selectedSlot.teacherName}`
-                        : "—"}
+                      {selectedSpeakingTeacher?.name ?? "—"}
                     </dd>
                   </div>
                 )}
@@ -605,8 +522,7 @@ export function GrantMockDialog({
             <p className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
               <Gift size={12} />
               A complimentary $0 order will be recorded and the student will be
-              notified. Any speaking slot is reserved on the teacher&apos;s
-              calendar.
+              notified. The student schedules their speaking slot on mock day.
             </p>
           </div>
         )}

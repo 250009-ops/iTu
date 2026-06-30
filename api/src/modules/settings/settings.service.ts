@@ -20,6 +20,8 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     break: 10,
     checkIn: 30,
     lateJoin: 15,
+    dayCutoffTime: '18:00',
+    speakingEarlyJoinMin: 5,
   },
   exam_integrity: {
     flagOnTabSwitch: true,
@@ -128,6 +130,27 @@ export class SettingsService {
       READING: (timers.reading ?? 60) * 60,
       WRITING: (timers.writing ?? 60) * 60,
       SPEAKING: (timers.speaking ?? 20) * 60,
+    };
+  }
+
+  async getMockDayTimers(): Promise<{
+    dayCutoffTime: string;
+    speakingEarlyJoinMin: number;
+    lateJoinMin: number;
+    checkInOpensMin: number;
+  }> {
+    const timers = (await this.getSection('exam_timers')) as Record<
+      string,
+      number | string
+    >;
+    return {
+      dayCutoffTime:
+        typeof timers.dayCutoffTime === 'string'
+          ? timers.dayCutoffTime
+          : '18:00',
+      speakingEarlyJoinMin: Number(timers.speakingEarlyJoinMin ?? 5),
+      lateJoinMin: Number(timers.lateJoin ?? 15),
+      checkInOpensMin: Number(timers.checkIn ?? 30),
     };
   }
 

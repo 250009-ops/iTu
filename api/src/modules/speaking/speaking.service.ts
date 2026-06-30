@@ -15,6 +15,8 @@ import {
   UpdateSpeakingStateDto,
 } from './dto/update-speaking-state.dto';
 import { LivekitService } from './livekit.service';
+import { SettingsService } from '../settings/settings.service';
+import { speakingJoinWindow } from '../../common/mock-day-policy';
 
 type PartTimestamps = Record<string, string> & {
   egressId?: string;
@@ -45,6 +47,7 @@ export class SpeakingService {
     private prisma: PrismaService,
     private livekit: LivekitService,
     private storage: StorageService,
+    private settings: SettingsService,
   ) {}
 
   async getByExamSessionCode(sessionCode: string, user: RequestUser) {
@@ -83,7 +86,7 @@ export class SpeakingService {
         })
       : null;
 
-    return this.toStateResponse(speakingSession, {
+    return await this.toStateResponse(speakingSession, {
       examinerName: examiner?.user.name ?? 'Assigned examiner',
       examinerTitle: 'Speaking Examiner · IELTS Certified',
       sessionCode,
@@ -101,7 +104,7 @@ export class SpeakingService {
     }
 
     const role = this.resolveRole(session, user);
-    this.assertJoinWindow(session);
+    await this.assertJoinWindow(session);
     const roomName = this.livekit.roomNameForSession(session.id);
     const partTimestamps = this.partTimestamps(session.partTimestamps);
 
@@ -176,7 +179,7 @@ export class SpeakingService {
 
   async getState(speakingSessionId: string, user: RequestUser) {
     const session = await this.assertAccess(speakingSessionId, user);
-    return this.toStateResponse(session);
+    return await this.toStateResponse(session);
   }
 
   /** Full speaking bank content for the examiner console (includes Part 1/3 questions). */
@@ -310,7 +313,7 @@ export class SpeakingService {
       });
     }
 
-    return this.toStateResponse(updated);
+    return await this.toStateResponse(updated);
   }
 
   async handleEgressEnded(roomName: string, recordingUrl: string | null) {
@@ -431,7 +434,7 @@ export class SpeakingService {
     throw new ForbiddenException('Not authorized for this speaking session');
   }
 
-  private toStateResponse(
+  private async toStateResponse(
     session: {
       id: string;
       status: SpeakingSessionStatus;
@@ -467,6 +470,8 @@ export class SpeakingService {
       partTimestamps.egressId && !session.recordingUrl,
     );
 
+    const joinFields = await this.joinAccessFields(session);
+
     return {
       id: session.id,
       status: session.status.toLowerCase(),
@@ -487,16 +492,16 @@ export class SpeakingService {
       recordingEnabled: this.livekit.isRecordingEnabled(),
       recordingActive,
       recordingUrl: session.recordingUrl,
-      ...this.joinAccessFields(session),
+      ...joinFields,
     };
   }
 
-  private joinAccessFields(session: {
+  private async joinAccessFields(session: {
     scheduledAt: Date | null;
     status: SpeakingSessionStatus;
     startedAt: Date | null;
   }) {
-    const access = this.joinAccess(session);
+    const access = await this.joinAccess(session);
     return {
       joinAllowed: access.allowed,
       joinOpensAt: access.opensAt,
@@ -505,15 +510,11 @@ export class SpeakingService {
     };
   }
 
-  private joinAccess(session: {
+  private async joinAccess(session: {
     scheduledAt: Date | null;
     status: SpeakingSessionStatus;
     startedAt: Date | null;
   }) {
-    // Time-based join windows have been removed. Candidates can join as soon as
-    // their session exists and is not finished — examiner readiness (not the
-    // clock) gates the student's "Join" button. This prevents late-running or
-    // early schedules from locking candidates out of their speaking exam.
     if (session.status === SpeakingSessionStatus.COMPLETED) {
       return {
         allowed: false,
@@ -522,21 +523,48 @@ export class SpeakingService {
         message: 'This speaking session has ended.',
       };
     }
+    if (session.startedAt) {
+      return {
+        allowed: true,
+        opensAt: null as Date | null,
+        closesAt: null as Date | null,
+        message: null as string | null,
+      };
+    }
+
+    const timers = await this.settings.getMockDayTimers();
+    const window = speakingJoinWindow(session.scheduledAt, {
+      earlyJoinMin: timers.speakingEarlyJoinMin,
+      lateJoinMin: timers.lateJoinMin,
+    });
+
+    if (!window.allowed) {
+      return {
+        allowed: false,
+        opensAt: window.opensAt,
+        closesAt: window.closesAt,
+        message:
+          window.message ??
+          (window.tooEarly
+            ? 'Your speaking slot is not open yet.'
+            : 'The late-join window for this speaking slot has closed.'),
+      };
+    }
 
     return {
       allowed: true,
-      opensAt: null as Date | null,
-      closesAt: null as Date | null,
+      opensAt: window.opensAt,
+      closesAt: window.closesAt,
       message: null as string | null,
     };
   }
 
-  private assertJoinWindow(session: {
+  private async assertJoinWindow(session: {
     scheduledAt: Date | null;
     status: SpeakingSessionStatus;
     startedAt: Date | null;
   }) {
-    const access = this.joinAccess(session);
+    const access = await this.joinAccess(session);
     if (!access.allowed) {
       throw new BadRequestException(
         access.message ?? 'Speaking session is not available to join yet',

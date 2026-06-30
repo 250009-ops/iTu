@@ -46,6 +46,8 @@ import {
 } from '../exam-sessions/exam-state-machine';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
+import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
+import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
 import { UpdatePayoutDto } from './dto/update-payout.dto';
@@ -343,6 +345,7 @@ export class AdminService {
       AWAITING_RESULTS: 'awaiting_results',
       COMPLETED: 'complete',
       CANCELLED: 'complete',
+      MISSED: 'missed',
     };
 
     return {
@@ -353,6 +356,7 @@ export class AdminService {
         awaitingResults: enrollments.filter(
           (e) => e.status === 'AWAITING_RESULTS',
         ).length,
+        missed: enrollments.filter((e) => e.status === 'MISSED').length,
         completed: enrollments.filter((e) => e.status === 'COMPLETED').length,
       },
       enrollments: enrollments.map((e) => ({
@@ -368,6 +372,7 @@ export class AdminService {
           .map((a) => a.skill.toLowerCase()) ?? [],
         speakingExaminer: e.speakingTeacher?.user.name ?? '—',
         writingExaminer: e.writingTeacher?.user.name ?? '—',
+        adminGranted: e.adminGranted,
         lifecycle: lifecycleMap[e.status] ?? 'in_progress',
       })),
     };
@@ -914,13 +919,19 @@ export class AdminService {
       actorUserId: actorId,
       packageId: dto.packageId,
       mockDate: dto.mockDate,
-      mockTime: dto.mockTime,
+      mockTime: dto.mockTime ?? null,
+      mockDayCutoffTime: dto.mockDayCutoffTime,
+      mockDayCutoffTime: dto.mockDayCutoffTime,
       writingTeacherId: dto.writingTeacherId,
       speakingTeacherId: dto.speakingTeacherId,
       speakingSlotId: dto.speakingSlotId,
       complimentary: true,
       auditAction: AuditAction.ADMIN_ENROLLMENT_GRANT,
     });
+  }
+
+  async reappointEnrollment(dto: ReappointEnrollmentDto, actorId: string) {
+    return this.bookings.reappointEnrollment(dto, actorId);
   }
 
   async getTeachers() {

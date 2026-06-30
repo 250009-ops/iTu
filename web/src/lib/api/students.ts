@@ -133,13 +133,25 @@ export function getMockDayHub() {
       id: string;
       enrollmentCode: string;
       mockDate: string;
-      mockTime: string;
+      mockTime: string | null;
+      mockDayCutoffAt?: string | null;
+      adminGranted?: boolean;
+      examStartedAt?: string | null;
+      speakingTeacherId?: string | null;
+      speakingSlotId?: string | null;
       sessionCode: string;
       state: string;
       packageTitle?: string;
       packageSkills?: string[];
       checkInCompleted?: boolean;
     } | null;
+    missed?: {
+      enrollmentId: string;
+      enrollmentCode: string;
+      packageTitle: string;
+      mockDate: string;
+      adminGranted: boolean;
+    };
     sections: {
       skill: string;
       completed: boolean;

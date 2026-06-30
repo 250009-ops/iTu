@@ -106,6 +106,7 @@ cd /var/www/itestu/app/api
 npm run sync:exam-content
 npm run content:patch
 npm run content:migrate-names
+npm run enrollments:backfill-cutoff
 if [ "${freshPackages}" = "1" ]; then
   npm run packages:clear -- --confirm
 fi

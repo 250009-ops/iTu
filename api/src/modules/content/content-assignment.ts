@@ -158,7 +158,7 @@ export async function evaluatePackageAvailability(
     where: {
       studentId,
       packageId: pkg.id,
-      status: { notIn: ['CANCELLED'] },
+      status: { notIn: ['CANCELLED', 'MISSED'] },
     },
     select: { enrollmentCode: true },
   });
