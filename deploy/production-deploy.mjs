@@ -103,6 +103,10 @@ bash /var/www/itestu/deploy/deploy-rebuild.sh
 cd /var/www/itestu/app/api
 npm run sync:exam-content
 npm run content:patch
+npm run content:migrate-names
+if [ "\${FRESH_PACKAGES:-}" = "1" ]; then
+  npm run packages:clear -- --confirm
+fi
 `);
 
   console.log('\\n==> Public checks...');

@@ -55,3 +55,12 @@ curl -sf -o /dev/null -w "API_PUBLIC:%{http_code}\n" "https://${DOMAIN}/api/v1/h
 
 pm2 status
 echo "==> Deploy update complete."
+
+echo "==> Post-deploy content & package maintenance..."
+cd "$APP_DIR/api"
+npm run sync:exam-content
+npm run content:patch
+npm run content:migrate-names
+if [[ "${FRESH_PACKAGES:-}" == "1" ]]; then
+  npm run packages:clear -- --confirm
+fi
