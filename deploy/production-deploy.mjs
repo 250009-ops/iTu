@@ -73,6 +73,8 @@ async function main() {
   }
   await upload(sftp, tarPath, '/var/www/itestu/production.tar.gz');
 
+  const freshPackages = process.env.FRESH_PACKAGES === '1' ? '1' : '';
+
   await exec(conn, `
 set -e
 cd /var/www/itestu/app
@@ -104,7 +106,7 @@ cd /var/www/itestu/app/api
 npm run sync:exam-content
 npm run content:patch
 npm run content:migrate-names
-if [ "\${FRESH_PACKAGES:-}" = "1" ]; then
+if [ "${freshPackages}" = "1" ]; then
   npm run packages:clear -- --confirm
 fi
 `);
