@@ -157,6 +157,53 @@ function browseHighlightsFor(skillIds: SkillId[]): BrowseHighlight[] {
   return fullMockHighlights;
 }
 
+function iconForIncludedLine(line: string): BrowseHighlight["icon"] {
+  const l = line.toLowerCase();
+  if (
+    l.includes("hour") ||
+    l.includes("minute") ||
+    l.includes("window") ||
+    l.includes("24")
+  ) {
+    return "clock";
+  }
+  if (l.includes("examiner") || l.includes("graded") || l.includes("grading")) {
+    return "user";
+  }
+  if (
+    l.includes("band") ||
+    l.includes("score") ||
+    l.includes("result") ||
+    l.includes("feedback") ||
+    l.includes("tracking")
+  ) {
+    return "check";
+  }
+  if (
+    l.includes("secure") ||
+    l.includes("video") ||
+    l.includes("live") ||
+    l.includes("cbt") ||
+    l.includes("task") ||
+    l.includes("question")
+  ) {
+    return "globe";
+  }
+  return "chart";
+}
+
+function browseHighlightsFromIncluded(
+  included: string[],
+  skillIds: SkillId[],
+): BrowseHighlight[] {
+  const lines = included.map((s) => s.trim()).filter(Boolean);
+  if (lines.length === 0) return browseHighlightsFor(skillIds);
+  return lines.slice(0, 5).map((label) => ({
+    label,
+    icon: iconForIncludedLine(label),
+  }));
+}
+
 function normalizePackageDescription(description: string | null | undefined) {
   if (!description) return undefined;
   if (description.includes("Score + criteria feedback")) {
@@ -234,7 +281,10 @@ export function mapBrowseProduct(pkg: CatalogPackage) {
     }),
     included: normalizeIncludedItems(pkg.included),
     rules: pkg.rules,
-    highlights: browseHighlightsFor(skillIds),
+    highlights: browseHighlightsFromIncluded(
+      normalizeIncludedItems(pkg.included),
+      skillIds,
+    ),
   };
 }
 

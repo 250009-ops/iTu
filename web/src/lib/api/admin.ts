@@ -44,6 +44,10 @@ export function getNextMockNumber(
     mockNumber: number;
     mockLabel: string;
     suggestedTitle: string;
+    description: string;
+    included: string[];
+    rules: string[];
+    suggestedPrice: number;
   }>(`/admin/packages/next-mock-number?skills=${q}&examType=${type}`);
 }
 

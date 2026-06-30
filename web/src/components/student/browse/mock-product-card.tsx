@@ -98,10 +98,16 @@ export function MockProductCard({ product }: { product: BrowseProduct }) {
               <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-medium text-slate-200">
                 {product.delivery}
               </span>
-              {product.reviewCount > 0 && (
+              {product.reviewCount > 0 && product.rating != null && (
                 <div className="flex items-center gap-1 text-amber-400">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-3.5 w-3.5 fill-current" />
+                    <Star
+                      key={i}
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        i < Math.round(product.rating) ? "fill-current" : "fill-none opacity-40",
+                      )}
+                    />
                   ))}
                   <span className="ml-1 text-xs font-medium text-slate-300">
                     {product.rating.toFixed(1)} ({product.reviewCount} reviews)

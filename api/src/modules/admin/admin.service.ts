@@ -58,6 +58,7 @@ import {
   SKILL_TO_TEST_FIELD,
 } from '../../common/package-kind';
 import { suggestPackageTitle } from '../../common/package-naming';
+import { getPackageContentTemplate } from '../../common/package-templates';
 import { packageExamSkills } from '../content/package-skills';
 import {
   findContentTestPackageAssignments,
@@ -1210,12 +1211,17 @@ export class AdminService {
       select: { mockNumber: true },
     });
     const mockNumber = (latest?.mockNumber ?? 0) + 1;
+    const template = getPackageContentTemplate(packageKind, examType);
     return {
       packageKind,
       packageKindLabel: packageKindLabel(packageKind),
       mockNumber,
       mockLabel: formatMockNumber(packageKind, mockNumber),
       suggestedTitle: suggestPackageTitle(examType, packageKind, mockNumber),
+      description: template.description,
+      included: template.included,
+      rules: template.rules,
+      suggestedPrice: template.suggestedPrice,
     };
   }
 
@@ -1264,8 +1270,8 @@ export class AdminService {
         packageKind,
         mockNumber,
         mostPopular: dto.mostPopular ?? false,
-        rating: dto.rating ?? null,
-        reviewCount: dto.reviewCount ?? 0,
+        rating: null,
+        reviewCount: 0,
         skills,
         included: (dto.included ?? []) as Prisma.InputJsonValue,
         rules: (dto.rules ?? []) as Prisma.InputJsonValue,
@@ -1570,8 +1576,7 @@ export class AdminService {
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.examType !== undefined) data.examType = dto.examType;
     if (dto.mostPopular !== undefined) data.mostPopular = dto.mostPopular;
-    if (dto.rating !== undefined) data.rating = dto.rating;
-    if (dto.reviewCount !== undefined) data.reviewCount = dto.reviewCount;
+    // rating and reviewCount are computed from student reviews only.
     if (dto.skills !== undefined) data.skills = dto.skills as Prisma.InputJsonValue;
     if (dto.included !== undefined)
       data.included = dto.included as Prisma.InputJsonValue;

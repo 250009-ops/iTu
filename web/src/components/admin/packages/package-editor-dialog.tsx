@@ -29,8 +29,6 @@ type FormState = {
   skills: SkillId[];
   mostPopular: boolean;
   isActive: boolean;
-  rating: string;
-  reviewCount: string;
   included: string;
   rules: string;
   listeningTestId: string;
@@ -61,8 +59,6 @@ const emptyForm: FormState = {
   skills: ["listening", "reading", "writing", "speaking"],
   mostPopular: false,
   isActive: true,
-  rating: "",
-  reviewCount: "",
   included: "",
   rules: "",
   listeningTestId: "",
@@ -182,8 +178,6 @@ export function PackageEditorDialog() {
         skills: normalizeSkills(pkg.skills),
         mostPopular: pkg.mostPopular,
         isActive: pkg.isActive,
-        rating: pkg.rating != null ? String(pkg.rating) : "",
-        reviewCount: String(pkg.reviewCount ?? 0),
         included: (pkg.included ?? []).join("\n"),
         rules: (pkg.rules ?? []).join("\n"),
         listeningTestId: pkg.listeningTestId ?? "",
@@ -204,12 +198,14 @@ export function PackageEditorDialog() {
     void getNextMockNumber(form.skills, form.examType).then((next) => {
       if (cancelled) return;
       setMockPreview(next.mockLabel);
-      if (!form.title.trim()) {
-        setForm((f) => ({
-          ...f,
-          title: next.suggestedTitle,
-        }));
-      }
+      setForm((f) => ({
+        ...f,
+        title: f.title.trim() ? f.title : next.suggestedTitle,
+        description: next.description,
+        included: next.included.join("\n"),
+        rules: next.rules.join("\n"),
+        price: next.suggestedPrice > 0 ? String(next.suggestedPrice) : f.price,
+      }));
     });
     return () => {
       cancelled = true;
@@ -220,23 +216,9 @@ export function PackageEditorDialog() {
     setForm((f) => ({ ...f, [key]: value }));
 
   const priceValue = useMemo(() => Number(form.price), [form.price]);
-  const ratingValue = useMemo(
-    () => (form.rating.trim() === "" ? null : Number(form.rating)),
-    [form.rating],
-  );
-  const reviewCountValue = useMemo(
-    () => Number(form.reviewCount || "0"),
-    [form.reviewCount],
-  );
 
   const priceInvalid = form.price.trim() === "" || Number.isNaN(priceValue) || priceValue < 0;
   const titleInvalid = form.title.trim() === "";
-  const ratingInvalid =
-    form.rating.trim() !== "" &&
-    (Number.isNaN(ratingValue) || ratingValue! < 0 || ratingValue! > 5);
-  const reviewCountInvalid =
-    form.reviewCount.trim() !== "" &&
-    (Number.isNaN(reviewCountValue) || reviewCountValue < 0);
 
   const contentComplete = useMemo(() => {
     const needs: Record<SkillId, string> = {
@@ -256,7 +238,7 @@ export function PackageEditorDialog() {
   if (!editor.open) return null;
 
   async function handleSave() {
-    if (titleInvalid || priceInvalid || ratingInvalid || reviewCountInvalid) {
+    if (titleInvalid || priceInvalid) {
       toast("Check the form", {
         description: "Fix required fields and numeric ranges before saving.",
         variant: "warning",
@@ -282,8 +264,6 @@ export function PackageEditorDialog() {
         skills: form.skills,
         mostPopular: form.mostPopular,
         isActive: form.isActive,
-        rating: ratingValue,
-        reviewCount: reviewCountValue,
         included: form.included
           .split("\n")
           .map((l) => l.trim())
@@ -469,7 +449,7 @@ export function PackageEditorDialog() {
               onChange={(e) => set("description", e.target.value)}
               rows={3}
               className={textareaCls}
-              placeholder="All four skills in one day, graded by certified examiners."
+              placeholder="Describe what students get with this package"
             />
           </div>
 
@@ -488,7 +468,7 @@ export function PackageEditorDialog() {
                   error={priceInvalid}
                   onChange={(e) => set("price", e.target.value)}
                   className="pl-7"
-                  placeholder="49"
+                  placeholder="Enter price"
                 />
               </div>
             </div>
@@ -518,32 +498,22 @@ export function PackageEditorDialog() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className={labelCls}>Rating (0–5, optional)</label>
-              <Input
-                type="number"
-                min={0}
-                max={5}
-                step="0.1"
-                value={form.rating}
-                error={ratingInvalid}
-                onChange={(e) => set("rating", e.target.value)}
-                placeholder="4.8"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className={labelCls}>Review count</label>
-              <Input
-                type="number"
-                min={0}
-                step="1"
-                value={form.reviewCount}
-                error={reviewCountInvalid}
-                onChange={(e) => set("reviewCount", e.target.value)}
-                placeholder="120"
-              />
-            </div>
+          <div className="rounded-lg border border-border bg-slate-50 px-4 py-3 text-xs text-muted">
+            {isEdit ? (
+              <>
+                <span className="font-semibold text-navy">Student reviews: </span>
+                {pkg && pkg.reviewCount > 0 && pkg.rating != null ? (
+                  <>
+                    {pkg.rating.toFixed(1)} average · {pkg.reviewCount} review
+                    {pkg.reviewCount === 1 ? "" : "s"}
+                  </>
+                ) : (
+                  "No reviews yet — ratings appear here after students submit feedback."
+                )}
+              </>
+            ) : (
+              "Rating and review count are filled automatically when students submit reviews after completing a mock."
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -579,7 +549,7 @@ export function PackageEditorDialog() {
                 onChange={(e) => set("included", e.target.value)}
                 rows={5}
                 className={textareaCls}
-                placeholder={"Pick your examiner\nSame-day band results"}
+                placeholder={"One benefit per line"}
               />
             </div>
             <div className="space-y-1.5">
@@ -589,7 +559,7 @@ export function PackageEditorDialog() {
                 onChange={(e) => set("rules", e.target.value)}
                 rows={5}
                 className={textareaCls}
-                placeholder={"No pause or rewind\nServer-authoritative timers"}
+                placeholder={"One rule per line"}
               />
             </div>
           </div>
