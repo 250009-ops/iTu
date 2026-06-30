@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, UserCheck, UserRound, UserX } from "lucide-react";
+import { Clock, UserCheck, UserRound } from "lucide-react";
 import { useAdminTeachers } from "@/contexts/admin-teachers-context";
 import { cn } from "@/lib/utils";
 
@@ -29,17 +29,10 @@ export function TeachersSummaryCards() {
       card: "border-amber-100 bg-amber-50",
       iconWrap: "text-amber-600",
     },
-    {
-      label: "Suspended",
-      value: summary.suspended,
-      icon: UserX,
-      card: "border-rose-100 bg-rose-50",
-      iconWrap: "text-rose-600",
-    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
       {cards.map((card) => {
         const Icon = card.icon;
         return (

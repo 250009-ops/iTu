@@ -934,6 +934,7 @@ export class AdminService {
 
   async getTeachers() {
     const teachers = await this.prisma.teacherProfile.findMany({
+      where: { status: { not: 'SUSPENDED' } },
       include: { user: true },
       orderBy: { createdAt: 'desc' },
     });

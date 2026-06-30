@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { teacherSpecialityWhere } from '../../common/teacher-speciality';
 
 @Injectable()
 export class MarketingService {
@@ -168,14 +169,7 @@ export class MarketingService {
     const teachers = await this.prisma.teacherProfile.findMany({
       where: {
         status: 'APPROVED',
-        ...(speciality
-          ? {
-              speciality:
-                speciality === 'both'
-                  ? 'BOTH'
-                  : (speciality.toUpperCase() as 'WRITING' | 'SPEAKING'),
-            }
-          : {}),
+        ...teacherSpecialityWhere(speciality),
       },
       include: { user: { select: { name: true } } },
       orderBy: [{ isTopRated: 'desc' }, { rating: 'desc' }],

@@ -36,6 +36,7 @@ import {
   evaluatePackageAvailability,
 } from '../content/content-assignment';
 import { packageExamSkills } from '../content/package-skills';
+import { teacherSpecialityWhere } from '../../common/teacher-speciality';
 
 /**
  * Parameters for {@link BookingsService.provisionEnrollment}. Shared by the
@@ -106,16 +107,7 @@ export class BookingsService {
     const teachers = await this.prisma.teacherProfile.findMany({
       where: {
         status: 'APPROVED',
-        ...(speciality
-          ? {
-              speciality:
-                speciality === 'both'
-                  ? 'BOTH'
-                  : speciality === 'writing'
-                    ? { in: ['WRITING', 'BOTH'] as const }
-                    : (speciality.toUpperCase() as 'WRITING' | 'SPEAKING'),
-            }
-          : {}),
+        ...teacherSpecialityWhere(speciality),
       },
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: { rating: 'desc' },
