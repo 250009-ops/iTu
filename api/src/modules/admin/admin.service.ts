@@ -47,7 +47,6 @@ import {
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
 import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
-import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
 import { UpdatePayoutDto } from './dto/update-payout.dto';
@@ -920,7 +919,6 @@ export class AdminService {
       packageId: dto.packageId,
       mockDate: dto.mockDate,
       mockTime: dto.mockTime ?? null,
-      mockDayCutoffTime: dto.mockDayCutoffTime,
       mockDayCutoffTime: dto.mockDayCutoffTime,
       writingTeacherId: dto.writingTeacherId,
       speakingTeacherId: dto.speakingTeacherId,
