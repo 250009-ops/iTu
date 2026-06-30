@@ -15,9 +15,7 @@ import {
   PublishChecklist,
 } from "@/components/admin/content/publish-checklist";
 import {
-  defaultTestTitle,
   moduleUsesAnswerKey,
-  suggestTestCode,
 } from "@/lib/admin/content-templates";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
@@ -329,19 +327,13 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
     if (!testId) return;
     setRetiring(true);
     try {
-      const nextCode = suggestTestCode(module);
-      const nextTitle = `${title.replace(/\s+\d+$/, "").trim() || code} Copy`;
-      const result = await retireAndDuplicate(
-        testId,
-        nextCode,
-        nextTitle || defaultTestTitle(module),
-      );
+      const result = await retireAndDuplicate(testId);
       toast(result.archived ? "Test retired" : "Draft copy created", {
         description: result.archived
-          ? `${title} was retired. Edit and publish ${nextTitle}, then assign it in your package.`
+          ? `${title} was retired. Edit and publish ${result.cloneTitle}, then assign it in your package.`
           : result.activePackageLinks > 0
-            ? `Edit and publish ${nextTitle}, update ${result.activePackageLinks} active package(s), then retire the original.`
-            : `Edit and publish ${nextTitle}, then assign it in your package.`,
+            ? `Edit and publish ${result.cloneTitle}, update ${result.activePackageLinks} active package(s), then retire the original.`
+            : `Edit and publish ${result.cloneTitle}, then assign it in your package.`,
         variant: "success",
       });
     } catch (err) {

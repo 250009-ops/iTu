@@ -5,10 +5,7 @@ import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  defaultTestTitle,
-  suggestTestCode,
-} from "@/lib/admin/content-templates";
+import { useNextTestIdentity } from "@/hooks/use-next-test-identity";
 import type { ContentModule } from "@/lib/admin/types";
 import { useAdminContent } from "@/contexts/admin-content-context";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -26,8 +23,10 @@ export function ImportContentDialog({ open, module, onClose }: Props) {
   const { importTest, importAnswerKey, selectedTestId } = useAdminContent();
   const { toast } = useToast();
   const [mode, setMode] = useState<ImportMode>("json");
-  const [title, setTitle] = useState(() => defaultTestTitle(module));
-  const [code, setCode] = useState(() => suggestTestCode(module));
+  const { code, title, setCode, setTitle, loadingIdentity } = useNextTestIdentity(
+    module,
+    open,
+  );
   const [jsonText, setJsonText] = useState("");
   const [csvText, setCsvText] = useState("");
   const [saving, setSaving] = useState(false);
@@ -145,7 +144,7 @@ export function ImportContentDialog({ open, module, onClose }: Props) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} disabled={loadingIdentity} />
               </div>
               <div className="space-y-2">
                 <Label>Code</Label>
@@ -153,6 +152,7 @@ export function ImportContentDialog({ open, module, onClose }: Props) {
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   className="font-mono"
+                  disabled={loadingIdentity}
                 />
               </div>
             </div>
@@ -201,6 +201,7 @@ export function ImportContentDialog({ open, module, onClose }: Props) {
             variant="primary"
             size="sm"
             loading={saving}
+            disabled={mode === "json" && loadingIdentity}
             onClick={() => void (mode === "json" ? handleImportJson() : handleImportCsv())}
           >
             Import

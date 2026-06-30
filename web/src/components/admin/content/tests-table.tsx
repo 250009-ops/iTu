@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { contentModuleLabels } from "@/lib/admin/constants";
 import {
-  defaultTestTitle,
   moduleUsesAnswerKey,
-  suggestTestCode,
 } from "@/lib/admin/content-templates";
 import { normalizeContent } from "@/lib/admin/content/normalize";
 import { syncAnswerKey, type AnswerKeyMap } from "@/lib/admin/content/utils";
@@ -113,14 +111,12 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
     }
   }
 
-  async function handleClone(id: string, name: string) {
+  async function handleClone(id: string) {
     setCloningId(id);
     try {
-      const code = suggestTestCode(module);
-      const title = `${name.replace(/\s+\d+$/, "").trim()} Copy`;
-      await cloneTest(id, code, title || defaultTestTitle(module));
+      const cloned = await cloneTest(id);
       toast("Test duplicated", {
-        description: "Draft created with content and media copied.",
+        description: `${cloned.title} is ready to edit with content and media copied.`,
         variant: "success",
       });
     } catch (err) {
@@ -136,20 +132,14 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
   async function handleRetireAndDuplicate(id: string, name: string) {
     setRetiringId(id);
     try {
-      const code = suggestTestCode(module);
-      const title = `${name.replace(/\s+\d+$/, "").trim()} Copy`;
-      const result = await retireAndDuplicate(
-        id,
-        code,
-        title || defaultTestTitle(module),
-      );
+      const result = await retireAndDuplicate(id);
       onEditTest?.();
       toast(result.archived ? "Test retired" : "Draft copy created", {
         description: result.archived
-          ? `${name} was retired and ${title} is ready to edit, publish, and assign.`
+          ? `${name} was retired and ${result.cloneTitle} is ready to edit, publish, and assign.`
           : result.activePackageLinks > 0
-            ? `${title} is ready to edit. Update ${result.activePackageLinks} active package(s), then retire the original.`
-            : `${title} is ready to edit and publish.`,
+            ? `${result.cloneTitle} is ready to edit. Update ${result.activePackageLinks} active package(s), then retire the original.`
+            : `${result.cloneTitle} is ready to edit and publish.`,
         variant: "success",
       });
     } catch (err) {
@@ -326,7 +316,7 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                           size="sm"
                           className="h-8 px-3"
                           loading={cloningId === test.id}
-                          onClick={() => void handleClone(test.id, test.name)}
+                          onClick={() => void handleClone(test.id)}
                         >
                           Duplicate
                         </Button>

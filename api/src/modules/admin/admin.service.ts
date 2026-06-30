@@ -8,6 +8,7 @@ import {
   EnrollmentStatus,
   ExamSessionState,
   ExamSkill,
+  ExamType,
   NotificationType,
   Prisma,
   ResultsStatus,
@@ -56,6 +57,7 @@ import {
   SKILL_TO_POOL_KEY,
   SKILL_TO_TEST_FIELD,
 } from '../../common/package-kind';
+import { suggestPackageTitle } from '../../common/package-naming';
 import { packageExamSkills } from '../content/package-skills';
 import {
   findContentTestPackageAssignments,
@@ -1200,7 +1202,7 @@ export class AdminService {
     };
   }
 
-  async getNextMockNumber(skills: unknown) {
+  async getNextMockNumber(skills: unknown, examType: ExamType = 'ACADEMIC') {
     const packageKind = derivePackageKind(skills);
     const latest = await this.prisma.mockTestPackage.findFirst({
       where: { packageKind },
@@ -1213,6 +1215,7 @@ export class AdminService {
       packageKindLabel: packageKindLabel(packageKind),
       mockNumber,
       mockLabel: formatMockNumber(packageKind, mockNumber),
+      suggestedTitle: suggestPackageTitle(examType, packageKind, mockNumber),
     };
   }
 
@@ -1334,12 +1337,16 @@ export class AdminService {
     });
     if (!source) throw new NotFoundException('Package not found');
 
-    const title = `${source.title} Copy`;
-    const slug = await this.resolveSlug(title);
+    const skills = (source.skills as string[]) ?? DEFAULT_PACKAGE_SKILLS;
+    const { suggestedTitle } = await this.getNextMockNumber(
+      skills,
+      source.examType,
+    );
+    const slug = await this.resolveSlug(suggestedTitle);
 
     const cloned = await this.createPackage(
       {
-        title,
+        title: suggestedTitle,
         slug,
         description: source.description ?? undefined,
         price: source.price,

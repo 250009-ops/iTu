@@ -211,8 +211,8 @@ async function main() {
 
   const listeningTest = await prisma.contentTest.create({
     data: {
-      code: 'LIS-ACAD-005',
-      title: 'Listening — Academic Mock 005',
+      code: 'LIS-MOCK-A001',
+      title: 'Listening Mock-A001',
       type: ContentTestType.LISTENING,
       status: ContentTestStatus.PUBLISHED,
       durationMin: 32,
@@ -239,8 +239,8 @@ async function main() {
 
   const readingTest = await prisma.contentTest.create({
     data: {
-      code: 'REA-ACAD-005',
-      title: 'Reading — Academic Mock 005',
+      code: 'REA-MOCK-A001',
+      title: 'Reading Mock-A001',
       type: ContentTestType.READING,
       status: ContentTestStatus.PUBLISHED,
       durationMin: 60,
@@ -252,8 +252,8 @@ async function main() {
 
   const writingTest = await prisma.contentTest.create({
     data: {
-      code: 'WRI-ACAD-005',
-      title: 'Writing — Academic Mock 005',
+      code: 'WRI-MOCK-A001',
+      title: 'Writing Mock-A001',
       type: ContentTestType.WRITING,
       status: ContentTestStatus.PUBLISHED,
       durationMin: 60,
@@ -264,8 +264,8 @@ async function main() {
 
   const speakingBank = await prisma.contentTest.create({
     data: {
-      code: 'SPK-BANK-005',
-      title: 'Speaking Bank 005',
+      code: 'SPK-MOCK-A001',
+      title: 'Speaking Mock-A001',
       type: ContentTestType.SPEAKING,
       status: ContentTestStatus.PUBLISHED,
       durationMin: 15,
@@ -326,8 +326,8 @@ async function main() {
 
   const speakingOnlyBank = await prisma.contentTest.create({
     data: {
-      code: 'SPK-BANK-001',
-      title: 'Speaking Bank 001',
+      code: 'SPK-MOCK-A002',
+      title: 'Speaking Mock-A002',
       type: ContentTestType.SPEAKING,
       status: ContentTestStatus.PUBLISHED,
       durationMin: 15,
@@ -338,8 +338,8 @@ async function main() {
 
   const writingOnlyTest = await prisma.contentTest.create({
     data: {
-      code: 'WRI-ACAD-001',
-      title: 'Writing — Academic Mock 001',
+      code: 'WRI-MOCK-A002',
+      title: 'Writing Mock-A002',
       type: ContentTestType.WRITING,
       status: ContentTestStatus.PUBLISHED,
       durationMin: 60,

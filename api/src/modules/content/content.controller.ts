@@ -37,6 +37,16 @@ export class ContentController {
     return this.content.listTests(testType);
   }
 
+  @Get('tests/next-identity')
+  suggestNextTestIdentity(@Query('type') type: string) {
+    if (!type?.trim()) {
+      throw new BadRequestException('Query parameter "type" is required');
+    }
+    return this.content.suggestNextTestIdentity(
+      type.trim().toUpperCase() as ContentTestType,
+    );
+  }
+
   @Get('tests/:id')
   getTest(@Param('id') id: string) {
     return this.content.getTest(id);
@@ -99,12 +109,8 @@ export class ContentController {
   }
 
   @Post('tests/:id/clone')
-  cloneTest(
-    @Param('id') id: string,
-    @Body() body: { code: string; title: string },
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.content.cloneTest(id, body.code, body.title, user.id);
+  cloneTest(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.content.cloneTest(id, user.id);
   }
 
   @Post('tests/:id/archive')
@@ -113,12 +119,8 @@ export class ContentController {
   }
 
   @Post('tests/:id/retire-and-duplicate')
-  retireAndDuplicate(
-    @Param('id') id: string,
-    @Body() body: { code: string; title: string },
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.content.retireAndDuplicate(id, body.code, body.title, user.id);
+  retireAndDuplicate(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.content.retireAndDuplicate(id, user.id);
   }
 
   @Patch('tests/:id')

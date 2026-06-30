@@ -32,14 +32,19 @@ export function getAdminPackages() {
   }>("/admin/packages");
 }
 
-export function getNextMockNumber(skills: string[]) {
+export function getNextMockNumber(
+  skills: string[],
+  examType: "ACADEMIC" | "GENERAL_TRAINING" = "ACADEMIC",
+) {
   const q = encodeURIComponent(JSON.stringify(skills));
+  const type = encodeURIComponent(examType);
   return apiFetch<{
     packageKind: string;
     packageKindLabel: string;
     mockNumber: number;
     mockLabel: string;
-  }>(`/admin/packages/next-mock-number?skills=${q}`);
+    suggestedTitle: string;
+  }>(`/admin/packages/next-mock-number?skills=${q}&examType=${type}`);
 }
 
 export function createPackage(payload: AdminPackagePayload) {
@@ -630,6 +635,14 @@ export async function uploadListeningMedia(
   };
 }
 
+export function getNextContentTestIdentity(
+  module: "listening" | "reading" | "writing" | "speaking",
+) {
+  return apiFetch<{ code: string; title: string; serial: number }>(
+    `/admin/content/tests/next-identity?type=${encodeURIComponent(module.toUpperCase())}`,
+  );
+}
+
 export function createContentTest(payload: {
   code: string;
   title: string;
@@ -703,13 +716,10 @@ export function publishContentTest(id: string) {
   return apiFetch(`/admin/content/tests/${id}/publish`, { method: "POST" });
 }
 
-export function cloneContentTest(
-  id: string,
-  payload: { code: string; title: string },
-) {
+export function cloneContentTest(id: string) {
   return apiFetch<{ id: string; code: string; title: string }>(
     `/admin/content/tests/${id}/clone`,
-    { method: "POST", body: payload },
+    { method: "POST" },
   );
 }
 
@@ -720,17 +730,13 @@ export function archiveContentTest(id: string) {
   );
 }
 
-export function retireAndDuplicateContentTest(
-  id: string,
-  payload: { code: string; title: string },
-) {
+export function retireAndDuplicateContentTest(id: string) {
   return apiFetch<{
     clone: { id: string; code: string; title: string };
     archived: boolean;
     activePackageLinks: number;
   }>(`/admin/content/tests/${id}/retire-and-duplicate`, {
     method: "POST",
-    body: payload,
   });
 }
 

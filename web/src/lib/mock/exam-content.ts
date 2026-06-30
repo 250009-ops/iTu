@@ -15,7 +15,7 @@ function completionLines(...rows: InlineNode[][]): CompletionLine[] {
  * ------------------------------------------------------------------ */
 
 export const listeningContent: ListeningContent = {
-  testId: "LIS-ACAD-005",
+  testId: "LIS-MOCK-A001",
   title: "Listening",
   totalQuestions: 40,
   durationMinutes: 32,
@@ -297,7 +297,7 @@ export const listeningContent: ListeningContent = {
  * ------------------------------------------------------------------ */
 
 export const readingContent: ReadingContent = {
-  testId: "REA-ACAD-005",
+  testId: "REA-MOCK-A001",
   title: "Reading",
   totalQuestions: 40,
   durationMinutes: 60,
@@ -623,7 +623,7 @@ export const readingContent: ReadingContent = {
  * ------------------------------------------------------------------ */
 
 export const writingContent: WritingContent = {
-  testId: "WRI-ACAD-005",
+  testId: "WRI-MOCK-A001",
   title: "Writing",
   durationMinutes: 60,
   tasks: [
@@ -665,7 +665,7 @@ export const writingContent: WritingContent = {
  * ------------------------------------------------------------------ */
 
 export const speakingStudentContent = {
-  testId: "SPK-ACAD-005",
+  testId: "SPK-MOCK-A001",
   examiner: "Dr. Emma Williams",
   examinerTitle: "Speaking Examiner · IELTS Certified",
   slot: "14:00 – 14:20",

@@ -2,6 +2,7 @@ import {
   listeningAnswerKey,
   readingAnswerKey,
 } from "@/lib/mock/exam-answer-keys";
+import { getNextContentTestIdentity } from "@/lib/api/admin";
 import type { ContentModule } from "@/lib/admin/types";
 import {
   listeningContent,
@@ -17,6 +18,13 @@ const CODE_PREFIX: Record<ContentModule, string> = {
   speaking: "SPK",
 };
 
+const TITLE_PREFIX: Record<ContentModule, string> = {
+  listening: "Listening",
+  reading: "Reading",
+  writing: "Writing",
+  speaking: "Speaking",
+};
+
 const DEFAULT_DURATION: Record<ContentModule, number> = {
   listening: 32,
   reading: 60,
@@ -29,14 +37,20 @@ function stripTestId<T extends { testId?: string }>(value: T): Omit<T, "testId">
   return rest;
 }
 
-export function suggestTestCode(module: ContentModule): string {
-  const suffix = Date.now().toString(36).slice(-4).toUpperCase();
-  return `${CODE_PREFIX[module]}-ACAD-${suffix}`;
+/** Placeholder shown before the next identity loads from the API. */
+export function placeholderTestCode(module: ContentModule): string {
+  return `${CODE_PREFIX[module]}-MOCK-A001`;
 }
 
-export function defaultTestTitle(module: ContentModule): string {
-  const label = module.charAt(0).toUpperCase() + module.slice(1);
-  return `${label} — Academic Mock`;
+/** Placeholder shown before the next identity loads from the API. */
+export function placeholderTestTitle(module: ContentModule): string {
+  return `${TITLE_PREFIX[module]} Mock-A001`;
+}
+
+export async function fetchNextTestIdentity(
+  module: ContentModule,
+): Promise<{ code: string; title: string }> {
+  return getNextContentTestIdentity(module);
 }
 
 export function getContentTemplate(module: ContentModule): {

@@ -41,9 +41,13 @@ export function PackageGrid({ packages = PACKAGES }: { packages?: MockPackage[] 
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {visible.map((pkg) => (
-          <PackageCard key={pkg.id} pkg={pkg} />
-        ))}
+        {visible.length === 0 ? (
+          <p className="col-span-full rounded-2xl border border-dashed border-border bg-slate-50 px-6 py-10 text-center text-sm text-muted">
+            No packages match this filter yet.
+          </p>
+        ) : (
+          visible.map((pkg) => <PackageCard key={pkg.id} pkg={pkg} />)
+        )}
       </div>
     </div>
   );

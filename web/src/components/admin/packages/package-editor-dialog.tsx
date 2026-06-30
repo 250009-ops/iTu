@@ -201,20 +201,20 @@ export function PackageEditorDialog() {
   useEffect(() => {
     if (!editor.open || isEdit) return;
     let cancelled = false;
-    void getNextMockNumber(form.skills).then((next) => {
+    void getNextMockNumber(form.skills, form.examType).then((next) => {
       if (cancelled) return;
       setMockPreview(next.mockLabel);
       if (!form.title.trim()) {
         setForm((f) => ({
           ...f,
-          title: next.mockLabel.replace("Full Mock", "Full Academic Mock"),
+          title: next.suggestedTitle,
         }));
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [editor.open, isEdit, form.skills]);
+  }, [editor.open, isEdit, form.skills, form.examType]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -436,7 +436,7 @@ export function PackageEditorDialog() {
               value={form.title}
               error={titleInvalid}
               onChange={(e) => set("title", e.target.value)}
-              placeholder="Full Academic Mock 002"
+              placeholder="e.g. Full Academic Mock 002"
             />
           </div>
 

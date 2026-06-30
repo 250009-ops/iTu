@@ -1,18 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  defaultTestTitle,
-  getContentTemplate,
-  suggestTestCode,
-} from "@/lib/admin/content-templates";
+import { getContentTemplate } from "@/lib/admin/content-templates";
 import type { ContentModule } from "@/lib/admin/types";
 import { useAdminContent } from "@/contexts/admin-content-context";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
+import { useNextTestIdentity } from "@/hooks/use-next-test-identity";
+import { useState } from "react";
 
 type Props = {
   open: boolean;
@@ -23,8 +20,10 @@ type Props = {
 export function CreateTestDialog({ open, module, onClose }: Props) {
   const { createTest } = useAdminContent();
   const { toast } = useToast();
-  const [title, setTitle] = useState(() => defaultTestTitle(module));
-  const [code, setCode] = useState(() => suggestTestCode(module));
+  const { code, title, setCode, setTitle, loadingIdentity } = useNextTestIdentity(
+    module,
+    open,
+  );
   const [saving, setSaving] = useState(false);
 
   if (!open) return null;
@@ -77,6 +76,7 @@ export function CreateTestDialog({ open, module, onClose }: Props) {
               id="new-test-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              disabled={loadingIdentity}
             />
           </div>
           <div className="space-y-2">
@@ -86,6 +86,7 @@ export function CreateTestDialog({ open, module, onClose }: Props) {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               className="font-mono"
+              disabled={loadingIdentity}
             />
           </div>
         </div>
@@ -94,7 +95,13 @@ export function CreateTestDialog({ open, module, onClose }: Props) {
           <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" loading={saving} onClick={() => void handleCreate()}>
+          <Button
+            variant="primary"
+            size="sm"
+            loading={saving}
+            disabled={loadingIdentity}
+            onClick={() => void handleCreate()}
+          >
             Create draft
           </Button>
         </div>

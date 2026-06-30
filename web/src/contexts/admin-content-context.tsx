@@ -53,13 +53,16 @@ type ContentValue = {
   createTest: (payload: CreateTestPayload) => Promise<{ id: string; title: string }>;
   updateTest: (id: string, payload: UpdateTestPayload) => Promise<void>;
   publishTest: (id: string) => Promise<void>;
-  cloneTest: (id: string, code: string, title: string) => Promise<{ id: string }>;
+  cloneTest: (id: string) => Promise<{ id: string; title: string; code: string }>;
   archiveTest: (id: string) => Promise<void>;
   retireAndDuplicate: (
     id: string,
-    code: string,
-    title: string,
-  ) => Promise<{ archived: boolean; activePackageLinks: number; cloneId: string }>;
+  ) => Promise<{
+    archived: boolean;
+    activePackageLinks: number;
+    cloneId: string;
+    cloneTitle: string;
+  }>;
   deleteTest: (id: string) => Promise<void>;
   submitForReview: (id: string) => Promise<void>;
   revertToDraft: (id: string) => Promise<void>;
@@ -101,11 +104,11 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   );
 
   const cloneTest = useCallback(
-    async (id: string, code: string, title: string) => {
-      const cloned = await cloneContentTest(id, { code, title });
+    async (id: string) => {
+      const cloned = await cloneContentTest(id);
       await refresh();
       setSelectedTestId(cloned.id);
-      return { id: cloned.id };
+      return { id: cloned.id, title: cloned.title, code: cloned.code };
     },
     [refresh],
   );
@@ -119,14 +122,15 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   );
 
   const retireAndDuplicate = useCallback(
-    async (id: string, code: string, title: string) => {
-      const result = await retireAndDuplicateContentTest(id, { code, title });
+    async (id: string) => {
+      const result = await retireAndDuplicateContentTest(id);
       await refresh();
       setSelectedTestId(result.clone.id);
       return {
         archived: result.archived,
         activePackageLinks: result.activePackageLinks,
         cloneId: result.clone.id,
+        cloneTitle: result.clone.title,
       };
     },
     [refresh],

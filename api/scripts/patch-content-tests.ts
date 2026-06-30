@@ -119,8 +119,8 @@ async function main() {
 
   const listeningId = await upsertPublished(
     ContentTestType.LISTENING,
-    'LIS-ACAD-005',
-    'Listening — Academic Mock 005',
+    'LIS-MOCK-A001',
+    'Listening Mock-A001',
     32,
     loadJson('listening.json'),
     loadJson('listening-answer-key.json'),
@@ -128,8 +128,8 @@ async function main() {
 
   const readingId = await upsertPublished(
     ContentTestType.READING,
-    'REA-ACAD-005',
-    'Reading — Academic Mock 005',
+    'REA-MOCK-A001',
+    'Reading Mock-A001',
     60,
     loadJson('reading.json'),
     loadJson('reading-answer-key.json'),
@@ -137,16 +137,16 @@ async function main() {
 
   const writingId = await upsertPublished(
     ContentTestType.WRITING,
-    'WRI-ACAD-005',
-    'Writing — Academic Mock 005',
+    'WRI-MOCK-A001',
+    'Writing Mock-A001',
     60,
     loadJson('writing.json'),
   );
 
   const speakingId = await upsertPublished(
     ContentTestType.SPEAKING,
-    'SPK-BANK-005',
-    'Speaking Bank 005',
+    'SPK-MOCK-A001',
+    'Speaking Mock-A001',
     15,
     loadJson('speaking.json'),
   );

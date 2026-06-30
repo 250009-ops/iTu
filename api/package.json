@@ -29,6 +29,8 @@
     "db:reset": "prisma migrate reset",
     "sync:exam-content": "npx tsx scripts/sync-exam-content.ts",
     "content:patch": "npx tsx scripts/patch-content-tests.ts",
+    "content:migrate-names": "npx tsx scripts/migrate-content-test-names.ts",
+    "packages:clear": "npx tsx scripts/clear-all-packages.ts",
     "mail:test": "npx tsx scripts/test-smtp.ts",
     "load:test": "npx tsx scripts/load-test.ts",
     "verify:production": "npx tsx scripts/verify-production.ts",

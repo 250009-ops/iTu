@@ -190,7 +190,9 @@ type ApiPackage = {
 
 export async function fetchPackages(): Promise<MockPackage[]> {
   const data = await get<ApiPackage[]>("/catalog/packages");
-  if (!data || data.length === 0) return PACKAGES;
+  // Only use static demo data when the API is unreachable — not when the catalog is empty.
+  if (data === null) return PACKAGES;
+  if (data.length === 0) return [];
   return data.map((p) => ({
     id: p.id,
     slug: p.slug,

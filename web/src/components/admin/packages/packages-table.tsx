@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { useSessionFilter } from "@/hooks/use-session-filter";
 import { useAdminPackages } from "@/contexts/admin-packages-context";
 import type { AdminPackage } from "@/lib/admin/types";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -16,11 +17,19 @@ const examTypeLabels: Record<AdminPackage["examType"], string> = {
   GENERAL_TRAINING: "General Training",
 };
 
+const PACKAGE_STATUS_FILTER_KEY = "admin-packages-status-filter";
+const PACKAGE_STATUS_VALUES = ["all", "active", "archived"] as const;
+type PackageStatusFilter = (typeof PACKAGE_STATUS_VALUES)[number];
+
 export function PackagesTable() {
   const { packages, openEditor, removePackage, duplicatePackage } = useAdminPackages();
   const { toast } = useToast();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("all");
+  const [statusFilter, setStatusFilter] = useSessionFilter<PackageStatusFilter>(
+    PACKAGE_STATUS_FILTER_KEY,
+    "all",
+    PACKAGE_STATUS_VALUES,
+  );
   const [pendingDelete, setPendingDelete] = useState<AdminPackage | null>(null);
 
   const filtered = useMemo(() => {
@@ -95,7 +104,7 @@ export function PackagesTable() {
           <Select
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(e.target.value as "all" | "active" | "archived")
+              setStatusFilter(e.target.value as PackageStatusFilter)
             }
             className="h-9 w-full sm:w-36"
           >

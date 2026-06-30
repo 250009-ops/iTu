@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { UserRole } from '@prisma/client';
+import { ExamType, UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
@@ -238,7 +238,10 @@ export class AdminController {
   }
 
   @Get('packages/next-mock-number')
-  getNextMockNumber(@Query('skills') skillsRaw?: string) {
+  getNextMockNumber(
+    @Query('skills') skillsRaw?: string,
+    @Query('examType') examTypeRaw?: string,
+  ) {
     let skills: unknown = ['listening', 'reading', 'writing', 'speaking'];
     if (skillsRaw) {
       try {
@@ -247,7 +250,11 @@ export class AdminController {
         skills = skillsRaw.split(',').map((s) => s.trim());
       }
     }
-    return this.admin.getNextMockNumber(skills);
+    const examType =
+      examTypeRaw?.trim().toUpperCase() === 'GENERAL_TRAINING'
+        ? ExamType.GENERAL_TRAINING
+        : ExamType.ACADEMIC;
+    return this.admin.getNextMockNumber(skills, examType);
   }
 
   @Post('packages')

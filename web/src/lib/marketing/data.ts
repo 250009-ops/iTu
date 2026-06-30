@@ -295,6 +295,7 @@ export interface MockPackage {
   rules: string[];
 }
 
+/** Static demo catalog — used only when the live API is unreachable. */
 export const PACKAGES: MockPackage[] = [
   {
     id: "p1",

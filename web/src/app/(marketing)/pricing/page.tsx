@@ -7,7 +7,7 @@ import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reve
 import { PricingPlans } from "@/components/marketing/shared/pricing-plans";
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
-import { fetchHeroStats } from "@/lib/marketing/server-data";
+import { fetchHeroStats, fetchPackages } from "@/lib/marketing/server-data";
 
 export const metadata: Metadata = {
   title: "Pricing — Transparent IELTS Mock Exam Plans",
@@ -48,7 +48,7 @@ function Cell({ value }: { value: boolean }) {
 }
 
 export default async function PricingPage() {
-  const stats = await fetchHeroStats();
+  const [stats, packages] = await Promise.all([fetchHeroStats(), fetchPackages()]);
   const TRUST = [
     { icon: Lock, title: "Secure payment", body: "Stripe-encrypted checkout" },
     { icon: ShieldCheck, title: "Certified examiners", body: "CELTA+ qualified, ID verified" },
@@ -65,7 +65,7 @@ export default async function PricingPage() {
       />
 
       <Section className="pt-12">
-        <PricingPlans />
+        <PricingPlans packages={packages} />
       </Section>
 
       {/* Comparison */}

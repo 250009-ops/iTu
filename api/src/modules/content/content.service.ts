@@ -26,6 +26,11 @@ import {
   groupAssignmentsByTestId,
   summarizeAssignmentsForTest,
 } from './content-package-assignments';
+import {
+  isValidTestCode,
+  nextTestIdentity,
+  syncContentTestId,
+} from './content-test-naming';
 import { Prisma } from '@prisma/client';
 
 const AUDIO_MIME = new Set([
@@ -139,6 +144,10 @@ export class ContentService {
     return test;
   }
 
+  async suggestNextTestIdentity(type: ContentTestType) {
+    return this.allocateNextTestIdentity(type);
+  }
+
   async createTest(
     data: {
       code: string;
@@ -150,12 +159,25 @@ export class ContentService {
     },
     actorId: string,
   ) {
+    const code = data.code.trim().toUpperCase();
+    const title = data.title.trim();
+    this.assertValidTestCode(code);
+
+    const existing = await this.prisma.contentTest.findUnique({
+      where: { code },
+    });
+    if (existing) {
+      throw new BadRequestException('Test code already exists');
+    }
+
+    const content = syncContentTestId(data.content, code) as object;
+
     const created = await this.prisma.contentTest.create({
       data: {
-        code: data.code,
-        title: data.title,
+        code,
+        title,
         type: data.type,
-        content: data.content,
+        content,
         answerKey: data.answerKey,
         durationMin: data.durationMin ?? 60,
         status: ContentTestStatus.DRAFT,
@@ -183,19 +205,22 @@ export class ContentService {
 
     // Repair structural shape on save so we never persist content that can
     // crash the student player (e.g. a question group with non-array `nodes`).
-    const normalizedContent =
+    let normalizedContent: Prisma.InputJsonValue | undefined =
       dto.content !== undefined
-        ? (normalizeContentForType(
-            existing.type,
-            dto.content,
-          ) as Prisma.InputJsonValue)
+        ? (normalizeContentForType(existing.type, dto.content) as Prisma.InputJsonValue)
         : undefined;
+    if (normalizedContent !== undefined) {
+      normalizedContent = syncContentTestId(
+        normalizedContent,
+        existing.code,
+      ) as Prisma.InputJsonValue;
+    }
 
     const updated = await this.prisma.contentTest.update({
       where: { id },
       data: {
         title: dto.title,
-        content: normalizedContent,
+        content: normalizedContent as Prisma.InputJsonValue | undefined,
         answerKey: dto.answerKey,
         durationMin: dto.durationMin,
         version: { increment: 1 },
@@ -270,14 +295,17 @@ export class ContentService {
     },
     actorId: string,
   ) {
+    const code = data.code.trim().toUpperCase();
+    this.assertValidTestCode(code);
+
     const existing = await this.prisma.contentTest.findUnique({
-      where: { code: data.code },
+      where: { code },
     });
     if (existing) {
       throw new BadRequestException('Test code already exists — use a unique code');
     }
 
-    const created = await this.createTest(data, actorId);
+    const created = await this.createTest({ ...data, code }, actorId);
 
     await this.audit.log({
       userId: actorId,
@@ -427,26 +455,22 @@ export class ContentService {
     return updated;
   }
 
-  async cloneTest(id: string, code: string, title: string, actorId: string) {
+  async cloneTest(id: string, actorId: string) {
     const source = await this.prisma.contentTest.findUnique({
       where: { id },
       include: { mediaAssets: true },
     });
     if (!source) throw new NotFoundException('Test not found');
 
-    const existing = await this.prisma.contentTest.findUnique({
-      where: { code },
-    });
-    if (existing) {
-      throw new BadRequestException('Test code already exists');
-    }
+    const { code, title } = await this.allocateNextTestIdentity(source.type);
+    const content = syncContentTestId(source.content, code) as object;
 
     const cloned = await this.prisma.contentTest.create({
       data: {
         code,
         title,
         type: source.type,
-        content: source.content as object,
+        content,
         answerKey: source.answerKey as object | undefined,
         durationMin: source.durationMin,
         status: ContentTestStatus.DRAFT,
@@ -501,12 +525,7 @@ export class ContentService {
    * Clone a published test into a new draft, then retire the original when it is
    * not linked to any active package.
    */
-  async retireAndDuplicate(
-    id: string,
-    code: string,
-    title: string,
-    actorId: string,
-  ) {
+  async retireAndDuplicate(id: string, actorId: string) {
     const test = await this.prisma.contentTest.findUnique({ where: { id } });
     if (!test) throw new NotFoundException('Test not found');
 
@@ -515,7 +534,7 @@ export class ContentService {
     }
 
     const activeLinks = await this.countActivePackageLinks(id);
-    const clone = await this.cloneTest(id, code, title, actorId);
+    const clone = await this.cloneTest(id, actorId);
 
     let archived = false;
     if (activeLinks === 0) {
@@ -849,5 +868,21 @@ export class ContentService {
       testId,
     ]);
     return summarizeAssignmentsForTest(assignments).activePackageLinks;
+  }
+
+  private assertValidTestCode(code: string) {
+    if (!isValidTestCode(code)) {
+      throw new BadRequestException(
+        'Test code must match format e.g. REA-MOCK-A001 (SKILL-MOCK-A###).',
+      );
+    }
+  }
+
+  private async allocateNextTestIdentity(type: ContentTestType) {
+    const tests = await this.prisma.contentTest.findMany({
+      where: { type },
+      select: { code: true, title: true },
+    });
+    return nextTestIdentity(type, tests);
   }
 }
