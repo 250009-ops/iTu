@@ -123,7 +123,7 @@ export function ExamTimersPanel() {
           </div>
           <Input
             type="time"
-            value={String(timers.dayCutoffTime ?? "18:00")}
+            value={String(timers.dayCutoffTime ?? "23:59")}
             onChange={(e) =>
               setField("exam_timers", "dayCutoffTime", e.target.value)
             }

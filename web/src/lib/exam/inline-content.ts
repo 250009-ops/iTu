@@ -1,4 +1,10 @@
-import type { CompletionLine, CompletionLineStyle, Gap, InlineNode } from "@/lib/exam/types";
+import type {
+  CompletionLine,
+  CompletionLineStyle,
+  FlowchartNode,
+  Gap,
+  InlineNode,
+} from "@/lib/exam/types";
 
 export const COMPLETION_LINE_STYLES: {
   value: CompletionLineStyle;
@@ -108,4 +114,66 @@ export function emptyCompletionLine(withGap = false, gapN = 1): CompletionLine {
     return { style: "heading", nodes: [""] };
   }
   return { style: "normal", nodes: ["", gapNode(gapN)] };
+}
+
+/** Convert legacy alternating text/gap nodes into inline flow-chart steps. */
+export function migrateFlowchartNodesToSteps(
+  nodes: FlowchartNode[],
+): CompletionLine[] {
+  if (nodes.length === 0) {
+    return [{ style: "normal", nodes: [""] }];
+  }
+
+  const steps: CompletionLine[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    const node = nodes[i]!;
+    if (node.kind === "text") {
+      if (
+        i + 2 < nodes.length &&
+        nodes[i + 1]!.kind === "gap" &&
+        nodes[i + 2]!.kind === "text"
+      ) {
+        const gap = nodes[i + 1] as Extract<FlowchartNode, { kind: "gap" }>;
+        const after = nodes[i + 2] as Extract<FlowchartNode, { kind: "text" }>;
+        steps.push({
+          style: "normal",
+          nodes: [node.text, gapNode(gap.n), after.text],
+        });
+        i += 3;
+        continue;
+      }
+      steps.push({ style: "normal", nodes: [node.text] });
+      i += 1;
+      continue;
+    }
+
+    if (i + 1 < nodes.length && nodes[i + 1]!.kind === "text") {
+      const after = nodes[i + 1] as Extract<FlowchartNode, { kind: "text" }>;
+      steps.push({ style: "normal", nodes: [gapNode(node.n), after.text] });
+      i += 2;
+      continue;
+    }
+
+    steps.push({ style: "normal", nodes: [gapNode(node.n)] });
+    i += 1;
+  }
+  return steps;
+}
+
+/** Prefer structured steps; fall back to legacy `nodes` rows. */
+export function normalizeFlowchartSteps(raw: {
+  steps?: unknown;
+  nodes?: unknown;
+}): CompletionLine[] {
+  const steps = normalizeCompletionLines(raw.steps);
+  if (steps.some((line) => line.nodes.length > 0)) {
+    return steps;
+  }
+
+  if (!Array.isArray(raw.nodes)) {
+    return [{ style: "normal", nodes: [""] }];
+  }
+
+  return migrateFlowchartNodesToSteps(raw.nodes as FlowchartNode[]);
 }

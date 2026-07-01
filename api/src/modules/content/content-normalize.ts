@@ -38,6 +38,69 @@ function normalizeCompletionLines(raw: unknown): Json[] {
   });
 }
 
+type FlowchartNode = { kind: 'text' | 'gap'; text?: string; n?: number };
+
+function migrateFlowchartNodesToSteps(nodes: FlowchartNode[]): Json[] {
+  if (nodes.length === 0) {
+    return [{ style: 'normal', nodes: [''] }];
+  }
+
+  const steps: Json[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    const node = nodes[i]!;
+    if (node.kind === 'text') {
+      if (
+        i + 2 < nodes.length &&
+        nodes[i + 1]?.kind === 'gap' &&
+        nodes[i + 2]?.kind === 'text'
+      ) {
+        steps.push({
+          style: 'normal',
+          nodes: [
+            node.text ?? '',
+            { n: nodes[i + 1]!.n },
+            nodes[i + 2]!.text ?? '',
+          ],
+        });
+        i += 3;
+        continue;
+      }
+      steps.push({ style: 'normal', nodes: [node.text ?? ''] });
+      i += 1;
+      continue;
+    }
+
+    if (i + 1 < nodes.length && nodes[i + 1]?.kind === 'text') {
+      steps.push({
+        style: 'normal',
+        nodes: [{ n: node.n }, nodes[i + 1]!.text ?? ''],
+      });
+      i += 2;
+      continue;
+    }
+
+    steps.push({ style: 'normal', nodes: [{ n: node.n }] });
+    i += 1;
+  }
+  return steps;
+}
+
+function normalizeFlowchartSteps(raw: {
+  steps?: unknown;
+  nodes?: unknown;
+}): Json[] {
+  const steps = normalizeCompletionLines(raw.steps);
+  if (steps.some((line) => asArray(line.nodes).length > 0)) {
+    return steps;
+  }
+  const nodes = asArray<FlowchartNode>(raw.nodes);
+  if (nodes.length > 0) {
+    return migrateFlowchartNodesToSteps(nodes);
+  }
+  return [{ style: 'normal', nodes: [''] }];
+}
+
 function resolveMatchingSection(question: Json, fallback?: string): string {
   const section = typeof question.section === 'string' ? question.section.trim() : '';
   if (section) return section.toUpperCase();
@@ -163,13 +226,18 @@ function repairQuestionGroup(group: unknown): Json {
         options: asArray(g.options),
         questions: asArray(g.questions),
       });
-    case 'flowchart_completion':
+    case 'flowchart_completion': {
+      const steps = normalizeFlowchartSteps({
+        steps: g.steps,
+        nodes: g.nodes,
+      });
       return {
         ...g,
         answerMode: g.answerMode === 'text' ? 'text' : 'option',
         options: asArray(g.options),
-        nodes: asArray(g.nodes),
+        steps,
       };
+    }
     case 'summary_completion_list':
       return {
         ...g,
@@ -335,8 +403,13 @@ export function findContentStructureErrors(
       const where = `${location} group "${String(group.id ?? idx + 1)}"`;
       switch (group.type) {
         case 'flowchart_completion':
-          if (!Array.isArray(group.nodes)) {
-            errors.push(`${where} is missing a valid "nodes" array`);
+          if (
+            !Array.isArray(group.steps) &&
+            !Array.isArray(group.nodes)
+          ) {
+            errors.push(
+              `${where} is missing a valid "steps" or "nodes" array`,
+            );
           }
           if (!Array.isArray(group.options)) {
             errors.push(`${where} is missing a valid "options" array`);

@@ -105,6 +105,7 @@ export async function evaluatePackageAvailability(
   tx: Tx,
   studentId: string,
   pkg: PackageForAssignment,
+  options?: { exceptEnrollmentId?: string },
 ): Promise<{
   canPurchase: boolean;
   perSkill: PackageContentAvailability[];
@@ -159,6 +160,9 @@ export async function evaluatePackageAvailability(
       studentId,
       packageId: pkg.id,
       status: { notIn: ['CANCELLED', 'MISSED'] },
+      ...(options?.exceptEnrollmentId
+        ? { id: { not: options.exceptEnrollmentId } }
+        : {}),
     },
     select: { enrollmentCode: true },
   });
@@ -175,10 +179,20 @@ export async function evaluatePackageAvailability(
 /** Active packages this student may book (purchase or complimentary grant). */
 export async function filterPackagesAvailableToStudent<
   T extends PackageForAssignment,
->(tx: Tx, studentId: string, packages: T[]): Promise<T[]> {
+>(
+  tx: Tx,
+  studentId: string,
+  packages: T[],
+  options?: { exceptEnrollmentId?: string },
+): Promise<T[]> {
   const available: T[] = [];
   for (const pkg of packages) {
-    const { canPurchase } = await evaluatePackageAvailability(tx, studentId, pkg);
+    const { canPurchase } = await evaluatePackageAvailability(
+      tx,
+      studentId,
+      pkg,
+      options,
+    );
     if (canPurchase) available.push(pkg);
   }
   return available;

@@ -358,6 +358,7 @@ export function mapStudents(students: Students) {
     emailVerified: s.emailVerified,
     enrollments: s.enrollments,
     joined: s.createdAt ? formatDate(s.createdAt) : "—",
+    activeAdminGrant: s.activeAdminGrant ?? null,
   }));
 
   const summary = {

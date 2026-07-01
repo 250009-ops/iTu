@@ -7,8 +7,16 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { getAdminStudents, grantEnrollment } from "@/lib/api/admin";
-import type { GrantEnrollmentBody } from "@/lib/api/admin";
+import {
+  getAdminStudents,
+  grantEnrollment,
+  revokeAdminGrant,
+  updateAdminGrant,
+} from "@/lib/api/admin";
+import type {
+  GrantEnrollmentBody,
+  UpdateGrantEnrollmentBody,
+} from "@/lib/api/admin";
 import { mapStudents } from "@/lib/api/mappers/admin";
 import { useApiQuery } from "@/hooks/use-api-query";
 import type { Student } from "@/lib/admin/types";
@@ -21,6 +29,11 @@ type StudentsValue = {
   grant: (
     payload: GrantEnrollmentBody,
   ) => ReturnType<typeof grantEnrollment>;
+  updateGrant: (
+    enrollmentId: string,
+    payload: UpdateGrantEnrollmentBody,
+  ) => ReturnType<typeof updateAdminGrant>;
+  revokeGrant: (enrollmentId: string) => ReturnType<typeof revokeAdminGrant>;
   refresh: () => Promise<void>;
 };
 
@@ -40,6 +53,24 @@ export function AdminStudentsProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const updateGrant = useCallback(
+    async (enrollmentId: string, payload: UpdateGrantEnrollmentBody) => {
+      const result = await updateAdminGrant(enrollmentId, payload);
+      await refresh();
+      return result;
+    },
+    [refresh],
+  );
+
+  const revokeGrant = useCallback(
+    async (enrollmentId: string) => {
+      const result = await revokeAdminGrant(enrollmentId);
+      await refresh();
+      return result;
+    },
+    [refresh],
+  );
+
   const value = useMemo<StudentsValue>(
     () => ({
       loading,
@@ -52,9 +83,11 @@ export function AdminStudentsProvider({ children }: { children: ReactNode }) {
         awaitingFirstMock: 0,
       },
       grant,
+      updateGrant,
+      revokeGrant,
       refresh,
     }),
-    [loading, error, mapped, grant, refresh],
+    [loading, error, mapped, grant, updateGrant, revokeGrant, refresh],
   );
 
   return (

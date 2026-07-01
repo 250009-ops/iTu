@@ -17,7 +17,7 @@ export class GrantEnrollmentDto {
   @IsString()
   mockTime?: string;
 
-  /** Override platform default mock-day cutoff (HH:mm, e.g. 18:00). */
+  /** Override platform default mock-day cutoff (HH:mm, e.g. 23:59). */
   @IsOptional()
   @IsString()
   mockDayCutoffTime?: string;

@@ -19,6 +19,21 @@ export type PaymentMethod =
 
 export type ExamTypeKind = "academic" | "general_training";
 
+export type ActiveAdminGrant = {
+  enrollmentId: string;
+  enrollmentCode: string;
+  packageId: string;
+  packageTitle: string;
+  mockDate: string;
+  mockDayCutoffAt: string | null;
+  writingTeacherId: string | null;
+  writingTeacherName: string | null;
+  speakingTeacherId: string | null;
+  speakingTeacherName: string | null;
+  needsWriting: boolean;
+  needsSpeaking: boolean;
+};
+
 export type Student = {
   id: string;
   name: string;
@@ -30,6 +45,7 @@ export type Student = {
   emailVerified: boolean;
   enrollments: number;
   joined: string;
+  activeAdminGrant: ActiveAdminGrant | null;
 };
 
 export type TicketType =

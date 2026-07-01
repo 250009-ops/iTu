@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Gift, Search, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Gift, Pencil, Search, ShieldCheck, ShieldAlert, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { GrantMockDialog } from "@/components/admin/students/grant-mock-dialog";
+import { RevokeGrantDialog } from "@/components/admin/students/revoke-grant-dialog";
 import { useAdminStudents } from "@/contexts/admin-students-context";
-import type { Student } from "@/lib/admin/types";
+import type { ActiveAdminGrant, Student } from "@/lib/admin/types";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 8;
@@ -30,6 +31,14 @@ export function StudentsTable() {
   const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>("all");
   const [page, setPage] = useState(1);
   const [grantTarget, setGrantTarget] = useState<Student | null>(null);
+  const [editGrant, setEditGrant] = useState<{
+    student: Student;
+    grant: ActiveAdminGrant;
+  } | null>(null);
+  const [revokeGrant, setRevokeGrant] = useState<{
+    student: Student;
+    grant: ActiveAdminGrant;
+  } | null>(null);
 
   const filtered = useMemo(() => {
     return students.filter((s) => {
@@ -162,16 +171,48 @@ export function StudentsTable() {
                   </td>
                   <td className="px-5 py-4 text-muted sm:px-6">{student.joined}</td>
                   <td className="px-5 py-4 sm:px-6">
-                    <div className="flex justify-end">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                        onClick={() => setGrantTarget(student)}
-                      >
-                        <Gift className="h-4 w-4" />
-                        Grant free mock
-                      </Button>
+                    <div className="flex justify-end gap-2">
+                      {student.activeAdminGrant ? (
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              setEditGrant({
+                                student,
+                                grant: student.activeAdminGrant!,
+                              })
+                            }
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Edit grant
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                            onClick={() =>
+                              setRevokeGrant({
+                                student,
+                                grant: student.activeAdminGrant!,
+                              })
+                            }
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Remove
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => setGrantTarget(student)}
+                        >
+                          <Gift className="h-4 w-4" />
+                          Grant free mock
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -211,6 +252,22 @@ export function StudentsTable() {
         <GrantMockDialog
           student={grantTarget}
           onClose={() => setGrantTarget(null)}
+        />
+      )}
+
+      {editGrant && (
+        <GrantMockDialog
+          student={editGrant.student}
+          existingGrant={editGrant.grant}
+          onClose={() => setEditGrant(null)}
+        />
+      )}
+
+      {revokeGrant && (
+        <RevokeGrantDialog
+          student={revokeGrant.student}
+          grant={revokeGrant.grant}
+          onClose={() => setRevokeGrant(null)}
         />
       )}
     </div>

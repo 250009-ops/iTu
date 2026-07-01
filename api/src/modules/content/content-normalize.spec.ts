@@ -5,7 +5,7 @@ import {
 } from './content-normalize';
 
 describe('normalizeContentForType', () => {
-  it('coerces missing flowchart nodes/options to arrays (prevents s.nodes crash)', () => {
+  it('coerces missing flowchart steps/options to arrays (prevents player crash)', () => {
     const content = {
       parts: [
         {
@@ -15,7 +15,7 @@ describe('normalizeContentForType', () => {
     };
     const out = normalizeContentForType(ContentTestType.LISTENING, content);
     const group = (out.parts as any[])[0].groups[0];
-    expect(Array.isArray(group.nodes)).toBe(true);
+    expect(Array.isArray(group.steps)).toBe(true);
     expect(Array.isArray(group.options)).toBe(true);
   });
 
@@ -86,7 +86,7 @@ describe('normalizeContentForType — speaking topics', () => {
 });
 
 describe('findContentStructureErrors', () => {
-  it('flags a flowchart group with non-array nodes', () => {
+  it('flags a flowchart group with non-array steps or nodes', () => {
     const content = {
       parts: [{ groups: [{ type: 'flowchart_completion', nodes: 'bad' }] }],
     };

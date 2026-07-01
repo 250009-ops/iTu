@@ -152,7 +152,7 @@ export interface ShortAnswerGroup extends BaseGroup {
   questions: { n: number; prompt: string }[];
 }
 
-/** Listening: vertical flow with drag-in option labels at gap nodes. */
+/** @deprecated Legacy flow-chart rows — migrated to `steps` on load. */
 export type FlowchartNode =
   | { kind: "text"; text: string }
   | { kind: "gap"; n: number };
@@ -163,7 +163,10 @@ export interface FlowchartCompletionGroup extends BaseGroup {
   /** How candidates answer gaps: pick a letter from the box, or type text. */
   answerMode?: "option" | "text";
   options: MatchOption[];
-  nodes: FlowchartNode[];
+  /** Each step is one box in the vertical flow; gaps are inline within the step. */
+  steps: CompletionLine[];
+  /** @deprecated Use `steps` — kept for legacy content migration only. */
+  nodes?: FlowchartNode[];
 }
 
 /** Reading: summary paragraph with inline gaps filled from a lettered word bank. */

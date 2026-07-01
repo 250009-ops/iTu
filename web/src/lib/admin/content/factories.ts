@@ -14,6 +14,7 @@ import {
   defaultListeningMatchingHint,
   defaultMatchingFeaturesHint,
 } from "@/lib/exam/matching-options";
+import { gapNode } from "@/lib/exam/inline-content";
 
 export function emptyReadingContent(title = "Reading"): ReadingContent {
   return {
@@ -400,6 +401,12 @@ export function createQuestionGroup(
           { kind: "text", text: "Start" },
           { kind: "gap", n: from },
           { kind: "text", text: "Finish" },
+        ],
+        steps: [
+          {
+            style: "normal",
+            nodes: ["Start ", gapNode(from), " finish"],
+          },
         ],
       };
     case "instruction_screen":

@@ -47,6 +47,7 @@ import {
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
 import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
+import { UpdateGrantEnrollmentDto } from './dto/update-grant-enrollment.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
 import { UpdatePayoutDto } from './dto/update-payout.dto';
@@ -67,6 +68,7 @@ import {
   summarizeAssignmentsForTest,
 } from '../content/content-package-assignments';
 import { filterPackagesAvailableToStudent } from '../content/content-assignment';
+import { hasExamStarted } from '../../common/mock-day-policy';
 
 const SKILL_ACCENTS = [
   { id: 'listening', name: 'Listening', detail: '~32 min · plays once', badge: 'Auto-scored', color: 'sky' },
@@ -852,21 +854,82 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return students.map((s) => ({
-      id: s.id,
-      name: s.user.name,
-      email: s.user.email,
-      targetBand: s.targetBand,
-      examType: s.examType.toLowerCase(),
-      country: s.country ?? null,
-      emailVerified: s.user.emailVerifiedAt != null,
-      enrollments: s._count.enrollments,
-      createdAt: s.user.createdAt,
-    }));
+    const now = new Date();
+    const activeGrants = await this.prisma.enrollment.findMany({
+      where: {
+        adminGranted: true,
+        status: EnrollmentStatus.ENROLLED,
+        examStartedAt: null,
+        mockDayCutoffAt: { gt: now },
+        studentId: { in: students.map((s) => s.id) },
+      },
+      include: {
+        package: { select: { id: true, title: true, skills: true } },
+        writingTeacher: { include: { user: { select: { name: true } } } },
+        speakingTeacher: { include: { user: { select: { name: true } } } },
+        examSession: {
+          include: { sectionAttempts: { select: { startedAt: true } } },
+        },
+      },
+      orderBy: { mockDayCutoffAt: 'asc' },
+    });
+
+    const grantByStudent = new Map<string, (typeof activeGrants)[0]>();
+    for (const grant of activeGrants) {
+      if (
+        hasExamStarted({
+          checkInAt: grant.examSession?.checkInAt ?? null,
+          sectionAttempts: grant.examSession?.sectionAttempts ?? [],
+        })
+      ) {
+        continue;
+      }
+      if (!grantByStudent.has(grant.studentId)) {
+        grantByStudent.set(grant.studentId, grant);
+      }
+    }
+
+    return students.map((s) => {
+      const grant = grantByStudent.get(s.id);
+      const grantSkills = grant
+        ? packageExamSkills(grant.package.skills).map((sk) => sk.toLowerCase())
+        : [];
+
+      return {
+        id: s.id,
+        name: s.user.name,
+        email: s.user.email,
+        targetBand: s.targetBand,
+        examType: s.examType.toLowerCase(),
+        country: s.country ?? null,
+        emailVerified: s.user.emailVerifiedAt != null,
+        enrollments: s._count.enrollments,
+        createdAt: s.user.createdAt,
+        activeAdminGrant: grant
+          ? {
+              enrollmentId: grant.id,
+              enrollmentCode: grant.enrollmentCode,
+              packageId: grant.packageId,
+              packageTitle: grant.package.title,
+              mockDate: grant.mockDate.toISOString(),
+              mockDayCutoffAt: grant.mockDayCutoffAt?.toISOString() ?? null,
+              writingTeacherId: grant.writingTeacherId,
+              writingTeacherName: grant.writingTeacher?.user.name ?? null,
+              speakingTeacherId: grant.speakingTeacherId,
+              speakingTeacherName: grant.speakingTeacher?.user.name ?? null,
+              needsWriting: grantSkills.includes('writing'),
+              needsSpeaking: grantSkills.includes('speaking'),
+            }
+          : null,
+      };
+    });
   }
 
   /** Active packages a student may receive via complimentary grant or self-checkout. */
-  async getGrantablePackagesForStudent(studentId: string) {
+  async getGrantablePackagesForStudent(
+    studentId: string,
+    exceptEnrollmentId?: string,
+  ) {
     const student = await this.prisma.studentProfile.findUnique({
       where: { id: studentId },
       select: { id: true },
@@ -884,6 +947,7 @@ export class AdminService {
       this.prisma,
       studentId,
       packages,
+      exceptEnrollmentId ? { exceptEnrollmentId } : undefined,
     );
 
     return {
@@ -926,6 +990,18 @@ export class AdminService {
       complimentary: true,
       auditAction: AuditAction.ADMIN_ENROLLMENT_GRANT,
     });
+  }
+
+  async updateAdminGrant(
+    enrollmentId: string,
+    dto: UpdateGrantEnrollmentDto,
+    actorId: string,
+  ) {
+    return this.bookings.updateAdminGrant(enrollmentId, dto, actorId);
+  }
+
+  async revokeAdminGrant(enrollmentId: string, actorId: string) {
+    return this.bookings.revokeAdminGrant(enrollmentId, actorId);
   }
 
   async reappointEnrollment(dto: ReappointEnrollmentDto, actorId: string) {

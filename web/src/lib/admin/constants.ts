@@ -232,7 +232,7 @@ export const mockDayWindowSettings = [
     id: "dayCutoffTime",
     label: "Mock day cutoff",
     hint: "Latest time a student may start on mock day (HH:mm)",
-    defaultValue: "18:00",
+    defaultValue: "23:59",
     icon: "clock" as const,
   },
   {

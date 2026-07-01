@@ -156,9 +156,7 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
         ...group,
         from,
         to,
-        nodes: group.nodes.map((node) =>
-          node.kind === "gap" ? { ...node, n: nums[idx.i++]! } : node,
-        ),
+        steps: renumberCompletionLines(group.steps, nums, idx),
       };
     }
     case "instruction_screen":

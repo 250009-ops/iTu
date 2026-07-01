@@ -15,7 +15,10 @@ import type {
   SpeakingPart1Topic,
   WritingContent,
 } from "@/lib/exam/types";
-import { normalizeCompletionLines } from "@/lib/exam/inline-content";
+import {
+  normalizeCompletionLines,
+  normalizeFlowchartSteps,
+} from "@/lib/exam/inline-content";
 import { normalizeMatchingHeadingsGroup } from "@/lib/exam/matching-headings";
 import { normalizeMcqSingleGroup } from "@/lib/exam/mcq-single";
 
@@ -56,13 +59,18 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         options: asArray(g.options),
         questions: asArray(g.questions),
       };
-    case "flowchart_completion":
+    case "flowchart_completion": {
+      const steps = normalizeFlowchartSteps({
+        steps: g.steps,
+        nodes: g.nodes,
+      });
       return {
         ...g,
         answerMode: g.answerMode === "text" ? "text" : "option",
         options: asArray(g.options),
-        nodes: asArray(g.nodes),
+        steps,
       };
+    }
     case "summary_completion_list":
       return {
         ...g,

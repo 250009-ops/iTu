@@ -3,7 +3,10 @@
  * Run: npx tsx scripts/backfill-mock-day-cutoff.ts
  */
 import { PrismaClient } from '@prisma/client';
-import { mockDayCutoffDateTime } from '../src/common/mock-day-policy';
+import {
+  DEFAULT_MOCK_DAY_CUTOFF,
+  mockDayCutoffDateTime,
+} from '../src/common/mock-day-policy';
 
 const prisma = new PrismaClient();
 
@@ -17,7 +20,10 @@ async function main() {
     await prisma.enrollment.update({
       where: { id: row.id },
       data: {
-        mockDayCutoffAt: mockDayCutoffDateTime(row.mockDate, '18:00'),
+        mockDayCutoffAt: mockDayCutoffDateTime(
+          row.mockDate,
+          DEFAULT_MOCK_DAY_CUTOFF,
+        ),
       },
     });
     updated += 1;

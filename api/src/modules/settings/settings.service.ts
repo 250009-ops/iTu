@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExamSkill } from '@prisma/client';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { DEFAULT_MOCK_DAY_CUTOFF } from '../../common/mock-day-policy';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const DEFAULT_SETTINGS: Record<string, object> = {
@@ -147,7 +148,7 @@ export class SettingsService {
       dayCutoffTime:
         typeof timers.dayCutoffTime === 'string'
           ? timers.dayCutoffTime
-          : '18:00',
+          : DEFAULT_MOCK_DAY_CUTOFF,
       speakingEarlyJoinMin: Number(timers.speakingEarlyJoinMin ?? 5),
       lateJoinMin: Number(timers.lateJoin ?? 15),
       checkInOpensMin: Number(timers.checkIn ?? 30),

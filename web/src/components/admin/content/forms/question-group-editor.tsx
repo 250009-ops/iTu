@@ -1048,6 +1048,7 @@ function renderBody(
       const fcGroup = group as FlowchartCompletionGroup;
       const answerMode = fcGroup.answerMode ?? "option";
       const isTextMode = answerMode === "text";
+      const steps = fcGroup.steps ?? [];
 
       function setAnswerMode(mode: "option" | "text") {
         onChange({
@@ -1058,6 +1059,17 @@ function renderBody(
               ? "Write the correct word or phrase for each step."
               : "Choose answers from the box and write the correct letter next to questions.",
         });
+      }
+
+      function syncRangeFromSteps(nextSteps: typeof steps) {
+        const nums = gapsInCompletionLines(nextSteps);
+        if (nums.length === 0) return fcGroup;
+        return {
+          ...fcGroup,
+          steps: nextSteps,
+          from: nums[0]!,
+          to: nums[nums.length - 1]!,
+        };
       }
 
       return (
@@ -1095,93 +1107,20 @@ function renderBody(
           )}
 
           <div className="space-y-2">
-            <Label className="text-xs">Flow nodes (top to bottom)</Label>
-            {fcGroup.nodes.map((node, idx) => (
-              <div
-                key={idx}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-white p-3"
-              >
-                <select
-                  value={node.kind}
-                  onChange={(e) => {
-                    const nodes = [...fcGroup.nodes];
-                    nodes[idx] =
-                      e.target.value === "text"
-                        ? { kind: "text", text: "" }
-                        : { kind: "gap", n: fcGroup.from + idx };
-                    onChange({ ...fcGroup, nodes });
-                  }}
-                  className="h-9 rounded-md border border-border px-2 text-sm"
-                >
-                  <option value="text">Fixed text</option>
-                  <option value="gap">Gap (question)</option>
-                </select>
-                {node.kind === "text" ? (
-                  <Input
-                    value={node.text}
-                    onChange={(e) => {
-                      const nodes = [...fcGroup.nodes];
-                      nodes[idx] = { kind: "text", text: e.target.value };
-                      onChange({ ...fcGroup, nodes });
-                    }}
-                    placeholder="Step label"
-                    className="flex-1"
-                  />
-                ) : (
-                  <>
-                    <span className="text-xs font-bold text-navy">Q{node.n}</span>
-                    <AnswerKeyField
-                      questionNumber={node.n}
-                      answerKey={answerKey}
-                      onChange={onAnswerKeyChange}
-                      type={isTextMode ? "text" : "option"}
-                      options={fcGroup.options.map((o) => o.id)}
-                    />
-                  </>
-                )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="h-8 text-red-600"
-                  onClick={() =>
-                    onChange({
-                      ...fcGroup,
-                      nodes: fcGroup.nodes.filter((_, i) => i !== idx),
-                    })
-                  }
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  onChange({
-                    ...fcGroup,
-                    nodes: [...fcGroup.nodes, { kind: "text", text: "" }],
-                  })
-                }
-              >
-                <Plus className="h-3.5 w-3.5" /> Add text step
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  const n = fcGroup.to + 1;
-                  onChange({
-                    ...fcGroup,
-                    to: n,
-                    nodes: [...fcGroup.nodes, { kind: "gap", n }],
-                  });
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" /> Add gap
-              </Button>
-            </div>
+            <Label className="text-xs">Flow-chart steps (top to bottom)</Label>
+            <p className="text-xs text-muted">
+              Each step is one box in the chart. Add text before and after a gap
+              on the same step — e.g. &ldquo;Chocolate beans are&rdquo; + gap +
+              &ldquo;and then bags are shipped.&rdquo;
+            </p>
+            <CompletionLinesEditor
+              lines={steps}
+              answerKey={answerKey}
+              onChange={(nextSteps) => onChange(syncRangeFromSteps(nextSteps))}
+              onAnswerKeyChange={onAnswerKeyChange}
+              gapAnswerKeyType={isTextMode ? "text" : "option"}
+              gapAnswerKeyOptions={fcGroup.options.map((o) => o.id)}
+            />
           </div>
         </div>
       );

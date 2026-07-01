@@ -296,6 +296,20 @@ export function getAdminStudents() {
       emailVerified: boolean;
       enrollments: number;
       createdAt: string;
+      activeAdminGrant: {
+        enrollmentId: string;
+        enrollmentCode: string;
+        packageId: string;
+        packageTitle: string;
+        mockDate: string;
+        mockDayCutoffAt: string | null;
+        writingTeacherId: string | null;
+        writingTeacherName: string | null;
+        speakingTeacherId: string | null;
+        speakingTeacherName: string | null;
+        needsWriting: boolean;
+        needsSpeaking: boolean;
+      } | null;
     }[]
   >("/admin/students");
 }
@@ -340,6 +354,31 @@ export function grantEnrollment(body: GrantEnrollmentBody) {
   }>("/admin/enrollments/grant", { method: "POST", body });
 }
 
+export type UpdateGrantEnrollmentBody = {
+  packageId: string;
+  mockDate: string;
+  mockDayCutoffTime?: string;
+  writingTeacherId?: string;
+  speakingTeacherId?: string;
+};
+
+export function updateAdminGrant(
+  enrollmentId: string,
+  body: UpdateGrantEnrollmentBody,
+) {
+  return apiFetch<{ updated: boolean; enrollmentId: string; enrollmentCode: string }>(
+    `/admin/enrollments/${enrollmentId}/grant`,
+    { method: "PATCH", body },
+  );
+}
+
+export function revokeAdminGrant(enrollmentId: string) {
+  return apiFetch<{ revoked: boolean; enrollmentCode: string }>(
+    `/admin/enrollments/${enrollmentId}/revoke-grant`,
+    { method: "POST" },
+  );
+}
+
 export type GrantablePackage = {
   id: string;
   title: string;
@@ -350,9 +389,15 @@ export type GrantablePackage = {
   mockLabel: string;
 };
 
-export function getGrantablePackagesForStudent(studentId: string) {
+export function getGrantablePackagesForStudent(
+  studentId: string,
+  exceptEnrollmentId?: string,
+) {
+  const query = exceptEnrollmentId
+    ? `?exceptEnrollmentId=${encodeURIComponent(exceptEnrollmentId)}`
+    : "";
   return apiFetch<{ packages: GrantablePackage[] }>(
-    `/admin/students/${studentId}/grantable-packages`,
+    `/admin/students/${studentId}/grantable-packages${query}`,
   );
 }
 

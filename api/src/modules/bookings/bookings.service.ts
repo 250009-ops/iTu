@@ -16,6 +16,7 @@ import {
 import { RequestUser } from '../../common/types/request-user';
 import { mockStartDateTime } from '../../common/band-resolution';
 import {
+  hasExamStarted,
   isFlexibleGrant,
   mockDayCutoffDateTime,
 } from '../../common/mock-day-policy';
@@ -30,6 +31,7 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import { ScheduleSpeakingSlotDto } from './dto/schedule-speaking-slot.dto';
 import { ReappointEnrollmentDto } from '../admin/dto/reappoint-enrollment.dto';
+import { UpdateGrantEnrollmentDto } from '../admin/dto/update-grant-enrollment.dto';
 import { SettingsService } from '../settings/settings.service';
 import {
   assignContentTests,
@@ -173,6 +175,9 @@ export class BookingsService {
     }
 
     const flexibleGrant = complimentary && !params.mockTime;
+    if (complimentary && !params.reappointmentOfId) {
+      await this.assertNoActiveAdminGrant(studentProfileId);
+    }
     if (needsSpeaking && !params.speakingTeacherId) {
       throw new BadRequestException(
         'Speaking examiner is required for this package',
@@ -449,6 +454,301 @@ export class BookingsService {
       amount: result.order.amount,
       currency: result.order.currency,
       status: complimentary ? 'granted' : 'confirmed',
+    };
+  }
+
+  /** Complimentary admin grant still within the mock-day window and not started. */
+  async findActiveAdminGrant(studentProfileId: string) {
+    const now = new Date();
+    const candidates = await this.prisma.enrollment.findMany({
+      where: {
+        studentId: studentProfileId,
+        adminGranted: true,
+        status: EnrollmentStatus.ENROLLED,
+        examStartedAt: null,
+        mockDayCutoffAt: { gt: now },
+      },
+      include: {
+        package: { select: { id: true, title: true, skills: true } },
+        writingTeacher: { include: { user: { select: { name: true } } } },
+        speakingTeacher: { include: { user: { select: { name: true } } } },
+        examSession: {
+          include: {
+            sectionAttempts: { select: { startedAt: true } },
+          },
+        },
+      },
+      orderBy: { mockDayCutoffAt: 'asc' },
+    });
+
+    return (
+      candidates.find(
+        (e) =>
+          !hasExamStarted({
+            checkInAt: e.examSession?.checkInAt ?? null,
+            sectionAttempts: e.examSession?.sectionAttempts ?? [],
+          }),
+      ) ?? null
+    );
+  }
+
+  private async assertNoActiveAdminGrant(studentProfileId: string) {
+    const active = await this.findActiveAdminGrant(studentProfileId);
+    if (active) {
+      throw new BadRequestException(
+        `Student already has an active complimentary mock (${active.enrollmentCode}). Edit or revoke it first.`,
+      );
+    }
+  }
+
+  async revokeAdminGrant(enrollmentId: string, actorUserId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        order: true,
+        examSession: {
+          include: {
+            sectionAttempts: { select: { startedAt: true } },
+          },
+        },
+        student: { include: { user: true } },
+      },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+    if (!enrollment.adminGranted) {
+      throw new BadRequestException('Only complimentary admin grants can be revoked');
+    }
+    if (enrollment.status !== EnrollmentStatus.ENROLLED) {
+      throw new BadRequestException('Only active grants that have not finished can be revoked');
+    }
+    if (
+      enrollment.examStartedAt ||
+      hasExamStarted({
+        checkInAt: enrollment.examSession?.checkInAt ?? null,
+        sectionAttempts: enrollment.examSession?.sectionAttempts ?? [],
+      })
+    ) {
+      throw new BadRequestException(
+        'Cannot revoke a mock after the student has started',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (enrollment.speakingSlotId) {
+        await tx.teacherSlot.updateMany({
+          where: { id: enrollment.speakingSlotId },
+          data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+        });
+      }
+
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: { status: EnrollmentStatus.CANCELLED },
+      });
+
+      if (enrollment.order) {
+        await tx.order.update({
+          where: { id: enrollment.order.id },
+          data: { status: OrderStatus.REFUNDED },
+        });
+      }
+    });
+
+    await this.notifications.create(
+      enrollment.student.userId,
+      'Complimentary mock removed',
+      `Your complimentary mock (${enrollment.enrollmentCode}) was removed by an administrator.`,
+      NotificationType.INFO,
+      '/student/mock-day',
+    );
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: AuditAction.ADMIN_ENROLLMENT_GRANT_REVOKE,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: { enrollmentCode: enrollment.enrollmentCode },
+    });
+
+    return { revoked: true, enrollmentCode: enrollment.enrollmentCode };
+  }
+
+  async updateAdminGrant(
+    enrollmentId: string,
+    dto: UpdateGrantEnrollmentDto,
+    actorUserId: string,
+  ) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        package: true,
+        order: true,
+        examSession: {
+          include: {
+            sectionAttempts: { include: { speakingSession: true } },
+          },
+        },
+        student: { include: { user: true } },
+      },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+    if (!enrollment.adminGranted) {
+      throw new BadRequestException('Only complimentary admin grants can be edited');
+    }
+    if (enrollment.status !== EnrollmentStatus.ENROLLED) {
+      throw new BadRequestException('Only active grants can be edited');
+    }
+    if (
+      enrollment.examStartedAt ||
+      hasExamStarted({
+        checkInAt: enrollment.examSession?.checkInAt ?? null,
+        sectionAttempts: enrollment.examSession?.sectionAttempts ?? [],
+      })
+    ) {
+      throw new BadRequestException(
+        'Cannot edit a mock after the student has started',
+      );
+    }
+
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id: dto.packageId },
+    });
+    if (!pkg || !pkg.isActive) {
+      throw new NotFoundException('Package not found');
+    }
+
+    const skills = this.packageSkills(pkg);
+    const needsWriting = skills.includes('writing');
+    const needsSpeaking = skills.includes('speaking');
+
+    if (needsWriting && !dto.writingTeacherId) {
+      throw new BadRequestException('Writing examiner is required for this package');
+    }
+    if (needsSpeaking && !dto.speakingTeacherId) {
+      throw new BadRequestException('Speaking examiner is required for this package');
+    }
+    if (!needsWriting && dto.writingTeacherId) {
+      throw new BadRequestException('Writing examiner is not required for this package');
+    }
+    if (!needsSpeaking && dto.speakingTeacherId) {
+      throw new BadRequestException('Speaking examiner is not required for this package');
+    }
+
+    const mockDayTimers = await this.settings.getMockDayTimers();
+    const cutoffTime = dto.mockDayCutoffTime ?? mockDayTimers.dayCutoffTime;
+    const mockDayCutoffAt = mockDayCutoffDateTime(dto.mockDate, cutoffTime);
+    if (mockDayCutoffAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Mock day cutoff must be in the future');
+    }
+
+    const packageChanged = dto.packageId !== enrollment.packageId;
+    if (packageChanged) {
+      const availability = await evaluatePackageAvailability(
+        this.prisma,
+        enrollment.studentId,
+        pkg,
+        { exceptEnrollmentId: enrollmentId },
+      );
+      if (!availability.canPurchase) {
+        throw new BadRequestException(
+          availability.blockingReason ??
+            'This student cannot be switched to the selected package.',
+        );
+      }
+    }
+
+    const session = enrollment.examSession;
+    if (!session) {
+      throw new BadRequestException('Enrollment is missing an exam session');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (packageChanged) {
+        for (const attempt of session.sectionAttempts) {
+          if (attempt.speakingSession) {
+            await tx.speakingSession.delete({
+              where: { id: attempt.speakingSession.id },
+            });
+          }
+          await tx.sectionAttempt.delete({ where: { id: attempt.id } });
+        }
+
+        const assignments = await assignContentTests(tx, enrollment.studentId, pkg);
+        const testBySkill = new Map(
+          assignments.map((a) => [a.skill, a.testId]),
+        );
+
+        for (const skill of skills) {
+          const examSkill = skill.toUpperCase() as ExamSkill;
+          if (!testBySkill.get(examSkill)) {
+            throw new BadRequestException(
+              `Package is missing a published ${skill} test`,
+            );
+          }
+        }
+
+        for (const skill of skills) {
+          const examSkill = skill.toUpperCase() as ExamSkill;
+          await tx.sectionAttempt.create({
+            data: {
+              sessionId: session.id,
+              skill: examSkill,
+              contentTestId: testBySkill.get(examSkill) ?? null,
+            },
+          });
+        }
+
+        if (enrollment.order) {
+          await tx.order.update({
+            where: { id: enrollment.order.id },
+            data: { packageId: dto.packageId },
+          });
+        }
+      }
+
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          packageId: dto.packageId,
+          mockDate: new Date(dto.mockDate),
+          mockDayCutoffAt,
+          writingTeacherId: dto.writingTeacherId ?? null,
+          speakingTeacherId: dto.speakingTeacherId ?? null,
+        },
+      });
+    });
+
+    const dateLabel = new Date(dto.mockDate).toLocaleDateString();
+    const cutoffLabel = mockDayCutoffAt.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    await this.notifications.create(
+      enrollment.student.userId,
+      'Complimentary mock updated',
+      `Your complimentary mock was updated — mock day ${dateLabel}, start before ${cutoffLabel}.`,
+      NotificationType.INFO,
+      '/student/mock-day',
+    );
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: AuditAction.ADMIN_ENROLLMENT_GRANT_UPDATE,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: {
+        enrollmentCode: enrollment.enrollmentCode,
+        packageId: dto.packageId,
+        packageChanged,
+      },
+    });
+
+    return {
+      updated: true,
+      enrollmentId,
+      enrollmentCode: enrollment.enrollmentCode,
     };
   }
 

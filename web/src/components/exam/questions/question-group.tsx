@@ -20,7 +20,10 @@ import { MatchingControl } from "./matching-control";
 import { MatchingHeadingsControl } from "./matching-headings-control";
 import { MatchingInformationControl } from "./matching-information-control";
 import { MatchingFeaturesControl } from "./matching-features-control";
-import { FlowchartCompletionControl } from "./flowchart-completion-control";
+import {
+  FlowchartCompletionControl,
+  flowchartStepsFromGroup,
+} from "./flowchart-completion-control";
 import { SummaryCompletionListControl } from "./summary-completion-list-control";
 import { MapLabeling } from "./map-labeling";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
@@ -597,19 +600,17 @@ function GroupBody({
     }
 
     case "flowchart_completion": {
-      const nodes = Array.isArray(group.nodes) ? group.nodes : [];
+      const steps = flowchartStepsFromGroup(group);
       const map: Record<number, string> = {};
-      for (const node of nodes) {
-        if (node.kind === "gap") {
-          const v = answers[node.n];
-          if (typeof v === "string") map[node.n] = v;
-        }
+      for (const n of gapsInCompletionLines(steps)) {
+        const v = answers[n];
+        if (typeof v === "string") map[n] = v;
       }
       return (
         <FlowchartCompletionControl
           title={group.title}
           answerMode={group.answerMode}
-          nodes={nodes}
+          steps={steps}
           options={group.options ?? []}
           answers={map}
           current={current}

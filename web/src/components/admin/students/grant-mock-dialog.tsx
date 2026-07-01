@@ -8,16 +8,18 @@ import {
   Loader2,
   Mic,
   PenLine,
+  Search,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { useAdminStudents } from "@/contexts/admin-students-context";
 import { getGrantablePackagesForStudent } from "@/lib/api/admin";
 import { listTeachers } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
-import type { Student } from "@/lib/admin/types";
+import type { ActiveAdminGrant, Student } from "@/lib/admin/types";
 import { localTodayIso } from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +31,6 @@ type Teacher = {
   rating: number | null;
   status: string;
 };
-
 
 type GrantPackage = {
   id: string;
@@ -91,26 +92,52 @@ function buildSteps(pkg: GrantPackage | null): StepId[] {
   return steps;
 }
 
+function mockDateInputValue(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function packageOptionLabel(pkg: GrantPackage): string {
+  const parts = [pkg.title];
+  if (pkg.mockLabel) parts.push(`(${pkg.mockLabel})`);
+  const skills: string[] = [];
+  if (pkg.needsWriting) skills.push("Writing");
+  if (pkg.needsSpeaking) skills.push("Speaking");
+  if (skills.length) parts.push(`· ${skills.join(" + ")}`);
+  return parts.join(" ");
+}
+
 export function GrantMockDialog({
   student,
+  existingGrant = null,
   onClose,
 }: {
   student: Student;
+  existingGrant?: ActiveAdminGrant | null;
   onClose: () => void;
 }) {
+  const isEdit = Boolean(existingGrant);
   const { toast } = useToast();
-  const { grant } = useAdminStudents();
+  const { grant, updateGrant } = useAdminStudents();
 
   const [packages, setPackages] = useState<GrantPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
-  const [packageId, setPackageId] = useState<string | null>(null);
+  const [packageId, setPackageId] = useState<string | null>(
+    existingGrant?.packageId ?? null,
+  );
+  const [packageQuery, setPackageQuery] = useState("");
 
-  const [mockDate, setMockDate] = useState(localTodayIso());
+  const [mockDate, setMockDate] = useState(
+    existingGrant ? mockDateInputValue(existingGrant.mockDate) : localTodayIso(),
+  );
 
   const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
-  const [writingTeacherId, setWritingTeacherId] = useState<string | null>(null);
+  const [writingTeacherId, setWritingTeacherId] = useState<string | null>(
+    existingGrant?.writingTeacherId ?? null,
+  );
   const [speakingTeachers, setSpeakingTeachers] = useState<Teacher[]>([]);
-  const [speakingTeacherId, setSpeakingTeacherId] = useState<string | null>(null);
+  const [speakingTeacherId, setSpeakingTeacherId] = useState<string | null>(
+    existingGrant?.speakingTeacherId ?? null,
+  );
   const [teachersLoading, setTeachersLoading] = useState(false);
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -125,6 +152,16 @@ export function GrantMockDialog({
   const steps = useMemo(() => buildSteps(selectedPackage), [selectedPackage]);
   const currentStep = steps[Math.min(stepIndex, steps.length - 1)]!;
 
+  const filteredPackages = useMemo(() => {
+    const q = packageQuery.trim().toLowerCase();
+    if (!q) return packages;
+    return packages.filter(
+      (pkg) =>
+        pkg.title.toLowerCase().includes(q) ||
+        (pkg.mockLabel?.toLowerCase().includes(q) ?? false),
+    );
+  }, [packages, packageQuery]);
+
   const selectedWritingTeacher = writingTeachers.find(
     (t) => t.id === writingTeacherId,
   );
@@ -132,13 +169,41 @@ export function GrantMockDialog({
     (t) => t.id === speakingTeacherId,
   );
 
+  const stepSubtitle = useMemo(() => {
+    const label = STEP_LABELS[currentStep];
+    if (currentStep === "package" && !packageId) {
+      return `Step 1 · ${label}`;
+    }
+    return `Step ${Math.min(stepIndex + 1, steps.length)} of ${steps.length} · ${label}`;
+  }, [currentStep, packageId, stepIndex, steps.length]);
+
   useEffect(() => {
     let cancelled = false;
     setPackagesLoading(true);
-    void getGrantablePackagesForStudent(student.id)
+    void getGrantablePackagesForStudent(
+      student.id,
+      existingGrant?.enrollmentId,
+    )
       .then((res) => {
         if (cancelled) return;
-        setPackages(res.packages.map(toGrantPackage));
+        const mapped = res.packages.map(toGrantPackage);
+        setPackages(mapped);
+        if (
+          existingGrant &&
+          !mapped.some((p) => p.id === existingGrant.packageId)
+        ) {
+          setPackages((prev) => [
+            ...prev,
+            {
+              id: existingGrant.packageId,
+              title: existingGrant.packageTitle,
+              price: 0,
+              currency: "USD",
+              needsWriting: existingGrant.needsWriting,
+              needsSpeaking: existingGrant.needsSpeaking,
+            },
+          ]);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(getErrorMessage(err, "Could not load packages"));
@@ -149,7 +214,7 @@ export function GrantMockDialog({
     return () => {
       cancelled = true;
     };
-  }, [student.id]);
+  }, [student.id, existingGrant]);
 
   const loadTeachers = useCallback(async () => {
     setTeachersLoading(true);
@@ -182,13 +247,25 @@ export function GrantMockDialog({
     if (currentStep === "speaking" && speakingTeachers.length === 0) {
       void loadSpeakingTeachers();
     }
-  }, [currentStep, writingTeachers.length, speakingTeachers.length, loadTeachers, loadSpeakingTeachers]);
+  }, [
+    currentStep,
+    writingTeachers.length,
+    speakingTeachers.length,
+    loadTeachers,
+    loadSpeakingTeachers,
+  ]);
 
-  // Reset downstream choices whenever the package changes.
   useEffect(() => {
+    if (isEdit) return;
     setWritingTeacherId(null);
     setSpeakingTeacherId(null);
-  }, [packageId]);
+  }, [packageId, isEdit]);
+
+  useEffect(() => {
+    if (stepIndex >= steps.length) {
+      setStepIndex(Math.max(0, steps.length - 1));
+    }
+  }, [stepIndex, steps.length]);
 
   const canContinue = useMemo(() => {
     if (currentStep === "package") return Boolean(packageId);
@@ -219,8 +296,7 @@ export function GrantMockDialog({
     setSubmitting(true);
     setError(null);
     try {
-      const result = await grant({
-        studentId: student.id,
+      const payload = {
         packageId: selectedPackage.id,
         mockDate: new Date(`${mockDate}T12:00:00`).toISOString(),
         ...(selectedPackage.needsWriting && writingTeacherId
@@ -229,31 +305,60 @@ export function GrantMockDialog({
         ...(selectedPackage.needsSpeaking && speakingTeacherId
           ? { speakingTeacherId }
           : {}),
-      });
-      toast("Free mock granted", {
-        description: `${selectedPackage.title} granted to ${student.name} · ${result.enrollmentCode}`,
-        variant: "success",
-      });
+      };
+
+      if (isEdit && existingGrant) {
+        const result = await updateGrant(existingGrant.enrollmentId, payload);
+        toast("Complimentary mock updated", {
+          description: `${selectedPackage.title} · ${result.enrollmentCode}`,
+          variant: "success",
+        });
+      } else {
+        const result = await grant({
+          studentId: student.id,
+          ...payload,
+        });
+        toast("Free mock granted", {
+          description: `${selectedPackage.title} granted to ${student.name} · ${result.enrollmentCode}`,
+          variant: "success",
+        });
+      }
       onClose();
     } catch (err) {
-      setError(getErrorMessage(err, "Could not grant the mock. Please try again."));
+      setError(
+        getErrorMessage(
+          err,
+          isEdit
+            ? "Could not update the mock. Please try again."
+            : "Could not grant the mock. Please try again.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal open onClose={onClose} ariaLabel={`Grant free mock to ${student.name}`}>
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel={
+        isEdit
+          ? `Edit complimentary mock for ${student.name}`
+          : `Grant free mock to ${student.name}`
+      }
+    >
       <div className="flex items-start justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <Gift size={18} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-navy">Grant free mock</h2>
+            <h2 className="text-lg font-bold text-navy">
+              {isEdit ? "Edit complimentary mock" : "Grant free mock"}
+            </h2>
             <p className="mt-0.5 text-sm text-muted">
-              {student.name} · Step {Math.min(stepIndex + 1, steps.length)} of{" "}
-              {steps.length} · {STEP_LABELS[currentStep]}
+              {student.name} · {stepSubtitle}
             </p>
           </div>
         </div>
@@ -267,27 +372,29 @@ export function GrantMockDialog({
         </button>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-border px-6 py-3">
-        {steps.map((step, index) => (
-          <div key={step} className="flex flex-1 items-center gap-2">
-            <div
-              className={cn(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                index < stepIndex
-                  ? "bg-emerald-500 text-white"
-                  : index === stepIndex
-                    ? "bg-navy text-white"
-                    : "bg-slate-100 text-slate-400",
+      {packageId && steps.length > 1 && (
+        <div className="flex items-center gap-2 border-b border-border px-6 py-3">
+          {steps.map((step, index) => (
+            <div key={step} className="flex flex-1 items-center gap-2">
+              <div
+                className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                  index < stepIndex
+                    ? "bg-emerald-500 text-white"
+                    : index === stepIndex
+                      ? "bg-navy text-white"
+                      : "bg-slate-100 text-slate-400",
+                )}
+              >
+                {index < stepIndex ? <Check size={14} /> : index + 1}
+              </div>
+              {index < steps.length - 1 && (
+                <div className="h-px flex-1 bg-border" />
               )}
-            >
-              {index < stepIndex ? <Check size={14} /> : index + 1}
             </div>
-            {index < steps.length - 1 && (
-              <div className="h-px flex-1 bg-border" />
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {currentStep === "package" && (
@@ -302,48 +409,69 @@ export function GrantMockDialog({
               </div>
             ) : packages.length === 0 ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                {student.name} has no grantable mocks — they may have already completed or
-                enrolled in every active package.
+                {student.name} has no grantable mocks — they may have already
+                completed or enrolled in every active package.
               </p>
             ) : (
-              <div className="space-y-2">
-                {packages.map((pkg) => (
-                  <button
-                    key={pkg.id}
-                    type="button"
-                    onClick={() => setPackageId(pkg.id)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
-                      packageId === pkg.id
-                        ? "border-navy bg-navy/5"
-                        : "border-border bg-white hover:bg-slate-50",
-                    )}
-                  >
-                    <div>
-                      <p className="font-semibold text-navy">{pkg.title}</p>
-                      {pkg.mockLabel && (
-                        <p className="text-xs font-medium text-sky-700">{pkg.mockLabel}</p>
+              <>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={packageQuery}
+                    onChange={(e) => setPackageQuery(e.target.value)}
+                    placeholder="Search packages by name or mock code…"
+                    className="h-10 w-full rounded-lg border border-border bg-slate-50 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
+                  />
+                </div>
+                <Select
+                  value={packageId ?? ""}
+                  onChange={(e) => setPackageId(e.target.value || null)}
+                  className="h-11 w-full"
+                >
+                  <option value="">Choose a package…</option>
+                  {filteredPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {packageOptionLabel(pkg)}
+                    </option>
+                  ))}
+                </Select>
+                {packageQuery && filteredPackages.length === 0 && (
+                  <p className="text-xs text-muted">
+                    No packages match &ldquo;{packageQuery}&rdquo;.
+                  </p>
+                )}
+                {selectedPackage && (
+                  <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedPackage.needsWriting && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-700">
+                          <PenLine size={11} /> Writing
+                        </span>
                       )}
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        {pkg.needsWriting && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
-                            <PenLine size={11} /> Writing
-                          </span>
-                        )}
-                        {pkg.needsSpeaking && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">
-                            <Mic size={11} /> Speaking
-                          </span>
-                        )}
-                      </div>
+                      {selectedPackage.needsSpeaking && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
+                          <Mic size={11} /> Speaking
+                        </span>
+                      )}
                     </div>
-                    <span className="text-sm font-medium text-muted line-through">
-                      {pkg.currency === "USD" ? "$" : `${pkg.currency} `}
-                      {pkg.price}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    <p className="mt-1.5">
+                      List price{" "}
+                      <span className="line-through">
+                        {selectedPackage.currency === "USD"
+                          ? "$"
+                          : `${selectedPackage.currency} `}
+                        {selectedPackage.price}
+                      </span>{" "}
+                      · granted free
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs text-muted">
+                  {packages.length} package{packages.length === 1 ? "" : "s"}{" "}
+                  available — use search when the catalog grows.
+                </p>
+              </>
             )}
           </div>
         )}
@@ -365,7 +493,7 @@ export function GrantMockDialog({
             </div>
             <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
               The student can start anytime on this day before the platform cutoff
-              (default 18:00). Speaking time is chosen by the student from the
+              (default 23:59). Speaking time is chosen by the student from the
               assigned examiner&apos;s availability.
             </p>
           </div>
@@ -386,34 +514,20 @@ export function GrantMockDialog({
                 No approved writing examiners available.
               </p>
             ) : (
-              <div className="space-y-2">
+              <Select
+                value={writingTeacherId ?? ""}
+                onChange={(e) =>
+                  setWritingTeacherId(e.target.value || null)
+                }
+                className="h-11 w-full"
+              >
+                <option value="">Choose a writing examiner…</option>
                 {writingTeachers.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setWritingTeacherId(t.id)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
-                      writingTeacherId === t.id
-                        ? "border-violet-500 bg-violet-50"
-                        : "border-border bg-white hover:bg-slate-50",
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-                        <PenLine size={15} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-navy">{t.name}</p>
-                        <p className="text-xs text-muted">{t.email}</p>
-                      </div>
-                    </div>
-                    {writingTeacherId === t.id && (
-                      <Check className="h-4 w-4 text-violet-600" />
-                    )}
-                  </button>
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {t.email}
+                  </option>
                 ))}
-              </div>
+              </Select>
             )}
           </div>
         )}
@@ -433,34 +547,20 @@ export function GrantMockDialog({
                 No approved speaking examiners available.
               </p>
             ) : (
-              <div className="space-y-2">
+              <Select
+                value={speakingTeacherId ?? ""}
+                onChange={(e) =>
+                  setSpeakingTeacherId(e.target.value || null)
+                }
+                className="h-11 w-full"
+              >
+                <option value="">Choose a speaking examiner…</option>
                 {speakingTeachers.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setSpeakingTeacherId(t.id)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
-                      speakingTeacherId === t.id
-                        ? "border-rose-500 bg-rose-50"
-                        : "border-border bg-white hover:bg-slate-50",
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-                        <Mic size={15} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-navy">{t.name}</p>
-                        <p className="text-xs text-muted">{t.email}</p>
-                      </div>
-                    </div>
-                    {speakingTeacherId === t.id && (
-                      <Check className="h-4 w-4 text-rose-600" />
-                    )}
-                  </button>
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {t.email}
+                  </option>
                 ))}
-              </div>
+              </Select>
             )}
             <p className="text-xs text-muted">
               The student will pick a speaking slot from this examiner&apos;s
@@ -472,7 +572,9 @@ export function GrantMockDialog({
         {currentStep === "review" && selectedPackage && (
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-navy">Grant summary</p>
+              <p className="text-sm font-semibold text-navy">
+                {isEdit ? "Update summary" : "Grant summary"}
+              </p>
               <dl className="mt-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-muted">Student</dt>
@@ -513,16 +615,15 @@ export function GrantMockDialog({
                 )}
                 <div className="mt-2 flex justify-between border-t border-border pt-2">
                   <dt className="font-semibold text-navy">Charge</dt>
-                  <dd className="font-bold text-emerald-600">
-                    Free · $0.00
-                  </dd>
+                  <dd className="font-bold text-emerald-600">Free · $0.00</dd>
                 </div>
               </dl>
             </div>
             <p className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
               <Gift size={12} />
-              A complimentary $0 order will be recorded and the student will be
-              notified. The student schedules their speaking slot on mock day.
+              {isEdit
+                ? "Changes apply immediately and the student will be notified."
+                : "A complimentary $0 order will be recorded and the student will be notified. The student schedules their speaking slot on mock day."}
             </p>
           </div>
         )}
@@ -554,7 +655,7 @@ export function GrantMockDialog({
             disabled={!canContinue}
             loading={submitting}
           >
-            Grant free mock
+            {isEdit ? "Save changes" : "Grant free mock"}
           </Button>
         )}
       </div>

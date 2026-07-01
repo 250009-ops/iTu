@@ -174,6 +174,13 @@ export const listeningContent: ListeningContent = {
             { kind: "text", text: "Leave the park" },
             { kind: "gap", n: 20 },
           ],
+          steps: [
+            { style: "normal", nodes: ["Arrive at the park ", { n: 16 }] },
+            { style: "normal", nodes: ["Walk to the lake ", { n: 17 }] },
+            { style: "normal", nodes: ["Explore the meadow ", { n: 18 }] },
+            { style: "normal", nodes: ["Visit new facilities ", { n: 19 }] },
+            { style: "normal", nodes: ["Leave the park ", { n: 20 }] },
+          ],
         },
       ],
     },

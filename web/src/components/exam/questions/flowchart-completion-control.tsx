@@ -1,15 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, X } from "lucide-react";
-import type { FlowchartNode, MatchOption } from "@/lib/exam/types";
-import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
+import { ChevronDown } from "lucide-react";
+import type { CompletionLine, MatchOption } from "@/lib/exam/types";
+import { GapInput } from "@/components/exam/questions/gap-input";
+import {
+  isTextSpan,
+  normalizeCompletionLines,
+  normalizeFlowchartSteps,
+} from "@/lib/exam/inline-content";
+import { isGap } from "@/lib/exam/types";
 import { cn } from "@/lib/utils";
 
 type Props = {
   title?: string;
   answerMode?: "option" | "text";
-  nodes: FlowchartNode[];
+  steps: CompletionLine[];
   options: MatchOption[];
   answers: Record<number, string>;
   current: number | null;
@@ -18,31 +24,48 @@ type Props = {
   onPasteBlocked?: () => void;
 };
 
-function OptionGapNode({
+function optionWord(label: string): string {
+  return label.replace(/^[A-Z]\.?\s*/i, "").trim() || label;
+}
+
+function InlineOptionGap({
   n,
-  assigned,
+  optionId,
   options,
-  isActive,
+  active,
   picked,
   onAssign,
   onFocus,
   setPicked,
 }: {
   n: number;
-  assigned?: MatchOption;
+  optionId?: string;
   options: MatchOption[];
-  isActive: boolean;
+  active: boolean;
   picked: string | null;
   onAssign: (n: number, id: string | null) => void;
   onFocus: (n: number) => void;
   setPicked: (id: string | null) => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
+  const assigned = options.find((o) => o.id === optionId);
+  const word = assigned ? optionWord(assigned.label) : "";
 
   return (
-    <div
+    <span
       id={`q-${n}`}
-      className="scroll-mt-20 flex w-full max-w-md flex-col items-center"
+      className={cn(
+        "mx-0.5 inline-flex cursor-pointer items-center align-middle",
+        active && "rounded-sm bg-sky-50 ring-2 ring-navy/15",
+        dragOver && "bg-sky-100",
+      )}
+      onClick={() => {
+        onFocus(n);
+        if (picked) {
+          onAssign(n, picked);
+          setPicked(null);
+        }
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -55,112 +78,106 @@ function OptionGapNode({
         setDragOver(false);
         setPicked(null);
       }}
-      onClick={() => {
-        onFocus(n);
-        if (picked) {
-          onAssign(n, picked);
-          setPicked(null);
-        }
-      }}
     >
-      <div
+      <span
         className={cn(
-          "flex min-h-[2.75rem] w-full cursor-pointer items-center justify-between gap-2 rounded-lg border-2 px-3 py-2 transition",
-          dragOver || isActive
-            ? "border-navy bg-sky-50"
-            : assigned
-              ? "border-emerald-400 bg-emerald-50"
-              : "border-dashed border-slate-300 bg-white hover:border-navy",
+          "inline-flex h-6 min-w-[1.65rem] items-center justify-center rounded border px-1 text-[11px] font-bold",
+          word
+            ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+            : "border-slate-300 bg-slate-100 text-slate-600",
         )}
       >
-        <div className="flex items-center gap-2">
-          <QuestionNumberBadge n={n} active={isActive} />
-          {assigned ? (
-            <span className="text-[14px] font-medium text-emerald-900">
-              {assigned.label}
-            </span>
-          ) : (
-            <span className="text-[13px] text-slate-400">
-              {picked ? "Click to place" : "Drop answer here"}
-            </span>
+        {n}
+      </span>
+      {word ? (
+        <span className="ml-1.5 text-[14px] font-medium text-emerald-900">
+          {word}
+        </span>
+      ) : (
+        <span
+          className={cn(
+            "ml-1.5 inline-block min-w-[4rem] border-b-2 border-dashed border-slate-300",
+            picked && "border-navy bg-sky-50/50",
           )}
-        </div>
-        {assigned && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAssign(n, null);
-            }}
-            className="flex h-6 w-6 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100"
-            aria-label={`Clear answer for question ${n}`}
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
-    </div>
+          aria-hidden
+        />
+      )}
+    </span>
   );
 }
 
-function TextGapNode({
-  n,
-  value,
-  isActive,
+function renderStepInline({
+  line,
+  answerMode,
+  options,
+  answers,
+  current,
+  picked,
   onAssign,
   onFocus,
   onPasteBlocked,
+  setPicked,
 }: {
-  n: number;
-  value: string;
-  isActive: boolean;
-  onAssign: (n: number, value: string) => void;
+  line: CompletionLine;
+  answerMode: "option" | "text";
+  options: MatchOption[];
+  answers: Record<number, string>;
+  current: number | null;
+  picked: string | null;
+  onAssign: (n: number, value: string | null) => void;
   onFocus: (n: number) => void;
   onPasteBlocked?: () => void;
+  setPicked: (id: string | null) => void;
 }) {
-  return (
-    <div
-      id={`q-${n}`}
-      className="scroll-mt-20 flex w-full max-w-md flex-col items-center"
-    >
-      <div
-        className={cn(
-          "flex min-h-[2.75rem] w-full items-center gap-2 rounded-lg border-2 px-3 py-2 transition",
-          isActive
-            ? "border-navy bg-sky-50"
-            : value.trim()
-              ? "border-emerald-400 bg-emerald-50"
-              : "border-slate-200 bg-white",
-        )}
-      >
-        <QuestionNumberBadge n={n} active={isActive} />
-        <input
-          type="text"
-          value={value}
-          onFocus={() => onFocus(n)}
-          onChange={(e) => onAssign(n, e.target.value)}
-          onPaste={(e) => {
-            e.preventDefault();
-            onPasteBlocked?.();
-          }}
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="Your answer"
-          className={cn(
-            "min-w-0 flex-1 bg-transparent text-[14px] font-medium text-navy outline-none",
-            value.trim() ? "text-emerald-900" : "text-slate-500",
-          )}
+  return line.nodes.map((node, j) => {
+    if (isGap(node)) {
+      if (answerMode === "text") {
+        return (
+          <GapInput
+            key={`gap-${node.n}`}
+            n={node.n}
+            value={answers[node.n] ?? ""}
+            placeholder={node.placeholder}
+            active={current === node.n}
+            onChange={(v) => onAssign(node.n, v)}
+            onFocus={() => onFocus(node.n)}
+            onPasteBlocked={onPasteBlocked}
+          />
+        );
+      }
+      return (
+        <InlineOptionGap
+          key={`gap-${node.n}`}
+          n={node.n}
+          optionId={answers[node.n]}
+          options={options}
+          active={current === node.n}
+          picked={picked}
+          onAssign={onAssign}
+          onFocus={onFocus}
+          setPicked={setPicked}
         />
-      </div>
-    </div>
-  );
+      );
+    }
+    if (isTextSpan(node)) {
+      return (
+        <span key={`t-${j}`} className={cn(node.bold && "font-bold text-navy")}>
+          {node.value}
+        </span>
+      );
+    }
+    if (typeof node === "string") {
+      return <span key={`t-${j}`}>{node}</span>;
+    }
+    return null;
+  });
 }
 
-/** Listening flow-chart: vertical nodes with option bank or typed answers at gaps. */
+/** Listening flow-chart: vertical steps with inline text + gaps in each box. */
 export function FlowchartCompletionControl({
   title,
   answerMode = "option",
-  nodes,
+  steps,
   options,
   answers,
   current,
@@ -170,6 +187,7 @@ export function FlowchartCompletionControl({
 }: Props) {
   const [picked, setPicked] = useState<string | null>(null);
   const isTextMode = answerMode === "text";
+  const normalized = normalizeCompletionLines(steps);
 
   return (
     <div className="space-y-4">
@@ -180,6 +198,7 @@ export function FlowchartCompletionControl({
           </p>
           {options.map((opt) => {
             const isPicked = picked === opt.id;
+            const word = optionWord(opt.label);
             return (
               <button
                 key={opt.id}
@@ -198,9 +217,7 @@ export function FlowchartCompletionControl({
                 )}
               >
                 <span className="font-bold">{opt.id}</span>
-                {opt.label.replace(/^[A-G]\.?\s*/i, "") && (
-                  <span className="ml-1.5">{opt.label.replace(/^[A-G]\.?\s*/i, "")}</span>
-                )}
+                {word ? <span className="ml-1.5">{word}</span> : null}
               </button>
             );
           })}
@@ -212,35 +229,27 @@ export function FlowchartCompletionControl({
           <h4 className="mb-4 text-center text-[15px] font-bold text-navy">{title}</h4>
         )}
         <div className="flex flex-col items-center gap-1">
-          {nodes.map((node, i) => (
+          {normalized.map((line, i) => (
             <div key={i} className="flex w-full flex-col items-center">
-              {node.kind === "text" ? (
-                <div className="w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-center text-[14px] font-medium text-slate-800">
-                  {node.text}
-                </div>
-              ) : isTextMode ? (
-                <TextGapNode
-                  n={node.n}
-                  value={answers[node.n] ?? ""}
-                  isActive={current === node.n}
-                  onAssign={(n, value) => onAssign(n, value)}
-                  onFocus={onFocus}
-                  onPasteBlocked={onPasteBlocked}
+              <div className="flex w-full max-w-lg flex-wrap items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-center text-[14px] font-medium text-slate-800">
+                {renderStepInline({
+                  line,
+                  answerMode: isTextMode ? "text" : "option",
+                  options,
+                  answers,
+                  current,
+                  picked,
+                  onAssign,
+                  onFocus,
+                  onPasteBlocked,
+                  setPicked,
+                })}
+              </div>
+              {i < normalized.length - 1 && (
+                <ChevronDown
+                  className="my-0.5 h-5 w-5 shrink-0 text-slate-400"
+                  aria-hidden
                 />
-              ) : (
-                <OptionGapNode
-                  n={node.n}
-                  assigned={options.find((o) => o.id === answers[node.n])}
-                  options={options}
-                  isActive={current === node.n}
-                  picked={picked}
-                  onAssign={onAssign}
-                  onFocus={onFocus}
-                  setPicked={setPicked}
-                />
-              )}
-              {i < nodes.length - 1 && (
-                <ChevronDown className="my-0.5 h-5 w-5 shrink-0 text-slate-400" aria-hidden />
               )}
             </div>
           ))}
@@ -248,4 +257,12 @@ export function FlowchartCompletionControl({
       </div>
     </div>
   );
+}
+
+/** Resolve steps from group payload (supports legacy `nodes`). */
+export function flowchartStepsFromGroup(group: {
+  steps?: CompletionLine[];
+  nodes?: { kind: "text" | "gap"; text?: string; n?: number }[];
+}): CompletionLine[] {
+  return normalizeFlowchartSteps(group);
 }

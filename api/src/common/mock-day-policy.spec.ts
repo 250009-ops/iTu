@@ -6,6 +6,12 @@ import {
 } from './mock-day-policy';
 
 describe('mockDayCutoffDateTime', () => {
+  it('uses 23:59 as the default cutoff on mock day', () => {
+    const cutoff = mockDayCutoffDateTime('2026-07-08');
+    expect(cutoff.getHours()).toBe(23);
+    expect(cutoff.getMinutes()).toBe(59);
+  });
+
   it('combines mock date with cutoff time on same day', () => {
     const cutoff = mockDayCutoffDateTime('2026-07-08', '18:00');
     expect(cutoff.getHours()).toBe(18);

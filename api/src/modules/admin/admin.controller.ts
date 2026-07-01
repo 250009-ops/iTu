@@ -22,6 +22,7 @@ import { AdminService } from './admin.service';
 import { ReviewIntegrityDto } from './dto/review-integrity.dto';
 import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
 import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
+import { UpdateGrantEnrollmentDto } from './dto/update-grant-enrollment.dto';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
@@ -59,8 +60,14 @@ export class AdminController {
   }
 
   @Get('students/:studentId/grantable-packages')
-  getGrantablePackagesForStudent(@Param('studentId') studentId: string) {
-    return this.admin.getGrantablePackagesForStudent(studentId);
+  getGrantablePackagesForStudent(
+    @Param('studentId') studentId: string,
+    @Query('exceptEnrollmentId') exceptEnrollmentId?: string,
+  ) {
+    return this.admin.getGrantablePackagesForStudent(
+      studentId,
+      exceptEnrollmentId,
+    );
   }
 
   @Post('enrollments/grant')
@@ -69,6 +76,20 @@ export class AdminController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.admin.grantEnrollment(body, user.id);
+  }
+
+  @Patch('enrollments/:id/grant')
+  updateAdminGrant(
+    @Param('id') id: string,
+    @Body() body: UpdateGrantEnrollmentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.updateAdminGrant(id, body, user.id);
+  }
+
+  @Post('enrollments/:id/revoke-grant')
+  revokeAdminGrant(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.admin.revokeAdminGrant(id, user.id);
   }
 
   @Post('enrollments/reappoint')

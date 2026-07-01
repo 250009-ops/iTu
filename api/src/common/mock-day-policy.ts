@@ -1,6 +1,6 @@
 /** Shared mock-day window, cutoff, and lifecycle helpers. */
 
-export const DEFAULT_MOCK_DAY_CUTOFF = '18:00';
+export const DEFAULT_MOCK_DAY_CUTOFF = '23:59';
 export const DEFAULT_SPEAKING_EARLY_JOIN_MIN = 5;
 
 export type MockDayTimers = {
