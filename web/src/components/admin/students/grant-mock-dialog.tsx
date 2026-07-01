@@ -298,7 +298,7 @@ export function GrantMockDialog({
     try {
       const payload = {
         packageId: selectedPackage.id,
-        mockDate: new Date(`${mockDate}T12:00:00`).toISOString(),
+        mockDate: mockDate,
         ...(selectedPackage.needsWriting && writingTeacherId
           ? { writingTeacherId }
           : {}),

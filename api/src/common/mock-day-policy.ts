@@ -1,6 +1,7 @@
 /** Shared mock-day window, cutoff, and lifecycle helpers. */
 
 export const DEFAULT_MOCK_DAY_CUTOFF = '23:59';
+export const DEFAULT_PLATFORM_TIMEZONE = 'Asia/Tashkent';
 export const DEFAULT_SPEAKING_EARLY_JOIN_MIN = 5;
 
 export type MockDayTimers = {
@@ -17,19 +18,114 @@ export function parseTimeParts(time: string): { hours: number; minutes: number }
   return { hours, minutes };
 }
 
-/** Combine a calendar mock date with an HH:mm cutoff on that same local day. */
+/** YYYY-MM-DD for a calendar day in the given IANA timezone. */
+export function calendarDateIsoInTimeZone(
+  date: Date,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
+): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
+}
+
+/** Extract YYYY-MM-DD from API input (date-only or ISO string). */
+export function extractCalendarDateIso(
+  input: Date | string,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
+): string {
+  if (typeof input === 'string') {
+    const match = input.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1]!;
+  }
+  const date = typeof input === 'string' ? new Date(input) : input;
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid mock date: ${String(input)}`);
+  }
+  return calendarDateIsoInTimeZone(date, timeZone);
+}
+
+function getTimezoneOffsetMs(timeZone: string, date: Date): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const parts = Object.fromEntries(
+    dtf.formatToParts(date).map((part) => [part.type, part.value]),
+  );
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return asUtc - date.getTime();
+}
+
+/** Wall-clock time on a calendar day in `timeZone`, returned as a UTC instant. */
+export function zonedWallClockToUtc(
+  dateIso: string,
+  hours: number,
+  minutes: number,
+  seconds: number,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
+): Date {
+  const [year, month, day] = dateIso.split('-').map(Number);
+  const utcGuess = Date.UTC(year, month - 1, day, hours, minutes, seconds);
+  let result = new Date(utcGuess);
+  for (let i = 0; i < 2; i++) {
+    const offsetMs = getTimezoneOffsetMs(timeZone, result);
+    result = new Date(utcGuess - offsetMs);
+  }
+  return result;
+}
+
+/** Combine a calendar mock date with an HH:mm cutoff on that platform day. */
 export function mockDayCutoffDateTime(
   mockDate: Date | string,
   cutoffTime = DEFAULT_MOCK_DAY_CUTOFF,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
 ): Date {
-  const base =
-    typeof mockDate === 'string'
-      ? new Date(`${mockDate.slice(0, 10)}T12:00:00`)
-      : new Date(mockDate);
+  const dateIso = extractCalendarDateIso(mockDate, timeZone);
   const { hours, minutes } = parseTimeParts(cutoffTime);
-  const cutoff = new Date(base);
-  cutoff.setHours(hours, minutes, 0, 0);
-  return cutoff;
+  return zonedWallClockToUtc(dateIso, hours, minutes, 59, timeZone);
+}
+
+/** Validate grant/reappoint cutoff; returns stored cutoff instant. */
+export function resolveMockDayCutoffAt(
+  mockDate: Date | string,
+  cutoffTime: string,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
+  now = new Date(),
+): Date {
+  const dateIso = extractCalendarDateIso(mockDate, timeZone);
+  const todayIso = calendarDateIsoInTimeZone(now, timeZone);
+  const mockDayCutoffAt = mockDayCutoffDateTime(mockDate, cutoffTime, timeZone);
+
+  if (dateIso < todayIso) {
+    throw new Error('Mock day must be today or in the future');
+  }
+  if (dateIso === todayIso && mockDayCutoffAt.getTime() <= now.getTime()) {
+    throw new Error(
+      `Mock day cutoff (${cutoffTime} ${timeZone}) has already passed for today`,
+    );
+  }
+  return mockDayCutoffAt;
+}
+
+export function isSameCalendarDayInTimeZone(
+  a: Date,
+  b: Date,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
+): boolean {
+  return (
+    calendarDateIsoInTimeZone(a, timeZone) === calendarDateIsoInTimeZone(b, timeZone)
+  );
 }
 
 export function startOfLocalDay(date: Date): Date {
@@ -99,7 +195,7 @@ export function canStartMockOnDay(
   if (enrollment.examStartedAt) {
     return { allowed: true };
   }
-  if (!isSameLocalDay(enrollment.mockDate, now)) {
+  if (!isSameCalendarDayInTimeZone(enrollment.mockDate, now)) {
     return {
       allowed: false,
       reason: isFlexibleGrant(enrollment)

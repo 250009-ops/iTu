@@ -35,7 +35,7 @@ export function ReappointMockDialog({
     try {
       const result = await reappointEnrollment({
         enrollmentId,
-        mockDate: new Date(`${mockDate}T12:00:00`).toISOString(),
+        mockDate,
       });
       toast("Mock reappointed", {
         description: `${studentName} · ${result.enrollmentCode}`,

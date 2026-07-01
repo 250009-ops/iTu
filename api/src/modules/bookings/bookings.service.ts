@@ -18,7 +18,7 @@ import { mockStartDateTime } from '../../common/band-resolution';
 import {
   hasExamStarted,
   isFlexibleGrant,
-  mockDayCutoffDateTime,
+  resolveMockDayCutoffAt,
 } from '../../common/mock-day-policy';
 import {
   AuditAction,
@@ -199,14 +199,20 @@ export class BookingsService {
       );
     }
 
+    const timeZone = await this.settings.getPlatformTimezone();
     const mockDayTimers = await this.settings.getMockDayTimers();
     const cutoffTime =
       params.mockDayCutoffTime ?? mockDayTimers.dayCutoffTime;
-    const mockDayCutoffAt = mockDayCutoffDateTime(params.mockDate, cutoffTime);
-
-    if (mockDayCutoffAt.getTime() <= Date.now()) {
+    let mockDayCutoffAt: Date;
+    try {
+      mockDayCutoffAt = resolveMockDayCutoffAt(
+        params.mockDate,
+        cutoffTime,
+        timeZone,
+      );
+    } catch (err) {
       throw new BadRequestException(
-        'Mock day cutoff must be in the future',
+        err instanceof Error ? err.message : 'Invalid mock day cutoff',
       );
     }
 
@@ -634,11 +640,20 @@ export class BookingsService {
       throw new BadRequestException('Speaking examiner is not required for this package');
     }
 
+    const timeZone = await this.settings.getPlatformTimezone();
     const mockDayTimers = await this.settings.getMockDayTimers();
     const cutoffTime = dto.mockDayCutoffTime ?? mockDayTimers.dayCutoffTime;
-    const mockDayCutoffAt = mockDayCutoffDateTime(dto.mockDate, cutoffTime);
-    if (mockDayCutoffAt.getTime() <= Date.now()) {
-      throw new BadRequestException('Mock day cutoff must be in the future');
+    let mockDayCutoffAt: Date;
+    try {
+      mockDayCutoffAt = resolveMockDayCutoffAt(
+        dto.mockDate,
+        cutoffTime,
+        timeZone,
+      );
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'Invalid mock day cutoff',
+      );
     }
 
     const packageChanged = dto.packageId !== enrollment.packageId;
@@ -786,11 +801,20 @@ export class BookingsService {
       );
     }
 
+    const timeZone = await this.settings.getPlatformTimezone();
     const mockDayTimers = await this.settings.getMockDayTimers();
-    const mockDayCutoffAt = mockDayCutoffDateTime(
-      dto.mockDate,
-      mockDayTimers.dayCutoffTime,
-    );
+    let mockDayCutoffAt: Date;
+    try {
+      mockDayCutoffAt = resolveMockDayCutoffAt(
+        dto.mockDate,
+        mockDayTimers.dayCutoffTime,
+        timeZone,
+      );
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'Invalid mock day cutoff',
+      );
+    }
 
     const needsSpeaking = packageExamSkills(enrollment.package.skills).includes(
       ExamSkill.SPEAKING,

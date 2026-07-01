@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     break: 10,
     checkIn: 30,
     lateJoin: 15,
-    dayCutoffTime: '18:00',
+    dayCutoffTime: '23:59',
     speakingEarlyJoinMin: 5,
   },
   exam_integrity: {
@@ -153,6 +153,11 @@ export class SettingsService {
       lateJoinMin: Number(timers.lateJoin ?? 15),
       checkInOpensMin: Number(timers.checkIn ?? 30),
     };
+  }
+
+  async getPlatformTimezone(): Promise<string> {
+    const general = (await this.getSection('general')) as { timezone?: string };
+    return general.timezone ?? 'Asia/Tashkent';
   }
 
   async getCommissionRates() {
