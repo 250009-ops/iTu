@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AdminModule } from '../admin/admin.module';
 import { TeachersModule } from '../teachers/teachers.module';
 import { RealtimeController } from './realtime.controller';
 import { RealtimeService } from './realtime.service';
 
 @Module({
-  imports: [AdminModule, TeachersModule],
+  imports: [forwardRef(() => AdminModule), TeachersModule],
   controllers: [RealtimeController],
   providers: [RealtimeService],
   exports: [RealtimeService],

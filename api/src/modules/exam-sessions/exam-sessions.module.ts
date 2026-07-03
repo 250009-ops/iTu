@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { ResultsModule } from '../results/results.module';
@@ -9,7 +9,12 @@ import { ExamSessionsService } from './exam-sessions.service';
 import { ExamTimerService } from './exam-timer.service';
 
 @Module({
-  imports: [SettingsModule, NotificationsModule, ResultsModule, RealtimeModule],
+  imports: [
+    SettingsModule,
+    NotificationsModule,
+    ResultsModule,
+    forwardRef(() => RealtimeModule),
+  ],
   controllers: [ExamSessionsController],
   providers: [ExamSessionsService, AutoScoringService, ExamTimerService],
   exports: [ExamSessionsService],

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BookingsModule } from '../bookings/bookings.module';
 import { ExamSessionsModule } from '../exam-sessions/exam-sessions.module';
 import { GradingModule } from '../grading/grading.module';
@@ -11,7 +11,7 @@ import { AdminService } from './admin.service';
 @Module({
   imports: [
     NotificationsModule,
-    ExamSessionsModule,
+    forwardRef(() => ExamSessionsModule),
     ResultsModule,
     GradingModule,
     SettingsModule,
