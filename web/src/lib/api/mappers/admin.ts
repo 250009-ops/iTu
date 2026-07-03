@@ -192,6 +192,7 @@ export function mapAdminStats(data: Dashboard) {
 }
 
 export function mapLiveSessions(sessions: LiveSessions): LiveSessionRow[] {
+  const syncedAt = Date.now();
   return sessions.map((s, i) => {
     const integrityLower = s.integrity.toLowerCase();
     const flagged = integrityLower !== "clear" && integrityLower !== "ok";
@@ -206,6 +207,8 @@ export function mapLiveSessions(sessions: LiveSessions): LiveSessionRow[] {
       skillType: parseSkillType(s.skill),
       progress: s.progress,
       timeLeft: s.timeLeft ?? "—",
+      remainingSec: s.remainingSec,
+      syncedAt,
       examiner: s.examiner ?? "Auto-graded",
       integrity: flagged ? "flagged" : "clear",
       flags,

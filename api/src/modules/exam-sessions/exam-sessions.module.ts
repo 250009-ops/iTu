@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 import { ResultsModule } from '../results/results.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AutoScoringService } from './auto-scoring.service';
@@ -8,7 +9,7 @@ import { ExamSessionsService } from './exam-sessions.service';
 import { ExamTimerService } from './exam-timer.service';
 
 @Module({
-  imports: [SettingsModule, NotificationsModule, ResultsModule],
+  imports: [SettingsModule, NotificationsModule, ResultsModule, RealtimeModule],
   controllers: [ExamSessionsController],
   providers: [ExamSessionsService, AutoScoringService, ExamTimerService],
   exports: [ExamSessionsService],

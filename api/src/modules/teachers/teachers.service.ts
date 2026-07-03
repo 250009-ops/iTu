@@ -98,6 +98,21 @@ export class TeachersService {
     };
   }
 
+  async getNavBadgeCounts(user: RequestUser) {
+    const teacher = await this.requireTeacher(user);
+    const writing = await this.prisma.writingSubmission.count({
+      where: { teacherId: teacher.id, status: { in: ['PENDING', 'IN_REVIEW'] } },
+    });
+    const speaking = await this.prisma.speakingSession.count({
+      where: {
+        teacherId: teacher.id,
+        status: 'COMPLETED',
+        grade: null,
+      },
+    });
+    return { speaking, writing };
+  }
+
   async getSpeakingSessions(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
     const now = new Date();

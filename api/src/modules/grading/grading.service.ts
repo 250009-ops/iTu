@@ -15,6 +15,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ResultsReleaseService } from '../results/results-release.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class GradingService {
     private settings: SettingsService,
     private resultsRelease: ResultsReleaseService,
     private writingAi: WritingAiEvaluationService,
+    private realtime: RealtimeService,
   ) {}
 
   async getWritingQueue(user: RequestUser) {
@@ -362,6 +364,9 @@ export class GradingService {
     );
 
     await this.resultsRelease.tryRelease(enrollment.id, studentUserId);
+    if (user.teacherProfileId) {
+      this.realtime.notifyTeacherBadges(user.teacherProfileId);
+    }
     return { graded: true, overallBand: body.overallBand };
   }
 
@@ -503,6 +508,9 @@ export class GradingService {
     );
 
     await this.resultsRelease.tryRelease(enrollment.id, studentUserId);
+    if (user.teacherProfileId) {
+      this.realtime.notifyTeacherBadges(user.teacherProfileId);
+    }
     return { graded: true, overallBand: body.overallBand };
   }
 }

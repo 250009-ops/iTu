@@ -20,6 +20,7 @@ import { GradingModule } from './modules/grading/grading.module';
 import { MarketingModule } from './modules/marketing/marketing.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ResultsModule } from './modules/results/results.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { SearchModule } from './modules/search/search.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { SupportModule } from './modules/support/support.module';
@@ -76,6 +77,7 @@ import { StorageModule } from './common/storage/storage.module';
     SupportModule,
     SpeakingModule,
     SearchModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [

@@ -8,5 +8,6 @@ import { TeachersService } from './teachers.service';
   imports: [NotificationsModule, SettingsModule],
   controllers: [TeachersController],
   providers: [TeachersService],
+  exports: [TeachersService],
 })
 export class TeachersModule {}

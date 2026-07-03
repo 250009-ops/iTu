@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { LiveSkill } from "@/lib/admin/types";
 import { useAdminLiveMonitor } from "@/contexts/admin-live-monitor-context";
 import { SessionDetailDialog } from "@/components/admin/monitor/session-detail-dialog";
+import { LiveSessionTimeLeft } from "@/components/admin/monitor/live-session-time-left";
 import { SessionDeepLink } from "@/components/admin/monitor/session-deep-link";
 import { cn } from "@/lib/utils";
 
@@ -111,7 +112,11 @@ export function ActiveExamsTable() {
                         </div>
                       </td>
                       <td className="px-5 py-4 font-mono text-sm tabular-nums text-navy sm:px-6">
-                        {session.timeLeft}
+                        <LiveSessionTimeLeft
+                          remainingSec={session.remainingSec}
+                          syncedAt={session.syncedAt}
+                          fallback={session.timeLeft}
+                        />
                       </td>
                       <td className="px-5 py-4 text-muted sm:px-6">
                         {session.examiner}

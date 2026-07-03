@@ -46,7 +46,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
 
   const state = useExamState(content?.passages[0]?.id ?? "passage-1");
   const { remaining, expired } = useServerTimer(sessionId, { enabled: started });
-  useExamAutosave(sessionId, state.answers);
+  const { flushNow } = useExamAutosave(sessionId, state.answers);
   const { warning, dismissWarning } = useExamIntegrity(sessionId);
   const { markLocalSubmit, remoteNotice } = useExamSectionSync(sessionId, "reading", {
     enabled: started,
@@ -149,6 +149,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
     setSubmitting(true);
     markLocalSubmit();
     try {
+      await flushNow();
       const updated = await submitSection(sessionId, "reading");
       router.push(
         examRouteAfterSection(

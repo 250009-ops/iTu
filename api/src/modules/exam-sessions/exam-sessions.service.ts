@@ -36,6 +36,7 @@ import {
 import { normalizeContentForType } from '../content/content-normalize';
 import { injectWritingTask1ImageUrl } from '../content/content.utils';
 import { ResultsReleaseService } from '../results/results-release.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { canStartMockOnDay } from '../../common/mock-day-policy';
 
 @Injectable()
@@ -48,6 +49,7 @@ export class ExamSessionsService {
     private examTimer: ExamTimerService,
     private resultsRelease: ResultsReleaseService,
     private audit: AuditService,
+    private realtime: RealtimeService,
   ) {}
 
   async getByCode(sessionCode: string, user: RequestUser) {
@@ -108,6 +110,9 @@ export class ExamSessionsService {
       entityId: session.id,
       metadata: { sessionCode },
     });
+
+    this.realtime.notifyExamState(sessionCode, updated.state.toLowerCase());
+    this.realtime.notifyAdminLiveMonitor('check-in');
 
     return this.toSessionResponse(updated);
   }
@@ -196,6 +201,9 @@ export class ExamSessionsService {
         entityId: session.id,
         metadata: { sessionCode, skill: skill.toLowerCase(), durationSec: duration },
       });
+
+      this.realtime.notifyExamState(sessionCode, updated.state.toLowerCase());
+      this.realtime.notifyAdminLiveMonitor('section-start');
 
       return this.toSessionResponse(updated);
     });
@@ -413,6 +421,18 @@ export class ExamSessionsService {
         },
       });
 
+      this.realtime.notifyExamSectionSubmitted(
+        sessionCode,
+        dto.skill.toLowerCase(),
+      );
+      this.realtime.notifyExamState(sessionCode, updated.state.toLowerCase());
+      if (session.enrollment.writingTeacherId && dto.skill === ExamSkill.WRITING) {
+        this.realtime.notifyTeacherBadges(session.enrollment.writingTeacherId);
+      }
+      if (session.enrollment.speakingTeacherId && dto.skill === ExamSkill.SPEAKING) {
+        this.realtime.notifyTeacherBadges(session.enrollment.speakingTeacherId);
+      }
+
       return this.toSessionResponse(updated);
     });
   }
@@ -607,6 +627,8 @@ export class ExamSessionsService {
       });
     }
 
+    this.realtime.notifyExamIntegrity(sessionCode, integrity.toLowerCase());
+
     return { logged: true, integrity: integrity.toLowerCase(), offenseCount };
   }
 
@@ -687,6 +709,8 @@ export class ExamSessionsService {
       entityId: session.id,
       metadata: { sessionCode, decision, note },
     });
+
+    this.realtime.notifyExamIntegrity(sessionCode, integrity.toLowerCase());
 
     return { integrity: integrity.toLowerCase(), reviewed: true };
   }

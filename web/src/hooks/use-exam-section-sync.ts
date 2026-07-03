@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ExamSkill } from "@/lib/exam/types";
 import { getExamSession } from "@/lib/api/exam";
 import { examRouteAfterSection } from "@/lib/exam/package-skills";
+import { useSseStream } from "@/hooks/use-sse-stream";
 
 type Options = {
   /** When true, skip polling (section not started yet). */
@@ -14,17 +15,55 @@ type Options = {
 
 /**
  * Detects when the active section was submitted remotely (e.g. admin force submit)
- * and redirects the student to the next part of their mock.
+ * via SSE, with slow polling as a fallback.
  */
 export function useExamSectionSync(
   sessionId: string,
   skill: ExamSkill,
-  { enabled = true, pollMs = 5000 }: Options = {},
+  { enabled = true, pollMs = 30_000 }: Options = {},
 ) {
   const router = useRouter();
   const localSubmitRef = useRef(false);
   const remoteHandledRef = useRef(false);
   const [remoteNotice, setRemoteNotice] = useState<string | null>(null);
+
+  const handleRemoteSubmit = async () => {
+    if (localSubmitRef.current || remoteHandledRef.current) return;
+
+    try {
+      const session = await getExamSession(sessionId);
+      const section = session.sections.find((s) => s.skill === skill);
+      if (!section?.submittedAt) return;
+
+      remoteHandledRef.current = true;
+      const nextRoute = examRouteAfterSection(
+        sessionId,
+        session.enrollment.package.skills,
+        skill,
+      );
+      setRemoteNotice(
+        "This section was ended by an administrator. Continuing with the next part of your mock…",
+      );
+      window.setTimeout(() => {
+        router.replace(nextRoute);
+      }, 1800);
+    } catch {
+      // keep listening / polling
+    }
+  };
+
+  useSseStream(enabled ? `/exam-sessions/${sessionId}/events/stream` : null, {
+    enabled,
+    onMessage: (payload) => {
+      const msg = payload as { type?: string; skill?: string };
+      if (
+        msg.type === "exam:section-submitted" &&
+        msg.skill?.toLowerCase() === skill
+      ) {
+        void handleRemoteSubmit();
+      }
+    },
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -32,28 +71,8 @@ export function useExamSectionSync(
     let active = true;
 
     async function sync() {
-      try {
-        const session = await getExamSession(sessionId);
-        if (!active || localSubmitRef.current || remoteHandledRef.current) return;
-
-        const section = session.sections.find((s) => s.skill === skill);
-        if (!section?.submittedAt) return;
-
-        remoteHandledRef.current = true;
-        const nextRoute = examRouteAfterSection(
-          sessionId,
-          session.enrollment.package.skills,
-          skill,
-        );
-        setRemoteNotice(
-          "This section was ended by an administrator. Continuing with the next part of your mock…",
-        );
-        window.setTimeout(() => {
-          if (active) router.replace(nextRoute);
-        }, 1800);
-      } catch {
-        // keep polling
-      }
+      if (!active) return;
+      await handleRemoteSubmit();
     }
 
     void sync();
@@ -63,7 +82,7 @@ export function useExamSectionSync(
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [sessionId, skill, enabled, pollMs, router]);
+  }, [sessionId, skill, enabled, pollMs]);
 
   return {
     markLocalSubmit: () => {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useAdminDashboard } from "@/contexts/admin-dashboard-context";
+import { LiveSessionTimeLeft } from "@/components/admin/monitor/live-session-time-left";
 import type { LiveSkill } from "@/lib/admin/types";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +108,11 @@ export function LiveSessionsTable() {
                       href={`/admin/sessions?session=${encodeURIComponent(session.sessionCode)}`}
                       className="block hover:text-sky-600"
                     >
-                      {session.timeLeft}
+                      <LiveSessionTimeLeft
+                        remainingSec={session.remainingSec}
+                        syncedAt={session.syncedAt}
+                        fallback={session.timeLeft}
+                      />
                     </Link>
                   </td>
                   <td className="px-5 py-4 text-muted sm:px-6">

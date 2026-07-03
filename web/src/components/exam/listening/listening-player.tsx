@@ -48,7 +48,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const { remaining, expired } = useServerTimer(sessionId, {
     enabled: sectionStarted,
   });
-  useExamAutosave(sessionId, state.answers);
+  const { flushNow } = useExamAutosave(sessionId, state.answers);
   const { warning, dismissWarning } = useExamIntegrity(sessionId);
   const { markLocalSubmit, remoteNotice } = useExamSectionSync(sessionId, "listening", {
     enabled: sectionStarted,
@@ -151,6 +151,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
     setSubmitting(true);
     markLocalSubmit();
     try {
+      await flushNow();
       const updated = await submitSection(sessionId, "listening");
       router.push(
         examRouteAfterSection(

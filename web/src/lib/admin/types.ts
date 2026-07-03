@@ -169,6 +169,8 @@ export type LiveSessionRow = {
   skillType: LiveSkill;
   progress: number;
   timeLeft: string;
+  remainingSec?: number;
+  syncedAt?: number;
   examiner: string;
   integrity: "clear" | "flagged";
   flags: number;
