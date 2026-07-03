@@ -1,6 +1,7 @@
 import {
   ContentTestStatus,
   ExamSkill,
+  ExamType,
   Prisma,
   PrismaClient,
 } from '@prisma/client';
@@ -174,6 +175,32 @@ export async function evaluatePackageAvailability(
   }
 
   return { canPurchase, perSkill, blockingReason };
+}
+
+/** Lowest mockNumber active package this student may still book for a kind. */
+export async function resolveNextPackageForStudent(
+  tx: Tx,
+  studentId: string,
+  filters: { packageKind: string; examType?: ExamType },
+) {
+  const candidates = await tx.mockTestPackage.findMany({
+    where: {
+      isActive: true,
+      packageKind: filters.packageKind,
+      ...(filters.examType ? { examType: filters.examType } : {}),
+    },
+    orderBy: { mockNumber: 'asc' },
+  });
+
+  for (const pkg of candidates) {
+    const { canPurchase } = await evaluatePackageAvailability(
+      tx,
+      studentId,
+      pkg,
+    );
+    if (canPurchase) return pkg;
+  }
+  return null;
 }
 
 /** Active packages this student may book (purchase or complimentary grant). */

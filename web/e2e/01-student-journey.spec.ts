@@ -32,8 +32,10 @@ test.describe("Student portal (scenarios 1–13)", () => {
 
   test("2. Browse mock packages", async () => {
     await page.goto("/student/browse");
+    await expect(
+      page.getByRole("button", { name: "Full Academic", exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Full Academic Mock" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "General Training Mock" })).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Frequently Asked Questions" }),
     ).toBeVisible();

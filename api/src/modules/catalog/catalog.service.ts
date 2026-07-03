@@ -1,6 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { ExamType } from '@prisma/client';
+import {
+  offerMetaForGroup,
+  sortOfferGroups,
+  type OfferGroup,
+} from '../../common/catalog-offers';
 import { PrismaService } from '../../prisma/prisma.service';
-import { filterPackagesAvailableToStudent } from '../content/content-assignment';
+import {
+  filterPackagesAvailableToStudent,
+  resolveNextPackageForStudent,
+} from '../content/content-assignment';
 
 @Injectable()
 export class CatalogService {
@@ -29,6 +38,49 @@ export class CatalogService {
     );
 
     return available.map((pkg) => this.toCatalogPackage(pkg));
+  }
+
+  /**
+   * One purchasable offer per mock type. Each offer resolves the lowest
+   * mockNumber the student has not already enrolled in or completed.
+   */
+  async listOffersForStudent(studentProfileId: string) {
+    const activePackages = await this.prisma.mockTestPackage.findMany({
+      where: { isActive: true },
+      select: { packageKind: true, examType: true },
+    });
+
+    const groupKey = (kind: string, examType: ExamType) =>
+      `${kind}:${examType}`;
+    const seen = new Map<string, OfferGroup>();
+    for (const pkg of activePackages) {
+      const key = groupKey(pkg.packageKind, pkg.examType);
+      if (!seen.has(key)) {
+        seen.set(key, {
+          packageKind: pkg.packageKind,
+          examType: pkg.examType,
+        });
+      }
+    }
+
+    const offers = [];
+    for (const group of sortOfferGroups([...seen.values()])) {
+      const resolved = await resolveNextPackageForStudent(
+        this.prisma,
+        studentProfileId,
+        {
+          packageKind: group.packageKind,
+          examType: group.examType,
+        },
+      );
+      const meta = offerMetaForGroup(group);
+      offers.push({
+        ...meta,
+        package: resolved ? this.toCatalogPackage(resolved) : null,
+      });
+    }
+
+    return offers;
   }
 
   async getPackage(slug: string) {

@@ -52,6 +52,11 @@ export class StudentsService {
     return this.catalog.listPackagesForStudent(user.studentProfileId!);
   }
 
+  async listCatalogOffers(user: RequestUser) {
+    this.requireStudent(user);
+    return this.catalog.listOffersForStudent(user.studentProfileId!);
+  }
+
   async getDashboard(user: RequestUser) {
     this.requireStudent(user);
 

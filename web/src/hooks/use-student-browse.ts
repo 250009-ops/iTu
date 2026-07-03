@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listStudentCatalogPackages } from "@/lib/api/students";import { getErrorMessage } from "@/lib/api/errors";
-import { mapBrowseProduct, type BrowseProduct } from "@/lib/api/mappers/student";
+import { listStudentCatalogOffers } from "@/lib/api/students";
+import { getErrorMessage } from "@/lib/api/errors";
+import { mapBrowseOffer, type BrowseOffer } from "@/lib/api/mappers/student";
 
 export function useStudentBrowse() {
-  const [products, setProducts] = useState<BrowseProduct[]>([]);
+  const [offers, setOffers] = useState<BrowseOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,8 +14,8 @@ export function useStudentBrowse() {
     setLoading(true);
     setError(null);
     try {
-      const packages = await listStudentCatalogPackages();
-      setProducts(packages.map(mapBrowseProduct));
+      const catalogOffers = await listStudentCatalogOffers();
+      setOffers(catalogOffers.map(mapBrowseOffer));
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load packages"));
     } finally {
@@ -26,5 +27,5 @@ export function useStudentBrowse() {
     void refresh();
   }, [refresh]);
 
-  return { products, loading, error, refresh };
+  return { offers, loading, error, refresh };
 }

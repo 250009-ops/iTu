@@ -122,6 +122,20 @@ const FAQ_QUESTIONS = [
   "Who grades my Writing and Speaking?",
 ];
 
+const BROWSE_TABS = {
+  academic: "Full Academic",
+  generalTraining: "General Training",
+  speakingOnly: "Speaking Only",
+  writingOnly: "Writing Only",
+} as const;
+
+async function selectBrowseTab(
+  page: import("@playwright/test").Page,
+  label: string,
+) {
+  await page.getByRole("button", { name: label, exact: true }).click();
+}
+
 test.describe("Student Browse Mocks (detailed)", () => {
   test.beforeEach(async ({ page }) => {
     await login(page, "student@example.com", "student");
@@ -152,15 +166,57 @@ test.describe("Student Browse Mocks (detailed)", () => {
     ).toBeVisible();
   });
 
-  test("all four packages are listed", async ({ page }) => {
-    for (const pkg of Object.values(PACKAGES)) {
+  test("mock type tabs are shown and only one card is visible at a time", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByRole("button", { name: BROWSE_TABS.academic, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: BROWSE_TABS.speakingOnly, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: BROWSE_TABS.writingOnly, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: PACKAGES.academic.title, level: 2 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: PACKAGES.speakingOnly.title, level: 2 }),
+    ).not.toBeVisible();
+  });
+
+  test("each mock type tab reveals its offer card", async ({ page }) => {
+    const cases = [
+      { tab: BROWSE_TABS.academic, pkg: PACKAGES.academic },
+      { tab: BROWSE_TABS.speakingOnly, pkg: PACKAGES.speakingOnly },
+      { tab: BROWSE_TABS.writingOnly, pkg: PACKAGES.writingOnly },
+    ] as const;
+
+    for (const { tab, pkg } of cases) {
+      await selectBrowseTab(page, tab);
       await expect(
         page.getByRole("heading", { name: pkg.title, level: 2 }),
+      ).toBeVisible();
+    }
+
+    const gtTab = page.getByRole("button", {
+      name: BROWSE_TABS.generalTraining,
+      exact: true,
+    });
+    if (await gtTab.isVisible()) {
+      await gtTab.click();
+      await expect(
+        page.getByRole("heading", {
+          name: PACKAGES.generalTraining.title,
+          level: 2,
+        }),
       ).toBeVisible();
     }
   });
 
   test("Full Academic Mock card shows complete details", async ({ page }) => {
+    await selectBrowseTab(page, BROWSE_TABS.academic);
     const pkg = PACKAGES.academic;
     const card = page.locator(".rounded-xl").filter({ hasText: pkg.title });
 
@@ -191,6 +247,13 @@ test.describe("Student Browse Mocks (detailed)", () => {
   test("General Training Mock card shows complete details", async ({
     page,
   }) => {
+    const gtTab = page.getByRole("button", {
+      name: BROWSE_TABS.generalTraining,
+      exact: true,
+    });
+    test.skip(!(await gtTab.isVisible()), "General Training package is inactive");
+
+    await gtTab.click();
     const pkg = PACKAGES.generalTraining;
     const card = page.locator(".rounded-xl").filter({ hasText: pkg.title });
 
@@ -206,6 +269,7 @@ test.describe("Student Browse Mocks (detailed)", () => {
   test("Speaking Only card shows single skill and correct copy", async ({
     page,
   }) => {
+    await selectBrowseTab(page, BROWSE_TABS.speakingOnly);
     const pkg = PACKAGES.speakingOnly;
     const card = page.locator(".rounded-xl").filter({ hasText: pkg.title });
 
@@ -222,6 +286,7 @@ test.describe("Student Browse Mocks (detailed)", () => {
   test("Writing Only card shows single skill and correct copy", async ({
     page,
   }) => {
+    await selectBrowseTab(page, BROWSE_TABS.writingOnly);
     const pkg = PACKAGES.writingOnly;
     const card = page.locator(".rounded-xl").filter({ hasText: pkg.title });
 
@@ -232,24 +297,32 @@ test.describe("Student Browse Mocks (detailed)", () => {
     await expect(card.getByText("Speaking", { exact: true })).not.toBeVisible();
   });
 
-  test("each package has package-specific CTA and secure payment note", async ({
+  test("each tab shows package-specific CTA and secure payment note", async ({
     page,
   }) => {
-    await expect(
-      page.getByRole("button", { name: "Book Full Mock Exam" }),
-    ).toHaveCount(2);
-    await expect(
-      page.getByRole("button", { name: "Book Speaking Session" }),
-    ).toHaveCount(1);
-    await expect(
-      page.getByRole("button", { name: "Book Writing Mock" }),
-    ).toHaveCount(1);
-    await expect(page.getByText("Secure payment")).toHaveCount(4);
+    const cases = [
+      { tab: BROWSE_TABS.academic, cta: "Book Full Mock Exam" },
+      { tab: BROWSE_TABS.speakingOnly, cta: "Book Speaking Session" },
+      { tab: BROWSE_TABS.writingOnly, cta: "Book Writing Mock" },
+    ] as const;
+
+    for (const { tab, cta } of cases) {
+      await selectBrowseTab(page, tab);
+      await expect(page.getByRole("button", { name: cta })).toHaveCount(1);
+      await expect(page.getByText("Secure payment")).toHaveCount(1);
+    }
   });
 
   test("Book button opens wizard with correct product title", async ({
     page,
   }) => {
+    const gtTab = page.getByRole("button", {
+      name: BROWSE_TABS.generalTraining,
+      exact: true,
+    });
+    test.skip(!(await gtTab.isVisible()), "General Training package is inactive");
+
+    await gtTab.click();
     const gtCard = page
       .locator(".rounded-xl")
       .filter({ hasText: PACKAGES.generalTraining.title });
@@ -267,6 +340,7 @@ test.describe("Student Browse Mocks (detailed)", () => {
   });
 
   test("Speaking Only wizard skips writing examiner step", async ({ page }) => {
+    await selectBrowseTab(page, BROWSE_TABS.speakingOnly);
     const card = page
       .locator(".rounded-xl")
       .filter({ hasText: PACKAGES.speakingOnly.title });

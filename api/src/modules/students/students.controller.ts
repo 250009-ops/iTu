@@ -27,6 +27,11 @@ export class StudentsController {
     return this.students.listCatalogPackages(user);
   }
 
+  @Get('catalog/offers')
+  listCatalogOffers(@CurrentUser() user: RequestUser) {
+    return this.students.listCatalogOffers(user);
+  }
+
   @Get('mock-day')
   getMockDay(@CurrentUser() user: RequestUser) {
     return this.students.getMockDayHub(user);

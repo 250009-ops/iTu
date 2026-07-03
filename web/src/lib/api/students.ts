@@ -228,3 +228,17 @@ export type StudentCatalogPackage = {
 export function listStudentCatalogPackages() {
   return apiFetch<StudentCatalogPackage[]>("/students/catalog/packages");
 }
+
+export type StudentCatalogOffer = {
+  tabId: string;
+  label: string;
+  packageKind: string;
+  examType: string;
+  displayTitle: string;
+  package: StudentCatalogPackage | null;
+};
+
+/** One offer per mock type with the next unpurchased package auto-resolved. */
+export function listStudentCatalogOffers() {
+  return apiFetch<StudentCatalogOffer[]>("/students/catalog/offers");
+}

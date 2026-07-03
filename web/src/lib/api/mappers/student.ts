@@ -290,6 +290,27 @@ export function mapBrowseProduct(pkg: CatalogPackage) {
 
 export type BrowseProduct = ReturnType<typeof mapBrowseProduct>;
 
+export type BrowseOffer = {
+  tabId: string;
+  label: string;
+  product: BrowseProduct | null;
+};
+
+export function mapBrowseOffer(offer: {
+  tabId: string;
+  label: string;
+  displayTitle: string;
+  package: CatalogPackage | null;
+}): BrowseOffer {
+  return {
+    tabId: offer.tabId,
+    label: offer.label,
+    product: offer.package
+      ? mapBrowseProduct({ ...offer.package, title: offer.displayTitle })
+      : null,
+  };
+}
+
 export function mapMockDayHub(data: MockDayApi) {
   if ("missed" in data && data.missed) {
     const missed = data.missed;
