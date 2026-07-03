@@ -2,55 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Award, Save } from "lucide-react";
+import { BandScoreStepper } from "@/components/teacher/grading/band-score-stepper";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
 import {
-  bandOptions,
   computeOverall,
+  speakingGradeIsDirty,
+  speakingCriteria,
   toSpeakingCriteriaPayload,
   type ScoringCriterion,
 } from "@/lib/speaking/scoring";
 import { scoreSpeaking } from "@/lib/api/grading";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
-
-function ScoreRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (score: number) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-navy">{label}</p>
-        <span className="text-lg font-bold text-sky-600">{value}</span>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {bandOptions.map((score) => (
-          <button
-            key={score}
-            type="button"
-            onClick={() => onChange(score)}
-            className={cn(
-              "flex h-8 min-w-[2rem] items-center justify-center rounded-full px-1.5 text-xs font-semibold transition-colors",
-              value === score
-                ? "bg-navy text-white"
-                : "bg-slate-100 text-muted hover:bg-slate-200",
-            )}
-          >
-            {score}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function LiveScoringPanel() {
   const { session, sessionId, refreshSession, refreshHub } = useTeacherSpeaking();
@@ -76,6 +41,14 @@ export function LiveScoringPanel() {
 
   const overall = useMemo(() => computeOverall(scores), [scores]);
   const alreadyGraded = session?.graded ?? false;
+  const gradeDirty = useMemo(() => {
+    if (!session) return false;
+    return speakingGradeIsDirty(scores, notes, {
+      scores: session.defaultScores,
+      notes: session.teacherNotes ?? "",
+    });
+  }, [session, scores, notes]);
+  const canSubmit = !alreadyGraded || gradeDirty;
 
   if (!session) return null;
 
@@ -117,14 +90,25 @@ export function LiveScoringPanel() {
         <h2 className="font-semibold text-navy">Live Scoring</h2>
       </div>
 
-      <div className="mt-4 space-y-5">
-        {session.criteria.map((criterion) => (
-          <ScoreRow
+      <div className="mt-4 space-y-2">
+        {speakingCriteria.map((criterion) => (
+          <div
             key={criterion.id}
-            label={criterion.label}
-            value={scores[criterion.id]}
-            onChange={(v) => setScore(criterion.id, v)}
-          />
+            className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-slate-50/60 px-3 py-2"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-navy">
+                {criterion.label}
+              </p>
+              <p className="text-[11px] font-bold tabular-nums text-sky-600">
+                {scores[criterion.id]}
+              </p>
+            </div>
+            <BandScoreStepper
+              value={scores[criterion.id]}
+              onChange={(v) => setScore(criterion.id, v)}
+            />
+          </div>
         ))}
       </div>
 
@@ -146,6 +130,7 @@ export function LiveScoringPanel() {
         size="default"
         className="mt-4 w-full"
         loading={submitting}
+        disabled={!canSubmit}
         onClick={() => setConfirmOpen(true)}
       >
         <Save className="h-4 w-4" />

@@ -76,3 +76,14 @@ export function fromSpeakingCriteriaPayload(
   }
   return mapped;
 }
+
+export function speakingGradeIsDirty(
+  scores: Record<ScoringCriterion, number>,
+  notes: string,
+  saved: { scores: Record<ScoringCriterion, number>; notes: string },
+): boolean {
+  if (notes.trim() !== saved.notes.trim()) return true;
+  return (Object.keys(saved.scores) as ScoringCriterion[]).some(
+    (key) => scores[key] !== saved.scores[key],
+  );
+}

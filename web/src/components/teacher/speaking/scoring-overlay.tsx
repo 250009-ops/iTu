@@ -9,6 +9,7 @@ import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
 import {
   bandOptions,
   computeOverall,
+  speakingGradeIsDirty,
   toSpeakingCriteriaPayload,
   type ScoringCriterion,
 } from "@/lib/speaking/scoring";
@@ -80,6 +81,14 @@ export function ScoringSidebar() {
 
   const overall = useMemo(() => computeOverall(scores), [scores]);
   const alreadyGraded = session?.graded ?? false;
+  const gradeDirty = useMemo(() => {
+    if (!session) return false;
+    return speakingGradeIsDirty(scores, notes, {
+      scores: session.defaultScores,
+      notes: session.teacherNotes ?? "",
+    });
+  }, [session, scores, notes]);
+  const canSubmit = !alreadyGraded || gradeDirty;
 
   if (!session) return null;
 
@@ -170,6 +179,7 @@ export function ScoringSidebar() {
             size="default"
             className="h-11 w-full"
             loading={submitting}
+            disabled={!canSubmit}
             onClick={() => setConfirmOpen(true)}
           >
             <Save className="h-4 w-4" />

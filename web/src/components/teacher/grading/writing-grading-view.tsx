@@ -28,6 +28,7 @@ import {
   isScoresUnset,
   taskHasResponse,
   toCriteriaPayload,
+  writingGradeIsDirty,
   type TaskFeedback,
   type TaskScores,
   type WritingAnnotation,
@@ -161,6 +162,24 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
   );
   const alreadyGraded = submission?.status === "graded";
 
+  const savedGrade = useMemo(() => {
+    const parsed = fromCriteriaPayload(submission?.grade?.criteriaScores);
+    return (
+      parsed ?? {
+        task1: defaultTaskScores(),
+        task2: defaultTaskScores(),
+        feedback: { task1: "", task2: "" },
+      }
+    );
+  }, [submission?.grade?.criteriaScores]);
+
+  const gradeDirty = useMemo(
+    () =>
+      writingGradeIsDirty(task1Scores, task2Scores, feedback, savedGrade),
+    [task1Scores, task2Scores, feedback, savedGrade],
+  );
+  const canSubmitGrade = !alreadyGraded || gradeDirty;
+
   useEffect(() => {
     if (!submission || alreadyGraded || aiStatus !== "ready") return;
 
@@ -281,56 +300,55 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
       emptyMessage="Submission not found."
     >
       {submission && (
-        <div className="flex min-h-full flex-col">
-          <div className="space-y-5 p-4 pb-6 lg:p-6 lg:pb-6 xl:p-8 xl:pb-6">
-            <div className="mx-auto max-w-7xl space-y-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <Link
-                    href="/teacher/grading"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-navy"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to queue
-                  </Link>
-                  <h1 className="mt-2 text-2xl font-bold tracking-tight text-navy">
-                    Grade Writing · {submission.studentName}
-                  </h1>
-                  <p className="mt-1 text-sm text-muted">
-                    {formatSubmittedAt(submission.submittedAt)} · T1 ·{" "}
-                    {formatWordCount(submission.task1WordCount)} · T2 ·{" "}
-                    {formatWordCount(submission.task2WordCount)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {alreadyGraded && (
-                    <span className="inline-flex h-fit items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
-                      Already graded
-                    </span>
-                  )}
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold",
-                      sla.tone === "overdue" && "bg-red-50 text-red-600",
-                      sla.tone === "warn" && "bg-amber-50 text-amber-700",
-                      sla.tone === "ok" && "bg-slate-100 text-muted",
-                    )}
-                  >
-                    <Clock className="h-3 w-3" />
-                    {sla.label}
-                  </span>
-                </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="shrink-0 border-b border-border bg-slate-50 px-4 py-4 lg:px-6 xl:px-8">
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <Link
+                  href="/teacher/grading"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-navy"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to queue
+                </Link>
+                <h1 className="mt-2 text-xl font-bold tracking-tight text-navy sm:text-2xl">
+                  Grade Writing · {submission.studentName}
+                </h1>
+                <p className="mt-1 text-sm text-muted">
+                  {formatSubmittedAt(submission.submittedAt)} · T1 ·{" "}
+                  {formatWordCount(submission.task1WordCount)} · T2 ·{" "}
+                  {formatWordCount(submission.task2WordCount)}
+                </p>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {alreadyGraded && (
+                  <span className="inline-flex h-fit items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
+                    Already graded
+                  </span>
+                )}
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold",
+                    sla.tone === "overdue" && "bg-red-50 text-red-600",
+                    sla.tone === "warn" && "bg-amber-50 text-amber-700",
+                    sla.tone === "ok" && "bg-slate-100 text-muted",
+                  )}
+                >
+                  <Clock className="h-3 w-3" />
+                  {sla.label}
+                </span>
+              </div>
+            </div>
 
-              <div className="flex gap-1 border-b border-border">
-                {(
-                  [
-                    ["task1", "Task 1", submission.task1WordCount],
-                    ["task2", "Task 2", submission.task2WordCount],
-                  ] as const
-                ).map(([key, label, words]) => {
-                  const underMin = !getWordCountStatus(key, words ?? 0).meetsMinimum;
-                  return (
+            <div className="mx-auto mt-4 flex max-w-7xl gap-1 border-b border-border">
+              {(
+                [
+                  ["task1", "Task 1", submission.task1WordCount],
+                  ["task2", "Task 2", submission.task2WordCount],
+                ] as const
+              ).map(([key, label, words]) => {
+                const underMin = !getWordCountStatus(key, words ?? 0).meetsMinimum;
+                return (
                   <button
                     key={key}
                     type="button"
@@ -354,58 +372,62 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                       · {formatWordCount(words)}
                     </span>
                   </button>
-                  );
-                })}
-              </div>
+                );
+              })}
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-                <div className="space-y-4">
-                  <PromptCard
-                    task={activeTask}
-                    prompt={activePrompt ?? null}
-                    visualCaption={activeVisual ?? null}
-                  />
-
-                  {aiProcessing && (
-                    <div className="flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-4 py-2.5 text-sm text-violet-800">
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                      AI analysis running — highlights will appear shortly. You
-                      can grade manually in the meantime.
-                    </div>
-                  )}
-
-                  <AnnotatedEssay
-                    text={activeText ?? null}
-                    annotations={aiProcessing ? [] : activeAnnotations}
-                    wordCount={activeWordCount}
-                    task={activeTask}
-                  />
-
-                  {submission.aiConfigured &&
-                    submission.aiEvaluation?.status === "failed" && (
-                      <p className="text-sm text-amber-700">
-                        AI evaluation unavailable:{" "}
-                        {submission.aiEvaluation.errorMessage ??
-                          "Please grade manually."}
-                      </p>
-                    )}
-                </div>
-
-                <WritingScorePanel
+          <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 px-4 py-4 lg:px-6 xl:px-8">
+              <div className="mx-auto max-w-4xl space-y-4">
+                <PromptCard
                   task={activeTask}
-                  scores={activeScores}
-                  feedback={activeFeedback}
-                  aiSuggested={activeAiSuggested}
-                  aiVisible={aiReady && !aiDismissed[activeTask]}
-                  onScoreChange={setActiveScore}
-                  onFeedbackChange={setActiveFeedback}
-                  onApplyAi={applyAiSuggestions}
-                  onDismissAi={() =>
-                    setAiDismissed((prev) => ({ ...prev, [activeTask]: true }))
-                  }
+                  prompt={activePrompt ?? null}
+                  visualCaption={activeVisual ?? null}
                 />
+
+                {aiProcessing && (
+                  <div className="flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-4 py-2.5 text-sm text-violet-800">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    AI analysis running — highlights will appear shortly. You
+                    can grade manually in the meantime.
+                  </div>
+                )}
+
+                <AnnotatedEssay
+                  text={activeText ?? null}
+                  annotations={aiProcessing ? [] : activeAnnotations}
+                  wordCount={activeWordCount}
+                  task={activeTask}
+                />
+
+                {submission.aiConfigured &&
+                  submission.aiEvaluation?.status === "failed" && (
+                    <p className="text-sm text-amber-700">
+                      AI evaluation unavailable:{" "}
+                      {submission.aiEvaluation.errorMessage ??
+                        "Please grade manually."}
+                    </p>
+                  )}
               </div>
             </div>
+
+            <aside className="flex w-full shrink-0 flex-col xl:w-[min(100%,22rem)]">
+              <WritingScorePanel
+                task={activeTask}
+                scores={activeScores}
+                feedback={activeFeedback}
+                aiSuggested={activeAiSuggested}
+                aiVisible={aiReady && !aiDismissed[activeTask]}
+                onScoreChange={setActiveScore}
+                onFeedbackChange={setActiveFeedback}
+                onApplyAi={applyAiSuggestions}
+                onDismissAi={() =>
+                  setAiDismissed((prev) => ({ ...prev, [activeTask]: true }))
+                }
+                className="max-h-[38vh] xl:max-h-none xl:flex-1"
+              />
+            </aside>
           </div>
 
           <WritingGradingFooter
@@ -413,6 +435,7 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
             task2Band={task2Band}
             submitting={submitting}
             alreadyGraded={alreadyGraded}
+            submitDisabled={!canSubmitGrade}
             onSubmit={() => setConfirmOpen(true)}
           />
 

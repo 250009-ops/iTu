@@ -80,6 +80,23 @@ export function isScoresUnset(scores: TaskScores): boolean {
   return scores.ta === 0 && scores.cc === 0 && scores.lr === 0 && scores.gra === 0;
 }
 
+function taskScoresEqual(a: TaskScores, b: TaskScores): boolean {
+  return a.ta === b.ta && a.cc === b.cc && a.lr === b.lr && a.gra === b.gra;
+}
+
+export function writingGradeIsDirty(
+  task1Scores: TaskScores,
+  task2Scores: TaskScores,
+  feedback: TaskFeedback,
+  saved: { task1: TaskScores; task2: TaskScores; feedback: TaskFeedback },
+): boolean {
+  if (feedback.task1.trim() !== saved.feedback.task1.trim()) return true;
+  if (feedback.task2.trim() !== saved.feedback.task2.trim()) return true;
+  if (!taskScoresEqual(task1Scores, saved.task1)) return true;
+  if (!taskScoresEqual(task2Scores, saved.task2)) return true;
+  return false;
+}
+
 export function getWordCountStatus(
   task: WritingTaskKey,
   wordCount: number,
