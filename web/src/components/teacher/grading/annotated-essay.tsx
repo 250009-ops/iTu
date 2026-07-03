@@ -177,7 +177,7 @@ export function AnnotatedEssay({
 
       <div className="min-h-[8rem] px-5 py-4">
         {hasText ? (
-          <div className="whitespace-pre-wrap font-serif text-[15px] leading-8 text-foreground">
+          <div className="whitespace-pre-wrap text-left font-serif text-[15px] leading-8 text-foreground">
             {segments.map((part, i) => {
               if (part.kind === "text") {
                 return <span key={i}>{part.value}</span>;
@@ -187,25 +187,38 @@ export function AnnotatedEssay({
               const tone = WRITING_CRITERION_META[part.ann.criterion].tone;
 
               return (
-                <span key={i} className="contents">
-                  <button
-                    type="button"
+                <span key={i}>
+                  <span
+                    role="button"
+                    tabIndex={0}
                     aria-expanded={isActive}
                     aria-label={`${WRITING_CRITERION_META[part.ann.criterion].short}: ${part.ann.title}`}
                     className={cn(
-                      "cursor-pointer rounded-sm border-0 bg-transparent p-0 font-inherit text-inherit transition-colors",
+                      "inline cursor-pointer rounded-sm text-left align-baseline leading-[inherit]",
                       CRITERION_TONE_CLASSES[tone].highlight,
-                      isActive && "ring-2 ring-navy/30",
+                      isActive && "ring-2 ring-navy/30 ring-offset-1",
                     )}
                     onClick={() =>
                       setActiveMarkId((prev) =>
                         prev === part.id ? null : part.id,
                       )
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setActiveMarkId((prev) =>
+                          prev === part.id ? null : part.id,
+                        );
+                      }
+                    }}
                   >
                     {part.value}
-                  </button>
-                  {isActive && <AnnotationPopover ann={part.ann} />}
+                  </span>
+                  {isActive && (
+                    <span className="mb-2 mt-1 block w-full text-left">
+                      <AnnotationPopover ann={part.ann} />
+                    </span>
+                  )}
                 </span>
               );
             })}

@@ -38,6 +38,7 @@ import {
   encodeSyncMessage,
   type SpeakingPhase,
   type SpeakingSyncMessage,
+  type SpeakingStudentIntegrityEvent,
 } from "@/lib/speaking/sync";
 import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 
@@ -54,11 +55,14 @@ type SpeakingRoomContextValue = {
   remoteParticipant: RemoteParticipant | undefined;
   isConnected: boolean;
   livekitConfigured: boolean;
+  examinerLeft: boolean;
+  studentIntegrityAlert: SpeakingStudentIntegrityEvent | null;
   setPhase: (phase: SpeakingPhase) => Promise<void>;
   endSession: () => Promise<void>;
   leaveRoom: () => Promise<void>;
   publishSync: (message: SpeakingSyncMessage) => Promise<void>;
   refreshState: () => Promise<void>;
+  clearStudentIntegrityAlert: () => void;
   error: string | null;
   loading: boolean;
 };
@@ -91,6 +95,8 @@ export function SpeakingRoomProvider({
     setState(next);
     if (next.activePhase) {
       setPhaseState(next.activePhase);
+    } else if (next.status === "completed") {
+      setPhaseState("complete");
     }
   }, [speakingSessionId]);
 
@@ -288,11 +294,14 @@ function OfflineSpeakingRoomProvider({
       remoteParticipant: undefined,
       isConnected: false,
       livekitConfigured: false,
+      examinerLeft: false,
+      studentIntegrityAlert: null,
       setPhase,
       endSession,
       leaveRoom,
       publishSync,
       refreshState: shell.refreshState,
+      clearStudentIntegrityAlert: () => undefined,
       error: shell.error,
       loading: shell.loading,
     }),
@@ -365,10 +374,26 @@ function SpeakingRoomInner({
     participants,
   ) as RemoteParticipant | undefined;
   const prepBellRef = useRef(false);
+  const [examinerLeft, setExaminerLeft] = useState(false);
+  const [studentIntegrityAlert, setStudentIntegrityAlert] =
+    useState<SpeakingStudentIntegrityEvent | null>(null);
 
   useEffect(() => {
     prepBellRef.current = false;
   }, [shell.phase]);
+
+  const prevRemoteSidRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const sid = remoteParticipant?.sid;
+    const prevSid = prevRemoteSidRef.current;
+    prevRemoteSidRef.current = sid;
+
+    if (shell.role !== "student" || !examinerLeft) return;
+    if (!prevSid && sid) {
+      setExaminerLeft(false);
+    }
+  }, [shell.role, examinerLeft, remoteParticipant?.sid]);
 
   useEffect(() => {
     const onData = (payload: Uint8Array) => {
@@ -380,6 +405,12 @@ function SpeakingRoomInner({
       if (message.type === "session-end") {
         setPhaseState("complete");
       }
+      if (message.type === "examiner-left" && shell.role === "student") {
+        setExaminerLeft(true);
+      }
+      if (message.type === "student-integrity" && shell.role === "examiner") {
+        setStudentIntegrityAlert(message.event);
+      }
       if (message.type === "prep-end" && !prepBellRef.current) {
         prepBellRef.current = true;
         playPrepEndBell();
@@ -390,7 +421,12 @@ function SpeakingRoomInner({
     return () => {
       room.off(RoomEvent.DataReceived, onData);
     };
-  }, [room, setPhaseState]);
+  }, [room, setPhaseState, shell.role]);
+
+  const clearStudentIntegrityAlert = useCallback(
+    () => setStudentIntegrityAlert(null),
+    [],
+  );
 
   useEffect(() => {
     if (shell.phase === "complete") return;
@@ -453,11 +489,14 @@ function SpeakingRoomInner({
       remoteParticipant,
       isConnected: connectionState === ConnectionState.Connected,
       livekitConfigured: true,
+      examinerLeft,
+      studentIntegrityAlert,
       setPhase,
       endSession,
       leaveRoom,
       publishSync,
       refreshState: shell.refreshState,
+      clearStudentIntegrityAlert,
       error: shell.error,
       loading: shell.loading,
     }),
@@ -466,10 +505,13 @@ function SpeakingRoomInner({
       connectionState,
       participants.length,
       remoteParticipant,
+      examinerLeft,
+      studentIntegrityAlert,
       setPhase,
       endSession,
       leaveRoom,
       publishSync,
+      clearStudentIntegrityAlert,
     ],
   );
 

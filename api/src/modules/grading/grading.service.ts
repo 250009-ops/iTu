@@ -489,6 +489,8 @@ export class GradingService {
         where: { id: sessionId },
         data: {
           status: 'COMPLETED',
+          activePhase: 'complete',
+          endedAt: session.endedAt ?? new Date(),
           teacherNotes: body.teacherNotes,
         },
       });

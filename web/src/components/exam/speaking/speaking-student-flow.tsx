@@ -20,6 +20,7 @@ import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { SpeakingRoomProvider } from "@/contexts/speaking-room-context";
 import { getStudentSpeakingState, type SpeakingState } from "@/lib/api/speaking";
 import { useDeviceCheck } from "@/hooks/use-device-check";
+import { requestExamFullscreen } from "@/hooks/use-exam-integrity";
 import { playExaminerReadyAlert } from "@/lib/speaking/prep-bell";
 import {
   formatJoinOpensAt,
@@ -141,7 +142,14 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
               onJoin={() => setStage("rules")}
             />
           ))}
-        {stage === "rules" && <RulesConsent onJoin={() => setStage("live")} />}
+        {stage === "rules" && (
+          <RulesConsent
+            onJoin={() => {
+              requestExamFullscreen();
+              setStage("live");
+            }}
+          />
+        )}
         {stage === "complete" && (
           <SessionComplete onReturn={() => router.push("/student/mock-day")} />
         )}

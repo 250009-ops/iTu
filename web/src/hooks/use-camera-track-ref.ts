@@ -41,6 +41,8 @@ export function useCameraTrackRef(
     participant.on(ParticipantEvent.TrackUnpublished, sync);
     participant.on(ParticipantEvent.LocalTrackPublished, sync);
     participant.on(ParticipantEvent.LocalTrackUnpublished, sync);
+    participant.on(ParticipantEvent.TrackMuted, sync);
+    participant.on(ParticipantEvent.TrackUnmuted, sync);
 
     return () => {
       participant.off(ParticipantEvent.TrackSubscribed, sync);
@@ -49,6 +51,8 @@ export function useCameraTrackRef(
       participant.off(ParticipantEvent.TrackUnpublished, sync);
       participant.off(ParticipantEvent.LocalTrackPublished, sync);
       participant.off(ParticipantEvent.LocalTrackUnpublished, sync);
+      participant.off(ParticipantEvent.TrackMuted, sync);
+      participant.off(ParticipantEvent.TrackUnmuted, sync);
     };
   }, [participant]);
 

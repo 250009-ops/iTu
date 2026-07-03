@@ -5,12 +5,17 @@ import { CheckCircle2, CircleDot, Loader2, Radio } from "lucide-react";
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import type { SpeakingContent } from "@/lib/exam/types";
 import { SpeakingCueCard } from "@/components/exam/speaking/speaking-cue-card";
+import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
 import { useCountdown, useStopwatch } from "@/lib/exam/use-countdown";
 import { formatClock } from "@/lib/exam/helpers";
 import { startSection, submitSection } from "@/lib/api/exam";
 import { useAuth, getInitials } from "@/hooks/use-auth";
+import { useSpeakingIntegrity } from "@/hooks/use-speaking-integrity";
 import { useSpeakingRoom } from "@/contexts/speaking-room-context";
-import { SpeakingVideoLayout } from "@/components/speaking/speaking-video-layout";
+import {
+  SpeakingControlBar,
+  SpeakingVideoLayout,
+} from "@/components/speaking/speaking-video-layout";
 import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 import { phaseToPart, type SpeakingPhase } from "@/lib/speaking/sync";
 import { cn } from "@/lib/utils";
@@ -27,10 +32,16 @@ export function SpeakingLiveSession({
   const { session: authSession } = useAuth();
   const studentInitials = getInitials(authSession?.name ?? "Student");
   const examinerInitials = getInitials(content.examiner);
-  const { phase, state, leaveRoom, publishSync } = useSpeakingRoom();
+  const { phase, state, leaveRoom, publishSync, examinerLeft } = useSpeakingRoom();
   const [started, setStarted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const elapsed = useStopwatch(true);
+  const integrityActive = phase !== "complete" && !submitting;
+  const { warning, dismissWarning } = useSpeakingIntegrity(
+    sessionId,
+    publishSync,
+    integrityActive,
+  );
 
   useEffect(() => {
     if (started) return;
@@ -40,7 +51,8 @@ export function SpeakingLiveSession({
   }, [sessionId, started]);
 
   useEffect(() => {
-    if (phase !== "complete" || submitting) return;
+    if (phase !== "complete" && state?.status !== "completed") return;
+    if (submitting) return;
     setSubmitting(true);
     void (async () => {
       try {
@@ -52,7 +64,7 @@ export function SpeakingLiveSession({
         onComplete();
       }
     })();
-  }, [phase, sessionId, onComplete, submitting, leaveRoom]);
+  }, [phase, state?.status, sessionId, onComplete, submitting, leaveRoom]);
 
   const activePart = phaseToPart(phase);
   const partMeta = content.parts[activePart - 1];
@@ -71,6 +83,8 @@ export function SpeakingLiveSession({
 
   return (
     <>
+      <ExamIntegrityWarning warning={warning} onDismiss={dismissWarning} />
+
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-700 bg-[#1b2a4a] px-4 text-white">
         <div className="flex items-center gap-3">
           <BrandMarkIcon size="md" />
@@ -87,7 +101,13 @@ export function SpeakingLiveSession({
       </header>
 
       <div className="flex shrink-0 items-center justify-center border-b border-slate-200 bg-white px-5 py-2.5">
-        <p className="text-[14px] font-semibold text-navy">{statusLabel}</p>
+        {examinerLeft ? (
+          <p className="text-[14px] font-semibold text-amber-700">
+            Your examiner temporarily left the session. Please stay on this page.
+          </p>
+        ) : (
+          <p className="text-[14px] font-semibold text-navy">{statusLabel}</p>
+        )}
       </div>
 
       <main className="relative min-h-0 flex-1 bg-slate-900 p-4">
@@ -107,12 +127,17 @@ export function SpeakingLiveSession({
             ) : undefined
           }
           overlay={
-            <div className="absolute left-4 top-4 z-20 w-52 rounded-xl border border-white/10 bg-slate-800/80 p-3 backdrop-blur">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Progress
-              </p>
-              <SessionProgress content={content} phase={phase} />
-            </div>
+            <>
+              <div className="absolute left-4 top-4 z-20 w-52 rounded-xl border border-white/10 bg-slate-800/80 p-3 backdrop-blur">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Progress
+                </p>
+                <SessionProgress content={content} phase={phase} />
+              </div>
+              <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
+                <SpeakingControlBar />
+              </div>
+            </>
           }
         />
       </main>

@@ -290,9 +290,9 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
     >
       {submission && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="shrink-0 border-b border-border bg-slate-50 px-4 py-4 lg:px-6 xl:px-8">
-            <div className="mx-auto flex max-w-7xl flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div>
+          <div className="shrink-0 border-b border-border bg-slate-50 px-4 py-5 lg:px-6 xl:px-8">
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
                 <Link
                   href="/teacher/grading"
                   className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-navy"
@@ -309,7 +309,7 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                   {formatWordCount(submission.task2WordCount)}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 lg:self-center">
                 {alreadyGraded && (
                   <span className="inline-flex h-fit items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
                     Already graded

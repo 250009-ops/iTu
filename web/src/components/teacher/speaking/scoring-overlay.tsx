@@ -16,6 +16,7 @@ import {
 import { scoreSpeaking } from "@/lib/api/grading";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
+import { useSpeakingRoom } from "@/contexts/speaking-room-context";
 import { cn } from "@/lib/utils";
 
 function ScoreRow({
@@ -71,6 +72,7 @@ export function ScoringSidebar() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const { endSession, leaveRoom } = useSpeakingRoom();
 
   useEffect(() => {
     if (session) {
@@ -111,9 +113,17 @@ export function ScoringSidebar() {
         description: `${session.studentName} · Speaking band ${overall.toFixed(1)}`,
         variant: "success",
       });
-      // Grading finalizes the session. Navigating off the live URL unmounts
-      // the LiveKit room provider, which disconnects the examiner's mic/camera
-      // and returns to the (now graded) session summary.
+      // End the live session for the student, then disconnect the examiner.
+      try {
+        await endSession();
+      } catch {
+        // Grade already marked complete on the server; still notify via sync below.
+      }
+      try {
+        await leaveRoom();
+      } catch {
+        // Navigation will unmount the room provider regardless.
+      }
       await refreshSession();
       await refreshHub();
       router.push(`/teacher/speaking?session=${sessionId}`);

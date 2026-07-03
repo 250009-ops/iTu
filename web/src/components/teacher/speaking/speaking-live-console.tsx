@@ -34,6 +34,7 @@ import { formatElapsed, type SpeakingPart } from "@/lib/speaking/scoring";
 import { phaseToPart, type SpeakingPhase } from "@/lib/speaking/sync";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
+import { EXAMINER_INTEGRITY_ALERTS } from "@/hooks/use-speaking-integrity";
 import { cn } from "@/lib/utils";
 
 export function SpeakingLiveConsole() {
@@ -57,6 +58,8 @@ export function SpeakingLiveConsole() {
     state,
     participantCount,
     livekitConfigured,
+    studentIntegrityAlert,
+    clearStudentIntegrityAlert,
   } = useSpeakingRoom();
 
   const parts = useMemo(
@@ -100,6 +103,15 @@ export function SpeakingLiveConsole() {
     timerRef.current = null;
   }, [sessionEnded]);
 
+  useEffect(() => {
+    if (!studentIntegrityAlert) return;
+    toast("Student integrity alert", {
+      description: EXAMINER_INTEGRITY_ALERTS[studentIntegrityAlert],
+      variant: "error",
+    });
+    clearStudentIntegrityAlert();
+  }, [studentIntegrityAlert, clearStudentIntegrityAlert, toast]);
+
   const prepSeconds =
     speakingContent?.cueCard?.prepSeconds ??
     emptySpeakingContent().cueCard.prepSeconds;
@@ -114,6 +126,9 @@ export function SpeakingLiveConsole() {
     if (exiting || ending) return;
     setExiting(true);
     try {
+      if (!sessionEnded) {
+        await publishSync({ type: "examiner-left" });
+      }
       await leaveRoom();
       router.push(prepUrl());
     } catch (err) {
@@ -319,7 +334,7 @@ export function SpeakingLiveConsole() {
                   </div>
                 }
               />
-              <div className="absolute bottom-4 left-4 z-20 hidden sm:block">
+              <div className="absolute bottom-4 left-4 z-20">
                 <SpeakingControlBar />
               </div>
             </div>

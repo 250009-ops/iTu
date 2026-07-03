@@ -8,11 +8,18 @@ export const SPEAKING_PHASES = [
 
 export type SpeakingPhase = (typeof SPEAKING_PHASES)[number];
 
+export type SpeakingStudentIntegrityEvent =
+  | "tab_switch"
+  | "fullscreen_exit"
+  | "page_leave";
+
 export type SpeakingSyncMessage =
   | { type: "phase"; phase: SpeakingPhase }
   | { type: "session-end" }
   | { type: "examiner-ready" }
-  | { type: "prep-end" };
+  | { type: "prep-end" }
+  | { type: "examiner-left" }
+  | { type: "student-integrity"; event: SpeakingStudentIntegrityEvent };
 
 export const SPEAKING_SYNC_TOPIC = "ielts-speaking";
 
@@ -26,7 +33,20 @@ export function decodeSyncMessage(payload: Uint8Array): SpeakingSyncMessage | nu
     if (parsed.type === "phase" && SPEAKING_PHASES.includes(parsed.phase)) {
       return parsed;
     }
-    if (parsed.type === "session-end" || parsed.type === "examiner-ready" || parsed.type === "prep-end") {
+    if (
+      parsed.type === "session-end" ||
+      parsed.type === "examiner-ready" ||
+      parsed.type === "prep-end" ||
+      parsed.type === "examiner-left"
+    ) {
+      return parsed;
+    }
+    if (
+      parsed.type === "student-integrity" &&
+      (parsed.event === "tab_switch" ||
+        parsed.event === "fullscreen_exit" ||
+        parsed.event === "page_leave")
+    ) {
       return parsed;
     }
     return null;
