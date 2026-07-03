@@ -645,12 +645,22 @@ export type ModulePart = {
   unit: "raw" | "band";
 };
 
+export type WritingTaskDetail = {
+  band: number | null;
+  feedback?: string;
+  parts: ModulePart[];
+};
+
 export type ModuleDetail = {
   summary: string;
   band: number | null;
   pending: boolean;
   parts: ModulePart[];
   focus: string;
+  writingTasks?: {
+    task1: WritingTaskDetail;
+    task2: WritingTaskDetail;
+  };
 };
 
 export type SkillResult = {
@@ -777,30 +787,99 @@ const WRITING_CRITERION_KEYS: Record<string, string> = {
   taskBand: "Task band",
 };
 
+const WRITING_TASK1_CRITERION_ORDER = [
+  "taskAchievement",
+  "coherenceCohesion",
+  "lexicalResource",
+  "grammar",
+] as const;
+
+const WRITING_TASK2_CRITERION_ORDER = [
+  "taskResponse",
+  "coherenceCohesion",
+  "lexicalResource",
+  "grammar",
+] as const;
+
+const SPEAKING_CRITERION_ORDER = [
+  "fluencyCoherence",
+  "lexicalResource",
+  "grammar",
+  "pronunciation",
+] as const;
+
+function buildWritingTaskParts(
+  taskKey: "task1" | "task2",
+  task: Record<string, unknown>,
+): ModulePart[] {
+  const order =
+    taskKey === "task1"
+      ? WRITING_TASK1_CRITERION_ORDER
+      : WRITING_TASK2_CRITERION_ORDER;
+  const parts: ModulePart[] = [];
+  for (const key of order) {
+    const value = coerceBand(task[key]);
+    if (value == null) continue;
+    const label = WRITING_CRITERION_KEYS[key] ?? prettyCriterionLabel(key);
+    parts.push(criterionPart(label, "Criterion", value));
+  }
+  return parts;
+}
+
+function buildWritingTasks(
+  criteriaScores: Record<string, unknown>,
+): ModuleDetail["writingTasks"] | null {
+  if (!fromCriteriaPayload(criteriaScores)) return null;
+
+  const task1Raw = criteriaScores.task1;
+  const task2Raw = criteriaScores.task2;
+  if (!task1Raw || typeof task1Raw !== "object" || !task2Raw || typeof task2Raw !== "object") {
+    return null;
+  }
+
+  const task1 = task1Raw as Record<string, unknown>;
+  const task2 = task2Raw as Record<string, unknown>;
+  const task1Parts = buildWritingTaskParts("task1", task1);
+  const task2Parts = buildWritingTaskParts("task2", task2);
+  if (task1Parts.length === 0 && task2Parts.length === 0) return null;
+
+  const task1Feedback =
+    typeof task1.feedback === "string" && task1.feedback.trim()
+      ? task1.feedback.trim()
+      : undefined;
+  const task2Feedback =
+    typeof task2.feedback === "string" && task2.feedback.trim()
+      ? task2.feedback.trim()
+      : undefined;
+
+  return {
+    task1: {
+      band: coerceBand(task1.taskBand),
+      feedback: task1Feedback,
+      parts: task1Parts,
+    },
+    task2: {
+      band: coerceBand(task2.taskBand),
+      feedback: task2Feedback,
+      parts: task2Parts,
+    },
+  };
+}
+
 function buildCriteriaParts(
   skill: SkillId,
   criteriaScores: Record<string, unknown>,
 ): ModulePart[] {
-  if (skill === "writing" && fromCriteriaPayload(criteriaScores)) {
+  if (skill === "writing") return [];
+
+  if (skill === "speaking") {
     const parts: ModulePart[] = [];
-    for (const [taskKey, taskLabel] of [
-      ["task1", "Task 1"],
-      ["task2", "Task 2"],
-    ] as const) {
-      const task = criteriaScores[taskKey];
-      if (!task || typeof task !== "object") continue;
-      for (const [key, raw] of Object.entries(task as Record<string, unknown>)) {
-        if (key === "feedback") continue;
-        const value = coerceBand(raw);
-        if (value == null) continue;
-        const label =
-          key === "taskBand"
-            ? `${taskLabel} overall`
-            : (WRITING_CRITERION_KEYS[key] ?? prettyCriterionLabel(key));
-        parts.push(criterionPart(label, taskLabel, value));
-      }
+    for (const key of SPEAKING_CRITERION_ORDER) {
+      const value = coerceBand(criteriaScores[key]);
+      if (value == null) continue;
+      parts.push(criterionPart(prettyCriterionLabel(key), "Criterion", value));
     }
-    return parts;
+    if (parts.length > 0) return parts;
   }
 
   return Object.entries(criteriaScores)
@@ -835,6 +914,26 @@ function buildModuleDetail(
     criteriaScores &&
     Object.keys(criteriaScores).length > 0;
   if (hasCriteria) {
+    if (skill === "writing") {
+      const writingTasks = buildWritingTasks(criteriaScores);
+      if (writingTasks) {
+        return {
+          summary:
+            feedback ??
+            (resolvedBand != null
+              ? `Band ${formatBandDisplay(resolvedBand)} for ${SKILL_META[skill].name}.`
+              : `${SKILL_META[skill].name} criteria scores recorded.`),
+          band: resolvedBand,
+          pending: resolvedBand == null,
+          parts: [],
+          writingTasks,
+          focus:
+            feedback ??
+            `Keep practising ${SKILL_META[skill].name.toLowerCase()} under timed conditions.`,
+        };
+      }
+    }
+
     const parts = buildCriteriaParts(skill, criteriaScores);
     if (parts.length > 0) {
       return {

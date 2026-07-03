@@ -73,14 +73,33 @@ if (!mapped) {
   process.exit(1);
 }
 
-const writingParts = mapped.moduleDetails.writing?.parts ?? [];
-if (writingParts.length < 4) {
-  console.error(`FAIL: expected writing criterion parts, got ${writingParts.length}`);
+const writingTasks = mapped.moduleDetails.writing?.writingTasks;
+if (!writingTasks) {
+  console.error("FAIL: expected writingTasks grouping");
   process.exit(1);
 }
 
-for (const part of writingParts) {
+if (writingTasks.task1.parts.length !== 4) {
+  console.error(`FAIL: expected 4 task1 criterion parts, got ${writingTasks.task1.parts.length}`);
+  process.exit(1);
+}
+
+if (writingTasks.task2.parts.length !== 4) {
+  console.error(`FAIL: expected 4 task2 criterion parts, got ${writingTasks.task2.parts.length}`);
+  process.exit(1);
+}
+
+if ((mapped.moduleDetails.writing?.parts ?? []).length !== 0) {
+  console.error("FAIL: writing flat parts should be empty when writingTasks is set");
+  process.exit(1);
+}
+
+for (const part of [...writingTasks.task1.parts, ...writingTasks.task2.parts]) {
   formatBandDisplay(part.value);
+  if (part.sublabel !== "Criterion") {
+    console.error(`FAIL: writing criterion sublabel should be "Criterion", got "${part.sublabel}"`);
+    process.exit(1);
+  }
 }
 
 const listeningParts = mapped.moduleDetails.listening?.parts ?? [];
@@ -116,5 +135,5 @@ formatBandDisplay(null);
 
 console.log("OK: mapStudentResults handles nested writing criteria");
 console.log(
-  `  overallBand=${mapped.overallBand} writing=${writingParts.length} listening=${listeningParts.length} speaking=${speakingParts.length}`,
+  `  overallBand=${mapped.overallBand} task1=${writingTasks.task1.parts.length} task2=${writingTasks.task2.parts.length} listening=${listeningParts.length} speaking=${speakingParts.length}`,
 );

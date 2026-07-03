@@ -2,17 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Download, FileText, Zap } from "lucide-react";
+import { ChevronDown, Download, Zap } from "lucide-react";
 import { ResultsShellHeader } from "@/components/student/results/results-shell-header";
 import { useToast } from "@/components/ui/toast";
 import { useStudentResultsData } from "@/contexts/student-results-context";
 import { getErrorMessage } from "@/lib/api/errors";
 import { formatBandDisplay } from "@/lib/api/mappers/student";
-import {
-  downloadResultsPdf,
-  exportResultReport,
-  printResultsReport,
-} from "@/lib/student/export";
+import { downloadResultsPdf } from "@/lib/student/export";
 
 export function ResultsHeader() {
   const router = useRouter();
@@ -32,7 +28,7 @@ export function ResultsHeader() {
       });
     } catch (err) {
       toast("Could not download PDF", {
-        description: getErrorMessage(err, "Try the text report or print option."),
+        description: getErrorMessage(err, "Please try again in a moment."),
         variant: "error",
       });
     } finally {
@@ -83,24 +79,6 @@ export function ResultsHeader() {
               >
                 <Download size={16} />
                 {downloading ? "Downloading…" : "Download PDF"}
-              </button>
-              <button
-                type="button"
-                onClick={() => exportResultReport(data)}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-                style={{ fontSize: "14px" }}
-              >
-                <FileText size={16} />
-                Text report
-              </button>
-              <button
-                type="button"
-                onClick={printResultsReport}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-                style={{ fontSize: "14px" }}
-              >
-                <FileText size={16} />
-                Print
               </button>
             </>
           )}

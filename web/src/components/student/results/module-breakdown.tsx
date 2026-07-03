@@ -11,10 +11,13 @@ import {
 import { useStudentResultsData } from "@/contexts/student-results-context";
 import {
   formatBandDisplay,
+  type ModulePart,
   type PartTone,
   type SkillId,
 } from "@/lib/api/mappers/student";
 import { cn } from "@/lib/utils";
+
+type WritingSubTab = "overall" | "task1" | "task2";
 
 const skillMeta: Record<
   SkillId,
@@ -33,9 +36,63 @@ const toneStyles: Record<PartTone, { pill: string; bar: string }> = {
   sky: { pill: "bg-sky-50 text-sky-700", bar: "bg-sky-500" },
 };
 
+function CriterionCard({ part, index }: { part: ModulePart; index: number }) {
+  const tone = toneStyles[part.tagTone];
+  return (
+    <div
+      key={`${part.sublabel}-${part.label}-${index}`}
+      className="flex h-full flex-col rounded-xl border border-gray-100 p-4"
+    >
+      <div className="flex min-h-[3.25rem] items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-bold text-gray-900" style={{ fontSize: "13px" }}>
+            {part.label}
+          </p>
+          <p className="text-gray-400" style={{ fontSize: "11px" }}>
+            {part.sublabel}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+            tone.pill,
+          )}
+        >
+          {part.tag}
+        </span>
+      </div>
+      <div className="mt-auto pt-3">
+        <p className="font-black text-gray-900" style={{ fontSize: "20px" }}>
+          {formatBandDisplay(part.value)}
+          <span className="text-gray-400" style={{ fontSize: "13px" }}>
+            /{part.max}
+          </span>
+        </p>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className={cn("h-full rounded-full", tone.bar)}
+            style={{ width: `${(part.value / part.max) * 100}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CriterionGrid({ parts }: { parts: ModulePart[] }) {
+  return (
+    <div className="mt-5 grid grid-cols-2 items-stretch gap-3 lg:grid-cols-4">
+      {parts.map((part, index) => (
+        <CriterionCard key={`${part.sublabel}-${part.label}-${index}`} part={part} index={index} />
+      ))}
+    </div>
+  );
+}
+
 export function ModuleBreakdown() {
   const { data } = useStudentResultsData();
   const [active, setActive] = useState<SkillId | null>(null);
+  const [writingTab, setWritingTab] = useState<WritingSubTab>("overall");
 
   useEffect(() => {
     if (!data?.skills.length) return;
@@ -46,12 +103,41 @@ export function ModuleBreakdown() {
     );
   }, [data?.skills, data?.selectedEnrollmentCode]);
 
+  useEffect(() => {
+    setWritingTab("overall");
+  }, [active, data?.selectedEnrollmentCode]);
+
   if (!data?.released || !active) return null;
 
   const detail = data.moduleDetails[active];
   if (!detail) return null;
 
   const activeMeta = skillMeta[active];
+  const writingTasks = detail.writingTasks;
+  const isWritingWithTasks = active === "writing" && writingTasks;
+
+  const headerBand =
+    isWritingWithTasks && writingTab === "task1"
+      ? writingTasks.task1.band
+      : isWritingWithTasks && writingTab === "task2"
+        ? writingTasks.task2.band
+        : detail.band;
+
+  const headerBandLabel =
+    isWritingWithTasks && writingTab === "task1"
+      ? "Task 1 Band"
+      : isWritingWithTasks && writingTab === "task2"
+        ? "Task 2 Band"
+        : detail.pending
+          ? "Awaiting score"
+          : "Band Score";
+
+  const improvementFocus =
+    isWritingWithTasks && writingTab === "task1" && writingTasks.task1.feedback
+      ? writingTasks.task1.feedback
+      : isWritingWithTasks && writingTab === "task2" && writingTasks.task2.feedback
+        ? writingTasks.task2.feedback
+        : detail.focus;
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -107,60 +193,105 @@ export function ModuleBreakdown() {
               )}
               style={{ fontSize: "34px", lineHeight: 1 }}
             >
-              {formatBandDisplay(detail.band, detail.pending)}
+              {formatBandDisplay(headerBand, detail.pending)}
             </p>
-            <p className="text-xs text-gray-400">
-              {detail.pending ? "Awaiting score" : "Band Score"}
-            </p>
+            <p className="text-xs text-gray-400">{headerBandLabel}</p>
           </div>
         </div>
 
-        {detail.parts.length > 0 ? (
-          <div
-            key={active}
-            className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4"
-          >
-            {detail.parts.map((part, index) => {
-              const tone = toneStyles[part.tagTone];
-              return (
-                <div
-                  key={`${part.sublabel}-${part.label}-${index}`}
-                  className="rounded-xl border border-gray-100 p-4"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-bold text-gray-900" style={{ fontSize: "13px" }}>
-                        {part.label}
-                      </p>
-                      <p className="text-gray-400" style={{ fontSize: "11px" }}>
-                        {part.sublabel}
-                      </p>
-                    </div>
+        {isWritingWithTasks ? (
+          <>
+            <div className="mt-5 flex flex-wrap gap-1 border-b border-gray-100">
+              {(
+                [
+                  ["overall", "Overall", detail.band],
+                  ["task1", "Task 1", writingTasks.task1.band],
+                  ["task2", "Task 2", writingTasks.task2.band],
+                ] as const
+              ).map(([tab, label, band]) => {
+                const isTabActive = writingTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setWritingTab(tab)}
+                    className={cn(
+                      "flex items-center gap-2 border-b-2 px-3 py-2.5 font-semibold transition-colors",
+                      isTabActive
+                        ? "border-violet-500 text-violet-600"
+                        : "border-transparent text-gray-400 hover:text-gray-600",
+                    )}
+                    style={{ fontSize: "13px" }}
+                  >
+                    {label}
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                        tone.pill,
+                        "rounded-md px-1.5 py-0.5 text-xs font-bold",
+                        isTabActive ? "bg-violet-50 text-violet-700" : "text-gray-400",
                       )}
                     >
-                      {part.tag}
+                      {formatBandDisplay(band)}
                     </span>
-                  </div>
-                  <p className="mt-3 font-black text-gray-900" style={{ fontSize: "20px" }}>
-                    {formatBandDisplay(part.value)}
-                    <span className="text-gray-400" style={{ fontSize: "13px" }}>
-                      /{part.max}
-                    </span>
-                  </p>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                  </button>
+                );
+              })}
+            </div>
+
+            {writingTab === "overall" ? (
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["Task 1", writingTasks.task1],
+                    ["Task 2", writingTasks.task2],
+                  ] as const
+                ).map(([label, task]) => {
+                  const tone =
+                    task.band != null && task.band >= 7
+                      ? toneStyles.emerald
+                      : task.band != null && task.band >= 6
+                        ? toneStyles.amber
+                        : toneStyles.rose;
+                  return (
                     <div
-                      className={cn("h-full rounded-full", tone.bar)}
-                      style={{ width: `${(part.value / part.max) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      key={label}
+                      className="flex flex-col rounded-xl border border-gray-100 p-4"
+                    >
+                      <p className="font-bold text-gray-900" style={{ fontSize: "13px" }}>
+                        {label}
+                      </p>
+                      <p className="text-gray-400" style={{ fontSize: "11px" }}>
+                        Task band score
+                      </p>
+                      <p className="mt-3 font-black text-gray-900" style={{ fontSize: "20px" }}>
+                        {formatBandDisplay(task.band)}
+                        <span className="text-gray-400" style={{ fontSize: "13px" }}>
+                          /9
+                        </span>
+                      </p>
+                      {task.band != null ? (
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className={cn("h-full rounded-full", tone.bar)}
+                            style={{ width: `${(task.band / 9) * 100}%` }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : writingTab === "task1" && writingTasks.task1.parts.length > 0 ? (
+              <CriterionGrid parts={writingTasks.task1.parts} />
+            ) : writingTab === "task2" && writingTasks.task2.parts.length > 0 ? (
+              <CriterionGrid parts={writingTasks.task2.parts} />
+            ) : (
+              <div className="mt-5 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+                Criteria scores for this task will appear here once grading is complete.
+              </div>
+            )}
+          </>
+        ) : detail.parts.length > 0 ? (
+          <CriterionGrid parts={detail.parts} />
         ) : detail.pending ? (
           <div className="mt-5 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
             Scores for this module will appear here once grading is complete.
@@ -170,7 +301,7 @@ export function ModuleBreakdown() {
         <div className="mt-5 flex gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
           <p className="text-sky-800" style={{ fontSize: "13px" }}>
-            <span className="font-bold">Improvement focus:</span> {detail.focus}
+            <span className="font-bold">Improvement focus:</span> {improvementFocus}
           </p>
         </div>
       </div>
