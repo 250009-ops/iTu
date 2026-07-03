@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ExamType } from '@prisma/client';
 import {
+  buildTabId,
   groupKey,
+  isExcludedStudentOfferTab,
   offerMetaForGroup,
   sortOfferGroups,
   STUDENT_BROWSE_TAB_ORDER,
@@ -58,6 +60,9 @@ export class CatalogService {
     }
     for (const pkg of activePackages) {
       const key = groupKey(pkg.packageKind, pkg.examType);
+      if (isExcludedStudentOfferTab(buildTabId(pkg.packageKind, pkg.examType))) {
+        continue;
+      }
       if (!seen.has(key)) {
         seen.set(key, {
           packageKind: pkg.packageKind,

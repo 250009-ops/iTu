@@ -28,55 +28,50 @@ export function TypeTabBar({
   if (!tabs.length) return null;
 
   return (
-    <div
+    <nav
+      role="tablist"
+      aria-label="Mock type"
       className={cn(
-        "rounded-xl border border-border bg-white shadow-sm",
+        "flex gap-6 border-b border-border",
+        scrollable &&
+          "overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
     >
-      <div
-        role="tablist"
-        aria-label="Mock type"
-        className={cn(
-          "flex border-b border-border",
-          scrollable && "overflow-x-auto",
-        )}
-      >
-        {tabs.map((tab) => {
-          const active = activeId === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onChange(tab.id)}
-              className={cn(
-                "relative shrink-0 border-b-2 px-4 py-3.5 text-sm font-semibold transition-colors sm:px-5",
-                active
-                  ? "border-navy text-navy"
-                  : tab.muted
-                    ? "border-transparent text-slate-400 hover:border-slate-200 hover:text-slate-600"
-                    : "border-transparent text-muted hover:border-slate-200 hover:text-navy",
-              )}
-            >
-              <span className="whitespace-nowrap">{tab.label}</span>
-              {tab.count !== undefined && (
-                <span
-                  className={cn(
-                    "ml-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold leading-none",
-                    active
-                      ? "bg-navy text-white"
-                      : "bg-slate-100 text-slate-500",
-                  )}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+      {tabs.map((tab) => {
+        const active = activeId === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition-colors",
+              active
+                ? "border-brand-red text-brand-red"
+                : tab.muted
+                  ? "border-transparent text-slate-400 hover:text-slate-600"
+                  : "border-transparent text-muted hover:text-navy",
+            )}
+          >
+            <span className="whitespace-nowrap">{tab.label}</span>
+            {tab.count !== undefined && (
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px] font-bold leading-none",
+                  active
+                    ? "bg-rose-100 text-brand-red"
+                    : "bg-slate-100 text-muted",
+                )}
+              >
+                {tab.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
   );
 }

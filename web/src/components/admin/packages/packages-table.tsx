@@ -13,7 +13,7 @@ import type { AdminPackage } from "@/lib/admin/types";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
   isPackageTypeTabId,
-  PACKAGE_TYPE_TABS,
+  VISIBLE_PACKAGE_TYPE_TABS,
   packageMatchesTypeTab,
   type PackageTypeTabId,
 } from "@/lib/package-type-tabs";
@@ -28,7 +28,7 @@ const PACKAGE_STATUS_FILTER_KEY = "admin-packages-status-filter";
 const PACKAGE_TYPE_FILTER_KEY = "admin-packages-type-filter";
 const PACKAGE_STATUS_VALUES = ["all", "active", "archived"] as const;
 type PackageStatusFilter = (typeof PACKAGE_STATUS_VALUES)[number];
-const PACKAGE_TYPE_VALUES = PACKAGE_TYPE_TABS.map((tab) => tab.id);
+const PACKAGE_TYPE_VALUES = VISIBLE_PACKAGE_TYPE_TABS.map((tab) => tab.id);
 
 export function PackagesTable() {
   const { packages, openEditor, removePackage, duplicatePackage } = useAdminPackages();
@@ -48,7 +48,7 @@ export function PackagesTable() {
 
   const typeTabs = useMemo(
     () =>
-      PACKAGE_TYPE_TABS.map((tab) => ({
+      VISIBLE_PACKAGE_TYPE_TABS.map((tab) => ({
         id: tab.id,
         label: tab.label,
         count:
@@ -130,7 +130,7 @@ export function PackagesTable() {
         <h2 className="font-semibold text-navy">
           {typeFilter === "all"
             ? "All Packages"
-            : `${PACKAGE_TYPE_TABS.find((tab) => tab.id === typeFilter)?.label ?? "Packages"}`}
+            : `${VISIBLE_PACKAGE_TYPE_TABS.find((tab) => tab.id === typeFilter)?.label ?? "Packages"}`}
         </h2>
         <div className="flex flex-wrap gap-2">
           <div className="relative w-full sm:w-48">
@@ -175,7 +175,7 @@ export function PackagesTable() {
                 <td colSpan={6} className="px-5 py-8 text-center text-muted sm:px-6">
                   {typeFilter === "all"
                     ? "No packages found."
-                    : `No ${PACKAGE_TYPE_TABS.find((tab) => tab.id === typeFilter)?.label.toLowerCase() ?? "matching"} packages found.`}
+                    : `No ${VISIBLE_PACKAGE_TYPE_TABS.find((tab) => tab.id === typeFilter)?.label.toLowerCase() ?? "matching"} packages found.`}
                 </td>
               </tr>
             ) : (

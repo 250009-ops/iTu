@@ -2,6 +2,7 @@ import { ExamType } from '@prisma/client';
 import {
   buildTabId,
   buildTabLabel,
+  isExcludedStudentOfferTab,
   offerMetaForGroup,
   sortOfferGroups,
   STUDENT_BROWSE_TAB_ORDER,
@@ -47,10 +48,21 @@ describe('catalog-offers', () => {
   });
 
   it('exposes canonical student browse tabs', () => {
-    expect(STUDENT_BROWSE_TAB_ORDER.length).toBeGreaterThanOrEqual(4);
-    expect(STUDENT_BROWSE_TAB_ORDER[0].packageKind).toBe(
+    expect(STUDENT_BROWSE_TAB_ORDER).toHaveLength(5);
+    expect(STUDENT_BROWSE_TAB_ORDER.map((g) => g.packageKind)).toEqual([
       'listening+reading+writing+speaking',
-    );
+      'speaking',
+      'writing',
+      'listening',
+      'reading',
+    ]);
+  });
+
+  it('excludes general training and combo types from student tabs', () => {
+    expect(isExcludedStudentOfferTab('full-gt')).toBe(true);
+    expect(isExcludedStudentOfferTab('listening-reading')).toBe(true);
+    expect(isExcludedStudentOfferTab('writing-speaking')).toBe(true);
+    expect(isExcludedStudentOfferTab('full-academic')).toBe(false);
   });
 
   it('returns offer metadata for a group', () => {

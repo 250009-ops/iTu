@@ -124,7 +124,6 @@ const FAQ_QUESTIONS = [
 
 const BROWSE_TABS = {
   academic: "Full Academic",
-  generalTraining: "General Training",
   speakingOnly: "Speaking Only",
   writingOnly: "Writing Only",
 } as const;
@@ -186,6 +185,18 @@ test.describe("Student Browse Mocks (detailed)", () => {
     ).not.toBeVisible();
   });
 
+  test("excluded mock types are not shown in the tab bar", async ({ page }) => {
+    await expect(
+      page.getByRole("button", { name: "General Training", exact: true }),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Listening & Reading", exact: true }),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Writing & Speaking", exact: true }),
+    ).not.toBeVisible();
+  });
+
   test("each mock type tab reveals its offer card", async ({ page }) => {
     const cases = [
       { tab: BROWSE_TABS.academic, pkg: PACKAGES.academic },
@@ -197,20 +208,6 @@ test.describe("Student Browse Mocks (detailed)", () => {
       await selectBrowseTab(page, tab);
       await expect(
         page.getByRole("heading", { name: pkg.title, level: 2 }),
-      ).toBeVisible();
-    }
-
-    const gtTab = page.getByRole("button", {
-      name: BROWSE_TABS.generalTraining,
-      exact: true,
-    });
-    if (await gtTab.isVisible()) {
-      await gtTab.click();
-      await expect(
-        page.getByRole("heading", {
-          name: PACKAGES.generalTraining.title,
-          level: 2,
-        }),
       ).toBeVisible();
     }
   });
@@ -244,16 +241,10 @@ test.describe("Student Browse Mocks (detailed)", () => {
     ).toBeVisible();
   });
 
-  test("General Training Mock card shows complete details", async ({
+  test.skip("General Training Mock card shows complete details", async ({
     page,
   }) => {
-    const gtTab = page.getByRole("button", {
-      name: BROWSE_TABS.generalTraining,
-      exact: true,
-    });
-    test.skip(!(await gtTab.isVisible()), "General Training package is inactive");
-
-    await gtTab.click();
+    // General Training is excluded from the student browse tab bar.
     const pkg = PACKAGES.generalTraining;
     const card = page.locator(".rounded-xl").filter({ hasText: pkg.title });
 
@@ -313,16 +304,10 @@ test.describe("Student Browse Mocks (detailed)", () => {
     }
   });
 
-  test("Book button opens wizard with correct product title", async ({
+  test.skip("Book button opens wizard with correct product title", async ({
     page,
   }) => {
-    const gtTab = page.getByRole("button", {
-      name: BROWSE_TABS.generalTraining,
-      exact: true,
-    });
-    test.skip(!(await gtTab.isVisible()), "General Training package is inactive");
-
-    await gtTab.click();
+    // General Training is excluded from the student browse tab bar.
     const gtCard = page
       .locator(".rounded-xl")
       .filter({ hasText: PACKAGES.generalTraining.title });

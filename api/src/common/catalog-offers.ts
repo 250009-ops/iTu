@@ -67,10 +67,20 @@ const TAB_ORDER: PackageTypeTab[] = [
   },
 ];
 
+const EXCLUDED_STUDENT_TAB_IDS = new Set([
+  'full-gt',
+  'listening-reading',
+  'writing-speaking',
+]);
+
+export function isExcludedStudentOfferTab(tabId: string): boolean {
+  return EXCLUDED_STUDENT_TAB_IDS.has(tabId);
+}
+
 /** Canonical student browse tabs — always shown even when a type has no offer. */
-export const STUDENT_BROWSE_TAB_ORDER: OfferGroup[] = TAB_ORDER.map(
-  ({ packageKind, examType }) => ({ packageKind, examType }),
-);
+export const STUDENT_BROWSE_TAB_ORDER: OfferGroup[] = TAB_ORDER.filter(
+  (tab) => !EXCLUDED_STUDENT_TAB_IDS.has(tab.tabId),
+).map(({ packageKind, examType }) => ({ packageKind, examType }));
 
 export function groupKey(packageKind: string, examType: ExamType) {
   return `${packageKind}:${examType}`;

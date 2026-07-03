@@ -16,6 +16,13 @@ export type PackageTypeTab = {
   examType?: "ACADEMIC" | "GENERAL_TRAINING";
 };
 
+/** Hidden from student browse and admin type tab bars. */
+export const EXCLUDED_PACKAGE_TYPE_TAB_IDS: PackageTypeTabId[] = [
+  "full-gt",
+  "listening-reading",
+  "writing-speaking",
+];
+
 export const PACKAGE_TYPE_TABS: PackageTypeTab[] = [
   { id: "all", label: "All Types" },
   {
@@ -68,10 +75,19 @@ export const PACKAGE_TYPE_TABS: PackageTypeTab[] = [
   },
 ];
 
+/** Tabs shown in student browse and admin package filters. */
+export const VISIBLE_PACKAGE_TYPE_TABS = PACKAGE_TYPE_TABS.filter(
+  (tab) => !EXCLUDED_PACKAGE_TYPE_TAB_IDS.includes(tab.id),
+);
+
 /** Student browse tabs — no "All" aggregate tab. */
-export const STUDENT_BROWSE_TYPE_TABS = PACKAGE_TYPE_TABS.filter(
+export const STUDENT_BROWSE_TYPE_TABS = VISIBLE_PACKAGE_TYPE_TABS.filter(
   (tab) => tab.id !== "all",
 );
+
+export function isExcludedPackageTypeTab(tabId: string): boolean {
+  return EXCLUDED_PACKAGE_TYPE_TAB_IDS.includes(tabId as PackageTypeTabId);
+}
 
 export function packageMatchesTypeTab(
   pkg: { packageKind?: string; examType: string },

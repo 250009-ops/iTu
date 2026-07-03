@@ -13,6 +13,7 @@ import {
   StudentBrowseProvider,
   useStudentBrowseData,
 } from "@/contexts/student-browse-context";
+import { isExcludedPackageTypeTab } from "@/lib/package-type-tabs";
 
 export function BrowseView() {
   return (
@@ -24,38 +25,42 @@ export function BrowseView() {
 
 function BrowseContent() {
   const { offers, loading, error } = useStudentBrowseData();
+  const visibleOffers = useMemo(
+    () => offers.filter((offer) => !isExcludedPackageTypeTab(offer.tabId)),
+    [offers],
+  );
 
   const defaultTabId = useMemo(() => {
-    const firstAvailable = offers.find((offer) => offer.product != null);
-    return firstAvailable?.tabId ?? offers[0]?.tabId ?? "";
-  }, [offers]);
+    const firstAvailable = visibleOffers.find((offer) => offer.product != null);
+    return firstAvailable?.tabId ?? visibleOffers[0]?.tabId ?? "";
+  }, [visibleOffers]);
 
   const [activeTabId, setActiveTabId] = useState("");
 
   useEffect(() => {
-    if (!offers.length) return;
+    if (!visibleOffers.length) return;
     setActiveTabId((current) => {
-      if (current && offers.some((offer) => offer.tabId === current)) {
+      if (current && visibleOffers.some((offer) => offer.tabId === current)) {
         return current;
       }
       return defaultTabId;
     });
-  }, [offers, defaultTabId]);
+  }, [visibleOffers, defaultTabId]);
 
-  const activeOffer = offers.find((offer) => offer.tabId === activeTabId);
+  const activeOffer = visibleOffers.find((offer) => offer.tabId === activeTabId);
 
   return (
     <ApiDataShell
       loading={loading}
       error={error}
-      empty={!offers.length}
+      empty={!visibleOffers.length}
       emptyMessage="No mocks are available for you to book right now. You may have already completed or enrolled in every active package."
     >
       <div className="p-4 lg:p-6 xl:p-8">
         <div className="mx-auto max-w-5xl space-y-8">
           <BrowsePageHeader />
           <BrowseTypeTabs
-            tabs={offers.map((offer) => ({
+            tabs={visibleOffers.map((offer) => ({
               tabId: offer.tabId,
               label: offer.label,
               available: offer.product != null,
