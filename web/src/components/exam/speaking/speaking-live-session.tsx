@@ -6,8 +6,9 @@ import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import type { SpeakingContent } from "@/lib/exam/types";
 import { SpeakingCueCard } from "@/components/exam/speaking/speaking-cue-card";
 import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
-import { useCountdown, useStopwatch } from "@/lib/exam/use-countdown";
+import { usePart2Countdown } from "@/hooks/use-part2-countdown";
 import { formatClock } from "@/lib/exam/helpers";
+import { useStopwatch } from "@/lib/exam/use-countdown";
 import { startSection, submitSection } from "@/lib/api/exam";
 import { useAuth, getInitials } from "@/hooks/use-auth";
 import { useSpeakingIntegrity } from "@/hooks/use-speaking-integrity";
@@ -217,16 +218,29 @@ function CueCardController({
   phase: "prep" | "speak";
   onPrepEnd?: () => void;
 }) {
+  const { part2PrepStartedAt, part2SpeakStartedAt } = useSpeakingRoom();
   const card = content.cueCard;
-  const seconds = phase === "prep" ? card.prepSeconds : card.speakSeconds;
   const prepEndedRef = useRef(false);
 
-  const remaining = useCountdown(seconds, () => {
-    if (phase !== "prep" || prepEndedRef.current) return;
-    prepEndedRef.current = true;
-    playPrepEndBell();
-    onPrepEnd?.();
-  });
+  const prepRemaining = usePart2Countdown(
+    part2PrepStartedAt,
+    card.prepSeconds,
+    phase === "prep",
+    () => {
+      if (phase !== "prep" || prepEndedRef.current) return;
+      prepEndedRef.current = true;
+      playPrepEndBell();
+      onPrepEnd?.();
+    },
+  );
+
+  const speakRemaining = usePart2Countdown(
+    part2SpeakStartedAt,
+    card.speakSeconds,
+    phase === "speak",
+  );
+
+  const remaining = phase === "prep" ? prepRemaining : speakRemaining;
 
   return (
     <SpeakingCueCard
@@ -234,7 +248,7 @@ function CueCardController({
       bullets={card.bullets}
       phase={phase}
       remaining={remaining}
-      prepEnded={phase === "prep" && remaining <= 0}
+      prepEnded={phase === "prep" && prepRemaining <= 0}
     />
   );
 }

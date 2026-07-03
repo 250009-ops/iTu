@@ -39,6 +39,7 @@ import {
   type SpeakingPhase,
   type SpeakingSyncMessage,
   type SpeakingStudentIntegrityEvent,
+  resolveIncomingPhase,
 } from "@/lib/speaking/sync";
 import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 
@@ -57,6 +58,8 @@ type SpeakingRoomContextValue = {
   livekitConfigured: boolean;
   examinerLeft: boolean;
   studentIntegrityAlert: SpeakingStudentIntegrityEvent | null;
+  part2PrepStartedAt: number | null;
+  part2SpeakStartedAt: number | null;
   setPhase: (phase: SpeakingPhase) => Promise<void>;
   endSession: () => Promise<void>;
   leaveRoom: () => Promise<void>;
@@ -89,16 +92,36 @@ export function SpeakingRoomProvider({
   const [phase, setPhaseState] = useState<SpeakingPhase>(initialPhase);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [part2PrepStartedAt, setPart2PrepStartedAt] = useState<number | null>(null);
+  const [part2SpeakStartedAt, setPart2SpeakStartedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (phase === "part2-prep" && !part2SpeakStartedAt && !part2PrepStartedAt) {
+      setPart2PrepStartedAt(Date.now());
+    }
+    if (phase === "part2-speak" && !part2SpeakStartedAt) {
+      setPart2SpeakStartedAt(Date.now());
+    }
+  }, [phase, part2PrepStartedAt, part2SpeakStartedAt]);
+
+  const applyPhase = useCallback(
+    (incoming: SpeakingPhase) => {
+      setPhaseState((prev) =>
+        resolveIncomingPhase(incoming, prev, part2SpeakStartedAt !== null),
+      );
+    },
+    [part2SpeakStartedAt],
+  );
 
   const refreshState = useCallback(async () => {
     const next = await getSpeakingState(speakingSessionId);
     setState(next);
     if (next.activePhase) {
-      setPhaseState(next.activePhase);
+      applyPhase(next.activePhase);
     } else if (next.status === "completed") {
       setPhaseState("complete");
     }
-  }, [speakingSessionId]);
+  }, [speakingSessionId, applyPhase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,8 +191,23 @@ export function SpeakingRoomProvider({
       loading,
       error,
       refreshState,
+      part2PrepStartedAt,
+      part2SpeakStartedAt,
+      applyPhase,
     }),
-    [role, speakingSessionId, joinInfo, state, phase, loading, error, refreshState],
+    [
+      role,
+      speakingSessionId,
+      joinInfo,
+      state,
+      phase,
+      loading,
+      error,
+      refreshState,
+      part2PrepStartedAt,
+      part2SpeakStartedAt,
+      applyPhase,
+    ],
   );
 
   if (loading) {
@@ -193,7 +231,7 @@ export function SpeakingRoomProvider({
 
   if (!joinInfo.livekitConfigured) {
     return (
-      <OfflineSpeakingRoomProvider shell={shellValue} setPhaseState={setPhaseState} setState={setState}>
+      <OfflineSpeakingRoomProvider shell={shellValue} setState={setState}>
         {children}
       </OfflineSpeakingRoomProvider>
     );
@@ -219,34 +257,33 @@ export function SpeakingRoomProvider({
     >
       <RoomAudioRenderer />
       <EnsureMediaEnabled />
-      <SpeakingRoomInner
-        shell={shellValue}
-        setPhaseState={setPhaseState}
-        setState={setState}
-      >
+      <SpeakingRoomInner shell={shellValue} setState={setState}>
         {children}
       </SpeakingRoomInner>
     </LiveKitRoom>
   );
 }
 
+type SpeakingRoomShell = {
+  role: SpeakingRoomRole;
+  speakingSessionId: string;
+  joinInfo: SpeakingJoinResponse | null;
+  state: SpeakingState | null;
+  phase: SpeakingPhase;
+  loading: boolean;
+  error: string | null;
+  refreshState: () => Promise<void>;
+  part2PrepStartedAt: number | null;
+  part2SpeakStartedAt: number | null;
+  applyPhase: (phase: SpeakingPhase) => void;
+};
+
 function OfflineSpeakingRoomProvider({
   shell,
-  setPhaseState,
   setState,
   children,
 }: {
-  shell: {
-    role: SpeakingRoomRole;
-    speakingSessionId: string;
-    joinInfo: SpeakingJoinResponse | null;
-    state: SpeakingState | null;
-    phase: SpeakingPhase;
-    loading: boolean;
-    error: string | null;
-    refreshState: () => Promise<void>;
-  };
-  setPhaseState: (phase: SpeakingPhase) => void;
+  shell: SpeakingRoomShell;
   setState: (state: SpeakingState | null) => void;
   children: ReactNode;
 }) {
@@ -262,13 +299,19 @@ function OfflineSpeakingRoomProvider({
 
   const setPhase = useCallback(
     async (nextPhase: SpeakingPhase) => {
+      const resolved = resolveIncomingPhase(
+        nextPhase,
+        shell.phase,
+        shell.part2SpeakStartedAt !== null,
+      );
+      if (resolved === shell.phase) return;
       const updated = await updateSpeakingState(shell.speakingSessionId, {
-        activePhase: nextPhase,
+        activePhase: resolved,
       });
       setState(updated);
-      setPhaseState(updated.activePhase);
+      shell.applyPhase(updated.activePhase);
     },
-    [shell.speakingSessionId, setPhaseState, setState],
+    [shell, setState],
   );
 
   const endSession = useCallback(async () => {
@@ -277,8 +320,8 @@ function OfflineSpeakingRoomProvider({
       activePhase: "complete",
     });
     setState(updated);
-    setPhaseState("complete");
-  }, [shell.speakingSessionId, setPhaseState, setState]);
+    shell.applyPhase("complete");
+  }, [shell, setState]);
 
   const leaveRoom = useCallback(async () => undefined, []);
 
@@ -296,6 +339,8 @@ function OfflineSpeakingRoomProvider({
       livekitConfigured: false,
       examinerLeft: false,
       studentIntegrityAlert: null,
+      part2PrepStartedAt: shell.part2PrepStartedAt,
+      part2SpeakStartedAt: shell.part2SpeakStartedAt,
       setPhase,
       endSession,
       leaveRoom,
@@ -348,21 +393,10 @@ function EnsureMediaEnabled() {
 
 function SpeakingRoomInner({
   shell,
-  setPhaseState,
   setState,
   children,
 }: {
-  shell: {
-    role: SpeakingRoomRole;
-    speakingSessionId: string;
-    joinInfo: SpeakingJoinResponse | null;
-    state: SpeakingState | null;
-    phase: SpeakingPhase;
-    loading: boolean;
-    error: string | null;
-    refreshState: () => Promise<void>;
-  };
-  setPhaseState: (phase: SpeakingPhase) => void;
+  shell: SpeakingRoomShell;
   setState: (state: SpeakingState | null) => void;
   children: ReactNode;
 }) {
@@ -400,10 +434,10 @@ function SpeakingRoomInner({
       const message = decodeSyncMessage(payload);
       if (!message) return;
       if (message.type === "phase") {
-        setPhaseState(message.phase);
+        shell.applyPhase(message.phase);
       }
       if (message.type === "session-end") {
-        setPhaseState("complete");
+        shell.applyPhase("complete");
       }
       if (message.type === "examiner-left" && shell.role === "student") {
         setExaminerLeft(true);
@@ -421,7 +455,7 @@ function SpeakingRoomInner({
     return () => {
       room.off(RoomEvent.DataReceived, onData);
     };
-  }, [room, setPhaseState, shell.role]);
+  }, [room, shell]);
 
   const clearStudentIntegrityAlert = useCallback(
     () => setStudentIntegrityAlert(null),
@@ -449,16 +483,22 @@ function SpeakingRoomInner({
 
   const setPhase = useCallback(
     async (nextPhase: SpeakingPhase) => {
+      const resolved = resolveIncomingPhase(
+        nextPhase,
+        shell.phase,
+        shell.part2SpeakStartedAt !== null,
+      );
+      if (resolved === shell.phase) return;
       const updated = await updateSpeakingState(shell.speakingSessionId, {
-        activePhase: nextPhase,
+        activePhase: resolved,
       });
       setState(updated);
-      setPhaseState(updated.activePhase);
+      shell.applyPhase(updated.activePhase);
       if (shell.role === "examiner") {
-        await publishSync({ type: "phase", phase: nextPhase });
+        await publishSync({ type: "phase", phase: resolved });
       }
     },
-    [shell.role, shell.speakingSessionId, publishSync, setPhaseState, setState],
+    [shell, publishSync, setState],
   );
 
   const endSession = useCallback(async () => {
@@ -467,11 +507,11 @@ function SpeakingRoomInner({
       activePhase: "complete",
     });
     setState(updated);
-    setPhaseState("complete");
+    shell.applyPhase("complete");
     if (shell.role === "examiner") {
       await publishSync({ type: "session-end" });
     }
-  }, [shell.role, shell.speakingSessionId, publishSync, setPhaseState, setState]);
+  }, [shell, publishSync, setState]);
 
   const leaveRoom = useCallback(async () => {
     room.disconnect();
@@ -491,6 +531,8 @@ function SpeakingRoomInner({
       livekitConfigured: true,
       examinerLeft,
       studentIntegrityAlert,
+      part2PrepStartedAt: shell.part2PrepStartedAt,
+      part2SpeakStartedAt: shell.part2SpeakStartedAt,
       setPhase,
       endSession,
       leaveRoom,

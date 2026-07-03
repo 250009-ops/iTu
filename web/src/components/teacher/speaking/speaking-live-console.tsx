@@ -27,11 +27,11 @@ import {
   partUsesTopics,
   promptForPhase,
 } from "@/lib/speaking/content";
-import { useCountdown } from "@/lib/exam/use-countdown";
 import { formatClock } from "@/lib/exam/helpers";
 import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 import { formatElapsed, type SpeakingPart } from "@/lib/speaking/scoring";
-import { phaseToPart, type SpeakingPhase } from "@/lib/speaking/sync";
+import { phaseToPart, resolvePart2ReentryPhase, type SpeakingPhase } from "@/lib/speaking/sync";
+import { usePart2Countdown } from "@/hooks/use-part2-countdown";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
 import { EXAMINER_INTEGRITY_ALERTS } from "@/hooks/use-speaking-integrity";
@@ -60,6 +60,8 @@ export function SpeakingLiveConsole() {
     livekitConfigured,
     studentIntegrityAlert,
     clearStudentIntegrityAlert,
+    part2PrepStartedAt,
+    part2SpeakStartedAt,
   } = useSpeakingRoom();
 
   const parts = useMemo(
@@ -170,9 +172,21 @@ export function SpeakingLiveConsole() {
     setActivePart(part);
     setTopicIndex(0);
     setPromptIndex(0);
-    const nextPhase: SpeakingPhase =
-      part === 1 ? "part1" : part === 2 ? "part2-prep" : "part3";
-    await setPhase(nextPhase);
+    let nextPhase: SpeakingPhase;
+    if (part === 1) {
+      nextPhase = "part1";
+    } else if (part === 3) {
+      nextPhase = "part3";
+    } else {
+      nextPhase = resolvePart2ReentryPhase(
+        phase,
+        part2SpeakStartedAt !== null,
+        part2PrepStartedAt !== null,
+      );
+    }
+    if (nextPhase !== phase) {
+      await setPhase(nextPhase);
+    }
   }
 
   async function advancePart2() {
@@ -419,7 +433,6 @@ export function SpeakingLiveConsole() {
             {activePart === 2 && phase === "part2-prep" && (
               <>
                 <ExaminerPart2PrepTimer
-                  key={`part2-prep-${prepSeconds}`}
                   prepSeconds={prepSeconds}
                   onPrepEnd={() => void publishSync({ type: "prep-end" })}
                 />
@@ -471,13 +484,16 @@ function ExaminerPart2PrepTimer({
   prepSeconds: number;
   onPrepEnd: () => void;
 }) {
-  const endedRef = useRef(false);
-  const remaining = useCountdown(prepSeconds, () => {
-    if (endedRef.current) return;
-    endedRef.current = true;
-    playPrepEndBell();
-    onPrepEnd();
-  });
+  const { part2PrepStartedAt } = useSpeakingRoom();
+  const remaining = usePart2Countdown(
+    part2PrepStartedAt,
+    prepSeconds,
+    true,
+    () => {
+      playPrepEndBell();
+      onPrepEnd();
+    },
+  );
 
   return (
     <span

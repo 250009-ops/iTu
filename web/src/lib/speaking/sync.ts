@@ -66,3 +66,45 @@ export function partToPhase(part: 1 | 2 | 3): SpeakingPhase {
   if (part === 2) return "part2-prep";
   return "part3";
 }
+
+const PHASE_RANK: Record<SpeakingPhase, number> = {
+  part1: 1,
+  "part2-prep": 2,
+  "part2-speak": 3,
+  part3: 4,
+  complete: 5,
+};
+
+/** Avoid rewinding Part 2 prep once the student has started speaking. */
+export function resolveIncomingPhase(
+  incoming: SpeakingPhase,
+  current: SpeakingPhase,
+  part2SpeakStarted: boolean,
+): SpeakingPhase {
+  if (incoming === "part2-prep" && part2SpeakStarted) {
+    return "part2-speak";
+  }
+  if (
+    incoming === "part2-prep" &&
+    current === "part2-speak" &&
+    PHASE_RANK[current] > PHASE_RANK[incoming]
+  ) {
+    return current;
+  }
+  return incoming;
+}
+
+/** When the examiner re-selects Part 2, resume the correct sub-phase. */
+export function resolvePart2ReentryPhase(
+  current: SpeakingPhase,
+  part2SpeakStarted: boolean,
+  part2PrepStarted: boolean,
+): SpeakingPhase {
+  if (part2SpeakStarted || current === "part2-speak") {
+    return "part2-speak";
+  }
+  if (part2PrepStarted || current === "part2-prep") {
+    return "part2-prep";
+  }
+  return "part2-prep";
+}
