@@ -79,6 +79,7 @@ export function ScoringSidebar() {
   }, [session]);
 
   const overall = useMemo(() => computeOverall(scores), [scores]);
+  const alreadyGraded = session?.graded ?? false;
 
   if (!session) return null;
 
@@ -97,7 +98,7 @@ export function ScoringSidebar() {
         feedback: notes.trim() || undefined,
         teacherNotes: notes.trim() || undefined,
       });
-      toast("Grade submitted", {
+      toast(alreadyGraded ? "Grade updated" : "Grade submitted", {
         description: `${session.studentName} · Speaking band ${overall.toFixed(1)}`,
         variant: "success",
       });
@@ -172,16 +173,16 @@ export function ScoringSidebar() {
             onClick={() => setConfirmOpen(true)}
           >
             <Save className="h-4 w-4" />
-            Submit grade
+            {alreadyGraded ? "Update grade" : "Submit grade"}
           </Button>
         </div>
       </aside>
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Submit speaking grade"
-        message={`Submit band ${overall.toFixed(1)} for ${session.studentName}?`}
-        confirmLabel="Submit grade"
+        title={alreadyGraded ? "Update speaking grade" : "Submit speaking grade"}
+        message={`${alreadyGraded ? "Update" : "Submit"} band ${overall.toFixed(1)} for ${session.studentName}?`}
+        confirmLabel={alreadyGraded ? "Update grade" : "Submit grade"}
         onConfirm={submitGrade}
         onCancel={() => setConfirmOpen(false)}
       />

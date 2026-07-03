@@ -75,6 +75,7 @@ export function LiveScoringPanel() {
   }, [session]);
 
   const overall = useMemo(() => computeOverall(scores), [scores]);
+  const alreadyGraded = session?.graded ?? false;
 
   if (!session) return null;
 
@@ -93,7 +94,7 @@ export function LiveScoringPanel() {
         feedback: notes.trim() || undefined,
         teacherNotes: notes.trim() || undefined,
       });
-      toast("Grade submitted", {
+      toast(alreadyGraded ? "Grade updated" : "Grade submitted", {
         description: `${session.studentName} · Speaking band ${overall.toFixed(1)}`,
         variant: "success",
       });
@@ -148,7 +149,7 @@ export function LiveScoringPanel() {
         onClick={() => setConfirmOpen(true)}
       >
         <Save className="h-4 w-4" />
-        Save &amp; Submit Grade
+        {alreadyGraded ? "Update Grade" : "Save & Submit Grade"}
       </Button>
 
       <div className="mt-4 border-t border-border pt-4">
@@ -173,9 +174,9 @@ export function LiveScoringPanel() {
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Submit speaking grade"
-        message={`Submit an overall band of ${overall.toFixed(1)} for ${session.studentName}? This is recorded against the candidate's results.`}
-        confirmLabel="Submit grade"
+        title={alreadyGraded ? "Update speaking grade" : "Submit speaking grade"}
+        message={`${alreadyGraded ? "Update" : "Submit"} an overall band of ${overall.toFixed(1)} for ${session.studentName}? This is recorded against the candidate's results.`}
+        confirmLabel={alreadyGraded ? "Update grade" : "Submit grade"}
         onConfirm={submitGrade}
         onCancel={() => setConfirmOpen(false)}
       />

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Play } from "lucide-react";
 import { LiveScoringPanel } from "@/components/teacher/speaking/live-scoring-panel";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
@@ -11,8 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 
 export function SpeakingSessionDetail() {
+  const router = useRouter();
   const { session, sessionId, sessionLoading, sessionError } =
     useTeacherSpeaking();
+
+  function backToSessions() {
+    router.push("/teacher/speaking");
+  }
 
   if (sessionLoading) {
     return (
@@ -30,11 +36,14 @@ export function SpeakingSessionDetail() {
           <p className="mt-1">
             {sessionError ?? "This speaking session could not be loaded."}
           </p>
-          <Link href="/teacher/speaking" className="mt-4 inline-block">
-            <Button variant="secondary" size="sm">
-              Back to sessions
-            </Button>
-          </Link>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-4"
+            onClick={backToSessions}
+          >
+            Back to sessions
+          </Button>
         </div>
       </div>
     );
@@ -47,13 +56,14 @@ export function SpeakingSessionDetail() {
   return (
     <div className="p-4 lg:p-6 xl:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
-        <Link
-          href="/teacher/speaking"
+        <button
+          type="button"
+          onClick={backToSessions}
           className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-navy"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to sessions
-        </Link>
+        </button>
 
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-navy sm:text-3xl">
@@ -68,9 +78,12 @@ export function SpeakingSessionDetail() {
           {sessionCompleted ? (
             session.graded ? (
               <>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                   <h2 className="text-lg font-bold text-navy">Grade submitted</h2>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                    Review &amp; update
+                  </span>
                 </div>
                 <p className="mt-2 text-sm text-muted">
                   <strong className="text-navy">{session.studentName}</strong>
@@ -84,18 +97,12 @@ export function SpeakingSessionDetail() {
                       </strong>
                     </>
                   )}
-                  . The student will see results once all sections are released.
+                  . Adjust criteria below to update the band — changes sync to
+                  the student&apos;s results once released.
                 </p>
-                {session.recordingUrl && (
-                  <a
-                    href={session.recordingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 inline-block text-sm font-semibold text-sky-600 hover:underline"
-                  >
-                    Open speaking recording
-                  </a>
-                )}
+                <div className="mt-5">
+                  <LiveScoringPanel />
+                </div>
               </>
             ) : (
               <>

@@ -228,11 +228,15 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
         criteriaScores: toCriteriaPayload(task1Scores, task2Scores, feedback),
         overallBand: overall,
       });
-      toast("Grade submitted", {
+      toast(alreadyGraded ? "Grade updated" : "Grade submitted", {
         description: `${submission?.studentName} · Writing band ${overall.toFixed(1)}`,
         variant: "success",
       });
-      router.push("/teacher/grading");
+      if (alreadyGraded) {
+        await load();
+      } else {
+        router.push("/teacher/grading");
+      }
     } catch (err) {
       toast("Could not submit grade", {
         description: getErrorMessage(err, "Please try again."),

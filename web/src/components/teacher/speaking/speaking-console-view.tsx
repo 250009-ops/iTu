@@ -28,18 +28,19 @@ function SpeakingRouter() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
   const isLive = searchParams.get("live") === "1";
+  const routeKey = isLive ? `live-${sessionId}` : sessionId ?? "hub";
 
   if (isLive && sessionId) {
     return (
       <SpeakingRoomProvider speakingSessionId={sessionId} role="examiner">
-        <SpeakingLiveConsole />
+        <SpeakingLiveConsole key={routeKey} />
       </SpeakingRoomProvider>
     );
   }
 
   if (sessionId) {
-    return <SpeakingSessionDetail />;
+    return <SpeakingSessionDetail key={routeKey} />;
   }
 
-  return <SpeakingHubView />;
+  return <SpeakingHubView key={routeKey} />;
 }
