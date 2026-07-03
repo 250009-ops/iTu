@@ -105,3 +105,56 @@ export function packageMatchesTypeTab(
 export function isPackageTypeTabId(value: string): value is PackageTypeTabId {
   return PACKAGE_TYPE_TABS.some((tab) => tab.id === value);
 }
+
+const SKILL_ORDER = ["listening", "reading", "writing", "speaking"] as const;
+export type PackageSkillId = (typeof SKILL_ORDER)[number];
+
+export function skillsForPackageKind(packageKind: string): PackageSkillId[] {
+  if (packageKind === "listening+reading+writing+speaking") {
+    return [...SKILL_ORDER];
+  }
+  return packageKind
+    .split("+")
+    .filter((skill): skill is PackageSkillId =>
+      SKILL_ORDER.includes(skill as PackageSkillId),
+    );
+}
+
+/** When on "All Types", default new packages to Full Academic. */
+export function resolveCreateTypeTabId(
+  tabId: PackageTypeTabId,
+): Exclude<PackageTypeTabId, "all"> {
+  if (tabId !== "all") return tabId;
+  return "full-academic";
+}
+
+export function skillsForPackageTypeTab(
+  tabId: PackageTypeTabId,
+): PackageSkillId[] {
+  const resolved = resolveCreateTypeTabId(tabId);
+  const tab = PACKAGE_TYPE_TABS.find((t) => t.id === resolved);
+  if (!tab?.packageKind) return [...SKILL_ORDER];
+  return skillsForPackageKind(tab.packageKind);
+}
+
+export function examTypeForPackageTypeTab(
+  tabId: PackageTypeTabId,
+): "ACADEMIC" | "GENERAL_TRAINING" {
+  const resolved = resolveCreateTypeTabId(tabId);
+  const tab = PACKAGE_TYPE_TABS.find((t) => t.id === resolved);
+  return tab?.examType ?? "ACADEMIC";
+}
+
+export function labelForPackageTypeTab(tabId: PackageTypeTabId): string {
+  if (tabId === "all") {
+    return (
+      PACKAGE_TYPE_TABS.find((t) => t.id === "full-academic")?.label ?? "Package"
+    );
+  }
+  return PACKAGE_TYPE_TABS.find((t) => t.id === tabId)?.label ?? "Package";
+}
+
+export function isFullMockTypeTab(tabId: PackageTypeTabId): boolean {
+  const resolved = resolveCreateTypeTabId(tabId);
+  return resolved === "full-academic" || resolved === "full-gt";
+}

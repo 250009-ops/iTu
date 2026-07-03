@@ -19,6 +19,7 @@ import {
   type AdminPackagePayload,
 } from "@/lib/api/admin";
 import { useApiQuery } from "@/hooks/use-api-query";
+import type { PackageTypeTabId } from "@/lib/package-type-tabs";
 import type { AdminContentTestOption, AdminPackage } from "@/lib/admin/types";
 
 type PackagesSummary = {
@@ -28,7 +29,15 @@ type PackagesSummary = {
   avgPrice: number;
 };
 
-type EditorState = { open: boolean; pkg: AdminPackage | null };
+type EditorState = {
+  open: boolean;
+  pkg: AdminPackage | null;
+  createTypeTabId: PackageTypeTabId;
+};
+
+type OpenEditorOptions = {
+  typeTabId?: PackageTypeTabId;
+};
 
 type PackagesValue = {
   loading: boolean;
@@ -37,7 +46,7 @@ type PackagesValue = {
   contentTests: AdminContentTestOption[];
   summary: PackagesSummary;
   editor: EditorState;
-  openEditor: (pkg: AdminPackage | null) => void;
+  openEditor: (pkg: AdminPackage | null, options?: OpenEditorOptions) => void;
   closeEditor: () => void;
   savePackage: (id: string | null, payload: AdminPackagePayload) => Promise<void>;
   removePackage: (id: string) => Promise<{
@@ -62,7 +71,11 @@ const AdminPackagesContext = createContext<PackagesValue | null>(null);
 
 export function AdminPackagesProvider({ children }: { children: ReactNode }) {
   const { data, loading, error, refresh } = useApiQuery(getAdminPackages);
-  const [editor, setEditor] = useState<EditorState>({ open: false, pkg: null });
+  const [editor, setEditor] = useState<EditorState>({
+    open: false,
+    pkg: null,
+    createTypeTabId: "full-academic",
+  });
 
   const packages = useMemo(() => data?.packages ?? [], [data]);
   const contentTests = useMemo(() => data?.contentTests ?? [], [data]);
@@ -84,11 +97,17 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
   }, [packages]);
 
   const openEditor = useCallback(
-    (pkg: AdminPackage | null) => setEditor({ open: true, pkg }),
+    (pkg: AdminPackage | null, options?: OpenEditorOptions) =>
+      setEditor({
+        open: true,
+        pkg,
+        createTypeTabId: options?.typeTabId ?? "full-academic",
+      }),
     [],
   );
   const closeEditor = useCallback(
-    () => setEditor({ open: false, pkg: null }),
+    () =>
+      setEditor({ open: false, pkg: null, createTypeTabId: "full-academic" }),
     [],
   );
 

@@ -16,8 +16,15 @@ import type {
 } from "@/lib/admin/types";
 import { getErrorMessage } from "@/lib/api/errors";
 import { getNextMockNumber } from "@/lib/api/admin";
+import {
+  examTypeForPackageTypeTab,
+  isFullMockTypeTab,
+  labelForPackageTypeTab,
+  skillsForPackageTypeTab,
+  type PackageSkillId,
+} from "@/lib/package-type-tabs";
 
-type SkillId = "listening" | "reading" | "writing" | "speaking";
+type SkillId = PackageSkillId;
 
 type FormState = {
   title: string;
@@ -36,18 +43,6 @@ type FormState = {
   writingTestId: string;
   speakingBankId: string;
 };
-
-const PACKAGE_SKILL_PRESETS: { id: string; label: string; skills: SkillId[] }[] = [
-  {
-    id: "full",
-    label: "Full mock (L + R + W + S)",
-    skills: ["listening", "reading", "writing", "speaking"],
-  },
-  { id: "speaking", label: "Speaking only", skills: ["speaking"] },
-  { id: "writing", label: "Writing only", skills: ["writing"] },
-  { id: "listening", label: "Listening only", skills: ["listening"] },
-  { id: "reading", label: "Reading only", skills: ["reading"] },
-];
 
 const emptyForm: FormState = {
   title: "",
@@ -162,6 +157,10 @@ export function PackageEditorDialog() {
 
   const pkg = editor.pkg;
   const isEdit = pkg !== null;
+  const createTypeLabel = labelForPackageTypeTab(editor.createTypeTabId);
+  const showExamType = isEdit
+    ? form.skills.length === 4
+    : isFullMockTypeTab(editor.createTypeTabId);
   const hasEnrollments = (pkg?.enrollmentCount ?? 0) > 0;
   const contentLocked = hasEnrollments;
 
@@ -187,10 +186,16 @@ export function PackageEditorDialog() {
       });
       setMockPreview(pkg.mockLabel ?? null);
     } else {
-      setForm(emptyForm);
+      const skills = skillsForPackageTypeTab(editor.createTypeTabId);
+      const examType = examTypeForPackageTypeTab(editor.createTypeTabId);
+      setForm({
+        ...emptyForm,
+        skills,
+        examType,
+      });
       setMockPreview(null);
     }
-  }, [editor.open, pkg]);
+  }, [editor.open, editor.createTypeTabId, pkg]);
 
   useEffect(() => {
     if (!editor.open || isEdit) return;
@@ -366,10 +371,13 @@ export function PackageEditorDialog() {
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-navy">
-              {isEdit ? "Edit Package" : "Create Package"}
+              {isEdit ? "Edit Package" : `Create ${createTypeLabel} Package`}
             </h2>
             <p className="text-sm text-muted">
-              {mockPreview ?? (isEdit ? pkg?.mockLabel : "Assign one unique test per skill.")}
+              {mockPreview ??
+                (isEdit
+                  ? pkg?.mockLabel
+                  : `New ${createTypeLabel.toLowerCase()} mock in this type's sequence.`)}
             </p>
           </div>
           <button
@@ -383,33 +391,6 @@ export function PackageEditorDialog() {
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-          {!isEdit && (
-            <div className="space-y-1.5">
-              <label className={labelCls}>Package type</label>
-              <Select
-                value={
-                  PACKAGE_SKILL_PRESETS.find(
-                    (p) => p.skills.join("+") === form.skills.join("+"),
-                  )?.id ?? "full"
-                }
-                onChange={(e) => {
-                  const preset = PACKAGE_SKILL_PRESETS.find((p) => p.id === e.target.value);
-                  if (preset) set("skills", preset.skills);
-                }}
-                className="h-10 w-full"
-              >
-                {PACKAGE_SKILL_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </Select>
-              <p className="text-xs text-muted">
-                Each package type has its own mock number sequence. A test can only belong to one package.
-              </p>
-            </div>
-          )}
-
           <div className="space-y-1.5">
             <label className={labelCls}>Title</label>
             <Input
@@ -453,7 +434,7 @@ export function PackageEditorDialog() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className={`grid gap-4 ${showExamType ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             <div className="space-y-1.5">
               <label className={labelCls}>Price</label>
               <div className="relative">
@@ -485,17 +466,19 @@ export function PackageEditorDialog() {
                 <option value="AUD">AUD</option>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <label className={labelCls}>Exam type</label>
-              <Select
-                value={form.examType}
-                onChange={(e) => set("examType", e.target.value as ExamTypeValue)}
-                className="h-10 w-full"
-              >
-                <option value="ACADEMIC">Academic</option>
-                <option value="GENERAL_TRAINING">General Training</option>
-              </Select>
-            </div>
+            {showExamType && (
+              <div className="space-y-1.5">
+                <label className={labelCls}>Exam type</label>
+                <Select
+                  value={form.examType}
+                  onChange={(e) => set("examType", e.target.value as ExamTypeValue)}
+                  className="h-10 w-full"
+                >
+                  <option value="ACADEMIC">Academic</option>
+                  <option value="GENERAL_TRAINING">General Training</option>
+                </Select>
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg border border-border bg-slate-50 px-4 py-3 text-xs text-muted">

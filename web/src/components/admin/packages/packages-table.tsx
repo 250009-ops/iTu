@@ -25,12 +25,18 @@ const examTypeLabels: Record<AdminPackage["examType"], string> = {
 };
 
 const PACKAGE_STATUS_FILTER_KEY = "admin-packages-status-filter";
-const PACKAGE_TYPE_FILTER_KEY = "admin-packages-type-filter";
 const PACKAGE_STATUS_VALUES = ["all", "active", "archived"] as const;
 type PackageStatusFilter = (typeof PACKAGE_STATUS_VALUES)[number];
-const PACKAGE_TYPE_VALUES = VISIBLE_PACKAGE_TYPE_TABS.map((tab) => tab.id);
 
-export function PackagesTable() {
+type PackagesTableProps = {
+  typeFilter: PackageTypeTabId;
+  onTypeFilterChange: (tabId: PackageTypeTabId) => void;
+};
+
+export function PackagesTable({
+  typeFilter,
+  onTypeFilterChange,
+}: PackagesTableProps) {
   const { packages, openEditor, removePackage, duplicatePackage } = useAdminPackages();
   const { toast } = useToast();
   const [query, setQuery] = useState("");
@@ -38,11 +44,6 @@ export function PackagesTable() {
     PACKAGE_STATUS_FILTER_KEY,
     "all",
     PACKAGE_STATUS_VALUES,
-  );
-  const [typeFilter, setTypeFilter] = useSessionFilter<PackageTypeTabId>(
-    PACKAGE_TYPE_FILTER_KEY,
-    "all",
-    PACKAGE_TYPE_VALUES.filter(isPackageTypeTabId),
   );
   const [pendingDelete, setPendingDelete] = useState<AdminPackage | null>(null);
 
@@ -121,7 +122,7 @@ export function PackagesTable() {
         tabs={typeTabs}
         activeId={typeFilter}
         onChange={(id) => {
-          if (isPackageTypeTabId(id)) setTypeFilter(id);
+          if (isPackageTypeTabId(id)) onTypeFilterChange(id);
         }}
       />
 

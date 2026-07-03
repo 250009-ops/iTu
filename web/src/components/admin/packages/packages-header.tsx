@@ -3,8 +3,13 @@
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAdminPackages } from "@/contexts/admin-packages-context";
+import type { PackageTypeTabId } from "@/lib/package-type-tabs";
 
-export function PackagesHeader() {
+type PackagesHeaderProps = {
+  typeFilter: PackageTypeTabId;
+};
+
+export function PackagesHeader({ typeFilter }: PackagesHeaderProps) {
   const { openEditor } = useAdminPackages();
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -18,7 +23,11 @@ export function PackagesHeader() {
           Changes publish live to the marketing site instantly.
         </p>
       </div>
-      <Button variant="primary" size="sm" onClick={() => openEditor(null)}>
+      <Button
+        variant="primary"
+        size="sm"
+        onClick={() => openEditor(null, { typeTabId: typeFilter })}
+      >
         <Plus className="h-4 w-4" />
         New Package
       </Button>
