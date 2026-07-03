@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
@@ -32,7 +32,11 @@ import { playPrepEndBell } from "@/lib/speaking/prep-bell";
 import { formatElapsed, type SpeakingPart } from "@/lib/speaking/scoring";
 import { phaseToPart, resolvePart2ReentryPhase, type SpeakingPhase } from "@/lib/speaking/sync";
 import { usePart2Countdown } from "@/hooks/use-part2-countdown";
+import { useSpeakingSlotDeadline } from "@/hooks/use-speaking-slot-deadline";
 import { getErrorMessage } from "@/lib/api/errors";
+import { getTeacherSpeakingSessions } from "@/lib/api/teachers";
+import { mapTeacherSpeakingSessions } from "@/lib/api/mappers/teacher";
+import { pickNextSpeakingSession } from "@/lib/speaking/session-queue";
 import { useToast } from "@/components/ui/toast";
 import { EXAMINER_INTEGRITY_ALERTS } from "@/hooks/use-speaking-integrity";
 import { cn } from "@/lib/utils";
@@ -77,9 +81,102 @@ export function SpeakingLiveConsole() {
   const [ending, setEnding] = useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const finishingRef = useRef(false);
+
+  const scheduledAt =
+    state?.scheduledAt ?? session?.scheduledAt ?? null;
+  const sessionEnded = phase === "complete" || state?.status === "completed";
+
+  const finishSession = useCallback(
+    async (autoAdvance: boolean) => {
+      if (
+        !session ||
+        !sessionId ||
+        sessionEnded ||
+        ending ||
+        exiting ||
+        finishingRef.current
+      ) {
+        return;
+      }
+      finishingRef.current = true;
+      setEnding(true);
+      const studentName = session.studentName;
+      const currentScheduledAt = scheduledAt;
+      try {
+        await endSession();
+        await leaveRoom();
+        await refreshSession();
+        await refreshHub();
+
+        if (autoAdvance) {
+          const raw = await getTeacherSpeakingSessions();
+          const hub = mapTeacherSpeakingSessions(raw);
+          const next = pickNextSpeakingSession(
+            hub,
+            sessionId,
+            currentScheduledAt,
+          );
+          if (next) {
+            toast("Starting next session", {
+              description: `${next.studentName} · ${next.timeRange}`,
+              variant: "success",
+            });
+            router.push(`/teacher/speaking?session=${next.id}&live=1`);
+            return;
+          }
+          toast("Session time ended", {
+            description: "No more queued speaking sessions right now.",
+            variant: "success",
+          });
+        } else {
+          toast("Speaking session ended", {
+            description: `${studentName} can now finish their exam flow.`,
+            variant: "success",
+          });
+        }
+        router.push(`/teacher/speaking?session=${sessionId}`);
+      } catch (err) {
+        toast("Could not end session", {
+          description: getErrorMessage(err, "Please try again."),
+          variant: "error",
+        });
+      } finally {
+        finishingRef.current = false;
+        setEnding(false);
+      }
+    },
+    [
+      session,
+      sessionId,
+      sessionEnded,
+      ending,
+      exiting,
+      scheduledAt,
+      endSession,
+      leaveRoom,
+      refreshSession,
+      refreshHub,
+      router,
+      toast,
+    ],
+  );
+
+  const slotRemainingSec = useSpeakingSlotDeadline(
+    scheduledAt,
+    !sessionEnded && livekitConfigured,
+    () => {
+      toast("1 minute remaining", {
+        description: `Wrap up ${session?.studentName ?? "the student"}'s speaking session.`,
+        variant: "error",
+      });
+    },
+    () => {
+      void finishSession(true);
+    },
+  );
 
   const current = parts.find((p) => p.part === activePart) ?? parts[0];
-  const sessionEnded = phase === "complete" || state?.status === "completed";
 
   useEffect(() => {
     if (phase === "part1") setActivePart(1);
@@ -145,27 +242,8 @@ export function SpeakingLiveConsole() {
 
   async function handleEndSession() {
     if (!session || sessionEnded || ending || exiting) return;
-    const studentName = session.studentName;
     setEndConfirmOpen(false);
-    setEnding(true);
-    try {
-      await endSession();
-      await leaveRoom();
-      await refreshSession();
-      await refreshHub();
-      router.push(prepUrl());
-      toast("Speaking session ended", {
-        description: `${studentName} can now finish their exam flow.`,
-        variant: "success",
-      });
-    } catch (err) {
-      toast("Could not end session", {
-        description: getErrorMessage(err, "Please try again."),
-        variant: "error",
-      });
-    } finally {
-      setEnding(false);
-    }
+    await finishSession(false);
   }
 
   async function selectPart(part: SpeakingPart) {
@@ -277,6 +355,18 @@ export function SpeakingLiveConsole() {
           <span className="font-mono text-lg font-bold tabular-nums">
             {formatElapsed(elapsed)}
           </span>
+          {slotRemainingSec != null && !sessionEnded && (
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums",
+                slotRemainingSec <= 60
+                  ? "bg-amber-500/25 text-amber-100"
+                  : "bg-white/10 text-white/70",
+              )}
+            >
+              Slot {formatClock(slotRemainingSec)}
+            </span>
+          )}
           <span className="hidden text-xs text-white/50 sm:inline">
             {participantCount} in room
           </span>

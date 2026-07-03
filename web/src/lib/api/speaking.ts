@@ -22,6 +22,12 @@ export type SpeakingState = {
   joinOpensAt?: string | null;
   joinClosesAt?: string | null;
   joinMessage?: string | null;
+  enrollmentId?: string;
+  adminGranted?: boolean;
+  mockDate?: string;
+  speakingTeacherId?: string | null;
+  needsSpeakingSlot?: boolean;
+  slotLocked?: boolean;
 };
 
 export type SpeakingJoinResponse = {

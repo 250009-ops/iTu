@@ -53,12 +53,10 @@ export function QuestionGroup({
   return (
     <section className="scroll-mt-4" id={`group-${group.id}`}>
       <div className="mb-3">
-        <div className="flex items-baseline gap-2">
-          <span className="rounded-md bg-navy px-2 py-0.5 text-[12px] font-bold text-white">
-            Questions {group.from}–{group.to}
-          </span>
-        </div>
-        <p className="mt-2 text-[14px] font-semibold text-slate-800">
+        <p className="text-[13px] font-bold">
+          Questions {group.from}–{group.to}
+        </p>
+        <p className="mt-1 text-[13px] font-normal leading-snug">
           {group.instruction}
         </p>
         {group.hint && (
@@ -438,77 +436,70 @@ function GroupBody({
       const choices =
         group.type === "tfng"
           ? [
-              { id: "TRUE", label: "True" },
-              { id: "FALSE", label: "False" },
-              { id: "NOT_GIVEN", label: "Not Given" },
+              { id: "TRUE", label: "TRUE" },
+              { id: "FALSE", label: "FALSE" },
+              { id: "NOT_GIVEN", label: "NOT GIVEN" },
             ]
           : [
-              { id: "YES", label: "Yes" },
-              { id: "NO", label: "No" },
-              { id: "NOT_GIVEN", label: "Not Given" },
+              { id: "YES", label: "YES" },
+              { id: "NO", label: "NO" },
+              { id: "NOT_GIVEN", label: "NOT GIVEN" },
             ];
       return (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5">Statement</th>
-                {choices.map((c) => (
-                  <th key={c.id} className="w-24 px-2 py-2.5 text-center">
-                    {c.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {group.questions.map((q) => {
-                const value = answers[q.n] as string | null;
-                const isActive = current === q.n;
-                return (
-                  <tr
-                    key={q.n}
-                    id={`q-${q.n}`}
-                    className={cn(
-                      "scroll-mt-20 border-b border-slate-100 transition last:border-0",
-                      isActive && "bg-sky-50/60",
-                    )}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2 text-[14px] text-slate-800">
-                        <QuestionNumberBadge n={q.n} active={isActive} />
-                        <span className="pt-0.5">{q.prompt}</span>
-                      </div>
-                    </td>
-                    {choices.map((c) => {
-                      const selected = value === c.id;
-                      return (
-                        <td key={c.id} className="px-2 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onFocus(q.n);
-                              onAnswer(q.n, c.id);
-                            }}
-                            className={cn(
-                              "mx-auto flex h-5 w-5 items-center justify-center rounded-full border-2 transition",
-                              selected
-                                ? "border-navy bg-navy"
-                                : "border-slate-300 bg-white hover:border-navy",
-                            )}
-                            aria-label={`${c.label} for question ${q.n}`}
-                          >
-                            {selected && (
-                              <span className="h-2 w-2 rounded-full bg-white" />
-                            )}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-5">
+          {group.questions.map((q) => {
+            const value = answers[q.n] as string | null;
+            const isActive = current === q.n;
+            return (
+              <div
+                key={q.n}
+                id={`q-${q.n}`}
+                className={cn(
+                  "scroll-mt-20 transition",
+                  isActive && "rounded-sm bg-sky-50/40 px-1 -mx-1 py-1",
+                )}
+              >
+                <div className="flex items-start gap-2 text-[13px] leading-snug">
+                  <QuestionNumberBadge
+                    n={q.n}
+                    active={isActive}
+                    variant="outline"
+                    className="mt-0.5"
+                  />
+                  <span>{q.prompt}</span>
+                </div>
+                <div className="mt-2 space-y-1.5 pl-6">
+                  {choices.map((c) => {
+                    const selected = value === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          onFocus(q.n);
+                          onAnswer(q.n, c.id);
+                        }}
+                        className="flex w-full items-center gap-2.5 py-0.5 text-left text-[13px] font-normal"
+                        aria-label={`${c.label} for question ${q.n}`}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border border-slate-600 bg-white transition",
+                            selected && "border-[3px] border-black",
+                          )}
+                        >
+                          {selected && (
+                            <span className="h-[7px] w-[7px] rounded-full bg-black" />
+                          )}
+                        </span>
+                        <span>{c.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       );
     }

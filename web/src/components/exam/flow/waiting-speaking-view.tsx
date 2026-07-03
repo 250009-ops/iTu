@@ -1,11 +1,37 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, Mic, User } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Mic,
+  User,
+} from "lucide-react";
 import type { SpeakingContent } from "@/lib/exam/types";
 import { ExamInterstitialHeader } from "@/components/exam/flow/exam-interstitial-header";
+import { SpeakingSlotDialog } from "@/components/student/mock-day/speaking-slot-dialog";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import {
+  getStudentSpeakingState,
+  type SpeakingState,
+} from "@/lib/api/speaking";
+import {
+  formatJoinOpensAt,
+  speakingJoinAccess,
+} from "@/lib/speaking/slot-access";
+import { cn } from "@/lib/utils";
+
+function formatSlotRange(scheduledAt: string) {
+  const start = new Date(scheduledAt);
+  const end = new Date(start.getTime() + 20 * 60_000);
+  const fmt = (d: Date) =>
+    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
 
 export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -13,10 +39,89 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
     sessionId,
     "speaking",
   );
+  const [speakingState, setSpeakingState] = useState<SpeakingState | null>(null);
+  const [stateLoading, setStateLoading] = useState(true);
+  const [stateError, setStateError] = useState<string | null>(null);
+  const [slotDialogOpen, setSlotDialogOpen] = useState(false);
 
-  if (loading || !content) {
-    return <ApiDataShell loading={loading} error={error} />;
+  const loadState = useCallback(async () => {
+    try {
+      const state = await getStudentSpeakingState(sessionId);
+      setSpeakingState(state);
+      setStateError(null);
+    } catch (err) {
+      setStateError(
+        err instanceof Error ? err.message : "Failed to load speaking session",
+      );
+    } finally {
+      setStateLoading(false);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    void loadState();
+  }, [loadState]);
+
+  const needsSpeakingSlot = speakingState?.needsSpeakingSlot ?? false;
+  const slotAccess = speakingJoinAccess(speakingState?.scheduledAt);
+  const slotLabel = speakingState?.scheduledAt
+    ? formatSlotRange(speakingState.scheduledAt)
+    : content?.slot ?? "Not scheduled";
+  const isGrantedPending = needsSpeakingSlot && speakingState?.adminGranted;
+
+  let primaryAction: {
+    label: string;
+    icon: typeof Mic;
+    disabled: boolean;
+    onClick: () => void;
+  };
+  if (needsSpeakingSlot) {
+    primaryAction = {
+      label: "Select speaking time",
+      icon: CalendarClock,
+      disabled: false,
+      onClick: () => setSlotDialogOpen(true),
+    };
+  } else if (slotAccess.tooEarly && slotAccess.opensAt) {
+    primaryAction = {
+      label: `Join opens at ${formatJoinOpensAt(slotAccess.opensAt)}`,
+      icon: Clock,
+      disabled: true,
+      onClick: () => undefined,
+    };
+  } else if (slotAccess.tooLate) {
+    primaryAction = {
+      label: "Speaking join window closed",
+      icon: Clock,
+      disabled: true,
+      onClick: () => undefined,
+    };
+  } else if (!slotAccess.allowed) {
+    primaryAction = {
+      label: slotAccess.message ?? "Select a speaking time first",
+      icon: CalendarClock,
+      disabled: true,
+      onClick: () => undefined,
+    };
+  } else {
+    primaryAction = {
+      label: "Enter Speaking waiting room",
+      icon: Mic,
+      disabled: false,
+      onClick: () => router.push(`/exam/${sessionId}/speaking`),
+    };
   }
+
+  if (loading || stateLoading || !content || !speakingState) {
+    return (
+      <ApiDataShell
+        loading={loading || stateLoading}
+        error={error ?? stateError}
+      />
+    );
+  }
+
+  const PrimaryIcon = primaryAction.icon;
 
   return (
     <>
@@ -34,6 +139,12 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
               You have completed the computer-delivered sections. Your final
               section is the live Speaking interview.
             </p>
+            {isGrantedPending && (
+              <p className="mt-3 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900">
+                Choose a speaking time with your assigned examiner before
+                entering the waiting room. This slot cannot be changed later.
+              </p>
+            )}
           </div>
 
           <div className="mt-7 grid grid-cols-4 gap-2">
@@ -73,16 +184,18 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
                   Speaking interview
                 </p>
                 <p className="text-[12px] text-slate-500">
-                  1-on-1 live session · Parts 1, 2 & 3
+                  1-on-1 live session · Parts 1, 2 & 3 · ~20 minutes
                 </p>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-4 text-[13px] text-slate-600">
               <span className="flex items-center gap-1.5">
-                <User size={14} className="text-slate-400" /> {content.examiner}
+                <User size={14} className="text-slate-400" />
+                {speakingState?.examinerName ?? content.examiner}
               </span>
               <span className="flex items-center gap-1.5">
-                <Clock size={14} className="text-slate-400" /> {content.slot}
+                <Clock size={14} className="text-slate-400" />
+                {needsSpeakingSlot ? "Not scheduled yet" : slotLabel}
               </span>
             </div>
           </div>
@@ -90,10 +203,17 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <button
               type="button"
-              onClick={() => router.push(`/exam/${sessionId}/speaking`)}
-              className="rounded-xl bg-brand-red px-6 py-3 text-sm font-semibold text-white hover:bg-brand-red-hover"
+              disabled={primaryAction.disabled}
+              onClick={primaryAction.onClick}
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold",
+                primaryAction.disabled
+                  ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                  : "bg-brand-red text-white hover:bg-brand-red-hover",
+              )}
             >
-              Enter Speaking waiting room
+              <PrimaryIcon size={16} />
+              {primaryAction.label}
             </button>
             <button
               type="button"
@@ -105,6 +225,22 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
           </div>
         </div>
       </main>
+
+      {slotDialogOpen &&
+        speakingState?.enrollmentId &&
+        speakingState.speakingTeacherId && (
+          <SpeakingSlotDialog
+            enrollmentId={speakingState.enrollmentId}
+            mockDateIso={
+              speakingState.mockDate ?? new Date().toISOString()
+            }
+            teacherId={speakingState.speakingTeacherId}
+            examinerName={speakingState.examinerName}
+            allowFutureDates={Boolean(speakingState.adminGranted)}
+            onClose={() => setSlotDialogOpen(false)}
+            onDone={() => void loadState()}
+          />
+        )}
     </>
   );
 }

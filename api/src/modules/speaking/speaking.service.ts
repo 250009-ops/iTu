@@ -54,7 +54,7 @@ export class SpeakingService {
     const examSession = await this.prisma.examSession.findUnique({
       where: { sessionCode },
       include: {
-        enrollment: { include: { student: true } },
+        enrollment: { include: { student: true, speakingSlot: true } },
         sectionAttempts: { include: { speakingSession: true } },
       },
     });
@@ -86,11 +86,21 @@ export class SpeakingService {
         })
       : null;
 
-    return await this.toStateResponse(speakingSession, {
-      examinerName: examiner?.user.name ?? 'Assigned examiner',
-      examinerTitle: 'Speaking Examiner · IELTS Certified',
-      sessionCode,
-    });
+    return {
+      ...(await this.toStateResponse(speakingSession, {
+        examinerName: examiner?.user.name ?? 'Assigned examiner',
+        examinerTitle: 'Speaking Examiner · IELTS Certified',
+        sessionCode,
+      })),
+      enrollmentId: examSession.enrollment.id,
+      adminGranted: examSession.enrollment.adminGranted,
+      mockDate: examSession.enrollment.mockDate,
+      speakingTeacherId: examSession.enrollment.speakingTeacherId,
+      needsSpeakingSlot:
+        !speakingSession.scheduledAt &&
+        Boolean(examSession.enrollment.speakingTeacherId),
+      slotLocked: Boolean(examSession.enrollment.speakingSlotId),
+    };
   }
 
   async joinSession(speakingSessionId: string, user: RequestUser) {

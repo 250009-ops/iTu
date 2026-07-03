@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import type { ReadingContent } from "@/lib/exam/types";
 import { ExamTopBar } from "@/components/exam/shell/exam-top-bar";
 import { ExamTimer } from "@/components/exam/shell/exam-timer";
@@ -14,12 +14,18 @@ import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
 import { ReadingHeadingsProvider } from "@/components/exam/reading/reading-headings-context";
 import { PassageWithHeadingZones } from "@/components/exam/reading/passage-with-heading-zones";
+import { SelectablePassage } from "@/components/exam/reading/selectable-passage";
+import { PassageSelectionToolbar } from "@/components/exam/reading/passage-selection-toolbar";
+import { ReadingNotesPanel } from "@/components/exam/reading/reading-notes-panel";
 import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
+import { EXAM_FONT_STYLE } from "@/lib/exam/typography";
+import { CONTRAST_THEMES } from "@/lib/exam/contrast";
+import { getPassageSelection, type PendingSelection } from "@/lib/exam/reading-marks";
+import { useReadingExamTools } from "@/hooks/use-reading-exam-tools";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
 import { matchingHeadingsForPassage } from "@/lib/exam/matching-headings";
 import { useInstructionGate } from "@/hooks/use-instruction-gate";
-import { isHtmlContent, sanitizePassageHtml } from "@/lib/admin/content/sanitize-html";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
@@ -27,6 +33,7 @@ import { useExamIntegrity } from "@/hooks/use-exam-integrity";
 import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
 import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
 import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
+import { cn } from "@/lib/utils";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
 import { ExamRemoteNotice } from "@/components/exam/shell/exam-remote-notice";
@@ -45,6 +52,27 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const state = useExamState(content?.passages[0]?.id ?? "passage-1");
+  const readingTools = useReadingExamTools(sessionId);
+  const {
+    marks,
+    contrast,
+    setContrast,
+    notesOpen,
+    setNotesOpen,
+    activeNoteId,
+    setActiveNoteId,
+    addHighlight,
+    addNote,
+    updateNoteText,
+    deleteMark,
+    openNote,
+    toggleNotes,
+  } = readingTools;
+  const passagePaneRef = useRef<HTMLDivElement>(null);
+  const [pendingSelection, setPendingSelection] =
+    useState<PendingSelection | null>(null);
+  const contrastTheme = CONTRAST_THEMES[contrast];
+  const noteCount = marks.filter((m) => m.kind === "note").length;
   const { remaining, expired } = useServerTimer(sessionId, { enabled: started });
   const { flushNow } = useExamAutosave(sessionId, state.answers);
   const { warning, dismissWarning } = useExamIntegrity(sessionId);
@@ -124,6 +152,27 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
   const { blocking, dismiss, questionGroups, nextQuestionAfter } =
     useInstructionGate(activePassage?.groups ?? []);
 
+  const activePassageId = activePassage?.id ?? "";
+
+  const handlePassageMouseUp = useCallback(() => {
+    const container = passagePaneRef.current;
+    if (!container || !activePassageId) return;
+    setPendingSelection(getPassageSelection(container, activePassageId));
+  }, [activePassageId]);
+
+  const dismissSelection = useCallback(() => {
+    setPendingSelection(null);
+    window.getSelection()?.removeAllRanges();
+  }, []);
+
+  const handleMarkClick = useCallback(
+    (id: string) => {
+      const mark = marks.find((m) => m.id === id);
+      if (mark?.kind === "note") openNote(id);
+    },
+    [marks, openNote],
+  );
+
   if (loading || !content || !activePassage) {
     return <ApiDataShell loading={loading} error={error} />;
   }
@@ -144,6 +193,22 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   };
+
+  const currentIndex =
+    state.current != null ? allNumbers.indexOf(state.current) : -1;
+  const canGoPrevQuestion = currentIndex > 0;
+  const canGoNextQuestion =
+    currentIndex >= 0 && currentIndex < allNumbers.length - 1;
+
+  function goPrevQuestion() {
+    if (!canGoPrevQuestion) return;
+    goToQuestion(allNumbers[currentIndex - 1]!);
+  }
+
+  function goNextQuestion() {
+    if (!canGoNextQuestion) return;
+    goToQuestion(allNumbers[currentIndex + 1]!);
+  }
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -175,22 +240,40 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
         onTextSize={state.setTextSize}
         hideTimer={state.hideTimer}
         onToggleTimer={state.setHideTimer}
+        readingTools={{
+          contrast,
+          onContrast: setContrast,
+          notesOpen,
+          onToggleNotes: toggleNotes,
+          noteCount,
+        }}
       />
 
-      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
-          <BookOpen size={16} />
-        </div>
+      <div
+        className="flex shrink-0 items-center gap-3 border-b px-5 py-2"
+        style={{
+          ...EXAM_FONT_STYLE,
+          backgroundColor: contrastTheme.bar,
+          borderColor: contrastTheme.border,
+          color: contrastTheme.fg,
+        }}
+      >
         <div>
-          <p className="text-[14px] font-bold text-navy">Part {activePassage.part}</p>
-          <p className="text-[13px] text-slate-500">{activePassage.blurb}</p>
+          <p className="text-[13px] font-bold">Part {activePassage.part}</p>
+          <p className="text-[13px] font-normal">{activePassage.blurb}</p>
         </div>
       </div>
 
       <div ref={containerRef} className="flex min-h-0 flex-1 overflow-hidden">
         <div
-          className="min-h-0 overflow-y-auto bg-white px-6 py-6"
-          style={{ width: `${leftPct}%` }}
+          ref={passagePaneRef}
+          onMouseUp={handlePassageMouseUp}
+          className="min-h-0 overflow-y-auto px-6 py-6"
+          style={{
+            width: `${leftPct}%`,
+            backgroundColor: contrastTheme.bg,
+            color: contrastTheme.fg,
+          }}
         >
           {hasMatchingHeadings ? (
             <PassageWithHeadingZones
@@ -199,46 +282,37 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
               answers={state.answers}
               current={state.current}
               textSizeClass={TEXT_SIZE_CLASS[state.textSize]}
+              marks={marks}
+              fgColor={contrastTheme.fg}
+              onMarkClick={handleMarkClick}
               onAnswer={state.setAnswer}
               onFocus={state.focusQuestion}
             />
           ) : (
-            <div
-              className={`mx-auto max-w-prose ${TEXT_SIZE_CLASS[state.textSize]}`}
-              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-            >
-              <h2 className="mb-2 text-center text-xl font-bold text-navy">
-                {activePassage.title}
-              </h2>
-              {activePassage.subtitle?.trim() && (
-                <p className="mb-5 text-center text-[15px] italic leading-snug text-slate-600">
-                  {activePassage.subtitle}
-                </p>
-              )}
-              {!activePassage.subtitle?.trim() && <div className="mb-4" />}
-              <div className="space-y-4 leading-7 text-slate-700">
-                {activePassage.paragraphs.map((para, i) => (
-                  <p key={i}>
-                    {para.marker && (
-                      <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 align-text-bottom text-[12px] font-bold text-navy">
-                        {para.marker}
-                      </span>
-                    )}
-                    {isHtmlContent(para.text) ? (
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: sanitizePassageHtml(para.text),
-                        }}
-                      />
-                    ) : (
-                      para.text
-                    )}
-                  </p>
-                ))}
-              </div>
-            </div>
+            <SelectablePassage
+              passage={activePassage}
+              marks={marks}
+              textSizeClass={TEXT_SIZE_CLASS[state.textSize]}
+              fgColor={contrastTheme.fg}
+              onMarkClick={handleMarkClick}
+            />
           )}
         </div>
+
+        {pendingSelection && (
+          <PassageSelectionToolbar
+            selection={pendingSelection}
+            onHighlight={() => {
+              addHighlight(pendingSelection);
+              dismissSelection();
+            }}
+            onNote={() => {
+              addNote(pendingSelection);
+              dismissSelection();
+            }}
+            onDismiss={dismissSelection}
+          />
+        )}
 
         <div
           onMouseDown={() => {
@@ -253,21 +327,101 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-6" data-exam-surface>
-          <div className={`space-y-8 ${TEXT_SIZE_CLASS[state.textSize]}`}>
-            {questionGroups.map((group) => (
-              <QuestionGroup
-                key={group.id}
-                group={group}
-                answers={state.answers}
-                current={state.current}
-                onAnswer={state.setAnswer}
-                onFocus={state.focusQuestion}
-                onPasteBlocked={logPaste}
-                passageParagraphs={activePassage.paragraphs}
-              />
-            ))}
+        <div
+          className="relative min-h-0 flex-1 overflow-hidden"
+          style={{ backgroundColor: contrastTheme.bg }}
+        >
+          <div
+            className="relative h-full min-h-0 overflow-y-auto px-6 py-6"
+            data-exam-surface
+            style={{
+              ...EXAM_FONT_STYLE,
+              backgroundColor: contrastTheme.bg,
+              color: contrastTheme.fg,
+              marginRight: notesOpen ? "20rem" : undefined,
+            }}
+          >
+            <div className={`space-y-8 ${TEXT_SIZE_CLASS[state.textSize]}`}>
+              {questionGroups.map((group) => (
+                <QuestionGroup
+                  key={group.id}
+                  group={group}
+                  answers={state.answers}
+                  current={state.current}
+                  onAnswer={state.setAnswer}
+                  onFocus={state.focusQuestion}
+                  onPasteBlocked={logPaste}
+                  passageParagraphs={activePassage.paragraphs}
+                />
+              ))}
+            </div>
+
+            <div
+              className="sticky bottom-0 flex justify-end gap-0.5 pb-1 pt-6"
+              style={{
+                background: `linear-gradient(to top, ${contrastTheme.bg}, ${contrastTheme.bg}f2, transparent)`,
+              }}
+            >
+              <button
+                type="button"
+                onClick={goPrevQuestion}
+                disabled={!canGoPrevQuestion}
+                aria-label="Previous question"
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center border transition",
+                  canGoPrevQuestion
+                    ? "hover:opacity-90"
+                    : "cursor-not-allowed opacity-40",
+                )}
+                style={{
+                  borderColor: contrastTheme.border,
+                  backgroundColor: contrastTheme.bar,
+                  color: contrastTheme.fg,
+                }}
+              >
+                <ChevronLeft size={16} strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                onClick={goNextQuestion}
+                disabled={!canGoNextQuestion}
+                aria-label="Next question"
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center border transition",
+                  canGoNextQuestion
+                    ? "hover:opacity-90"
+                    : "cursor-not-allowed opacity-40",
+                )}
+                style={{
+                  borderColor: contrastTheme.border,
+                  backgroundColor:
+                    contrast === "black-on-white" && canGoNextQuestion
+                      ? "#000000"
+                      : contrastTheme.bar,
+                  color:
+                    contrast === "black-on-white" && canGoNextQuestion
+                      ? "#ffffff"
+                      : contrastTheme.fg,
+                }}
+              >
+                <ChevronRight size={16} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
+
+          <ReadingNotesPanel
+            open={notesOpen}
+            marks={marks}
+            activeNoteId={activeNoteId}
+            theme={contrastTheme}
+            onClose={() => {
+              setNotesOpen(false);
+              setActiveNoteId(null);
+            }}
+            onSelectNote={setActiveNoteId}
+            onUpdateNote={updateNoteText}
+            onDelete={deleteMark}
+          />
         </div>
       </div>
 
@@ -292,6 +446,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
         onSelectQuestion={goToQuestion}
         onSubmit={() => setSubmitOpen(true)}
         submitLabel="End Reading"
+        theme={contrastTheme}
       />
 
       <SubmitDialog

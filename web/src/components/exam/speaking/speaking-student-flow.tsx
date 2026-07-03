@@ -99,6 +99,12 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
     return () => window.clearTimeout(id);
   }, [speakingState?.status, stage, router]);
 
+  useEffect(() => {
+    if (speakingState?.needsSpeakingSlot) {
+      router.replace(`/exam/${sessionId}/waiting-speaking`);
+    }
+  }, [speakingState?.needsSpeakingSlot, sessionId, router]);
+
   if (loading || !content) {
     return <ApiDataShell loading={loading} error={error ?? stateError} />;
   }

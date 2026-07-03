@@ -1,8 +1,10 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { answeredCount, isAnswered } from "@/lib/exam/helpers";
 import type { AnswerMap } from "@/lib/exam/types";
+import type { ContrastTheme } from "@/lib/exam/contrast";
+import { EXAM_FONT_STYLE } from "@/lib/exam/typography";
 import { cn } from "@/lib/utils";
 
 export interface PalettePart {
@@ -20,6 +22,7 @@ interface QuestionPaletteProps {
   onSelectQuestion: (n: number) => void;
   onSubmit: () => void;
   submitLabel?: string;
+  theme?: ContrastTheme;
 }
 
 export function QuestionPalette({
@@ -31,137 +34,91 @@ export function QuestionPalette({
   onSelectQuestion,
   onSubmit,
   submitLabel = "Submit section",
+  theme,
 }: QuestionPaletteProps) {
-  const activeIndex = Math.max(
-    0,
-    parts.findIndex((p) => p.id === activePart),
-  );
-  const active = parts[activeIndex] ?? parts[0];
+  const active = parts.find((p) => p.id === activePart) ?? parts[0];
   if (!active) return null;
 
-  const canGoPrev = activeIndex > 0;
-  const canGoNext = activeIndex < parts.length - 1;
-
-  function goPrevPart() {
-    if (!canGoPrev) return;
-    onSelectPart(parts[activeIndex - 1]!.id);
-  }
-
-  function goNextPart() {
-    if (!canGoNext) return;
-    onSelectPart(parts[activeIndex + 1]!.id);
-  }
+  const inactiveParts = parts.filter((p) => p.id !== activePart);
+  const bar = theme?.bar ?? "#ececec";
+  const fg = theme?.fg ?? "#000000";
+  const border = theme?.border ?? "#c4c4c4";
+  const muted = theme?.muted ?? "#444444";
+  const boxBg = theme?.bg ?? "#ffffff";
 
   return (
-    <footer className="z-20 shrink-0 border-t border-slate-200 bg-white">
-      {/* Question numbers for the active part */}
-      <div className="flex items-center gap-3 overflow-x-auto border-b border-slate-100 px-4 py-2">
-        <span className="shrink-0 text-[13px] font-bold text-navy">{active.label}</span>
-        <div className="flex items-center gap-1">
-          {active.numbers.map((n) => {
-            const done = isAnswered(answers[n]);
-            const isCurrent = current === n;
-            return (
-              <button
-                key={n}
-                type="button"
-                onClick={() => onSelectQuestion(n)}
-                className={cn(
-                  "relative flex h-7 w-7 shrink-0 items-center justify-center rounded text-[12px] font-semibold transition",
-                  isCurrent
-                    ? "bg-navy text-white"
-                    : done
-                      ? "bg-slate-100 text-navy hover:bg-slate-200"
-                      : "border border-slate-200 text-slate-500 hover:bg-slate-50",
-                )}
-              >
-                {done && !isCurrent && (
-                  <span className="absolute -top-0.5 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-emerald-500" />
-                )}
-                {n}
-              </button>
-            );
-          })}
-        </div>
+    <footer
+      className="z-20 flex h-10 shrink-0 items-center gap-3 border-t px-3"
+      style={{
+        ...EXAM_FONT_STYLE,
+        backgroundColor: bar,
+        borderColor: border,
+        color: fg,
+      }}
+    >
+      <span className="shrink-0 text-[13px] font-bold">{active.label}</span>
+
+      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+        {active.numbers.map((n) => {
+          const isCurrent = current === n;
+          const done = isAnswered(answers[n]);
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onSelectQuestion(n)}
+              className={cn(
+                "flex h-6 w-6 shrink-0 items-center justify-center border text-[11px] font-normal transition",
+                isCurrent
+                  ? "border-blue-600"
+                  : done
+                    ? "border-slate-400"
+                    : "border-slate-400 hover:border-slate-500",
+              )}
+              style={{
+                backgroundColor: boxBg,
+                color: fg,
+                borderColor: isCurrent ? "#2563eb" : border,
+              }}
+            >
+              {n}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Part navigation arrows — IDP-style, right-aligned above the part bar */}
-      <div className="flex justify-end border-b border-slate-100 bg-white px-3 py-1.5">
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={goPrevPart}
-            disabled={!canGoPrev}
-            aria-label="Previous part"
-            className={cn(
-              "flex h-9 w-9 items-center justify-center transition",
-              canGoPrev
-                ? "bg-slate-500 text-white hover:bg-slate-600"
-                : "cursor-not-allowed bg-slate-200 text-slate-400",
-            )}
-          >
-            <ChevronLeft size={18} strokeWidth={2.5} />
-          </button>
-          <button
-            type="button"
-            onClick={goNextPart}
-            disabled={!canGoNext}
-            aria-label="Next part"
-            className={cn(
-              "flex h-9 w-9 items-center justify-center transition",
-              canGoNext
-                ? "bg-navy text-white hover:bg-navy/90"
-                : "cursor-not-allowed bg-slate-200 text-slate-400",
-            )}
-          >
-            <ChevronRight size={18} strokeWidth={2.5} />
-          </button>
-        </div>
-      </div>
-
-      {/* IDP-style part bar — equal columns separated by vertical dividers */}
-      <div className="flex items-stretch bg-slate-50">
-        <div className="flex min-w-0 flex-1">
-          {parts.map((p) => {
-            const count = answeredCount(answers, p.numbers);
-            const isActive = p.id === activePart;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onSelectPart(p.id)}
-                className={cn(
-                  "flex min-w-0 flex-1 items-center justify-center gap-2 border-r border-slate-200 px-3 py-3 text-center transition",
-                  isActive ? "bg-white" : "hover:bg-white/70",
-                )}
-              >
-                <span
-                  className={cn(
-                    "truncate text-[13px]",
-                    isActive ? "font-bold text-navy" : "font-semibold text-slate-600",
-                  )}
-                >
-                  {p.label}
-                </span>
-                <span className="shrink-0 text-[12px] text-slate-500">
-                  {count} of {p.numbers.length}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <div className="ml-auto flex shrink-0 items-center gap-4">
+        {inactiveParts.map((p) => {
+          const count = answeredCount(answers, p.numbers);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onSelectPart(p.id)}
+              className="flex shrink-0 items-center gap-1.5 text-[13px] transition hover:opacity-80"
+              style={{ color: fg }}
+            >
+              <span className="font-bold">{p.label}</span>
+              <span className="font-normal" style={{ color: muted }}>
+                {count} of {p.numbers.length}
+              </span>
+            </button>
+          );
+        })}
 
         <button
           type="button"
           onClick={onSubmit}
           title={submitLabel}
           aria-label={submitLabel}
-          className="flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-slate-200 bg-brand-red text-white transition hover:bg-brand-red-hover"
+          className="flex h-8 w-8 shrink-0 items-center justify-center border transition hover:opacity-90"
+          style={{
+            borderColor: border,
+            backgroundColor: theme ? bar : "#d4d4d4",
+            color: fg,
+          }}
         >
-          <Check size={18} strokeWidth={2.5} />
-          <span className="hidden text-[10px] font-semibold leading-none sm:inline">
-            End
-          </span>
+          <Check size={16} strokeWidth={2.5} />
         </button>
       </div>
     </footer>

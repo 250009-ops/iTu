@@ -10,6 +10,12 @@ import {
 import { useReadingHeadings } from "@/components/exam/reading/reading-headings-context";
 import { isHtmlContent, sanitizePassageHtml } from "@/lib/admin/content/sanitize-html";
 import { passageSectionLabels } from "@/lib/exam/passage-sections";
+import {
+  marksForParagraph,
+  splitMarkedText,
+  type ReadingMark,
+} from "@/lib/exam/reading-marks";
+import { PASSAGE_FONT_STYLE } from "@/lib/exam/typography";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -18,6 +24,9 @@ type Props = {
   answers: AnswerMap;
   current: number | null;
   textSizeClass: string;
+  marks?: ReadingMark[];
+  fgColor?: string;
+  onMarkClick?: (id: string) => void;
   onAnswer: (n: number, value: string | null) => void;
   onFocus: (n: number) => void;
 };
@@ -121,6 +130,9 @@ export function PassageWithHeadingZones({
   answers,
   current,
   textSizeClass,
+  marks = [],
+  fgColor,
+  onMarkClick,
   onAnswer,
   onFocus,
 }: Props) {
@@ -153,9 +165,9 @@ export function PassageWithHeadingZones({
   return (
     <div
       className={`mx-auto max-w-prose ${textSizeClass}`}
-      style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+      style={{ ...PASSAGE_FONT_STYLE, color: fgColor }}
     >
-      <h2 className="mb-2 text-center text-xl font-bold text-navy">{passage.title}</h2>
+      <h2 className="mb-2 text-center text-xl font-bold">{passage.title}</h2>
       {passage.subtitle?.trim() && (
         <p className="mb-5 text-center text-[15px] italic leading-snug text-slate-600">
           {passage.subtitle}
@@ -163,10 +175,16 @@ export function PassageWithHeadingZones({
       )}
       {!passage.subtitle?.trim() && <div className="mb-4" />}
 
-      <div className="space-y-4 leading-7 text-slate-700">
+      <div className="space-y-4 leading-7">
         {passage.paragraphs.map((para, i) => {
           const section = para.marker?.trim().toUpperCase();
           const zone = section ? zoneBySection.get(section) : undefined;
+          const paraMarks = marksForParagraph(marks, passage.id, i);
+          const plainText = isHtmlContent(para.text)
+            ? sanitizePassageHtml(para.text).replace(/<[^>]+>/g, "")
+            : para.text;
+          const segments = splitMarkedText(plainText, paraMarks);
+          const selectable = !isHtmlContent(para.text);
 
           return (
             <div key={i}>
@@ -197,20 +215,38 @@ export function PassageWithHeadingZones({
                   }}
                 />
               )}
-              <p>
+              <p data-passage-para={i}>
                 {para.marker && (
-                  <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 align-text-bottom text-[12px] font-bold text-navy">
+                  <span className="mr-2 inline-flex h-6 w-6 items-center justify-center border border-current align-text-bottom text-[12px] font-bold opacity-70">
                     {para.marker}
                   </span>
                 )}
-                {isHtmlContent(para.text) ? (
+                {selectable ? (
+                  <span data-passage-text="">
+                    {segments.map((seg, j) =>
+                      seg.type === "text" ? (
+                        <span key={j}>{seg.value}</span>
+                      ) : (
+                        <mark
+                          key={seg.mark.id}
+                          onClick={() => onMarkClick?.(seg.mark.id)}
+                          className={
+                            seg.mark.kind === "note"
+                              ? "cursor-pointer bg-[#1e4a7a] text-white"
+                              : "cursor-pointer bg-[#7B4B5A] text-white"
+                          }
+                        >
+                          {seg.value}
+                        </mark>
+                      ),
+                    )}
+                  </span>
+                ) : (
                   <span
                     dangerouslySetInnerHTML={{
                       __html: sanitizePassageHtml(para.text),
                     }}
                   />
-                ) : (
-                  para.text
                 )}
               </p>
             </div>

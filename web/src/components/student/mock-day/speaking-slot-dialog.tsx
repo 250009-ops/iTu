@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, Loader2, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -19,8 +19,24 @@ type Slot = {
   status: string;
 };
 
+const FUTURE_HORIZON_DAYS = 28;
+
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return localTodayIso(d);
+}
+
+function futureDateOptions(fromIso: string, count: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    out.push(addDaysIso(fromIso, i));
+  }
+  return out;
+}
+
 /** Use mock day, or today when mock day has passed but the student is still scheduling. */
-function speakingAvailabilityDate(mockDateIso: string): string {
+function defaultAvailabilityDate(mockDateIso: string): string {
   const mockDate = mockDateIso.slice(0, 10);
   const today = localTodayIso();
   return mockDate < today ? today : mockDate;
@@ -34,11 +50,20 @@ function formatSlotTime(iso: string) {
   });
 }
 
+function formatDateLabel(iso: string) {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function SpeakingSlotDialog({
   enrollmentId,
   mockDateIso,
   teacherId,
   examinerName,
+  allowFutureDates = false,
   onClose,
   onDone,
 }: {
@@ -46,33 +71,45 @@ export function SpeakingSlotDialog({
   mockDateIso: string;
   teacherId: string;
   examinerName: string;
+  /** Granted mocks may book any open slot within the next 28 days. */
+  allowFutureDates?: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
   const { toast } = useToast();
   const mockDate = mockDateIso.slice(0, 10);
-  const availabilityDate = useMemo(
-    () => speakingAvailabilityDate(mockDateIso),
-    [mockDateIso],
+  const today = localTodayIso();
+  const dateOptions = useMemo(
+    () =>
+      allowFutureDates
+        ? futureDateOptions(today, FUTURE_HORIZON_DAYS)
+        : [defaultAvailabilityDate(mockDateIso)],
+    [allowFutureDates, mockDateIso, today],
   );
+  const [selectedDate, setSelectedDate] = useState(dateOptions[0] ?? today);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setSelectedDate(dateOptions[0] ?? today);
+  }, [dateOptions, today]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setSelectedSlot(null);
     try {
-      const list = await getAvailability(availabilityDate, teacherId);
+      const list = await getAvailability(selectedDate, teacherId);
       setSlots(list.filter((s) => s.status === "available"));
     } catch (err) {
       setError(getErrorMessage(err, "Could not load availability"));
     } finally {
       setLoading(false);
     }
-  }, [availabilityDate, teacherId]);
+  }, [selectedDate, teacherId]);
 
   useEffect(() => {
     void load();
@@ -89,7 +126,7 @@ export function SpeakingSlotDialog({
         speakingSlotId: selectedSlot.id,
       });
       toast("Speaking slot scheduled", {
-        description: `${formatSlotTime(selectedSlot.startsAt)} with ${examinerName}`,
+        description: `${formatDateLabel(selectedDate)} · ${formatSlotTime(selectedSlot.startsAt)} with ${examinerName}`,
         variant: "success",
       });
       onDone();
@@ -101,24 +138,12 @@ export function SpeakingSlotDialog({
     }
   }
 
-  const dateLabel = useMemo(
-    () =>
-      new Date(`${availabilityDate}T12:00:00`).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      }),
-    [availabilityDate],
-  );
-
   const mockDayHint =
-    availabilityDate !== mockDate
-      ? `Mock day was ${new Date(`${mockDate}T12:00:00`).toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        })} · showing today's open slots`
-      : null;
+    !allowFutureDates && selectedDate !== mockDate
+      ? `Mock day was ${formatDateLabel(mockDate)} · showing today's open slots`
+      : allowFutureDates
+        ? "Pick any available 20-minute slot · cannot be changed after booking"
+        : null;
 
   return (
     <Modal open onClose={onClose} ariaLabel="Select speaking availability">
@@ -130,7 +155,7 @@ export function SpeakingSlotDialog({
           <div>
             <h2 className="text-lg font-bold text-navy">Select speaking time</h2>
             <p className="text-sm text-muted">
-              {examinerName} · {dateLabel}
+              {examinerName} · {formatDateLabel(selectedDate)}
             </p>
             {mockDayHint && (
               <p className="text-xs text-amber-700">{mockDayHint}</p>
@@ -140,6 +165,26 @@ export function SpeakingSlotDialog({
       </div>
 
       <div className="max-h-[50vh] overflow-y-auto px-6 py-5">
+        {allowFutureDates && (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {dateOptions.map((iso) => (
+              <button
+                key={iso}
+                type="button"
+                onClick={() => setSelectedDate(iso)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold",
+                  selectedDate === iso
+                    ? "border-rose-500 bg-rose-500 text-white"
+                    : "border-border bg-white text-foreground hover:bg-slate-50",
+                )}
+              >
+                {formatDateLabel(iso)}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-muted">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -147,8 +192,10 @@ export function SpeakingSlotDialog({
           </div>
         ) : slots.length === 0 ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            No open slots for {examinerName} on this date. Try another day via
-            reschedule or contact support.
+            No open slots for {examinerName} on {formatDateLabel(selectedDate)}.
+            {allowFutureDates
+              ? " Try another date."
+              : " Contact support if you need help."}
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">

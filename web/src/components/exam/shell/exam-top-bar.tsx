@@ -1,9 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { HelpCircle, Settings, Volume2, Wifi, X } from "lucide-react";
+import { HelpCircle, Menu, NotebookPen, Settings, Volume2, Wifi, X } from "lucide-react";
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
+import { ContrastMenu } from "@/components/exam/shell/contrast-menu";
+import type { ContrastMode } from "@/lib/exam/contrast";
 import { cn } from "@/lib/utils";
+
+export type ReadingTopBarTools = {
+  contrast: ContrastMode;
+  onContrast: (mode: ContrastMode) => void;
+  notesOpen: boolean;
+  onToggleNotes: () => void;
+  noteCount: number;
+};
 
 interface ExamTopBarProps {
   testTakerId: string;
@@ -16,6 +26,8 @@ interface ExamTopBarProps {
   onTextSize: (size: "normal" | "large" | "xlarge") => void;
   hideTimer: boolean;
   onToggleTimer: (hidden: boolean) => void;
+  /** Reading-only: contrast menu + notes toggle. */
+  readingTools?: ReadingTopBarTools;
 }
 
 export function ExamTopBar({
@@ -26,9 +38,11 @@ export function ExamTopBar({
   onTextSize,
   hideTimer,
   onToggleTimer,
+  readingTools,
 }: ExamTopBarProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [contrastOpen, setContrastOpen] = useState(false);
 
   return (
     <header className="relative z-30 flex h-14 shrink-0 items-center justify-between border-b border-slate-700 bg-[#1b2a4a] px-4 text-white">
@@ -68,6 +82,55 @@ export function ExamTopBar({
           <Wifi size={17} />
         </span>
 
+        {readingTools && (
+          <>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setContrastOpen((o) => !o);
+                  setSettingsOpen(false);
+                }}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-md text-slate-300 transition hover:bg-white/10 hover:text-white",
+                  contrastOpen && "bg-white/10 text-white",
+                )}
+                aria-label="Contrast settings"
+              >
+                <Menu size={18} />
+              </button>
+              {contrastOpen && (
+                <ContrastMenu
+                  contrast={readingTools.contrast}
+                  onContrast={readingTools.onContrast}
+                  onClose={() => setContrastOpen(false)}
+                />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                readingTools.onToggleNotes();
+                setSettingsOpen(false);
+                setContrastOpen(false);
+              }}
+              className={cn(
+                "relative flex h-9 w-9 items-center justify-center rounded-md text-slate-300 transition hover:bg-white/10 hover:text-white",
+                readingTools.notesOpen && "bg-white/10 text-white",
+              )}
+              aria-label="Notes"
+            >
+              <NotebookPen size={18} />
+              {readingTools.noteCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-bold text-white">
+                  {readingTools.noteCount}
+                </span>
+              )}
+            </button>
+          </>
+        )}
+
         <div className="relative">
           <button
             type="button"
@@ -99,6 +162,7 @@ export function ExamTopBar({
           onClick={() => {
             setHelpOpen(true);
             setSettingsOpen(false);
+            setContrastOpen(false);
           }}
           className="flex h-9 w-9 items-center justify-center rounded-md text-slate-300 transition hover:bg-white/10 hover:text-white"
           aria-label="Help"

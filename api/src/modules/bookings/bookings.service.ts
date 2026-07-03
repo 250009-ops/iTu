@@ -20,6 +20,7 @@ import {
   extractCalendarDateIso,
   hasExamStarted,
   isFlexibleGrant,
+  addCalendarDaysIso,
   resolveMockDayCutoffAt,
   zonedWallClockToUtc,
 } from '../../common/mock-day-policy';
@@ -1050,18 +1051,35 @@ export class BookingsService {
       );
     }
 
+    if (enrollment.speakingSlotId) {
+      throw new BadRequestException(
+        'Your speaking slot is already booked and cannot be changed',
+      );
+    }
+
     const timeZone = await this.settings.getPlatformTimezone();
     const slotDateIso = calendarDateIsoInTimeZone(slot.startsAt, timeZone);
-    const mockDateIso = extractCalendarDateIso(enrollment.mockDate, timeZone);
     const todayIso = calendarDateIsoInTimeZone(new Date(), timeZone);
-    const allowedDates = new Set([mockDateIso]);
-    if (mockDateIso < todayIso) {
-      allowedDates.add(todayIso);
-    }
-    if (!allowedDates.has(slotDateIso)) {
-      throw new BadRequestException(
-        'Speaking slot must be on your mock day or today',
-      );
+    const flexibleGrant = isFlexibleGrant(enrollment);
+
+    if (flexibleGrant) {
+      const maxDateIso = addCalendarDaysIso(todayIso, 28, timeZone);
+      if (slotDateIso < todayIso || slotDateIso > maxDateIso) {
+        throw new BadRequestException(
+          'Speaking slot must be within the next 28 days',
+        );
+      }
+    } else {
+      const mockDateIso = extractCalendarDateIso(enrollment.mockDate, timeZone);
+      const allowedDates = new Set([mockDateIso]);
+      if (mockDateIso < todayIso) {
+        allowedDates.add(todayIso);
+      }
+      if (!allowedDates.has(slotDateIso)) {
+        throw new BadRequestException(
+          'Speaking slot must be on your mock day or today',
+        );
+      }
     }
 
     const result = await this.prisma.$transaction(async (tx) => {

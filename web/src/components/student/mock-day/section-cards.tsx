@@ -400,6 +400,7 @@ export function SectionCards() {
           mockDateIso={data.mockDateIso}
           teacherId={data.speakingTeacherId}
           examinerName={speaking.examiner}
+          allowFutureDates={data.flexibleStart}
           onClose={() => setSpeakingSlotOpen(false)}
           onDone={() => void refresh()}
         />
