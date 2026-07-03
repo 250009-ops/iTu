@@ -15,6 +15,41 @@ import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | WritingCriterionId;
 
+type EssayPart =
+  | { kind: "text"; value: string }
+  | { kind: "mark"; value: string; ann: WritingAnnotation; id: number };
+
+function AnnotationPopover({ ann }: { ann: WritingAnnotation }) {
+  const tone = WRITING_CRITERION_META[ann.criterion].tone;
+  return (
+    <div
+      role="note"
+      className="my-2 block w-full rounded-lg border border-border bg-white p-3 shadow-md"
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+            CRITERION_TONE_CLASSES[tone].pillSoft,
+            "ring-1 ring-inset",
+          )}
+        >
+          {WRITING_CRITERION_META[ann.criterion].short}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-navy">{ann.title}</p>
+          <p className="mt-0.5 text-sm text-muted">{ann.explanation}</p>
+          {ann.suggestion && (
+            <p className="mt-1.5 text-xs text-sky-700">
+              Suggested: {ann.suggestion}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AnnotatedEssay({
   text,
   annotations,
@@ -27,7 +62,7 @@ export function AnnotatedEssay({
   task: WritingTaskKey;
 }) {
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [activeMarkId, setActiveMarkId] = useState<number | null>(null);
   const body = text?.trim() ?? "";
   const hasText = body.length > 0;
   const wordStatus = getWordCountStatus(task, wordCount);
@@ -50,32 +85,32 @@ export function AnnotatedEssay({
     return map;
   }, [annotations]);
 
-  const segments = useMemo(() => {
+  const segments = useMemo((): EssayPart[] => {
     if (!hasText || filtered.length === 0) {
-      return [{ kind: "text" as const, value: body }];
+      return [{ kind: "text", value: body }];
     }
 
-    const sorted = [...filtered].sort((a, b) => a.start - b.start);
-    const parts: Array<
-      | { kind: "text"; value: string }
-      | { kind: "mark"; value: string; ann: WritingAnnotation; id: number }
-    > = [];
-
+    const sorted = [...filtered].sort((a, b) => a.start - b.start || a.end - b.end);
+    const parts: EssayPart[] = [];
     let cursor = 0;
-    sorted.forEach((ann, index) => {
+    let markId = 0;
+
+    for (const ann of sorted) {
+      if (ann.end <= ann.start) continue;
+      if (ann.start < cursor) continue;
+
       if (ann.start > cursor) {
         parts.push({ kind: "text", value: body.slice(cursor, ann.start) });
       }
-      if (ann.end > ann.start) {
-        parts.push({
-          kind: "mark",
-          value: body.slice(ann.start, ann.end),
-          ann,
-          id: index,
-        });
-      }
-      cursor = Math.max(cursor, ann.end);
-    });
+
+      parts.push({
+        kind: "mark",
+        value: body.slice(ann.start, ann.end),
+        ann,
+        id: markId++,
+      });
+      cursor = ann.end;
+    }
 
     if (cursor < body.length) {
       parts.push({ kind: "text", value: body.slice(cursor) });
@@ -83,11 +118,6 @@ export function AnnotatedEssay({
 
     return parts;
   }, [body, hasText, filtered]);
-
-  const hoveredAnn =
-    hoveredId != null
-      ? filtered.find((_, i) => i === hoveredId) ?? null
-      : null;
 
   const filterItems: [FilterKey, string][] = [
     ["all", `All (${annotations.length})`],
@@ -108,7 +138,10 @@ export function AnnotatedEssay({
             <button
               key={key}
               type="button"
-              onClick={() => setFilter(key)}
+              onClick={() => {
+                setFilter(key);
+                setActiveMarkId(null);
+              }}
               disabled={!hasText}
               className={cn(
                 "rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-default disabled:opacity-60",
@@ -142,65 +175,45 @@ export function AnnotatedEssay({
         </div>
       )}
 
-      <div className="relative min-h-[8rem] px-5 py-4">
+      <div className="min-h-[8rem] px-5 py-4">
         {hasText ? (
           <div className="whitespace-pre-wrap font-serif text-[15px] leading-8 text-foreground">
-            {segments.map((part, i) =>
-              part.kind === "text" ? (
-                <span key={i}>{part.value}</span>
-              ) : (
-                <span
-                  key={i}
-                  className={cn(
-                    "cursor-help rounded-sm transition-colors",
-                    CRITERION_TONE_CLASSES[
-                      WRITING_CRITERION_META[part.ann.criterion].tone
-                    ].highlight,
-                    hoveredId === part.id && "ring-2 ring-navy/20",
-                  )}
-                  onMouseEnter={() => setHoveredId(part.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                >
-                  {part.value}
+            {segments.map((part, i) => {
+              if (part.kind === "text") {
+                return <span key={i}>{part.value}</span>;
+              }
+
+              const isActive = activeMarkId === part.id;
+              const tone = WRITING_CRITERION_META[part.ann.criterion].tone;
+
+              return (
+                <span key={i} className="contents">
+                  <button
+                    type="button"
+                    aria-expanded={isActive}
+                    aria-label={`${WRITING_CRITERION_META[part.ann.criterion].short}: ${part.ann.title}`}
+                    className={cn(
+                      "cursor-pointer rounded-sm border-0 bg-transparent p-0 font-inherit text-inherit transition-colors",
+                      CRITERION_TONE_CLASSES[tone].highlight,
+                      isActive && "ring-2 ring-navy/30",
+                    )}
+                    onClick={() =>
+                      setActiveMarkId((prev) =>
+                        prev === part.id ? null : part.id,
+                      )
+                    }
+                  >
+                    {part.value}
+                  </button>
+                  {isActive && <AnnotationPopover ann={part.ann} />}
                 </span>
-              ),
-            )}
+              );
+            })}
           </div>
         ) : (
           <p className="py-6 text-center text-sm text-muted">
             No response submitted for this task.
           </p>
-        )}
-
-        {hoveredAnn && (
-          <div className="pointer-events-none absolute bottom-4 left-5 right-5 z-10 rounded-lg border border-border bg-white p-3 shadow-lg">
-            <div className="flex items-start gap-2">
-              <span
-                className={cn(
-                  "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                  CRITERION_TONE_CLASSES[
-                    WRITING_CRITERION_META[hoveredAnn.criterion].tone
-                  ].pillSoft,
-                  "ring-1 ring-inset",
-                )}
-              >
-                {WRITING_CRITERION_META[hoveredAnn.criterion].short}
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-navy">
-                  {hoveredAnn.title}
-                </p>
-                <p className="mt-0.5 text-sm text-muted">
-                  {hoveredAnn.explanation}
-                </p>
-                {hoveredAnn.suggestion && (
-                  <p className="mt-1 text-xs text-sky-700">
-                    Suggested: {hoveredAnn.suggestion}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
         )}
       </div>
 
@@ -222,6 +235,7 @@ export function AnnotatedEssay({
               : WRITING_CRITERION_META[id].label}
           </span>
         ))}
+        <span className="text-muted">· Click a highlight to view feedback</span>
       </div>
     </div>
   );

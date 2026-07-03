@@ -43,6 +43,7 @@ export class GradingService {
       where: { teacherId: user.teacherProfileId },
       include: {
         grade: true,
+        aiEvaluation: true,
         sectionAttempt: {
           include: {
             session: {
@@ -81,11 +82,17 @@ export class GradingService {
       };
     };
 
+    const isQueueVisible = (s: (typeof submissions)[number]) =>
+      s.status === 'IN_REVIEW' ||
+      this.writingAi.isReadyForTeacherQueue(s.aiEvaluation);
+
     const pending = submissions
       .filter((s) => s.status === 'PENDING')
+      .filter(isQueueVisible)
       .map(mapRow);
     const inReview = submissions
       .filter((s) => s.status === 'IN_REVIEW')
+      .filter(isQueueVisible)
       .map(mapRow);
     const completed = submissions
       .filter((s) => s.status === 'GRADED')
@@ -191,6 +198,13 @@ export class GradingService {
       throw new ForbiddenException('Not assigned to this submission');
     }
 
+    if (
+      submission.status !== 'GRADED' &&
+      !this.writingAi.isReadyForTeacherQueue(submission.aiEvaluation)
+    ) {
+      throw new NotFoundException('Submission is not ready for grading yet');
+    }
+
     if (submission.status !== 'GRADED') {
       void this.writingAi.getOrTriggerEvaluation(id);
     }
@@ -222,7 +236,7 @@ export class GradingService {
         submission.sectionAttempt.submittedAt ?? submission.updatedAt,
       slaMinutesRemaining,
       status: submission.status.toLowerCase(),
-      aiConfigured: this.writingAi.isConfigured(),
+      aiConfigured: this.writingAi.isAiUsable(submission.aiEvaluation),
       grade: submission.grade
         ? {
             criteriaScores: submission.grade.criteriaScores,
@@ -230,18 +244,19 @@ export class GradingService {
             feedback: submission.grade.feedback,
           }
         : null,
-      aiEvaluation: submission.aiEvaluation
-        ? {
-            status: submission.aiEvaluation.status.toLowerCase(),
-            task1Annotations: submission.aiEvaluation.task1Annotations,
-            task2Annotations: submission.aiEvaluation.task2Annotations,
-            task1SuggestedScores: submission.aiEvaluation.task1SuggestedScores,
-            task2SuggestedScores: submission.aiEvaluation.task2SuggestedScores,
-            modelVersion: submission.aiEvaluation.modelVersion,
-            errorMessage: submission.aiEvaluation.errorMessage,
-            generatedAt: submission.aiEvaluation.generatedAt,
-          }
-        : null,
+      aiEvaluation:
+        submission.aiEvaluation &&
+        this.writingAi.isAiUsable(submission.aiEvaluation)
+          ? {
+              status: submission.aiEvaluation.status.toLowerCase(),
+              task1Annotations: submission.aiEvaluation.task1Annotations,
+              task2Annotations: submission.aiEvaluation.task2Annotations,
+              task1SuggestedScores: submission.aiEvaluation.task1SuggestedScores,
+              task2SuggestedScores: submission.aiEvaluation.task2SuggestedScores,
+              modelVersion: submission.aiEvaluation.modelVersion,
+              generatedAt: submission.aiEvaluation.generatedAt,
+            }
+          : null,
     };
   }
 

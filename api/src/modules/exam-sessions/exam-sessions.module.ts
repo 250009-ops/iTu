@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { GradingModule } from '../grading/grading.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { ResultsModule } from '../results/results.module';
@@ -13,6 +14,7 @@ import { ExamTimerService } from './exam-timer.service';
     SettingsModule,
     NotificationsModule,
     ResultsModule,
+    GradingModule,
     forwardRef(() => RealtimeModule),
   ],
   controllers: [ExamSessionsController],

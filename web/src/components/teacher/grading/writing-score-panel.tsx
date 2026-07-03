@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Save, Sparkles } from "lucide-react";
 import { BandScoreStepper } from "@/components/teacher/grading/band-score-stepper";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,13 @@ export function WritingScorePanel({
   feedback,
   aiSuggested,
   aiVisible,
+  task1Band,
+  task2Band,
+  overallBand,
+  alreadyGraded,
+  submitting,
+  submitDisabled,
+  onSubmit,
   onScoreChange,
   onFeedbackChange,
   onApplyAi,
@@ -34,6 +41,13 @@ export function WritingScorePanel({
   feedback: string;
   aiSuggested: TaskScores | null;
   aiVisible: boolean;
+  task1Band: number;
+  task2Band: number;
+  overallBand: number;
+  alreadyGraded: boolean;
+  submitting: boolean;
+  submitDisabled: boolean;
+  onSubmit: () => void;
   onScoreChange: (criterion: WritingCriterionId, value: number) => void;
   onFeedbackChange: (value: string) => void;
   onApplyAi: () => void;
@@ -158,6 +172,34 @@ export function WritingScorePanel({
             </div>
           </div>
         )}
+      </div>
+
+      <div className="shrink-0 border-t border-border bg-slate-50/80 px-4 py-3">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+              Overall band
+            </p>
+            <p className="text-2xl font-bold tabular-nums text-navy">
+              {formatBand(overallBand)}
+            </p>
+          </div>
+          <div className="text-right text-[11px] font-semibold tabular-nums">
+            <p className="text-sky-600">T1 {formatBand(task1Band)}</p>
+            <p className="text-violet-600">T2 {formatBand(task2Band)}</p>
+          </div>
+        </div>
+        <Button
+          variant="danger"
+          size="default"
+          className="w-full"
+          loading={submitting}
+          disabled={submitDisabled}
+          onClick={onSubmit}
+        >
+          <Save className="h-4 w-4" />
+          {alreadyGraded ? "Update Grade" : "Save & Submit Grade"}
+        </Button>
       </div>
     </div>
   );

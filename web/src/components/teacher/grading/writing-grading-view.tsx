@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock } from "lucide-react";
 import { AnnotatedEssay } from "@/components/teacher/grading/annotated-essay";
-import { WritingGradingFooter } from "@/components/teacher/grading/writing-grading-footer";
 import { WritingScorePanel } from "@/components/teacher/grading/writing-score-panel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
@@ -132,16 +131,6 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
   }, [load]);
 
   const aiStatus = submission?.aiEvaluation?.status;
-  const aiProcessing =
-    aiStatus === "queued" || aiStatus === "processing";
-
-  useEffect(() => {
-    if (!aiProcessing) return;
-    const timer = window.setInterval(() => {
-      void load();
-    }, 4000);
-    return () => window.clearInterval(timer);
-  }, [aiProcessing, load]);
 
   const task1Annotations = useMemo(
     () => parseAnnotations(submission?.aiEvaluation?.task1Annotations),
@@ -386,29 +375,12 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                   visualCaption={activeVisual ?? null}
                 />
 
-                {aiProcessing && (
-                  <div className="flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-4 py-2.5 text-sm text-violet-800">
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                    AI analysis running — highlights will appear shortly. You
-                    can grade manually in the meantime.
-                  </div>
-                )}
-
                 <AnnotatedEssay
                   text={activeText ?? null}
-                  annotations={aiProcessing ? [] : activeAnnotations}
+                  annotations={activeAnnotations}
                   wordCount={activeWordCount}
                   task={activeTask}
                 />
-
-                {submission.aiConfigured &&
-                  submission.aiEvaluation?.status === "failed" && (
-                    <p className="text-sm text-amber-700">
-                      AI evaluation unavailable:{" "}
-                      {submission.aiEvaluation.errorMessage ??
-                        "Please grade manually."}
-                    </p>
-                  )}
               </div>
             </div>
 
@@ -419,6 +391,13 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                 feedback={activeFeedback}
                 aiSuggested={activeAiSuggested}
                 aiVisible={aiReady && !aiDismissed[activeTask]}
+                task1Band={task1Band}
+                task2Band={task2Band}
+                overallBand={overall}
+                alreadyGraded={alreadyGraded}
+                submitting={submitting}
+                submitDisabled={!canSubmitGrade}
+                onSubmit={() => setConfirmOpen(true)}
                 onScoreChange={setActiveScore}
                 onFeedbackChange={setActiveFeedback}
                 onApplyAi={applyAiSuggestions}
@@ -429,15 +408,6 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
               />
             </aside>
           </div>
-
-          <WritingGradingFooter
-            task1Band={task1Band}
-            task2Band={task2Band}
-            submitting={submitting}
-            alreadyGraded={alreadyGraded}
-            submitDisabled={!canSubmitGrade}
-            onSubmit={() => setConfirmOpen(true)}
-          />
 
           <ConfirmDialog
             open={confirmOpen}

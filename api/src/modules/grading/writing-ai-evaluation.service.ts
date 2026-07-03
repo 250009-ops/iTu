@@ -1,12 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, WritingAiEvaluationStatus } from '@prisma/client';
+import {
+  NotificationType,
+  Prisma,
+  WritingAiEvaluationStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import {
   WRITING_MIN_WORDS,
   applyWordCountPenaltyToScores,
   countWords,
 } from './writing-word-count';
+import {
+  capSimpleTask1Scores,
+  enrichTask1Annotations,
+  enrichTask2Annotations,
+} from './writing-ai-heuristics';
 
 export type WritingAnnotationDto = {
   start: number;
@@ -57,10 +68,24 @@ export class WritingAiEvaluationService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private notifications: NotificationsService,
+    private realtime: RealtimeService,
   ) {}
 
   isConfigured(): boolean {
     return Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim());
+  }
+
+  /** When AI is enabled, teachers only see submissions after analysis finishes. */
+  isReadyForTeacherQueue(
+    aiEvaluation: { status: WritingAiEvaluationStatus } | null | undefined,
+  ): boolean {
+    if (!this.isConfigured()) return true;
+    if (!aiEvaluation) return false;
+    return (
+      aiEvaluation.status === WritingAiEvaluationStatus.READY ||
+      aiEvaluation.status === WritingAiEvaluationStatus.FAILED
+    );
   }
 
   async getOrTriggerEvaluation(submissionId: string): Promise<void> {
@@ -100,6 +125,9 @@ export class WritingAiEvaluationService {
     }
 
     if (existing?.status === WritingAiEvaluationStatus.FAILED) {
+      if (existing.errorMessage == null) {
+        return;
+      }
       await this.prisma.writingAiEvaluation.update({
         where: { writingSubmissionId: submissionId },
         data: { status: WritingAiEvaluationStatus.QUEUED, errorMessage: null },
@@ -258,18 +286,79 @@ export class WritingAiEvaluationService {
           errorMessage: null,
         },
       });
+      await this.notifyTeacherGradingReady(submissionId, true);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'AI evaluation failed';
-      this.logger.error(`Writing AI evaluation failed for ${submissionId}: ${message}`);
+      const infra = this.isInfrastructureError(message);
+      this.logger.error(
+        `Writing AI evaluation failed for ${submissionId}${infra ? ' (infrastructure)' : ''}: ${message}`,
+      );
       await this.prisma.writingAiEvaluation.update({
         where: { writingSubmissionId: submissionId },
         data: {
           status: WritingAiEvaluationStatus.FAILED,
-          errorMessage: message,
+          errorMessage: infra ? null : message,
         },
       });
+      await this.notifyTeacherGradingReady(submissionId, false);
     }
+  }
+
+  private isInfrastructureError(message: string): boolean {
+    const lower = message.toLowerCase();
+    return (
+      lower.includes('openai api error 401') ||
+      lower.includes('openai api error 403') ||
+      lower.includes('openai api error 429') ||
+      lower.includes('insufficient_quota') ||
+      lower.includes('billing') ||
+      lower.includes('api key') ||
+      lower.includes('invalid_api_key') ||
+      lower.includes('incorrect api key') ||
+      lower.includes('rate limit') ||
+      lower.includes('exceeded your current quota')
+    );
+  }
+
+  /** True when AI highlights and suggestions are available to the examiner. */
+  isAiUsable(
+    aiEvaluation: { status: WritingAiEvaluationStatus } | null | undefined,
+  ): boolean {
+    return aiEvaluation?.status === WritingAiEvaluationStatus.READY;
+  }
+
+  private async notifyTeacherGradingReady(
+    submissionId: string,
+    aiSucceeded: boolean,
+  ): Promise<void> {
+    const submission = await this.prisma.writingSubmission.findUnique({
+      where: { id: submissionId },
+      select: {
+        id: true,
+        status: true,
+        teacherId: true,
+        teacher: { select: { userId: true } },
+      },
+    });
+    if (
+      !submission?.teacher?.userId ||
+      submission.status === 'GRADED' ||
+      !submission.teacherId
+    ) {
+      return;
+    }
+
+    await this.notifications.create(
+      submission.teacher.userId,
+      'Writing ready to grade',
+      aiSucceeded
+        ? 'A student writing submission is now in your queue with AI highlights ready.'
+        : 'A student writing submission is now in your queue.',
+      NotificationType.GRADING,
+      `/teacher/grading/${submission.id}`,
+    );
+    this.realtime.notifyTeacherBadges(submission.teacherId);
   }
 
   private isStaleEvaluation(
@@ -325,10 +414,12 @@ export class WritingAiEvaluationService {
 
     const wordCount = countWords(essayText);
     const annotations: WritingAnnotationDto[] = [];
+    const usedRanges: Array<{ start: number; end: number }> = [];
 
     for (const ann of raw.annotations ?? []) {
-      const span = this.findTextSpan(essayText, ann.text);
+      const span = this.findTextSpan(essayText, ann.text, usedRanges);
       if (!span) continue;
+      usedRanges.push(span);
       annotations.push({
         start: span.start,
         end: span.end,
@@ -348,6 +439,11 @@ export class WritingAiEvaluationService {
         explanation: `The response is ${wordCount} words. IELTS requires at least ${minWords} words for this task — Task Achievement/Response must be penalised accordingly.`,
       });
     }
+
+    const enriched =
+      primaryKey === 'taskAchievement'
+        ? enrichTask1Annotations(essayText, annotations, usedRanges)
+        : enrichTask2Annotations(essayText, annotations, usedRanges);
 
     let suggestedScores: Record<string, number> = {
       coherenceCohesion: this.clampBand(raw.suggestedScores.coherenceCohesion),
@@ -372,21 +468,36 @@ export class WritingAiEvaluationService {
       minWords,
     );
 
-    return { annotations, suggestedScores, criterionSummaries: raw.criterionSummaries };
+    if (primaryKey === 'taskAchievement') {
+      suggestedScores = capSimpleTask1Scores(suggestedScores, essayText);
+    }
+
+    return {
+      annotations: enriched,
+      suggestedScores,
+      criterionSummaries: raw.criterionSummaries,
+    };
   }
 
   private findTextSpan(
     text: string,
     snippet: string,
+    usedRanges: Array<{ start: number; end: number }> = [],
   ): { start: number; end: number } | null {
     if (!snippet?.trim()) return null;
-    const idx = text.indexOf(snippet);
-    if (idx >= 0) {
-      return { start: idx, end: idx + snippet.length };
-    }
-    const lowerIdx = text.toLowerCase().indexOf(snippet.toLowerCase());
-    if (lowerIdx >= 0) {
-      return { start: lowerIdx, end: lowerIdx + snippet.length };
+    let searchFrom = 0;
+    while (searchFrom < text.length) {
+      let idx = text.indexOf(snippet, searchFrom);
+      if (idx < 0) {
+        idx = text.toLowerCase().indexOf(snippet.toLowerCase(), searchFrom);
+      }
+      if (idx < 0) return null;
+      const span = { start: idx, end: idx + snippet.length };
+      const overlaps = usedRanges.some(
+        (u) => span.start < u.end && span.end > u.start,
+      );
+      if (!overlaps) return span;
+      searchFrom = idx + 1;
     }
     return null;
   }
@@ -418,7 +529,7 @@ Return ONLY valid JSON matching this schema:
         "criterion": "ta" | "cc" | "lr" | "gra",
         "title": "<short issue title>",
         "explanation": "<1-2 plain English sentences explaining the issue against band descriptors>",
-        "suggestion": "<concrete improved phrasing or strategy the student should apply>"
+        "suggestion": "<concrete improved phrasing — quote the problematic phrase and show a better alternative>"
       }
     ],
     "suggestedScores": {
@@ -428,42 +539,47 @@ Return ONLY valid JSON matching this schema:
       "grammar": <number>
     },
     "criterionSummaries": {
-      "ta": "<2-3 sentences: overall Task Achievement strengths, weaknesses, and priority improvement for Task 1>",
-      "cc": "<2-3 sentences focused on paragraphing, cohesion, and logical flow>",
-      "lr": "<2-3 sentences focused on vocabulary range, precision, and collocation>",
-      "gra": "<2-3 sentences focused on sentence variety, accuracy, and complex structures>"
+      "ta": "<2-3 sentences>",
+      "cc": "<2-3 sentences>",
+      "lr": "<2-3 sentences>",
+      "gra": "<2-3 sentences>"
     }
   },
-  "task2": {
-    "annotations": [...],
-    "suggestedScores": {
-      "taskResponse": <0-9 in 0.5 steps>,
-      "coherenceCohesion": <number>,
-      "lexicalResource": <number>,
-      "grammar": <number>
-    },
-    "criterionSummaries": {
-      "ta": "<2-3 sentences: overall Task Response — position, development, and relevance>",
-      "cc": "<2-3 sentences on essay structure and linking>",
-      "lr": "<2-3 sentences on word choice and flexibility>",
-      "gra": "<2-3 sentences on grammar range and error patterns>"
-    }
-  }
+  "task2": { ... same shape with taskResponse instead of taskAchievement ... }
 }
 
+IELTS TASK 1 (Academic Report) — check ALL of these:
+- NO personal opinion ("I think", "I believe", "In my opinion")
+- NO essay-style conclusion ("In conclusion", "To sum up" with opinion)
+- MUST include an overview of main trends/comparisons (not just data listing)
+- Report format: describe data objectively (charts, tables, maps, processes)
+- Penalise TA if only data is listed without overview or key comparisons
+- Simple reports at minimum word count (150–180 words) with basic overview: max TA ~6.5 even if accurate — Band 7+ needs fuller development
+- Flag repeated phrases (e.g. "rose steadily", "the figure") with lr annotations — suggestion must name the repeated phrase and give alternatives
+
+IELTS TASK 2 (Essay) — check ALL of these:
+- MUST have clear introduction with thesis/position
+- MUST have at least 2 body paragraphs with one main idea each
+- MUST have a conclusion paragraph restating position (flag if missing — ta annotation)
+- Penalise TA if prompt not fully addressed or position unclear
+- Flag repeated vocabulary/linking words with specific alternatives in suggestion
+
+Criterion keys:
+- "ta" = Task Achievement (Task 1) or Task Response (Task 2)
+- "cc" = Coherence & Cohesion
+- "lr" = Lexical Resource
+- "gra" = Grammatical Range & Accuracy
+
 Rules:
-- criterion "ta" = Task Achievement (Task 1) or Task Response (Task 2)
-- criterion "cc" = Coherence & Cohesion
-- criterion "lr" = Lexical Resource
-- criterion "gra" = Grammatical Range & Accuracy
 - Task 1 minimum: 150 words. Task 2 minimum: 250 words.
-- When below minimum word count, penalise TA/TR heavily and include a word-count annotation
-- For substantive responses: include 6-10 annotations per task with AT LEAST ONE annotation per criterion (ta, cc, lr, gra)
-- Every annotation MUST include a specific, actionable "suggestion" — not just diagnosis
-- criterionSummaries MUST address all four criteria with examiner-style advice
-- "text" MUST be copied verbatim from the student essay (exact substring)
-- Assign band 0 for every criterion when the student submitted no response
-- Be fair and examiner-like; scores must align with annotations`;
+- When below minimum word count, penalise TA/TR heavily (typically max 4–5)
+- Include 6–12 annotations per task with AT LEAST ONE per criterion (ta, cc, lr, gra)
+- Each annotation "text" MUST be copied verbatim from the student essay
+- Each "suggestion" MUST be specific: quote the issue and give a rewritten example
+- For repetition: title "Repetitive vocabulary/structure", explanation states how many times the phrase appears, suggestion lists 2–3 alternative phrases
+- Do NOT award Band 8–9 for short, simple, minimum-length responses
+- Scores must align with annotations — be strict and examiner-like
+- Assign band 0 for every criterion when the student submitted no response`;
 
     const task1Words = countWords(input.task1Text);
     const task2Words = countWords(input.task2Text);

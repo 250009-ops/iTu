@@ -23,6 +23,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
+import { WritingAiEvaluationService } from '../grading/writing-ai-evaluation.service';
 import { UpdateTeacherProfileDto } from './dto/update-teacher-profile.dto';
 
 type PayoutDetails = {
@@ -38,6 +39,7 @@ export class TeachersService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private settings: SettingsService,
+    private writingAi: WritingAiEvaluationService,
   ) {}
 
   async getDashboard(user: RequestUser) {
@@ -68,9 +70,7 @@ export class TeachersService {
       },
     });
 
-    const writingQueue = await this.prisma.writingSubmission.count({
-      where: { teacherId: teacher.id, status: { in: ['PENDING', 'IN_REVIEW'] } },
-    });
+    const writingQueue = await this.countVisibleWritingQueue(teacher.id);
 
     const speakingQueue = await this.prisma.speakingSession.count({
       where: {
@@ -100,9 +100,7 @@ export class TeachersService {
 
   async getNavBadgeCounts(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
-    const writing = await this.prisma.writingSubmission.count({
-      where: { teacherId: teacher.id, status: { in: ['PENDING', 'IN_REVIEW'] } },
-    });
+    const writing = await this.countVisibleWritingQueue(teacher.id);
     const speaking = await this.prisma.speakingSession.count({
       where: {
         teacherId: teacher.id,
@@ -632,6 +630,18 @@ export class TeachersService {
     });
 
     return this.getProfile(user);
+  }
+
+  private async countVisibleWritingQueue(teacherId: string): Promise<number> {
+    const submissions = await this.prisma.writingSubmission.findMany({
+      where: { teacherId, status: { in: ['PENDING', 'IN_REVIEW'] } },
+      select: { status: true, aiEvaluation: { select: { status: true } } },
+    });
+    return submissions.filter(
+      (s) =>
+        s.status === 'IN_REVIEW' ||
+        this.writingAi.isReadyForTeacherQueue(s.aiEvaluation),
+    ).length;
   }
 
   private async requireTeacher(user: RequestUser) {
