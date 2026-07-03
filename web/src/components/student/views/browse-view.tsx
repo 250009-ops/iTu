@@ -60,7 +60,7 @@ function BrowseContent() {
               label: offer.label,
               available: offer.product != null,
             }))}
-            activeTabId={activeTabId}
+            activeTabId={activeTabId || defaultTabId}
             onTabChange={setActiveTabId}
           />
           {activeOffer?.product ? (

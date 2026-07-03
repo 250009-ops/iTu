@@ -9,12 +9,14 @@ export type OfferGroup = {
   examType: ExamType;
 };
 
-const TAB_ORDER: Array<{
+export type PackageTypeTab = {
   tabId: string;
   packageKind: string;
-  examType?: ExamType;
+  examType: ExamType;
   label: string;
-}> = [
+};
+
+const TAB_ORDER: PackageTypeTab[] = [
   {
     tabId: 'full-academic',
     packageKind: FULL_KIND,
@@ -27,27 +29,66 @@ const TAB_ORDER: Array<{
     examType: ExamType.GENERAL_TRAINING,
     label: 'General Training',
   },
-  { tabId: 'speaking', packageKind: 'speaking', label: 'Speaking Only' },
-  { tabId: 'writing', packageKind: 'writing', label: 'Writing Only' },
-  { tabId: 'listening', packageKind: 'listening', label: 'Listening Only' },
-  { tabId: 'reading', packageKind: 'reading', label: 'Reading Only' },
+  {
+    tabId: 'speaking',
+    packageKind: 'speaking',
+    examType: ExamType.ACADEMIC,
+    label: 'Speaking Only',
+  },
+  {
+    tabId: 'writing',
+    packageKind: 'writing',
+    examType: ExamType.ACADEMIC,
+    label: 'Writing Only',
+  },
+  {
+    tabId: 'listening',
+    packageKind: 'listening',
+    examType: ExamType.ACADEMIC,
+    label: 'Listening Only',
+  },
+  {
+    tabId: 'reading',
+    packageKind: 'reading',
+    examType: ExamType.ACADEMIC,
+    label: 'Reading Only',
+  },
   {
     tabId: 'listening-reading',
     packageKind: 'listening+reading',
+    examType: ExamType.ACADEMIC,
     label: 'Listening & Reading',
   },
   {
     tabId: 'writing-speaking',
     packageKind: 'writing+speaking',
+    examType: ExamType.ACADEMIC,
     label: 'Writing & Speaking',
   },
 ];
 
+/** Canonical student browse tabs — always shown even when a type has no offer. */
+export const STUDENT_BROWSE_TAB_ORDER: OfferGroup[] = TAB_ORDER.map(
+  ({ packageKind, examType }) => ({ packageKind, examType }),
+);
+
+export function groupKey(packageKind: string, examType: ExamType) {
+  return `${packageKind}:${examType}`;
+}
+
+export function matchesPackageTypeTab(
+  packageKind: string,
+  examType: string,
+  tabId: string,
+): boolean {
+  const tab = TAB_ORDER.find((t) => t.tabId === tabId);
+  if (!tab) return false;
+  return tab.packageKind === packageKind && tab.examType === examType;
+}
+
 export function buildTabId(packageKind: string, examType: ExamType): string {
   const preset = TAB_ORDER.find(
-    (t) =>
-      t.packageKind === packageKind &&
-      (t.examType == null || t.examType === examType),
+    (t) => t.packageKind === packageKind && t.examType === examType,
   );
   if (preset) return preset.tabId;
   return `${packageKind.replace(/\+/g, '-')}-${examType.toLowerCase()}`;
@@ -55,9 +96,7 @@ export function buildTabId(packageKind: string, examType: ExamType): string {
 
 export function buildTabLabel(packageKind: string, examType: ExamType): string {
   const preset = TAB_ORDER.find(
-    (t) =>
-      t.packageKind === packageKind &&
-      (t.examType == null || t.examType === examType),
+    (t) => t.packageKind === packageKind && t.examType === examType,
   );
   if (preset) return preset.label;
   if (packageKind === FULL_KIND) {
@@ -70,17 +109,12 @@ export function buildTabLabel(packageKind: string, examType: ExamType): string {
 
 export function sortOfferGroups(groups: OfferGroup[]): OfferGroup[] {
   const orderIndex = new Map(
-    TAB_ORDER.map((t, i) => [
-      `${t.packageKind}:${t.examType ?? '*'}`,
-      i,
-    ]),
+    TAB_ORDER.map((t, i) => [groupKey(t.packageKind, t.examType), i]),
   );
 
   return [...groups].sort((a, b) => {
-    const aKey = `${a.packageKind}:${TAB_ORDER.find((t) => t.packageKind === a.packageKind && (t.examType == null || t.examType === a.examType))?.examType ?? '*'}`;
-    const bKey = `${b.packageKind}:${TAB_ORDER.find((t) => t.packageKind === b.packageKind && (t.examType == null || t.examType === b.examType))?.examType ?? '*'}`;
-    const aIdx = orderIndex.get(aKey) ?? 999;
-    const bIdx = orderIndex.get(bKey) ?? 999;
+    const aIdx = orderIndex.get(groupKey(a.packageKind, a.examType)) ?? 999;
+    const bIdx = orderIndex.get(groupKey(b.packageKind, b.examType)) ?? 999;
     if (aIdx !== bIdx) return aIdx - bIdx;
     if (a.packageKind !== b.packageKind) {
       return a.packageKind.localeCompare(b.packageKind);

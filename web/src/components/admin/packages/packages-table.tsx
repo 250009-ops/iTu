@@ -5,11 +5,18 @@ import { Pencil, Copy, Search, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
+import { TypeTabBar } from "@/components/shared/type-tab-bar";
 import { useToast } from "@/components/ui/toast";
 import { useSessionFilter } from "@/hooks/use-session-filter";
 import { useAdminPackages } from "@/contexts/admin-packages-context";
 import type { AdminPackage } from "@/lib/admin/types";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  isPackageTypeTabId,
+  PACKAGE_TYPE_TABS,
+  packageMatchesTypeTab,
+  type PackageTypeTabId,
+} from "@/lib/package-type-tabs";
 import { cn } from "@/lib/utils";
 
 const examTypeLabels: Record<AdminPackage["examType"], string> = {
@@ -18,8 +25,10 @@ const examTypeLabels: Record<AdminPackage["examType"], string> = {
 };
 
 const PACKAGE_STATUS_FILTER_KEY = "admin-packages-status-filter";
+const PACKAGE_TYPE_FILTER_KEY = "admin-packages-type-filter";
 const PACKAGE_STATUS_VALUES = ["all", "active", "archived"] as const;
 type PackageStatusFilter = (typeof PACKAGE_STATUS_VALUES)[number];
+const PACKAGE_TYPE_VALUES = PACKAGE_TYPE_TABS.map((tab) => tab.id);
 
 export function PackagesTable() {
   const { packages, openEditor, removePackage, duplicatePackage } = useAdminPackages();
@@ -30,20 +39,40 @@ export function PackagesTable() {
     "all",
     PACKAGE_STATUS_VALUES,
   );
+  const [typeFilter, setTypeFilter] = useSessionFilter<PackageTypeTabId>(
+    PACKAGE_TYPE_FILTER_KEY,
+    "all",
+    PACKAGE_TYPE_VALUES.filter(isPackageTypeTabId),
+  );
   const [pendingDelete, setPendingDelete] = useState<AdminPackage | null>(null);
+
+  const typeTabs = useMemo(
+    () =>
+      PACKAGE_TYPE_TABS.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        count:
+          tab.id === "all"
+            ? packages.length
+            : packages.filter((pkg) => packageMatchesTypeTab(pkg, tab.id)).length,
+      })),
+    [packages],
+  );
 
   const filtered = useMemo(() => {
     return packages.filter((p) => {
+      const matchesType = packageMatchesTypeTab(p, typeFilter);
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active" ? p.isActive : !p.isActive);
       const matchesQuery =
         !query.trim() ||
         p.title.toLowerCase().includes(query.toLowerCase()) ||
-        p.slug.toLowerCase().includes(query.toLowerCase());
-      return matchesStatus && matchesQuery;
+        p.slug.toLowerCase().includes(query.toLowerCase()) ||
+        (p.mockLabel?.toLowerCase().includes(query.toLowerCase()) ?? false);
+      return matchesType && matchesStatus && matchesQuery;
     });
-  }, [packages, query, statusFilter]);
+  }, [packages, query, statusFilter, typeFilter]);
 
   async function confirmDelete() {
     if (!pendingDelete) return;
@@ -87,9 +116,22 @@ export function PackagesTable() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm">
+    <div className="space-y-4">
+      <TypeTabBar
+        tabs={typeTabs}
+        activeId={typeFilter}
+        onChange={(id) => {
+          if (isPackageTypeTabId(id)) setTypeFilter(id);
+        }}
+      />
+
+      <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <h2 className="font-semibold text-navy">All Packages</h2>
+        <h2 className="font-semibold text-navy">
+          {typeFilter === "all"
+            ? "All Packages"
+            : `${PACKAGE_TYPE_TABS.find((tab) => tab.id === typeFilter)?.label ?? "Packages"}`}
+        </h2>
         <div className="flex flex-wrap gap-2">
           <div className="relative w-full sm:w-48">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -131,7 +173,9 @@ export function PackagesTable() {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-5 py-8 text-center text-muted sm:px-6">
-                  No packages found.
+                  {typeFilter === "all"
+                    ? "No packages found."
+                    : `No ${PACKAGE_TYPE_TABS.find((tab) => tab.id === typeFilter)?.label.toLowerCase() ?? "matching"} packages found.`}
                 </td>
               </tr>
             ) : (
@@ -239,6 +283,7 @@ export function PackagesTable() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
+    </div>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ExamType } from '@prisma/client';
 import {
+  groupKey,
   offerMetaForGroup,
   sortOfferGroups,
+  STUDENT_BROWSE_TAB_ORDER,
   type OfferGroup,
 } from '../../common/catalog-offers';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -50,9 +52,10 @@ export class CatalogService {
       select: { packageKind: true, examType: true },
     });
 
-    const groupKey = (kind: string, examType: ExamType) =>
-      `${kind}:${examType}`;
     const seen = new Map<string, OfferGroup>();
+    for (const group of STUDENT_BROWSE_TAB_ORDER) {
+      seen.set(groupKey(group.packageKind, group.examType), group);
+    }
     for (const pkg of activePackages) {
       const key = groupKey(pkg.packageKind, pkg.examType);
       if (!seen.has(key)) {

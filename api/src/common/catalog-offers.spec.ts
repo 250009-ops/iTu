@@ -4,6 +4,7 @@ import {
   buildTabLabel,
   offerMetaForGroup,
   sortOfferGroups,
+  STUDENT_BROWSE_TAB_ORDER,
 } from './catalog-offers';
 import { offerDisplayTitle } from './package-naming';
 
@@ -31,7 +32,10 @@ describe('catalog-offers', () => {
   it('sorts offer groups in canonical tab order', () => {
     const sorted = sortOfferGroups([
       { packageKind: 'writing', examType: ExamType.ACADEMIC },
-      { packageKind: 'listening+reading+writing+speaking', examType: ExamType.ACADEMIC },
+      {
+        packageKind: 'listening+reading+writing+speaking',
+        examType: ExamType.ACADEMIC,
+      },
       { packageKind: 'speaking', examType: ExamType.ACADEMIC },
     ]);
 
@@ -40,6 +44,13 @@ describe('catalog-offers', () => {
       'speaking',
       'writing',
     ]);
+  });
+
+  it('exposes canonical student browse tabs', () => {
+    expect(STUDENT_BROWSE_TAB_ORDER.length).toBeGreaterThanOrEqual(4);
+    expect(STUDENT_BROWSE_TAB_ORDER[0].packageKind).toBe(
+      'listening+reading+writing+speaking',
+    );
   });
 
   it('returns offer metadata for a group', () => {

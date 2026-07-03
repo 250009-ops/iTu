@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { TypeTabBar } from "@/components/shared/type-tab-bar";
 
 type BrowseTypeTabsProps = {
   tabs: Array<{ tabId: string; label: string; available: boolean }>;
@@ -13,27 +13,15 @@ export function BrowseTypeTabs({
   activeTabId,
   onTabChange,
 }: BrowseTypeTabsProps) {
-  if (tabs.length <= 1) return null;
-
   return (
-    <div className="flex flex-wrap gap-2">
-      {tabs.map((tab) => (
-        <button
-          key={tab.tabId}
-          type="button"
-          onClick={() => onTabChange(tab.tabId)}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-            activeTabId === tab.tabId
-              ? "bg-navy text-white shadow-sm"
-              : tab.available
-                ? "bg-white text-muted ring-1 ring-border hover:text-navy"
-                : "bg-slate-50 text-slate-400 ring-1 ring-border hover:text-slate-500",
-          )}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
+    <TypeTabBar
+      tabs={tabs.map((tab) => ({
+        id: tab.tabId,
+        label: tab.label,
+        muted: !tab.available,
+      }))}
+      activeId={activeTabId}
+      onChange={onTabChange}
+    />
   );
 }
