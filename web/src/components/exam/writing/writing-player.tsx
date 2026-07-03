@@ -17,6 +17,7 @@ import { useServerTimer } from "@/hooks/use-server-timer";
 import { useWritingAutosave } from "@/hooks/use-writing-autosave";
 import { useExamIntegrity } from "@/hooks/use-exam-integrity";
 import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
+import { EssayEditor } from "@/components/exam/writing/essay-editor";
 import { startSection, submitSection, submitWriting, getExamSession } from "@/lib/api/exam";
 import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
@@ -204,14 +205,15 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col bg-slate-50" data-exam-surface>
-          <textarea
+          <EssayEditor
+            key={activeTask.id}
             value={essay}
-            onChange={(e) =>
-              setEssays((prev) => ({ ...prev, [activeTask.id]: e.target.value }))
+            onChange={(v) =>
+              setEssays((prev) => ({ ...prev, [activeTask.id]: v }))
             }
-            spellCheck={false}
-            placeholder="Type your answer here. Pasting is disabled in line with exam rules."
-            className={`min-h-0 flex-1 resize-none bg-white px-6 py-5 leading-7 text-slate-800 outline-none ${TEXT_SIZE_CLASS[state.textSize]}`}
+            placeholder="Type your answer here. Use Ctrl+X to cut, Ctrl+V to paste, and Ctrl+Z to undo."
+            textSizeClass={TEXT_SIZE_CLASS[state.textSize]}
+            style={{ backgroundColor: "#ffffff", color: "#1e293b" }}
           />
           <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-2.5">
             <span className="flex items-center gap-1.5 text-[12px] text-slate-400">

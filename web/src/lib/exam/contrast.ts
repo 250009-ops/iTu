@@ -56,5 +56,10 @@ export const CONTRAST_THEMES: Record<ContrastMode, ContrastTheme> = {
 };
 
 export function contrastStorageKey(sessionId: string) {
+  return `exam-contrast:${sessionId}`;
+}
+
+/** @deprecated migrated to {@link contrastStorageKey} */
+export function legacyContrastStorageKey(sessionId: string) {
   return `reading-contrast:${sessionId}`;
 }

@@ -107,6 +107,8 @@ export function useExamIntegrity(sessionCode: string, options: Options = {}) {
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target?.closest("[data-exam-surface]")) return;
+      // Writing: allow cut/paste within the essay to reorder sentences.
+      if (target.closest("[data-exam-writing-input]")) return;
       e.preventDefault();
       void reportEvent("paste_attempt", true);
     };

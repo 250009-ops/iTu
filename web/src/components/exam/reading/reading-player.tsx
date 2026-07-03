@@ -240,12 +240,14 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
         onTextSize={state.setTextSize}
         hideTimer={state.hideTimer}
         onToggleTimer={state.setHideTimer}
-        readingTools={{
+        displayTools={{
           contrast,
           onContrast: setContrast,
-          notesOpen,
-          onToggleNotes: toggleNotes,
-          noteCount,
+          notes: {
+            open: notesOpen,
+            onToggle: toggleNotes,
+            count: noteCount,
+          },
         }}
       />
 

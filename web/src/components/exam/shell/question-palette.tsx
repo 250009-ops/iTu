@@ -23,6 +23,60 @@ interface QuestionPaletteProps {
   onSubmit: () => void;
   submitLabel?: string;
   theme?: ContrastTheme;
+  /** IDP Listening: equal-width part columns; active column shows question boxes. */
+  layout?: "inline" | "segmented";
+}
+
+function QuestionBoxes({
+  numbers,
+  answers,
+  current,
+  onSelectQuestion,
+  fg,
+  border,
+  boxBg,
+}: {
+  numbers: number[];
+  answers: AnswerMap;
+  current: number | null;
+  onSelectQuestion: (n: number) => void;
+  fg: string;
+  border: string;
+  boxBg: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+      {numbers.map((n) => {
+        const isCurrent = current === n;
+        const done = isAnswered(answers[n]);
+        return (
+          <button
+            key={n}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectQuestion(n);
+            }}
+            className={cn(
+              "flex h-6 w-6 shrink-0 items-center justify-center border text-[11px] font-normal transition",
+              isCurrent
+                ? "border-blue-600"
+                : done
+                  ? "border-slate-400"
+                  : "border-slate-400 hover:border-slate-500",
+            )}
+            style={{
+              backgroundColor: boxBg,
+              color: fg,
+              borderColor: isCurrent ? "#2563eb" : border,
+            }}
+          >
+            {n}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function QuestionPalette({
@@ -35,16 +89,87 @@ export function QuestionPalette({
   onSubmit,
   submitLabel = "Submit section",
   theme,
+  layout = "inline",
 }: QuestionPaletteProps) {
   const active = parts.find((p) => p.id === activePart) ?? parts[0];
   if (!active) return null;
 
-  const inactiveParts = parts.filter((p) => p.id !== activePart);
   const bar = theme?.bar ?? "#ececec";
   const fg = theme?.fg ?? "#000000";
   const border = theme?.border ?? "#c4c4c4";
   const muted = theme?.muted ?? "#444444";
   const boxBg = theme?.bg ?? "#ffffff";
+
+  if (layout === "segmented") {
+    return (
+      <footer
+        className="z-20 flex h-10 shrink-0 items-stretch border-t"
+        style={{
+          ...EXAM_FONT_STYLE,
+          backgroundColor: bar,
+          borderColor: border,
+          color: fg,
+        }}
+      >
+        <div className="flex min-w-0 flex-1">
+          {parts.map((p) => {
+            const isActive = p.id === activePart;
+            const count = answeredCount(answers, p.numbers);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onSelectPart(p.id)}
+                className={cn(
+                  "flex min-w-0 flex-1 items-center gap-1.5 border-r px-2 text-left transition",
+                  isActive ? "bg-white" : "hover:bg-white/60",
+                )}
+                style={{
+                  borderColor: border,
+                  backgroundColor: isActive ? boxBg : undefined,
+                  color: fg,
+                }}
+              >
+                <span className="shrink-0 text-[12px] font-bold">{p.label}</span>
+                {isActive ? (
+                  <QuestionBoxes
+                    numbers={p.numbers}
+                    answers={answers}
+                    current={current}
+                    onSelectQuestion={onSelectQuestion}
+                    fg={fg}
+                    border={border}
+                    boxBg={boxBg}
+                  />
+                ) : (
+                  <span className="truncate text-[12px] font-normal" style={{ color: muted }}>
+                    {count} of {p.numbers.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={onSubmit}
+          title={submitLabel}
+          aria-label={submitLabel}
+          className="flex w-10 shrink-0 items-center justify-center border-l transition hover:opacity-90"
+          style={{
+            borderColor: border,
+            backgroundColor: bar,
+            color: fg,
+          }}
+        >
+          <Check size={16} strokeWidth={2.5} />
+        </button>
+      </footer>
+    );
+  }
+
+  const inactiveParts = parts.filter((p) => p.id !== activePart);
 
   return (
     <footer
@@ -58,34 +183,15 @@ export function QuestionPalette({
     >
       <span className="shrink-0 text-[13px] font-bold">{active.label}</span>
 
-      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-        {active.numbers.map((n) => {
-          const isCurrent = current === n;
-          const done = isAnswered(answers[n]);
-          return (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onSelectQuestion(n)}
-              className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center border text-[11px] font-normal transition",
-                isCurrent
-                  ? "border-blue-600"
-                  : done
-                    ? "border-slate-400"
-                    : "border-slate-400 hover:border-slate-500",
-              )}
-              style={{
-                backgroundColor: boxBg,
-                color: fg,
-                borderColor: isCurrent ? "#2563eb" : border,
-              }}
-            >
-              {n}
-            </button>
-          );
-        })}
-      </div>
+      <QuestionBoxes
+        numbers={active.numbers}
+        answers={answers}
+        current={current}
+        onSelectQuestion={onSelectQuestion}
+        fg={fg}
+        border={border}
+        boxBg={boxBg}
+      />
 
       <div className="ml-auto flex shrink-0 items-center gap-4">
         {inactiveParts.map((p) => {

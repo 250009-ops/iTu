@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ContrastMode } from "@/lib/exam/contrast";
-import { contrastStorageKey } from "@/lib/exam/contrast";
 import type { ReadingMark } from "@/lib/exam/reading-marks";
 import { marksStorageKey, newMarkId } from "@/lib/exam/reading-marks";
+import { useExamContrast } from "@/hooks/use-exam-contrast";
 
 export function useReadingExamTools(sessionId: string) {
+  const { contrast, setContrast } = useExamContrast(sessionId);
   const [marks, setMarks] = useState<ReadingMark[]>([]);
-  const [contrast, setContrast] = useState<ContrastMode>("black-on-white");
   const [notesOpen, setNotesOpen] = useState(false);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -17,14 +16,6 @@ export function useReadingExamTools(sessionId: string) {
     try {
       const savedMarks = sessionStorage.getItem(marksStorageKey(sessionId));
       if (savedMarks) setMarks(JSON.parse(savedMarks) as ReadingMark[]);
-      const savedContrast = sessionStorage.getItem(contrastStorageKey(sessionId));
-      if (
-        savedContrast === "black-on-white" ||
-        savedContrast === "white-on-black" ||
-        savedContrast === "yellow-on-black"
-      ) {
-        setContrast(savedContrast);
-      }
     } catch {
       /* ignore corrupt storage */
     }
@@ -35,11 +26,6 @@ export function useReadingExamTools(sessionId: string) {
     if (!hydrated) return;
     sessionStorage.setItem(marksStorageKey(sessionId), JSON.stringify(marks));
   }, [marks, sessionId, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    sessionStorage.setItem(contrastStorageKey(sessionId), contrast);
-  }, [contrast, sessionId, hydrated]);
 
   const addHighlight = useCallback(
     (input: Omit<ReadingMark, "id" | "kind" | "noteText" | "createdAt">) => {

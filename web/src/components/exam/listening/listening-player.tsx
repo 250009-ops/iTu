@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Headphones } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ListeningContent } from "@/lib/exam/types";
 import { ExamTopBar } from "@/components/exam/shell/exam-top-bar";
 import { ExamTimer } from "@/components/exam/shell/exam-timer";
@@ -18,6 +18,9 @@ import {
   type ListeningAudioPlayerHandle,
 } from "@/components/exam/listening/listening-audio-player";
 import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
+import { EXAM_FONT_STYLE } from "@/lib/exam/typography";
+import { CONTRAST_THEMES } from "@/lib/exam/contrast";
+import { useExamContrast } from "@/hooks/use-exam-contrast";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
 import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import { useExamContent } from "@/hooks/use-exam-content";
@@ -27,6 +30,7 @@ import { useExamIntegrity } from "@/hooks/use-exam-integrity";
 import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
 import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
 import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
+import { cn } from "@/lib/utils";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
 import { ExamRemoteNotice } from "@/components/exam/shell/exam-remote-notice";
@@ -45,6 +49,8 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const [audioReadyToStart, setAudioReadyToStart] = useState(false);
 
   const state = useExamState(content?.parts[0]?.id ?? "part-1");
+  const { contrast, setContrast } = useExamContrast(sessionId);
+  const contrastTheme = CONTRAST_THEMES[contrast];
   const { remaining, expired } = useServerTimer(sessionId, {
     enabled: sectionStarted,
   });
@@ -81,7 +87,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
           setSectionStarted(true);
         }
       });
-  }, [content, sessionId, sectionStarted]);
+  }, [content, sessionId, sectionStarted, router]);
 
   useEffect(() => {
     if (expired) setSubmitOpen(true);
@@ -91,7 +97,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
     () =>
       content?.parts.map((p) => ({
         id: p.id,
-        label: p.title,
+        label: `Part ${p.part}`,
         numbers: questionNumbers(p.groups),
       })) ?? [],
     [content?.parts],
@@ -114,7 +120,6 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
     void audioRef.current?.start();
   }, [audioTracks.length]);
 
-  // After section starts, begin audio once instructions are dismissed (user gesture).
   useEffect(() => {
     if (!sectionStarted || !audioReadyToStart) return;
     startAudio();
@@ -130,22 +135,42 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
     }
   }, [sectionStarted, blocking]);
 
+  const currentIndex =
+    state.current != null ? allNumbers.indexOf(state.current) : -1;
+  const canGoPrevQuestion = currentIndex > 0;
+  const canGoNextQuestion =
+    currentIndex >= 0 && currentIndex < allNumbers.length - 1;
+
+  const goToQuestion = useCallback(
+    (n: number) => {
+      if (!content) return;
+      const part = content.parts.find((p) =>
+        questionNumbers(p.groups).includes(n),
+      );
+      if (part && part.id !== state.activePart) state.setActivePart(part.id);
+      state.setCurrent(n);
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`q-${n}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    },
+    [content, state.activePart, state.setActivePart, state.setCurrent],
+  );
+
   if (loading || !content || !activePart) {
     return <ApiDataShell loading={loading} error={error} />;
   }
 
-  const goToQuestion = (n: number) => {
-    const part = content.parts.find((p) =>
-      questionNumbers(p.groups).includes(n),
-    );
-    if (part && part.id !== state.activePart) state.setActivePart(part.id);
-    state.setCurrent(n);
-    requestAnimationFrame(() => {
-      document
-        .getElementById(`q-${n}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-  };
+  function goPrevQuestion() {
+    if (!canGoPrevQuestion) return;
+    goToQuestion(allNumbers[currentIndex - 1]!);
+  }
+
+  function goNextQuestion() {
+    if (!canGoNextQuestion) return;
+    goToQuestion(allNumbers[currentIndex + 1]!);
+  }
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -187,19 +212,33 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         onTextSize={state.setTextSize}
         hideTimer={state.hideTimer}
         onToggleTimer={state.setHideTimer}
+        displayTools={{ contrast, onContrast: setContrast }}
       />
 
-      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-5 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
-          <Headphones size={16} />
-        </div>
+      <div
+        className="flex shrink-0 items-center gap-3 border-b px-5 py-2"
+        style={{
+          ...EXAM_FONT_STYLE,
+          backgroundColor: contrastTheme.bar,
+          borderColor: contrastTheme.border,
+          color: contrastTheme.fg,
+        }}
+      >
         <div>
-          <p className="text-[14px] font-bold text-navy">{activePart.title}</p>
-          <p className="text-[13px] text-slate-500">{activePart.blurb}</p>
+          <p className="text-[13px] font-bold">Part {activePart.part}</p>
+          <p className="text-[13px] font-normal">{activePart.blurb}</p>
         </div>
       </div>
 
-      <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50" data-exam-surface>
+      <main
+        className="relative min-h-0 flex-1 overflow-y-auto"
+        data-exam-surface
+        style={{
+          ...EXAM_FONT_STYLE,
+          backgroundColor: contrastTheme.bg,
+          color: contrastTheme.fg,
+        }}
+      >
         <div
           className={`mx-auto max-w-3xl space-y-8 px-5 py-6 ${TEXT_SIZE_CLASS[state.textSize]}`}
         >
@@ -214,6 +253,54 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
               onPasteBlocked={logPaste}
             />
           ))}
+        </div>
+
+        <div
+          className="sticky bottom-0 flex justify-end gap-0.5 px-5 pb-2 pt-6"
+          style={{
+            background: `linear-gradient(to top, ${contrastTheme.bg}, ${contrastTheme.bg}f2, transparent)`,
+          }}
+        >
+          <button
+            type="button"
+            onClick={goPrevQuestion}
+            disabled={!canGoPrevQuestion}
+            aria-label="Previous question"
+            className={cn(
+              "flex h-8 w-8 items-center justify-center border transition",
+              canGoPrevQuestion ? "hover:opacity-90" : "cursor-not-allowed opacity-40",
+            )}
+            style={{
+              borderColor: contrastTheme.border,
+              backgroundColor: contrastTheme.bar,
+              color: contrastTheme.fg,
+            }}
+          >
+            <ChevronLeft size={16} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            onClick={goNextQuestion}
+            disabled={!canGoNextQuestion}
+            aria-label="Next question"
+            className={cn(
+              "flex h-8 w-8 items-center justify-center border transition",
+              canGoNextQuestion ? "hover:opacity-90" : "cursor-not-allowed opacity-40",
+            )}
+            style={{
+              borderColor: contrastTheme.border,
+              backgroundColor:
+                contrast === "black-on-white" && canGoNextQuestion
+                  ? "#000000"
+                  : contrastTheme.bar,
+              color:
+                contrast === "black-on-white" && canGoNextQuestion
+                  ? "#ffffff"
+                  : contrastTheme.fg,
+            }}
+          >
+            <ChevronRight size={16} strokeWidth={2.5} />
+          </button>
         </div>
       </main>
 
@@ -240,6 +327,8 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         onSelectQuestion={goToQuestion}
         onSubmit={() => setSubmitOpen(true)}
         submitLabel="End Listening"
+        theme={contrastTheme}
+        layout="segmented"
       />
 
       <SubmitDialog
