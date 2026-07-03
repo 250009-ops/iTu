@@ -23,8 +23,17 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
-import { WritingAiEvaluationService } from '../grading/writing-ai-evaluation.service';
 import { UpdateTeacherProfileDto } from './dto/update-teacher-profile.dto';
+
+function isWritingVisibleToTeacher(
+  aiEvaluation: { status: string } | null,
+): boolean {
+  const aiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
+  if (!aiConfigured) return true;
+  if (!aiEvaluation) return false;
+  const status = aiEvaluation.status.toUpperCase();
+  return status === 'READY' || status === 'FAILED';
+}
 
 type PayoutDetails = {
   bankName?: string;
@@ -39,7 +48,6 @@ export class TeachersService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private settings: SettingsService,
-    private writingAi: WritingAiEvaluationService,
   ) {}
 
   async getDashboard(user: RequestUser) {
@@ -640,7 +648,7 @@ export class TeachersService {
     return submissions.filter(
       (s) =>
         s.status === 'IN_REVIEW' ||
-        this.writingAi.isReadyForTeacherQueue(s.aiEvaluation),
+        isWritingVisibleToTeacher(s.aiEvaluation),
     ).length;
   }
 
