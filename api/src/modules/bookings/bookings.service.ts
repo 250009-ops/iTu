@@ -16,9 +16,12 @@ import {
 import { RequestUser } from '../../common/types/request-user';
 import { mockStartDateTime } from '../../common/band-resolution';
 import {
+  calendarDateIsoInTimeZone,
+  extractCalendarDateIso,
   hasExamStarted,
   isFlexibleGrant,
   resolveMockDayCutoffAt,
+  zonedWallClockToUtc,
 } from '../../common/mock-day-policy';
 import {
   AuditAction,
@@ -78,14 +81,20 @@ export class BookingsService {
   ) {}
 
   async getAvailability(date: string, teacherId?: string) {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
+    const match = date.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (!match) {
+      throw new BadRequestException('date must be YYYY-MM-DD');
+    }
+    const dateIso = match[1]!;
+    const timeZone = await this.settings.getPlatformTimezone();
+    const now = new Date();
+    const dayStart = zonedWallClockToUtc(dateIso, 0, 0, 0, timeZone);
+    const dayEnd = zonedWallClockToUtc(dateIso, 23, 59, 59, timeZone);
+    const minStart = new Date(Math.max(dayStart.getTime(), now.getTime()));
 
     const slots = await this.prisma.teacherSlot.findMany({
       where: {
-        startsAt: { gte: dayStart, lte: dayEnd },
+        startsAt: { gte: minStart, lte: dayEnd },
         ...(teacherId ? { teacherId } : {}),
         status: SlotStatus.AVAILABLE,
       },
@@ -591,7 +600,9 @@ export class BookingsService {
         order: true,
         examSession: {
           include: {
-            sectionAttempts: { include: { speakingSession: true } },
+            sectionAttempts: {
+              include: { speakingSession: true, writingSubmission: true },
+            },
           },
         },
         student: { include: { user: true } },
@@ -721,6 +732,44 @@ export class BookingsService {
         }
       }
 
+      const speakingTeacherChanged =
+        dto.speakingTeacherId !== enrollment.speakingTeacherId;
+      const writingTeacherChanged =
+        dto.writingTeacherId !== enrollment.writingTeacherId;
+
+      if (speakingTeacherChanged && enrollment.speakingSlotId) {
+        await tx.teacherSlot.updateMany({
+          where: { id: enrollment.speakingSlotId },
+          data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+        });
+      }
+
+      const speakingAttempt = session.sectionAttempts.find(
+        (a) => a.skill === ExamSkill.SPEAKING,
+      );
+      if (speakingAttempt?.speakingSession && speakingTeacherChanged) {
+        await tx.speakingSession.update({
+          where: { id: speakingAttempt.speakingSession.id },
+          data: {
+            teacherId: dto.speakingTeacherId ?? null,
+            scheduledAt: null,
+            status: 'SCHEDULED',
+            examinerReady: false,
+          },
+        });
+      }
+
+      if (writingTeacherChanged) {
+        for (const attempt of session.sectionAttempts) {
+          if (attempt.writingSubmission) {
+            await tx.writingSubmission.update({
+              where: { id: attempt.writingSubmission.id },
+              data: { teacherId: dto.writingTeacherId ?? null },
+            });
+          }
+        }
+      }
+
       await tx.enrollment.update({
         where: { id: enrollmentId },
         data: {
@@ -729,6 +778,7 @@ export class BookingsService {
           mockDayCutoffAt,
           writingTeacherId: dto.writingTeacherId ?? null,
           speakingTeacherId: dto.speakingTeacherId ?? null,
+          speakingSlotId: speakingTeacherChanged ? null : enrollment.speakingSlotId,
         },
       });
     });
@@ -997,6 +1047,20 @@ export class BookingsService {
     if (slot.teacherId !== enrollment.speakingTeacherId) {
       throw new BadRequestException(
         'Speaking slot must belong to your assigned examiner',
+      );
+    }
+
+    const timeZone = await this.settings.getPlatformTimezone();
+    const slotDateIso = calendarDateIsoInTimeZone(slot.startsAt, timeZone);
+    const mockDateIso = extractCalendarDateIso(enrollment.mockDate, timeZone);
+    const todayIso = calendarDateIsoInTimeZone(new Date(), timeZone);
+    const allowedDates = new Set([mockDateIso]);
+    if (mockDateIso < todayIso) {
+      allowedDates.add(todayIso);
+    }
+    if (!allowedDates.has(slotDateIso)) {
+      throw new BadRequestException(
+        'Speaking slot must be on your mock day or today',
       );
     }
 

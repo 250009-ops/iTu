@@ -777,10 +777,32 @@ export class ExamSessionsService {
         part3Topics: _t3,
         part3Questions: _p3,
         part2ExaminerNotes: _notes,
+        examiner: _examiner,
+        examinerTitle: _examinerTitle,
+        slot: _slot,
         ...studentContent
-      } = safeContent;
+      } = safeContent as Record<string, unknown> & {
+        examiner?: string;
+        examinerTitle?: string;
+        slot?: string;
+      };
       const { mediaAssets: _assets, ...rest } = test;
-      return { ...rest, content: studentContent };
+      const speakingTeacher = session.enrollment.speakingTeacher;
+      const scheduledAt = session.enrollment.speakingSlot?.startsAt;
+      const slotLabel = scheduledAt
+        ? this.formatSpeakingSlotLabel(scheduledAt)
+        : typeof _slot === 'string' && _slot.trim()
+          ? _slot
+          : 'Flexible — book from Mock Day Hub';
+      return {
+        ...rest,
+        content: {
+          ...studentContent,
+          examiner: speakingTeacher?.user.name ?? 'Assigned examiner',
+          examinerTitle: 'Speaking Examiner · IELTS Certified',
+          slot: slotLabel,
+        },
+      };
     }
 
     if (skill === ExamSkill.WRITING && test.mediaAssets.length > 0) {
@@ -864,6 +886,25 @@ export class ExamSessionsService {
     return { rescored: updates };
   }
 
+  private formatSpeakingSlotLabel(startsAt: Date): string {
+    const startLabel = startsAt.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Tashkent',
+    });
+    const endLabel = new Date(startsAt.getTime() + 20 * 60_000).toLocaleTimeString(
+      'en-GB',
+      {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Tashkent',
+      },
+    );
+    return `${startLabel} – ${endLabel}`;
+  }
+
   private async findSessionOrThrow(sessionCode: string) {
     const session = await this.prisma.examSession.findUnique({
       where: { sessionCode },
@@ -889,6 +930,7 @@ export class ExamSessionsService {
           student: { include: { user: true } },
           writingTeacher: { include: { user: true } },
           speakingTeacher: { include: { user: true } },
+          speakingSlot: true,
         },
       },
       sectionAttempts: {

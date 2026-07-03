@@ -250,6 +250,7 @@ export class StudentsService {
         },
         speakingSlot: true,
         speakingTeacher: { include: { user: true } },
+        writingTeacher: { include: { user: true } },
       },
     });
 
@@ -275,6 +276,7 @@ export class StudentsService {
         },
         speakingSlot: true,
         speakingTeacher: { include: { user: true } },
+        writingTeacher: { include: { user: true } },
       },
     });
 
@@ -371,6 +373,11 @@ export class StudentsService {
         ? {
             scheduledAt: enrollment.speakingSlot?.startsAt,
             examiner: enrollment.speakingTeacher?.user.name,
+          }
+        : null,
+      writing: packageSkills.includes(ExamSkill.WRITING)
+        ? {
+            examiner: enrollment.writingTeacher?.user.name,
           }
         : null,
     };

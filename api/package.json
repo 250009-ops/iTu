@@ -29,6 +29,8 @@
     "db:reset": "prisma migrate reset",
     "sync:exam-content": "npx tsx scripts/sync-exam-content.ts",
     "content:patch": "npx tsx scripts/patch-content-tests.ts",
+    "content:sync-pools": "npx tsx scripts/sync-package-content-pools.ts",
+    "content:repair-mocks": "npx tsx scripts/repair-mock-content-assignments.ts",
     "content:migrate-names": "npx tsx scripts/migrate-content-test-names.ts",
     "packages:clear": "npx tsx scripts/clear-all-packages.ts",
     "enrollments:backfill-cutoff": "npx tsx scripts/backfill-mock-day-cutoff.ts",

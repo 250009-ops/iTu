@@ -105,6 +105,7 @@ bash /var/www/itestu/deploy/deploy-rebuild.sh
 cd /var/www/itestu/app/api
 npm run sync:exam-content
 npm run content:patch
+npm run content:repair-mocks
 npm run content:migrate-names
 npm run enrollments:backfill-cutoff
 npm run settings:migrate-day-cutoff

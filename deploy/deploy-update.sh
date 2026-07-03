@@ -60,6 +60,7 @@ echo "==> Post-deploy content & package maintenance..."
 cd "$APP_DIR/api"
 npm run sync:exam-content
 npm run content:patch
+npm run content:repair-mocks
 npm run content:migrate-names
 npm run enrollments:backfill-cutoff
 npm run settings:migrate-day-cutoff

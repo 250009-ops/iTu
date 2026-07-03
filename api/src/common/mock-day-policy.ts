@@ -118,6 +118,29 @@ export function resolveMockDayCutoffAt(
   return mockDayCutoffAt;
 }
 
+export function addCalendarDaysIso(
+  dateIso: string,
+  days: number,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
+): string {
+  const anchor = zonedWallClockToUtc(dateIso, 12, 0, 0, timeZone);
+  const shifted = new Date(anchor.getTime() + days * 86_400_000);
+  return calendarDateIsoInTimeZone(shifted, timeZone);
+}
+
+/** 0 = Sunday, matching JS Date.getDay() and teacher availability templates. */
+export function weekdayIndexInTimeZone(
+  dateIso: string,
+  timeZone = DEFAULT_PLATFORM_TIMEZONE,
+): number {
+  const date = zonedWallClockToUtc(dateIso, 12, 0, 0, timeZone);
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+  }).format(date);
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
+}
+
 export function isSameCalendarDayInTimeZone(
   a: Date,
   b: Date,

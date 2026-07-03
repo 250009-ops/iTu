@@ -14,6 +14,12 @@ import {
   ExamSkill,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
+import {
+  addCalendarDaysIso,
+  calendarDateIsoInTimeZone,
+  weekdayIndexInTimeZone,
+  zonedWallClockToUtc,
+} from '../../common/mock-day-policy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
@@ -357,7 +363,9 @@ export class TeachersService {
     horizonDays = 28,
     slotDuration = 20,
   ): Promise<number> {
+    const timeZone = await this.settings.getPlatformTimezone();
     const now = new Date();
+    const todayIso = calendarDateIsoInTimeZone(now, timeZone);
 
     await this.prisma.teacherSlot.deleteMany({
       where: {
@@ -382,13 +390,10 @@ export class TeachersService {
       status: SlotStatus;
     }[] = [];
 
-    const baseDay = new Date();
-    baseDay.setHours(0, 0, 0, 0);
-
     for (let offset = 0; offset <= horizonDays; offset += 1) {
-      const day = new Date(baseDay);
-      day.setDate(baseDay.getDate() + offset);
-      const windows = windowsByDay.get(day.getDay());
+      const dateIso =
+        offset === 0 ? todayIso : addCalendarDaysIso(todayIso, offset, timeZone);
+      const windows = windowsByDay.get(weekdayIndexInTimeZone(dateIso, timeZone));
       if (!windows) continue;
 
       for (const win of windows) {
@@ -400,10 +405,20 @@ export class TeachersService {
           continue;
         }
 
-        const windowStart = new Date(day);
-        windowStart.setHours(startHour, startMin, 0, 0);
-        const windowEnd = new Date(day);
-        windowEnd.setHours(endHour, endMin, 0, 0);
+        const windowStart = zonedWallClockToUtc(
+          dateIso,
+          startHour,
+          startMin,
+          0,
+          timeZone,
+        );
+        const windowEnd = zonedWallClockToUtc(
+          dateIso,
+          endHour,
+          endMin,
+          0,
+          timeZone,
+        );
 
         let cursor = windowStart.getTime();
         while (cursor + slotMs <= windowEnd.getTime()) {

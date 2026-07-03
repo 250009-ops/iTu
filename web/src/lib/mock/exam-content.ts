@@ -673,7 +673,7 @@ export const writingContent: WritingContent = {
 
 export const speakingStudentContent = {
   testId: "SPK-MOCK-A001",
-  examiner: "Dr. Emma Williams",
+  examiner: "Assigned examiner",
   examinerTitle: "Speaking Examiner · IELTS Certified",
   slot: "14:00 – 14:20",
   parts: [

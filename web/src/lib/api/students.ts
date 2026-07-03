@@ -161,6 +161,7 @@ export function getMockDayHub() {
       rawScore?: number | null;
     }[];
     speaking: { scheduledAt?: string; examiner?: string } | null;
+    writing?: { examiner?: string | null } | null;
   }>("/students/mock-day");
 }
 

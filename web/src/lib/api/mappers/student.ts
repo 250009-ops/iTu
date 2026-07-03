@@ -311,7 +311,7 @@ export function mapMockDayHub(data: MockDayApi) {
     return null;
   }
 
-  const { enrollment, sections = [], speaking } = data;
+  const { enrollment, sections = [], speaking, writing } = data;
   const flexibleStart =
     Boolean(enrollment.adminGranted) && !enrollment.mockTime;
   const examStarted = Boolean(enrollment.examStartedAt);
@@ -483,10 +483,19 @@ export function mapMockDayHub(data: MockDayApi) {
           : s.active
             ? { status: "In progress", sub: "Active now" }
             : s.unlocked
-              ? { status: "Ready", sub: "Start when ready" }
+              ? {
+                  status: "Ready",
+                  sub: "Start when ready",
+                  ...(skill === "writing" && writing?.examiner
+                    ? { examiner: writing.examiner }
+                    : {}),
+                }
               : {
                   status: "Locked",
                   sub: checkInCompleted ? "Complete prior sections" : "Check in first",
+                  ...(skill === "writing" && writing?.examiner
+                    ? { examiner: writing.examiner }
+                    : {}),
                 },
       };
     });

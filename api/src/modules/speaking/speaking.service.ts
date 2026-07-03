@@ -105,6 +105,14 @@ export class SpeakingService {
 
     const role = this.resolveRole(session, user);
     await this.assertJoinWindow(session);
+    const assignedTeacherId = this.assignedSpeakingTeacherId(session);
+    if (assignedTeacherId && session.teacherId !== assignedTeacherId) {
+      await this.prisma.speakingSession.update({
+        where: { id: session.id },
+        data: { teacherId: assignedTeacherId },
+      });
+      session.teacherId = assignedTeacherId;
+    }
     const roomName = this.livekit.roomNameForSession(session.id);
     const partTimestamps = this.partTimestamps(session.partTimestamps);
 
@@ -403,12 +411,26 @@ export class SpeakingService {
     return session;
   }
 
+  private assignedSpeakingTeacherId(session: {
+    teacherId: string | null;
+    sectionAttempt: {
+      session: {
+        enrollment: { speakingTeacherId: string | null };
+      };
+    };
+  }): string | null {
+    return (
+      session.sectionAttempt.session.enrollment.speakingTeacherId ??
+      session.teacherId
+    );
+  }
+
   private resolveRole(
     session: {
       teacherId: string | null;
       sectionAttempt: {
         session: {
-          enrollment: { studentId: string };
+          enrollment: { studentId: string; speakingTeacherId: string | null };
         };
       };
     },
@@ -423,11 +445,8 @@ export class SpeakingService {
       return 'student';
     }
 
-    if (
-      user.teacherProfileId &&
-      session.teacherId &&
-      user.teacherProfileId === session.teacherId
-    ) {
+    const teacherId = this.assignedSpeakingTeacherId(session);
+    if (user.teacherProfileId && teacherId && user.teacherProfileId === teacherId) {
       return 'examiner';
     }
 

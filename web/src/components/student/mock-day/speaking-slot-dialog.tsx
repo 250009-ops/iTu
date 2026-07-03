@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { getAvailability, scheduleSpeakingSlot } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
+import { localTodayIso } from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
 type Slot = {
@@ -17,6 +18,13 @@ type Slot = {
   endsAt: string;
   status: string;
 };
+
+/** Use mock day, or today when mock day has passed but the student is still scheduling. */
+function speakingAvailabilityDate(mockDateIso: string): string {
+  const mockDate = mockDateIso.slice(0, 10);
+  const today = localTodayIso();
+  return mockDate < today ? today : mockDate;
+}
 
 function formatSlotTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", {
@@ -43,6 +51,10 @@ export function SpeakingSlotDialog({
 }) {
   const { toast } = useToast();
   const mockDate = mockDateIso.slice(0, 10);
+  const availabilityDate = useMemo(
+    () => speakingAvailabilityDate(mockDateIso),
+    [mockDateIso],
+  );
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -53,14 +65,14 @@ export function SpeakingSlotDialog({
     setLoading(true);
     setError(null);
     try {
-      const list = await getAvailability(mockDate, teacherId);
+      const list = await getAvailability(availabilityDate, teacherId);
       setSlots(list.filter((s) => s.status === "available"));
     } catch (err) {
       setError(getErrorMessage(err, "Could not load availability"));
     } finally {
       setLoading(false);
     }
-  }, [mockDate, teacherId]);
+  }, [availabilityDate, teacherId]);
 
   useEffect(() => {
     void load();
@@ -91,13 +103,22 @@ export function SpeakingSlotDialog({
 
   const dateLabel = useMemo(
     () =>
-      new Date(`${mockDate}T12:00:00`).toLocaleDateString("en-US", {
+      new Date(`${availabilityDate}T12:00:00`).toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
         day: "numeric",
       }),
-    [mockDate],
+    [availabilityDate],
   );
+
+  const mockDayHint =
+    availabilityDate !== mockDate
+      ? `Mock day was ${new Date(`${mockDate}T12:00:00`).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        })} · showing today's open slots`
+      : null;
 
   return (
     <Modal open onClose={onClose} ariaLabel="Select speaking availability">
@@ -111,6 +132,9 @@ export function SpeakingSlotDialog({
             <p className="text-sm text-muted">
               {examinerName} · {dateLabel}
             </p>
+            {mockDayHint && (
+              <p className="text-xs text-amber-700">{mockDayHint}</p>
+            )}
           </div>
         </div>
       </div>

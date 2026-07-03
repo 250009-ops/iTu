@@ -1,14 +1,21 @@
 /**
  * Patch bundled content tests on an existing database (production-safe).
- * - Updates listening/reading/speaking published tests with synced content
- * - Links package content FKs when missing but skill is included
+ * - Updates seed tests by code (LIS-MOCK-A001, etc.) without touching other published tests
+ * - Links package content FKs only when a skill link is still missing
+ * - Syncs package_content_tests pool rows from FKs
  * - Removes orphan draft tests left from Content Studio experiments
  *
  * Usage: npx tsx scripts/patch-content-tests.ts
  */
-import { ContentTestStatus, ContentTestType, PrismaClient } from '@prisma/client';
+import {
+  ContentTestStatus,
+  ContentTestType,
+  ExamSkill,
+  PrismaClient,
+} from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { syncPackageContentPoolFromFks } from './sync-package-content-pools';
 
 const prisma = new PrismaClient();
 
@@ -22,7 +29,8 @@ function packageSkills(pkg: { skills: unknown }): string[] {
   return pkg.skills.map((s) => String(s).toLowerCase());
 }
 
-async function upsertPublished(
+/** Update or create the bundled seed test for a single code — never the "latest" test. */
+async function upsertPublishedByCode(
   type: ContentTestType,
   code: string,
   title: string,
@@ -31,11 +39,14 @@ async function upsertPublished(
   answerKey?: object,
 ) {
   const existing = await prisma.contentTest.findFirst({
-    where: { type, status: ContentTestStatus.PUBLISHED },
-    orderBy: { updatedAt: 'desc' },
+    where: { code, type },
   });
 
   if (existing) {
+    if (existing.status !== ContentTestStatus.PUBLISHED) {
+      console.log(`Skip ${code} — not published`);
+      return existing.id;
+    }
     await prisma.contentTest.update({
       where: { id: existing.id },
       data: {
@@ -64,22 +75,27 @@ async function upsertPublished(
   return created.id;
 }
 
+async function defaultListeningWithAudioId(): Promise<string | undefined> {
+  const row = await prisma.contentTest.findFirst({
+    where: {
+      type: ContentTestType.LISTENING,
+      status: ContentTestStatus.PUBLISHED,
+      mediaAssets: { some: { key: 'full-audio' } },
+    },
+    orderBy: { code: 'asc' },
+    select: { id: true },
+  });
+  return row?.id;
+}
+
 async function linkPackages(ids: {
   listeningId?: string;
   readingId?: string;
   writingId?: string;
   speakingId?: string;
 }) {
-  const listeningWithAudio = await prisma.contentTest.findFirst({
-    where: {
-      type: ContentTestType.LISTENING,
-      status: ContentTestStatus.PUBLISHED,
-      mediaAssets: { some: { key: 'full-audio' } },
-    },
-    orderBy: { updatedAt: 'desc' },
-    select: { id: true },
-  });
-  const listeningId = listeningWithAudio?.id ?? ids.listeningId;
+  const listeningFallback =
+    (await defaultListeningWithAudioId()) ?? ids.listeningId;
 
   const packages = await prisma.mockTestPackage.findMany();
   let linked = 0;
@@ -88,8 +104,8 @@ async function linkPackages(ids: {
     const skills = packageSkills(pkg);
     const data: Record<string, string> = {};
 
-    if (skills.includes('listening') && listeningId) {
-      data.listeningTestId = listeningId;
+    if (skills.includes('listening') && !pkg.listeningTestId && listeningFallback) {
+      data.listeningTestId = listeningFallback;
     }
     if (skills.includes('reading') && !pkg.readingTestId && ids.readingId) {
       data.readingTestId = ids.readingId;
@@ -101,23 +117,41 @@ async function linkPackages(ids: {
       data.speakingBankId = ids.speakingId;
     }
 
-    if (Object.keys(data).length > 0) {
-      await prisma.mockTestPackage.update({
-        where: { id: pkg.id },
-        data,
-      });
-      console.log(`Linked package "${pkg.slug}": ${Object.keys(data).join(', ')}`);
-      linked += 1;
-    }
+    if (Object.keys(data).length === 0) continue;
+
+    const updated = await prisma.mockTestPackage.update({
+      where: { id: pkg.id },
+      data,
+    });
+    await syncPackageContentPoolFromFks(prisma, pkg.id, updated, pkg.skills);
+    console.log(`Linked package "${pkg.slug}": ${Object.keys(data).join(', ')}`);
+    linked += 1;
   }
 
   console.log(`Package link pass complete (${linked} package(s) updated).`);
 }
 
+async function syncAllPackagePools() {
+  const packages = await prisma.mockTestPackage.findMany({
+    select: {
+      id: true,
+      skills: true,
+      listeningTestId: true,
+      readingTestId: true,
+      writingTestId: true,
+      speakingBankId: true,
+    },
+  });
+  for (const pkg of packages) {
+    await syncPackageContentPoolFromFks(prisma, pkg.id, pkg, pkg.skills);
+  }
+  console.log(`Synced content pools for ${packages.length} package(s).`);
+}
+
 async function main() {
   console.log('Patching content tests...');
 
-  const listeningId = await upsertPublished(
+  const listeningId = await upsertPublishedByCode(
     ContentTestType.LISTENING,
     'LIS-MOCK-A001',
     'Listening Mock-A001',
@@ -126,7 +160,7 @@ async function main() {
     loadJson('listening-answer-key.json'),
   );
 
-  const readingId = await upsertPublished(
+  const readingId = await upsertPublishedByCode(
     ContentTestType.READING,
     'REA-MOCK-A001',
     'Reading Mock-A001',
@@ -135,7 +169,7 @@ async function main() {
     loadJson('reading-answer-key.json'),
   );
 
-  const writingId = await upsertPublished(
+  const writingId = await upsertPublishedByCode(
     ContentTestType.WRITING,
     'WRI-MOCK-A001',
     'Writing Mock-A001',
@@ -143,7 +177,7 @@ async function main() {
     loadJson('writing.json'),
   );
 
-  const speakingId = await upsertPublished(
+  const speakingId = await upsertPublishedByCode(
     ContentTestType.SPEAKING,
     'SPK-MOCK-A001',
     'Speaking Mock-A001',
@@ -152,6 +186,7 @@ async function main() {
   );
 
   await linkPackages({ listeningId, readingId, writingId, speakingId });
+  await syncAllPackagePools();
 
   const removed = await prisma.contentTest.deleteMany({
     where: { status: ContentTestStatus.DRAFT },
