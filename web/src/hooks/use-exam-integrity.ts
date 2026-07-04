@@ -38,6 +38,24 @@ export function requestExamFullscreen(): void {
   }
 }
 
+let suppressNextFullscreenExitLog = false;
+
+/** Leave exam fullscreen without recording an integrity violation. */
+export function exitExamFullscreen(): void {
+  if (typeof document === "undefined") return;
+  if (!document.fullscreenElement) return;
+  suppressNextFullscreenExitLog = true;
+  void document.exitFullscreen().catch(() => {
+    suppressNextFullscreenExitLog = false;
+  });
+}
+
+export function consumeSuppressedFullscreenExitLog(): boolean {
+  if (!suppressNextFullscreenExitLog) return false;
+  suppressNextFullscreenExitLog = false;
+  return true;
+}
+
 function buildWarning(
   event: string,
   offenseCount: number,
@@ -89,6 +107,7 @@ export function useExamIntegrity(sessionCode: string, options: Options = {}) {
 
     const onFullscreenChange = () => {
       if (!document.fullscreenElement) {
+        if (consumeSuppressedFullscreenExitLog()) return;
         void reportEvent("fullscreen_exit", true);
       }
     };

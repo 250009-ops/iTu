@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useWritingAutosave } from "@/hooks/use-writing-autosave";
-import { useExamIntegrity } from "@/hooks/use-exam-integrity";
+import { useExamIntegrity, exitExamFullscreen } from "@/hooks/use-exam-integrity";
 import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
 import { EssayEditor } from "@/components/exam/writing/essay-editor";
 import { startSection, submitSection, submitWriting, getExamSession } from "@/lib/api/exam";
@@ -118,13 +118,13 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
     try {
       await submitWriting(sessionId, task1Text, task2Text);
       const updated = await submitSection(sessionId, "writing");
-      router.push(
-        examRouteAfterSection(
-          sessionId,
-          updated.enrollment.package.skills,
-          "writing",
-        ),
+      const destination = examRouteAfterSection(
+        sessionId,
+        updated.enrollment.package.skills,
+        "writing",
       );
+      if (destination === "/mock-day") exitExamFullscreen();
+      router.push(destination);
     } finally {
       setSubmitting(false);
     }

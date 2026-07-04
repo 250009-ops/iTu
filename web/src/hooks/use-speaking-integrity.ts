@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { logIntegrity } from "@/lib/api/exam";
 import {
   requestExamFullscreen,
+  consumeSuppressedFullscreenExitLog,
   type IntegrityWarning,
 } from "@/hooks/use-exam-integrity";
 import type {
@@ -84,6 +85,7 @@ export function useSpeakingIntegrity(
 
     const onFullscreenChange = () => {
       if (!document.fullscreenElement) {
+        if (consumeSuppressedFullscreenExitLog()) return;
         void reportEvent("fullscreen_exit", true);
       }
     };

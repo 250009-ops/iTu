@@ -34,7 +34,7 @@ export function ReadingNotesPanel({
 
   return (
     <aside
-      className="absolute inset-y-0 right-0 z-30 flex w-72 flex-col border-l shadow-xl sm:w-80"
+      className="absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l shadow-xl sm:w-80"
       style={{
         ...EXAM_FONT_STYLE,
         backgroundColor: theme.panelBg,

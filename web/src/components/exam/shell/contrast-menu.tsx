@@ -35,10 +35,10 @@ export function ContrastMenu({ contrast, onContrast, onClose }: Props) {
       <button
         type="button"
         aria-label="Close contrast menu"
-        className="fixed inset-0 z-40"
+        className="fixed inset-0 z-[45]"
         onClick={onClose}
       />
-      <div className="absolute right-0 top-11 z-50 w-72 rounded-lg border border-slate-200 bg-white p-4 text-black shadow-xl">
+      <div className="absolute right-0 top-11 z-[60] w-72 rounded-lg border border-slate-200 bg-white p-4 text-black shadow-xl">
         <p className="mb-3 text-center text-[15px] font-normal">Contrast</p>
         <div className="overflow-hidden rounded-md border border-slate-200">
           {CONTRAST_OPTIONS.map((opt, index) => {

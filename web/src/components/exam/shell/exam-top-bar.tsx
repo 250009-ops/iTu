@@ -47,7 +47,7 @@ export function ExamTopBar({
   const [contrastOpen, setContrastOpen] = useState(false);
 
   return (
-    <header className="relative z-30 flex h-14 shrink-0 items-center justify-between border-b border-slate-700 bg-[#1b2a4a] px-4 text-white">
+    <header className="relative z-40 flex h-14 shrink-0 items-center justify-between border-b border-slate-700 bg-[#1b2a4a] px-4 text-white">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <BrandMarkIcon size="md" />
@@ -195,8 +195,8 @@ function SettingsPopover({
 }) {
   return (
     <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-slate-200 bg-white p-4 text-slate-800 shadow-xl">
+      <div className="fixed inset-0 z-[45]" onClick={onClose} />
+      <div className="absolute right-0 top-11 z-[60] w-64 rounded-xl border border-slate-200 bg-white p-4 text-slate-800 shadow-xl">
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
           Text size
         </p>

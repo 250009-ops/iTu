@@ -29,7 +29,7 @@ import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
-import { useExamIntegrity } from "@/hooks/use-exam-integrity";
+import { useExamIntegrity, exitExamFullscreen } from "@/hooks/use-exam-integrity";
 import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
 import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
 import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
@@ -194,20 +194,37 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
     });
   };
 
-  const currentIndex =
-    state.current != null ? allNumbers.indexOf(state.current) : -1;
-  const canGoPrevQuestion = currentIndex > 0;
-  const canGoNextQuestion =
-    currentIndex >= 0 && currentIndex < allNumbers.length - 1;
+  const currentPassageIndex = content.passages.findIndex(
+    (p) => p.id === state.activePart,
+  );
+  const canGoPrevPassage = currentPassageIndex > 0;
+  const canGoNextPassage =
+    currentPassageIndex >= 0 &&
+    currentPassageIndex < content.passages.length - 1;
 
-  function goPrevQuestion() {
-    if (!canGoPrevQuestion) return;
-    goToQuestion(allNumbers[currentIndex - 1]!);
+  function goToPassage(passageIndex: number) {
+    const passage = content.passages[passageIndex];
+    if (!passage) return;
+    state.setActivePart(passage.id);
+    const first = questionNumbers(passage.groups)[0];
+    if (first != null) {
+      state.setCurrent(first);
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`q-${first}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
   }
 
-  function goNextQuestion() {
-    if (!canGoNextQuestion) return;
-    goToQuestion(allNumbers[currentIndex + 1]!);
+  function goPrevPassage() {
+    if (!canGoPrevPassage) return;
+    goToPassage(currentPassageIndex - 1);
+  }
+
+  function goNextPassage() {
+    if (!canGoNextPassage) return;
+    goToPassage(currentPassageIndex + 1);
   }
 
   async function handleSubmit() {
@@ -216,13 +233,13 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
     try {
       await flushNow();
       const updated = await submitSection(sessionId, "reading");
-      router.push(
-        examRouteAfterSection(
-          sessionId,
-          updated.enrollment.package.skills,
-          "reading",
-        ),
+      const destination = examRouteAfterSection(
+        sessionId,
+        updated.enrollment.package.skills,
+        "reading",
       );
+      if (destination === "/mock-day") exitExamFullscreen();
+      router.push(destination);
     } finally {
       setSubmitting(false);
     }
@@ -359,19 +376,19 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
             </div>
 
             <div
-              className="sticky bottom-0 flex justify-end gap-0.5 pb-1 pt-6"
+              className="pointer-events-none sticky bottom-0 flex justify-end gap-0.5 pb-1 pt-6"
               style={{
                 background: `linear-gradient(to top, ${contrastTheme.bg}, ${contrastTheme.bg}f2, transparent)`,
               }}
             >
               <button
                 type="button"
-                onClick={goPrevQuestion}
-                disabled={!canGoPrevQuestion}
-                aria-label="Previous question"
+                onClick={goPrevPassage}
+                disabled={!canGoPrevPassage}
+                aria-label="Previous passage"
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center border transition",
-                  canGoPrevQuestion
+                  "pointer-events-auto flex h-8 w-8 items-center justify-center border transition",
+                  canGoPrevPassage
                     ? "hover:opacity-90"
                     : "cursor-not-allowed opacity-40",
                 )}
@@ -385,23 +402,23 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
               </button>
               <button
                 type="button"
-                onClick={goNextQuestion}
-                disabled={!canGoNextQuestion}
-                aria-label="Next question"
+                onClick={goNextPassage}
+                disabled={!canGoNextPassage}
+                aria-label="Next passage"
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center border transition",
-                  canGoNextQuestion
+                  "pointer-events-auto flex h-8 w-8 items-center justify-center border transition",
+                  canGoNextPassage
                     ? "hover:opacity-90"
                     : "cursor-not-allowed opacity-40",
                 )}
                 style={{
                   borderColor: contrastTheme.border,
                   backgroundColor:
-                    contrast === "black-on-white" && canGoNextQuestion
+                    contrast === "black-on-white" && canGoNextPassage
                       ? "#000000"
                       : contrastTheme.bar,
                   color:
-                    contrast === "black-on-white" && canGoNextQuestion
+                    contrast === "black-on-white" && canGoNextPassage
                       ? "#ffffff"
                       : contrastTheme.fg,
                 }}

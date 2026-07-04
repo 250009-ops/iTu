@@ -34,7 +34,6 @@ function QuestionBoxes({
   onSelectQuestion,
   fg,
   border,
-  boxBg,
 }: {
   numbers: number[];
   answers: AnswerMap;
@@ -42,10 +41,13 @@ function QuestionBoxes({
   onSelectQuestion: (n: number) => void;
   fg: string;
   border: string;
-  boxBg: string;
+  boxBg?: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+    <div
+      className="flex min-w-0 items-end gap-1 overflow-x-auto border-t pt-1"
+      style={{ borderColor: border }}
+    >
       {numbers.map((n) => {
         const isCurrent = current === n;
         const done = isAnswered(answers[n]);
@@ -58,20 +60,21 @@ function QuestionBoxes({
               onSelectQuestion(n);
             }}
             className={cn(
-              "flex h-6 w-6 shrink-0 items-center justify-center border text-[11px] font-normal transition",
+              "relative flex shrink-0 flex-col items-center px-0.5 pb-0.5 pt-0.5 text-[11px] font-normal transition",
               isCurrent
-                ? "border-blue-600"
-                : done
-                  ? "border-slate-400"
-                  : "border-slate-400 hover:border-slate-500",
+                ? "border border-[#1e3a8a] px-1"
+                : "border border-transparent hover:opacity-80",
             )}
-            style={{
-              backgroundColor: boxBg,
-              color: fg,
-              borderColor: isCurrent ? "#2563eb" : border,
-            }}
+            style={{ color: fg }}
+            aria-current={isCurrent ? "true" : undefined}
           >
-            {n}
+            {done && (
+              <span
+                className="mb-0.5 h-1 w-4 shrink-0 rounded-sm bg-emerald-500"
+                aria-hidden
+              />
+            )}
+            <span>{n}</span>
           </button>
         );
       })}
@@ -139,7 +142,6 @@ export function QuestionPalette({
                     onSelectQuestion={onSelectQuestion}
                     fg={fg}
                     border={border}
-                    boxBg={boxBg}
                   />
                 ) : (
                   <span className="truncate text-[12px] font-normal" style={{ color: muted }}>
@@ -190,7 +192,6 @@ export function QuestionPalette({
         onSelectQuestion={onSelectQuestion}
         fg={fg}
         border={border}
-        boxBg={boxBg}
       />
 
       <div className="ml-auto flex shrink-0 items-center gap-4">

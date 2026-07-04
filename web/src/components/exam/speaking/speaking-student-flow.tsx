@@ -20,7 +20,7 @@ import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { SpeakingRoomProvider } from "@/contexts/speaking-room-context";
 import { getStudentSpeakingState, type SpeakingState } from "@/lib/api/speaking";
 import { useDeviceCheck } from "@/hooks/use-device-check";
-import { requestExamFullscreen } from "@/hooks/use-exam-integrity";
+import { requestExamFullscreen, exitExamFullscreen } from "@/hooks/use-exam-integrity";
 import { playExaminerReadyAlert } from "@/lib/speaking/prep-bell";
 import {
   formatJoinOpensAt,
@@ -140,7 +140,10 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
       <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
         {stage === "waiting" &&
           (speakingState?.status === "completed" ? (
-            <SessionComplete onReturn={() => router.push("/student/mock-day")} />
+            <SessionComplete onReturn={() => {
+              exitExamFullscreen();
+              router.push("/student/mock-day");
+            }} />
           ) : (
             <WaitingRoom
               content={content}
@@ -157,7 +160,10 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
           />
         )}
         {stage === "complete" && (
-          <SessionComplete onReturn={() => router.push("/student/mock-day")} />
+          <SessionComplete onReturn={() => {
+            exitExamFullscreen();
+            router.push("/student/mock-day");
+          }} />
         )}
       </main>
 
