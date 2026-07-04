@@ -203,6 +203,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
     currentPassageIndex < content.passages.length - 1;
 
   function goToPassage(passageIndex: number) {
+    if (!content) return;
     const passage = content.passages[passageIndex];
     if (!passage) return;
     state.setActivePart(passage.id);
