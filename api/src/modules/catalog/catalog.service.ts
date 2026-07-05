@@ -6,7 +6,6 @@ import {
   isExcludedStudentOfferTab,
   offerMetaForGroup,
   sortOfferGroups,
-  STUDENT_BROWSE_TAB_ORDER,
   type OfferGroup,
 } from '../../common/catalog-offers';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -55,9 +54,6 @@ export class CatalogService {
     });
 
     const seen = new Map<string, OfferGroup>();
-    for (const group of STUDENT_BROWSE_TAB_ORDER) {
-      seen.set(groupKey(group.packageKind, group.examType), group);
-    }
     for (const pkg of activePackages) {
       const key = groupKey(pkg.packageKind, pkg.examType);
       if (isExcludedStudentOfferTab(buildTabId(pkg.packageKind, pkg.examType))) {
@@ -123,6 +119,8 @@ export class CatalogService {
     price: number;
     currency: string;
     examType: string;
+    packageKind?: string;
+    mockNumber?: number;
     mostPopular: boolean;
     rating: number | null;
     reviewCount: number;
@@ -138,6 +136,8 @@ export class CatalogService {
       price: pkg.price,
       currency: pkg.currency,
       examType: pkg.examType,
+      packageKind: pkg.packageKind,
+      mockNumber: pkg.mockNumber,
       mostPopular: pkg.mostPopular,
       rating: pkg.rating,
       reviewCount: pkg.reviewCount,

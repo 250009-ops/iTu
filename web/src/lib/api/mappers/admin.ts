@@ -374,7 +374,8 @@ export function mapStudents(students: Students) {
   return { students: rows, summary };
 }
 
-export function mapOrders(orders: Orders) {
+export function mapOrders(payload: Orders) {
+  const orders = payload.orders ?? [];
   const mapped: Order[] = orders.map((o, i) => {
     const method = normalizePaymentMethod(o.paymentMethod);
     return {
@@ -392,32 +393,27 @@ export function mapOrders(orders: Orders) {
     };
   });
 
-  const paid = mapped.filter((o) => o.status === "paid");
-  const refunded = mapped.filter((o) => o.status === "refunded");
-  const failed = mapped.filter((o) => o.status === "failed");
-
-  const summary = {
-    revenueCollected: paid.reduce((s, o) => s + o.amount, 0),
+  const summary = payload.summary ?? {
+    revenueCollected: mapped.filter((o) => o.status === "paid").reduce((s, o) => s + o.amount, 0),
     revenueTrend: "—",
-    paidOrders: paid.length,
-    paidTotal: paid.reduce((s, o) => s + o.amount, 0),
-    refundsIssued: refunded.length,
-    refundTotal: refunded.reduce((s, o) => s + o.amount, 0),
-    failedPayments: failed.length,
+    paidOrders: mapped.filter((o) => o.status === "paid").length,
+    paidTotal: mapped.filter((o) => o.status === "paid").reduce((s, o) => s + o.amount, 0),
+    refundsIssued: mapped.filter((o) => o.status === "refunded").length,
+    refundTotal: mapped.filter((o) => o.status === "refunded").reduce((s, o) => s + o.amount, 0),
+    failedPayments: mapped.filter((o) => o.status === "failed").length,
   };
 
-  const monthlyOrderTrend =
-    mapped.length > 0
-      ? [
-          {
-            month: new Date().toLocaleDateString("en-US", { month: "short" }),
-            revenue: summary.revenueCollected,
-            orders: mapped.length,
-          },
-        ]
-      : [];
+  const monthlyOrderTrend = (payload.monthlyRevenue ?? []).map((row) => ({
+    month: row.month,
+    revenue: row.amount,
+    orders: 0,
+  }));
 
-  return { orders: mapped, summary, monthlyOrderTrend };
+  return {
+    orders: mapped,
+    summary: { ...summary, revenueTrend: "—" },
+    monthlyOrderTrend,
+  };
 }
 
 function mapSla(sla: { state: string; progress: number }) {
@@ -680,6 +676,7 @@ const defaultNotificationValues: Record<string, boolean> = {
 
 const defaultIntegrationValues: Record<string, boolean> = {
   stripeConfigured: false,
+  lemonSqueezyConfigured: false,
   smtpConfigured: false,
   sendgridConfigured: false,
   livekitConfigured: false,

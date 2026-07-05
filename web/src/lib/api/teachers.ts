@@ -102,7 +102,11 @@ export function unblockTeacherSlot(slotId: string) {
 export function getTeacherEarnings() {
   return apiFetch<{
     totalEarned: number;
+    totalSessions: number;
     commissionRate: number;
+    speakingRate: number;
+    writingRate: number;
+    pendingBalance: number;
     payoutSchedule: string;
     payoutDetails: {
       bankName?: string;

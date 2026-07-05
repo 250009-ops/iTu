@@ -39,6 +39,7 @@ enum SlotStatus {
 }
 
 enum EnrollmentStatus {
+  PENDING_PAYMENT
   ENROLLED
   IN_PROGRESS
   AWAITING_RESULTS
@@ -458,6 +459,10 @@ model Order {
   paymentMethod PaymentMethod @default(CARD) @map("payment_method")
   status        OrderStatus   @default(PENDING)
   stripePaymentId String?     @map("stripe_payment_id")
+  lemonCheckoutId String?     @map("lemon_checkout_id")
+  lemonOrderId    String?     @map("lemon_order_id")
+  checkoutUrl     String?     @map("checkout_url")
+  checkoutExpiresAt DateTime? @map("checkout_expires_at")
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 

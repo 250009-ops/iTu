@@ -12,7 +12,7 @@ import { fetchHeroStats, fetchPackages } from "@/lib/marketing/server-data";
 export const metadata: Metadata = {
   title: "Pricing — Transparent IELTS Mock Exam Plans",
   description:
-    "Simple, transparent IELTS mock pricing. Human grading, examiner choice, and same-day results included. No add-ons, no surprises.",
+    "Simple, transparent IELTS mock pricing. Human grading, examiner choice, and results within 24 hours included. No add-ons, no surprises.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -22,19 +22,19 @@ const COMPARISON: Array<{ feature: string; academic: boolean; gt: boolean; speak
   { feature: "Writing (teacher-graded)", academic: true, gt: true, speaking: false, writing: true },
   { feature: "Speaking (live video, teacher-graded)", academic: true, gt: true, speaking: true, writing: false },
   { feature: "Pick your examiner", academic: true, gt: true, speaking: true, writing: true },
-  { feature: "Same-day band release", academic: true, gt: true, speaking: true, writing: false },
+  { feature: "Results within 24 hours", academic: true, gt: false, speaking: true, writing: true },
   { feature: "Criteria-level written feedback", academic: true, gt: true, speaking: true, writing: true },
   { feature: "Score progression tracking", academic: true, gt: true, speaking: false, writing: false },
   { feature: "Secure exam environment", academic: true, gt: true, speaking: true, writing: true },
 ];
 
-const SLA = { academic: "Same day", gt: "Same day", speaking: "Same day", writing: "24 hours" };
+const SLA = { academic: "24 hours", gt: "—", speaking: "24 hours", writing: "24 hours" };
 
 
 const PRICING_FAQS: MarketingFaq[] = [
   { id: "which", category: "Booking", question: "Which package should I choose?", answer: "If you need a full band score for university or a visa, choose the Full Academic or General Training mock. If you only want to practise one skill before your real test, the Speaking Only or Writing Only packages are a cost-effective option." },
   { id: "multiple", category: "Booking", question: "Can I take multiple mocks?", answer: "Yes — there is no limit. Every mock gives you fresh exam content and a new examiner selection. Your score history is tracked across all attempts so you can see your improvement over time." },
-  { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: "We accept all major credit and debit cards via Stripe, plus bank transfer for institutional bookings. All transactions are encrypted and PCI-DSS compliant." },
+  { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: "We accept Visa, Mastercard, and other major cards via our secure Lemon Squeezy checkout. International cards — including Uzum Bank Visa — are supported. All transactions are encrypted." },
   { id: "discount", category: "Booking", question: "Is there a group or institutional discount?", answer: "Yes. Bookings of 10+ mocks receive 10% off, 50+ receive 15% off, and 100+ receive 20% off. Contact our institutions team for a custom quote." },
   { id: "refund", category: "Booking", question: "Can I get a refund?", answer: "Full refund if you cancel at least 24 hours before your mock date. Within 24 hours you can reschedule once at no cost. Refunds are processed within 5 business days." },
 ];
@@ -50,7 +50,7 @@ function Cell({ value }: { value: boolean }) {
 export default async function PricingPage() {
   const [stats, packages] = await Promise.all([fetchHeroStats(), fetchPackages()]);
   const TRUST = [
-    { icon: Lock, title: "Secure payment", body: "Stripe-encrypted checkout" },
+    { icon: Lock, title: "Secure payment", body: "Lemon Squeezy encrypted checkout" },
     { icon: ShieldCheck, title: "Certified examiners", body: "CELTA+ qualified, ID verified" },
     { icon: Star, title: `${stats.rating}★ rating`, body: `${stats.candidates} satisfied candidates` },
     { icon: BadgeCheck, title: "IDP-faithful format", body: "Server-authoritative timers" },
@@ -61,7 +61,7 @@ export default async function PricingPage() {
       <PageHero
         eyebrow="Pricing"
         title="Simple, transparent pricing"
-        subtitle="No add-ons. No surprises. Human grading, examiner choice, and same-day results — all included."
+        subtitle="No add-ons. No surprises. Human grading, examiner choice, and results within 24 hours — all included."
       />
 
       <Section className="pt-12">

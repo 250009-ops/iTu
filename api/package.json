@@ -32,7 +32,7 @@
     "content:sync-pools": "npx tsx scripts/sync-package-content-pools.ts",
     "content:repair-mocks": "npx tsx scripts/repair-mock-content-assignments.ts",
     "content:migrate-names": "npx tsx scripts/migrate-content-test-names.ts",
-    "packages:clear": "npx tsx scripts/clear-all-packages.ts",
+    "packages:ensure-skill": "npx tsx scripts/ensure-skill-packages.ts",
     "enrollments:backfill-cutoff": "npx tsx scripts/backfill-mock-day-cutoff.ts",
     "settings:migrate-day-cutoff": "npx tsx scripts/migrate-day-cutoff-setting.ts",
     "mail:test": "npx tsx scripts/test-smtp.ts",

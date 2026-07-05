@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   Check,
@@ -81,8 +81,23 @@ export function BrowsePageHeader() {
   );
 }
 
-export function MockProductCard({ product }: { product: BrowseProduct }) {
+export function MockProductCard({
+  product,
+  autoOpenBooking = false,
+  onBookingOpened,
+}: {
+  product: BrowseProduct;
+  autoOpenBooking?: boolean;
+  onBookingOpened?: () => void;
+}) {
   const [wizardOpen, setWizardOpen] = useState(false);
+
+  useEffect(() => {
+    if (autoOpenBooking) {
+      setWizardOpen(true);
+      onBookingOpened?.();
+    }
+  }, [autoOpenBooking, onBookingOpened]);
 
   return (
     <>

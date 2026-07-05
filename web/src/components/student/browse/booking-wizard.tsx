@@ -23,6 +23,7 @@ import {
   getContentAvailability,
   listTeachers,
 } from "@/lib/api/bookings";
+import { getPaymentConfig } from "@/lib/api/payments";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { BrowseProduct } from "@/lib/api/mappers/student";
 import { cn } from "@/lib/utils";
@@ -123,6 +124,11 @@ export function BookingWizard({
   const [error, setError] = useState<string | null>(null);
   const [purchaseBlocked, setPurchaseBlocked] = useState<string | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(true);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+
+  useEffect(() => {
+    void getPaymentConfig().then((cfg) => setPaymentsEnabled(cfg.paymentsEnabled));
+  }, []);
 
   const priceLabel = `${product.currency === "USD" ? "$" : `${product.currency} `}${product.price}`;
   const selectedWritingTeacher = writingTeachers.find(
@@ -201,6 +207,7 @@ export function BookingWizard({
     if (currentStep === "writing") return Boolean(writingTeacherId);
     if (currentStep === "speaking") return Boolean(selectedSlot);
     if (currentStep === "payment") {
+      if (paymentsEnabled) return true;
       return Boolean(cardName && cardNumber && cardExpiry && cardCvc);
     }
     return false;
@@ -215,6 +222,7 @@ export function BookingWizard({
     cardExpiry,
     cardCvc,
     purchaseBlocked,
+    paymentsEnabled,
   ]);
 
   function goNext() {
@@ -250,6 +258,16 @@ export function BookingWizard({
           : {}),
         paymentMethod: "card",
       });
+
+      if (result.status === "pending_payment" && result.checkoutUrl) {
+        toast("Redirecting to secure checkout", {
+          description: "Complete payment to confirm your mock.",
+          variant: "success",
+        });
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+
       toast("Booking confirmed", {
         description: `${product.title} booked · ${result.enrollmentCode}`,
         variant: "success",
@@ -531,36 +549,56 @@ export function BookingWizard({
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-navy">
                   <CreditCard size={15} />
-                  Card details
+                  {paymentsEnabled ? "Secure checkout" : "Card details"}
                 </div>
-                <Input
-                  placeholder="Name on card"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
-                />
-                <Input
-                  placeholder="Card number"
-                  inputMode="numeric"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    placeholder="MM / YY"
-                    value={cardExpiry}
-                    onChange={(e) => setCardExpiry(e.target.value)}
-                  />
-                  <Input
-                    placeholder="CVC"
-                    inputMode="numeric"
-                    value={cardCvc}
-                    onChange={(e) => setCardCvc(e.target.value)}
-                  />
-                </div>
-                <p className="flex items-center gap-1.5 text-xs text-muted">
-                  <Lock size={12} />
-                  Demo checkout — no real card is charged.
-                </p>
+                {paymentsEnabled ? (
+                  <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-900">
+                    <p className="font-medium">Pay with card via Lemon Squeezy</p>
+                    <p className="mt-1 text-muted">
+                      Visa, Mastercard, and international cards (including Uzum
+                      Bank Visa) are accepted. Your speaking slot is held for 15
+                      minutes while you complete checkout.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      placeholder="Name on card"
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Card number"
+                      inputMode="numeric"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        placeholder="MM / YY"
+                        value={cardExpiry}
+                        onChange={(e) => setCardExpiry(e.target.value)}
+                      />
+                      <Input
+                        placeholder="CVC"
+                        inputMode="numeric"
+                        value={cardCvc}
+                        onChange={(e) => setCardCvc(e.target.value)}
+                      />
+                    </div>
+                    <p className="flex items-center gap-1.5 text-xs text-muted">
+                      <Lock size={12} />
+                      Demo checkout — no real card is charged until Lemon
+                      Squeezy is configured.
+                    </p>
+                  </>
+                )}
+                {paymentsEnabled && (
+                  <p className="flex items-center gap-1.5 text-xs text-muted">
+                    <Lock size={12} />
+                    Encrypted checkout · International cards supported
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -591,7 +629,13 @@ export function BookingWizard({
               disabled={!canContinue}
               loading={submitting}
             >
-              Pay {priceLabel}
+              {submitting
+                ? "Processing…"
+                : paymentsEnabled && isLastStep
+                  ? `Continue to payment · ${priceLabel}`
+                  : isLastStep
+                    ? `Confirm booking · ${priceLabel}`
+                    : "Continue"}
             </Button>
           )}
         </div>

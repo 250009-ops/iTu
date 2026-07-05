@@ -95,6 +95,7 @@ export function AdminOrdersProvider({ children }: { children: ReactNode }) {
         refundsIssued: 0,
         refundTotal: 0,
         failedPayments: 0,
+        pendingPayments: 0,
       },
       monthlyOrderTrend: mapped?.monthlyOrderTrend ?? [],
       issueRefund,

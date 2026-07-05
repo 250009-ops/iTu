@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BrowsePageHeader,
   MockProductCard,
@@ -24,18 +25,26 @@ export function BrowseView() {
 }
 
 function BrowseContent() {
+  const searchParams = useSearchParams();
   const { offers, loading, error } = useStudentBrowseData();
   const visibleOffers = useMemo(
     () => offers.filter((offer) => !isExcludedPackageTypeTab(offer.tabId)),
     [offers],
   );
 
+  const tabFromUrl = searchParams.get("tab");
+  const bookFromUrl = searchParams.get("book") === "1";
+
   const defaultTabId = useMemo(() => {
+    if (tabFromUrl && visibleOffers.some((offer) => offer.tabId === tabFromUrl)) {
+      return tabFromUrl;
+    }
     const firstAvailable = visibleOffers.find((offer) => offer.product != null);
     return firstAvailable?.tabId ?? visibleOffers[0]?.tabId ?? "";
-  }, [visibleOffers]);
+  }, [visibleOffers, tabFromUrl]);
 
   const [activeTabId, setActiveTabId] = useState("");
+  const [autoOpenBooking, setAutoOpenBooking] = useState(bookFromUrl);
 
   useEffect(() => {
     if (!visibleOffers.length) return;
@@ -48,13 +57,20 @@ function BrowseContent() {
   }, [visibleOffers, defaultTabId]);
 
   const activeOffer = visibleOffers.find((offer) => offer.tabId === activeTabId);
+  const exhaustedAll =
+    visibleOffers.length > 0 &&
+    visibleOffers.every((offer) => offer.product == null);
 
   return (
     <ApiDataShell
       loading={loading}
       error={error}
       empty={!visibleOffers.length}
-      emptyMessage="No mocks are available for you to book right now. You may have already completed or enrolled in every active package."
+      emptyMessage={
+        exhaustedAll
+          ? "You have completed or enrolled in every available mock package. Contact support if you need another attempt."
+          : "No mocks are available for you to book right now."
+      }
     >
       <div className="p-4 lg:p-6 xl:p-8">
         <div className="mx-auto max-w-5xl space-y-8">
@@ -69,7 +85,11 @@ function BrowseContent() {
             onTabChange={setActiveTabId}
           />
           {activeOffer?.product ? (
-            <MockProductCard product={activeOffer.product} />
+            <MockProductCard
+              product={activeOffer.product}
+              autoOpenBooking={autoOpenBooking}
+              onBookingOpened={() => setAutoOpenBooking(false)}
+            />
           ) : activeOffer ? (
             <div className="rounded-xl border border-dashed border-border bg-slate-50 px-6 py-12 text-center">
               <p className="text-sm font-medium text-navy">

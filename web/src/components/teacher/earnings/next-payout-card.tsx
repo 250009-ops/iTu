@@ -110,7 +110,7 @@ export function NextPayoutCard() {
           >
             <h3 className="text-lg font-bold text-navy">Payout bank details</h3>
             <p className="mt-1 text-sm text-muted">
-              Used for manual transfers until Stripe Connect is enabled.
+              Used for manual bank transfers after you request a payout.
             </p>
             <div className="mt-5 space-y-3">
               <input

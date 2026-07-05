@@ -63,8 +63,9 @@ export function CommissionPanel() {
       <div className="mt-5 flex gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
         <p className="text-sm text-amber-900">
-          Rate changes apply to <strong>new bookings only</strong>. Confirmed
-          sessions are protected at the rate locked at booking.
+          Teacher payouts use the <strong>fixed per-session rates</strong> below
+          when grading completes. Platform commission % is a planning target —
+          it is not deducted from teacher payouts today.
         </p>
       </div>
 

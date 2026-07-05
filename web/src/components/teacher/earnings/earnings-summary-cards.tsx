@@ -42,7 +42,7 @@ export function EarningsSummaryCards() {
         <p className="mt-1 text-sm font-medium text-white/80">Available Balance</p>
         <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-300">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          Ready for instant payout
+          Available to request payout
         </p>
       </div>
 

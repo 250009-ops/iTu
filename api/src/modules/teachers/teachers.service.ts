@@ -510,12 +510,20 @@ export class TeachersService {
     const payouts = await this.prisma.payout.findMany({
       where: { teacherId: teacher.id },
       orderBy: { createdAt: 'desc' },
-      take: 12,
+      take: 50,
     });
+
+    const pendingBalance = payouts
+      .filter((p) => p.status === 'PENDING')
+      .reduce((sum, p) => sum + p.amount, 0);
 
     return {
       totalEarned: teacher.totalEarned,
+      totalSessions: teacher.totalSessions,
       commissionRate: teacher.commissionRate,
+      speakingRate: commission.speakingRate,
+      writingRate: commission.writingRate,
+      pendingBalance,
       payoutSchedule: commission.payoutSchedule,
       payoutDetails: (teacher.payoutDetails as PayoutDetails | null) ?? null,
       payouts: payouts.map((p) => ({

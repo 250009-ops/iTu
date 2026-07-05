@@ -1143,16 +1143,34 @@ export class AdminService {
   }
 
   async getOrders() {
-    const orders = await this.prisma.order.findMany({
-      include: {
-        student: { include: { user: true } },
-        package: true,
-        enrollment: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [orders, monthlyOrders] = await Promise.all([
+      this.prisma.order.findMany({
+        include: {
+          student: { include: { user: true } },
+          package: true,
+          enrollment: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          status: 'PAID',
+          createdAt: {
+            gte: new Date(
+              new Date().getFullYear(),
+              new Date().getMonth() - 5,
+              1,
+            ),
+          },
+        },
+        select: { amount: true, createdAt: true },
+      }),
+    ]);
 
-    return orders.map((o) => ({
+    const syncedAt = new Date();
+    const monthlyRevenue = this.buildMonthlyRevenue(monthlyOrders, syncedAt);
+
+    const mapped = orders.map((o) => ({
       id: o.id,
       orderId: o.orderCode,
       studentName: o.student.user.name,
@@ -1163,6 +1181,25 @@ export class AdminService {
       status: o.status.toLowerCase(),
       createdAt: o.createdAt,
     }));
+
+    const paid = mapped.filter((o) => o.status === 'paid');
+    const refunded = mapped.filter((o) => o.status === 'refunded');
+    const failed = mapped.filter((o) => o.status === 'failed');
+    const pending = mapped.filter((o) => o.status === 'pending');
+
+    return {
+      orders: mapped,
+      summary: {
+        revenueCollected: paid.reduce((s, o) => s + o.amount, 0),
+        paidOrders: paid.length,
+        paidTotal: paid.reduce((s, o) => s + o.amount, 0),
+        refundsIssued: refunded.length,
+        refundTotal: refunded.reduce((s, o) => s + o.amount, 0),
+        failedPayments: failed.length,
+        pendingPayments: pending.length,
+      },
+      monthlyRevenue,
+    };
   }
 
   async getDisputes() {
@@ -2305,18 +2342,34 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return payouts.map((p) => ({
-      id: p.id,
-      teacherId: p.teacherId,
-      teacherName: p.teacher.user.name,
-      amount: p.amount,
-      currency: p.currency,
-      status: p.status.toLowerCase(),
-      periodStart: p.periodStart,
-      periodEnd: p.periodEnd,
-      paidAt: p.paidAt,
-      createdAt: p.createdAt,
-    }));
+    return payouts.map((p) => {
+      const details = p.teacher.payoutDetails as {
+        bankName?: string;
+        accountLast4?: string;
+        accountName?: string;
+        method?: string;
+      } | null;
+      const bankLabel =
+        details?.bankName && details?.accountLast4
+          ? `${details.bankName} ···${details.accountLast4}`
+          : null;
+
+      return {
+        id: p.id,
+        teacherId: p.teacherId,
+        teacherName: p.teacher.user.name,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status.toLowerCase(),
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
+        paidAt: p.paidAt,
+        createdAt: p.createdAt,
+        bankLabel,
+        accountName: details?.accountName ?? null,
+        payoutMethod: details?.method ?? null,
+      };
+    });
   }
 
   async updatePayout(id: string, dto: UpdatePayoutDto, actorId: string) {

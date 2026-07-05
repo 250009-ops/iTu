@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import {
   EnrollmentStatus,
@@ -37,6 +39,7 @@ import { ScheduleSpeakingSlotDto } from './dto/schedule-speaking-slot.dto';
 import { ReappointEnrollmentDto } from '../admin/dto/reappoint-enrollment.dto';
 import { UpdateGrantEnrollmentDto } from '../admin/dto/update-grant-enrollment.dto';
 import { SettingsService } from '../settings/settings.service';
+import { LemonSqueezyService } from '../payments/lemon-squeezy.service';
 import {
   assignContentTests,
   evaluatePackageAvailability,
@@ -74,11 +77,15 @@ export interface ProvisionEnrollmentParams {
 
 @Injectable()
 export class BookingsService {
+  private static readonly CHECKOUT_HOLD_MINUTES = 15;
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private audit: AuditService,
     private settings: SettingsService,
+    @Inject(forwardRef(() => LemonSqueezyService))
+    private lemon: LemonSqueezyService,
   ) {}
 
   async getAvailability(date: string, teacherId?: string) {
@@ -140,7 +147,7 @@ export class BookingsService {
       throw new ForbiddenException('Only students can create bookings');
     }
 
-    return this.provisionEnrollment({
+    const params = {
       studentProfileId: user.studentProfileId,
       actorUserId: user.id,
       packageId: dto.packageId,
@@ -151,7 +158,23 @@ export class BookingsService {
       speakingSlotId: dto.speakingSlotId,
       paymentMethod: dto.paymentMethod,
       auditAction: AuditAction.BOOKING_CREATE,
-    });
+    };
+
+    if (this.lemon.isConfigured()) {
+      const pkg = await this.prisma.mockTestPackage.findUnique({
+        where: { id: dto.packageId },
+      });
+      if (!pkg) throw new NotFoundException('Package not found');
+      const variantId = this.lemon.resolveVariantId(pkg.slug);
+      if (!variantId) {
+        throw new BadRequestException(
+          `Payment is not configured for package "${pkg.slug}". Contact support.`,
+        );
+      }
+      return this.initiatePaidCheckout(params, user, pkg, variantId);
+    }
+
+    return this.provisionEnrollment(params);
   }
 
   /**
@@ -1245,6 +1268,380 @@ export class BookingsService {
 
   private packageSkills(pkg: { skills: unknown }): string[] {
     return packageExamSkills(pkg.skills).map((skill) => skill.toLowerCase());
+  }
+
+  /**
+   * Creates a pending enrollment + order and redirects the student to Lemon
+   * Squeezy checkout. Speaking slots are held until payment or expiry.
+   */
+  async initiatePaidCheckout(
+    params: ProvisionEnrollmentParams,
+    user: RequestUser,
+    pkg: { id: string; slug: string; title: string; price: number; currency: string; skills: unknown; isActive: boolean },
+    variantId: string,
+  ) {
+    const { studentProfileId, actorUserId } = params;
+    await this.validatePaidBookingParams(params, pkg);
+
+    const enrollmentCode = await this.generateCode('ENR');
+    const orderCode = await this.generateCode('ORD');
+    const checkoutExpiresAt = new Date(
+      Date.now() + BookingsService.CHECKOUT_HOLD_MINUTES * 60_000,
+    );
+
+    const timeZone = await this.settings.getPlatformTimezone();
+    const mockDayTimers = await this.settings.getMockDayTimers();
+    const mockDayCutoffAt = resolveMockDayCutoffAt(
+      params.mockDate,
+      mockDayTimers.dayCutoffTime,
+      timeZone,
+    );
+
+    const pending = await this.prisma.$transaction(async (tx) => {
+      let slot: { id: string; teacherId: string; startsAt: Date } | null = null;
+      const skills = this.packageSkills(pkg);
+      const needsSpeaking = skills.includes('speaking');
+
+      if (needsSpeaking && params.speakingSlotId) {
+        const speakingSlot = await tx.teacherSlot.findUnique({
+          where: { id: params.speakingSlotId },
+        });
+        if (!speakingSlot || speakingSlot.status !== SlotStatus.AVAILABLE) {
+          throw new BadRequestException('Speaking slot is no longer available');
+        }
+        const booked = await tx.teacherSlot.updateMany({
+          where: { id: params.speakingSlotId, status: SlotStatus.AVAILABLE },
+          data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
+        });
+        if (booked.count === 0) {
+          throw new BadRequestException('Speaking slot booking conflict');
+        }
+        slot = speakingSlot;
+      }
+
+      const enrollment = await tx.enrollment.create({
+        data: {
+          enrollmentCode,
+          studentId: studentProfileId,
+          packageId: params.packageId,
+          mockDate: new Date(params.mockDate),
+          mockTime: params.mockTime ?? null,
+          mockDayCutoffAt,
+          status: EnrollmentStatus.PENDING_PAYMENT,
+          writingTeacherId: params.writingTeacherId ?? null,
+          speakingTeacherId:
+            params.speakingTeacherId ?? slot?.teacherId ?? null,
+          speakingSlotId: params.speakingSlotId ?? null,
+        },
+      });
+
+      const order = await tx.order.create({
+        data: {
+          orderCode,
+          studentId: studentProfileId,
+          enrollmentId: enrollment.id,
+          packageId: params.packageId,
+          amount: pkg.price,
+          currency: pkg.currency,
+          paymentMethod: PaymentMethod.CARD,
+          status: OrderStatus.PENDING,
+          checkoutExpiresAt,
+        },
+      });
+
+      return { enrollment, order, slot };
+    });
+
+    const checkout = await this.lemon.createCheckout({
+      orderId: pending.order.id,
+      orderCode: pending.order.orderCode,
+      email: user.email,
+      name: user.name,
+      amount: pkg.price,
+      currency: pkg.currency,
+      packageTitle: pkg.title,
+      variantId,
+    });
+
+    await this.prisma.order.update({
+      where: { id: pending.order.id },
+      data: {
+        lemonCheckoutId: checkout.checkoutId,
+        checkoutUrl: checkout.checkoutUrl,
+      },
+    });
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: params.auditAction,
+      entity: 'order',
+      entityId: pending.order.id,
+      metadata: {
+        orderCode: pending.order.orderCode,
+        enrollmentCode: pending.enrollment.enrollmentCode,
+        status: 'pending_payment',
+      },
+    });
+
+    return {
+      enrollmentId: pending.enrollment.id,
+      enrollmentCode: pending.enrollment.enrollmentCode,
+      orderId: pending.order.id,
+      orderCode: pending.order.orderCode,
+      sessionCode: null,
+      amount: pending.order.amount,
+      currency: pending.order.currency,
+      status: 'pending_payment',
+      checkoutUrl: checkout.checkoutUrl,
+      checkoutExpiresAt: checkoutExpiresAt.toISOString(),
+    };
+  }
+
+  /** Completes exam delivery after Lemon Squeezy confirms payment. */
+  async fulfillPendingPayment(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        enrollment: true,
+        package: true,
+        student: { include: { user: true } },
+      },
+    });
+    if (!order?.enrollment) {
+      throw new NotFoundException('Pending order not found');
+    }
+    if (order.enrollment.status !== EnrollmentStatus.PENDING_PAYMENT) {
+      return {
+        enrollmentId: order.enrollment.id,
+        enrollmentCode: order.enrollment.enrollmentCode,
+        alreadyFulfilled: true,
+      };
+    }
+
+    const result = await this.completeEnrollmentDelivery(
+      order.enrollment,
+      order.package,
+      order.studentId,
+    );
+
+    const studentUser = order.student.user;
+    const dateLabel = order.enrollment.mockDate.toLocaleDateString();
+    await this.notifications.create(
+      studentUser.id,
+      'Mock booked',
+      `Your mock is confirmed for ${dateLabel}${order.enrollment.mockTime ? ` at ${order.enrollment.mockTime}` : ''}.`,
+      NotificationType.INFO,
+      '/student/mock-day',
+    );
+
+    if (order.enrollment.writingTeacherId) {
+      const writingTeacher = await this.prisma.teacherProfile.findUnique({
+        where: { id: order.enrollment.writingTeacherId },
+        include: { user: true },
+      });
+      if (writingTeacher) {
+        await this.notifications.create(
+          writingTeacher.userId,
+          'Writing submission incoming',
+          `A new writing submission will be assigned after the student's exam.`,
+          NotificationType.GRADING,
+          '/teacher/grading',
+        );
+      }
+    }
+
+    if (order.enrollment.speakingTeacherId && result.speakingSession) {
+      const speakingTeacher = await this.prisma.teacherProfile.findUnique({
+        where: { id: order.enrollment.speakingTeacherId },
+        include: { user: true },
+      });
+      if (speakingTeacher && result.slot) {
+        await this.notifications.create(
+          speakingTeacher.userId,
+          'Speaking session scheduled',
+          `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
+          NotificationType.REMINDER,
+          `/teacher/speaking?session=${result.speakingSession.id}`,
+        );
+      }
+    }
+
+    return {
+      enrollmentId: order.enrollment.id,
+      enrollmentCode: order.enrollment.enrollmentCode,
+      sessionCode: result.session.sessionCode,
+      alreadyFulfilled: false,
+    };
+  }
+
+  /** Releases held resources when checkout expires or payment fails. */
+  async cancelPendingCheckout(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { enrollment: true },
+    });
+    if (!order || order.status !== OrderStatus.PENDING) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (order.enrollment?.speakingSlotId) {
+        await tx.teacherSlot.updateMany({
+          where: {
+            id: order.enrollment.speakingSlotId,
+            status: SlotStatus.BOOKED,
+          },
+          data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+        });
+      }
+
+      if (order.enrollmentId) {
+        await tx.enrollment.update({
+          where: { id: order.enrollmentId },
+          data: { status: EnrollmentStatus.CANCELLED },
+        });
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.FAILED },
+      });
+    });
+  }
+
+  private async completeEnrollmentDelivery(
+    enrollment: {
+      id: string;
+      speakingSlotId: string | null;
+      writingTeacherId: string | null;
+      speakingTeacherId: string | null;
+    },
+    pkg: { id: string; skills: unknown },
+    studentProfileId: string,
+  ) {
+    const skills = this.packageSkills(pkg);
+    const sessionCode = await this.generateCode('MOCK');
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.enrollment.update({
+        where: { id: enrollment.id },
+        data: { status: EnrollmentStatus.ENROLLED },
+      });
+
+      const session = await tx.examSession.create({
+        data: {
+          sessionCode,
+          enrollmentId: enrollment.id,
+          state: ExamSessionState.ENROLLED,
+        },
+      });
+
+      const assignments = await assignContentTests(tx, studentProfileId, pkg as never);
+      const testBySkill = new Map(
+        assignments.map((a) => [a.skill, a.testId]),
+      );
+
+      for (const skill of skills) {
+        const examSkill = skill.toUpperCase() as ExamSkill;
+        if (!testBySkill.get(examSkill)) {
+          throw new BadRequestException(
+            `Package is missing a published ${skill} test`,
+          );
+        }
+      }
+
+      let slot: { id: string; teacherId: string; startsAt: Date } | null = null;
+      if (enrollment.speakingSlotId) {
+        slot = await tx.teacherSlot.findUnique({
+          where: { id: enrollment.speakingSlotId },
+        });
+      }
+
+      let speakingSession: { id: string } | null = null;
+
+      for (const skill of skills) {
+        const examSkill = skill.toUpperCase() as ExamSkill;
+        const attempt = await tx.sectionAttempt.create({
+          data: {
+            sessionId: session.id,
+            skill: examSkill,
+            contentTestId: testBySkill.get(examSkill) ?? null,
+          },
+        });
+
+        if (skill === 'speaking' && slot) {
+          speakingSession = await tx.speakingSession.create({
+            data: {
+              sectionAttemptId: attempt.id,
+              teacherId: slot.teacherId,
+              status: 'SCHEDULED',
+              scheduledAt: slot.startsAt,
+            },
+          });
+        }
+      }
+
+      return { session, slot, speakingSession };
+    });
+  }
+
+  private async validatePaidBookingParams(
+    params: ProvisionEnrollmentParams,
+    pkg: { id: string; skills: unknown; isActive: boolean },
+  ) {
+    if (!pkg.isActive) throw new NotFoundException('Package not found');
+
+    const skills = this.packageSkills(pkg);
+    const needsWriting = skills.includes('writing');
+    const needsSpeaking = skills.includes('speaking');
+
+    if (needsWriting && !params.writingTeacherId) {
+      throw new BadRequestException('Writing examiner is required for this package');
+    }
+    if (needsSpeaking && !params.speakingTeacherId) {
+      throw new BadRequestException('Speaking examiner is required for this package');
+    }
+    if (needsSpeaking && !params.speakingSlotId) {
+      throw new BadRequestException('Speaking slot is required for this package');
+    }
+    if (!needsWriting && params.writingTeacherId) {
+      throw new BadRequestException('Writing examiner is not required for this package');
+    }
+    if (!needsSpeaking && (params.speakingTeacherId || params.speakingSlotId)) {
+      throw new BadRequestException('Speaking slot is not required for this package');
+    }
+
+    const timeZone = await this.settings.getPlatformTimezone();
+    const mockDayTimers = await this.settings.getMockDayTimers();
+    const mockDayCutoffAt = resolveMockDayCutoffAt(
+      params.mockDate,
+      mockDayTimers.dayCutoffTime,
+      timeZone,
+    );
+
+    if (!params.mockTime || !/^\d{2}:\d{2}$/.test(params.mockTime)) {
+      throw new BadRequestException('mockTime must be in HH:mm format');
+    }
+    const mockStart = mockStartDateTime(
+      new Date(params.mockDate),
+      params.mockTime,
+    );
+    if (mockStart.getTime() <= Date.now()) {
+      throw new BadRequestException('Mock date and time must be in the future');
+    }
+    if (mockStart.getTime() > mockDayCutoffAt.getTime()) {
+      throw new BadRequestException('Mock start time must be before the day cutoff');
+    }
+
+    const availability = await evaluatePackageAvailability(
+      this.prisma,
+      params.studentProfileId,
+      pkg as never,
+    );
+    if (!params.reappointmentOfId && !availability.canPurchase) {
+      throw new BadRequestException(
+        availability.blockingReason ??
+          'You cannot purchase this package with your current test history.',
+      );
+    }
   }
 
   private async generateCode(prefix: string): Promise<string> {

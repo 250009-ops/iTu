@@ -10,7 +10,7 @@ export const SITE = {
   domain: "https://itestu.uz",
   tagline: "Real examiners. Real feedback. Real bands.",
   description:
-    "Sit a realistic, IDP-style computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with same-day band results.",
+    "Sit a realistic, IDP-style computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
   fullMockPrice: 49,
   currency: "USD",
 } as const;
@@ -310,22 +310,7 @@ export const PACKAGES: MockPackage[] = [
     reviewCount: 1240,
     mostPopular: true,
     skills: ["listening", "reading", "writing", "speaking"],
-    included: ["Pick your certified examiner", "Same-day band release", "Criteria-level written feedback", "Score progression tracking", "Secure exam environment"],
-    rules: ["No pause or rewind", "Server-authoritative timers", "Strict exam-day integrity", "All scores released together"],
-  },
-  {
-    id: "p2",
-    slug: "general-training-mock",
-    title: "General Training Mock",
-    examType: "GENERAL_TRAINING",
-    delivery: "Computer-delivered",
-    description: "All four skills. IELTS General Training — for migration, permanent residency, and work programs.",
-    price: 45,
-    currency: "USD",
-    rating: 4.8,
-    reviewCount: 680,
-    skills: ["listening", "reading", "writing", "speaking"],
-    included: ["Pick your certified examiner", "Same-day band release", "Criteria-level written feedback", "Score progression tracking", "Secure exam environment"],
+    included: ["Pick your certified examiner", "Full band report within 24 hours", "Criteria-level written feedback", "Score progression tracking", "Secure exam environment"],
     rules: ["No pause or rewind", "Server-authoritative timers", "Strict exam-day integrity", "All scores released together"],
   },
   {
@@ -340,7 +325,7 @@ export const PACKAGES: MockPackage[] = [
     rating: 4.9,
     reviewCount: 430,
     skills: ["speaking"],
-    included: ["Pick your certified examiner", "Same-day score release", "Criteria-level speaking feedback", "Part 1, 2 & 3 transcript notes"],
+    included: ["Pick your certified examiner", "Speaking score within 24 hours", "Criteria-level speaking feedback", "Part 1, 2 & 3 transcript notes"],
     rules: ["Live video session", "11–14 minutes", "Recorded for examiner reference"],
   },
   {

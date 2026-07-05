@@ -17,13 +17,23 @@ const typeConfig = {
 } as const;
 
 const statusConfig = {
+  pending: {
+    label: "Pending",
+    className: "bg-amber-50 text-amber-700",
+    icon: CheckCircle2,
+  },
+  processing: {
+    label: "Processing",
+    className: "bg-sky-50 text-sky-700",
+    icon: CheckCircle2,
+  },
   completed: {
     label: "Completed",
     className: "bg-emerald-50 text-emerald-700",
     icon: CheckCircle2,
   },
   withdrawn: {
-    label: "Withdrawn",
+    label: "Paid out",
     className: "bg-slate-100 text-slate-600",
     icon: ArrowDownLeft,
   },
@@ -49,12 +59,16 @@ export function TransactionHistory() {
         </div>
         <div className="flex items-center gap-4 text-xs text-muted">
           <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            Pending
+          </span>
+          <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
             Completed
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-slate-400" />
-            Withdrawn
+            Paid out
           </span>
         </div>
       </div>

@@ -58,6 +58,7 @@ const DEFAULT_SETTINGS: Record<string, object> = {
   },
   integrations: {
     stripeConfigured: false,
+    lemonSqueezyConfigured: false,
     smtpConfigured: false,
     sendgridConfigured: false,
     livekitConfigured: false,
@@ -178,9 +179,11 @@ export class SettingsService {
     const livekitConfigured = this.isLivekitConfigured();
     const mediaStorageConfigured = this.isMediaStorageConfigured();
     const smtpConfigured = this.isSmtpConfigured();
+    const lemonSqueezyConfigured = this.isLemonSqueezyConfigured();
 
     return {
       ...stored,
+      lemonSqueezyConfigured,
       smtpConfigured,
       sendgridConfigured: smtpConfigured || Boolean(stored.sendgridConfigured),
       livekitConfigured,
@@ -225,6 +228,13 @@ export class SettingsService {
       this.config.get<string>('SMTP_HOST')?.trim() &&
         this.config.get<string>('SMTP_USER')?.trim() &&
         this.config.get<string>('SMTP_PASS')?.trim(),
+    );
+  }
+
+  private isLemonSqueezyConfigured(): boolean {
+    return Boolean(
+      this.config.get<string>('LEMON_SQUEEZY_API_KEY')?.trim() &&
+        this.config.get<string>('LEMON_SQUEEZY_STORE_ID')?.trim(),
     );
   }
 }

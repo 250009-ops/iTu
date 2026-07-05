@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, Lock, ArrowRight } from "lucide-react";
 import type { MockPackage } from "@/lib/marketing/data";
 import { SKILL_META } from "@/lib/marketing/data";
+import { slugToBrowseTab } from "@/lib/package-slug-tabs";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import { SkillIcon, StarRating } from "@/components/marketing/ui/primitives";
 import { cn } from "@/lib/utils";
@@ -62,7 +63,7 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
       </ul>
 
       <Link
-        href={`/mock-exams?package=${pkg.slug}`}
+        href={`/student/browse?tab=${slugToBrowseTab(pkg.slug) ?? "full-academic"}&book=1`}
         className={cn(
           "mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all hover:-translate-y-0.5",
           pkg.mostPopular
@@ -73,7 +74,7 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
         Book Now <ArrowRight className="h-4 w-4" />
       </Link>
       <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted">
-        <Lock className="h-3 w-3" /> Secure payment · Instant confirmation
+        <Lock className="h-3 w-3" /> Secure checkout · Results within 24 hours
       </p>
     </article>
   );

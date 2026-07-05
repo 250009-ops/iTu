@@ -117,6 +117,7 @@ export function PayoutsTable() {
             <tr className="border-b border-border bg-slate-50 text-xs font-semibold uppercase tracking-wide text-muted">
               <th className="px-5 py-3 sm:px-6">Teacher</th>
               <th className="px-5 py-3 sm:px-6">Period</th>
+              <th className="px-5 py-3 sm:px-6">Bank</th>
               <th className="px-5 py-3 sm:px-6">Amount</th>
               <th className="px-5 py-3 sm:px-6">Status</th>
               <th className="px-5 py-3 text-right sm:px-6">Actions</th>
@@ -125,13 +126,13 @@ export function PayoutsTable() {
           <tbody className="divide-y divide-border">
             {payoutsLoading ? (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-muted sm:px-6">
+                <td colSpan={6} className="px-5 py-8 text-center text-muted sm:px-6">
                   Loading payouts…
                 </td>
               </tr>
             ) : payouts.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-muted sm:px-6">
+                <td colSpan={6} className="px-5 py-8 text-center text-muted sm:px-6">
                   No payouts yet.
                 </td>
               </tr>
@@ -152,6 +153,12 @@ export function PayoutsTable() {
                     <td className="px-5 py-4 text-muted sm:px-6">
                       {formatDate(payout.periodStart)} –{" "}
                       {formatDate(payout.periodEnd)}
+                    </td>
+                    <td className="px-5 py-4 text-muted sm:px-6">
+                      {payout.bankLabel ?? "—"}
+                      {payout.accountName ? (
+                        <span className="mt-0.5 block text-xs">{payout.accountName}</span>
+                      ) : null}
                     </td>
                     <td className="px-5 py-4 font-bold tabular-nums text-navy sm:px-6">
                       ${payout.amount.toFixed(2)}{" "}

@@ -44,10 +44,12 @@ export type CreateBookingResult = {
   enrollmentCode: string;
   orderId: string;
   orderCode: string;
-  sessionCode: string;
+  sessionCode: string | null;
   amount: number;
   currency: string;
   status: string;
+  checkoutUrl?: string | null;
+  checkoutExpiresAt?: string | null;
 };
 
 export function getContentAvailability(packageId: string) {

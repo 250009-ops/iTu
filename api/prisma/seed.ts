@@ -99,7 +99,7 @@ async function main() {
           reviewCount: 940,
           isTopRated: true,
           totalSessions: 342,
-          totalEarned: 12450,
+          totalEarned: 0,
           commissionRate: 0.75,
         },
       },
@@ -128,7 +128,7 @@ async function main() {
           reviewCount: 620,
           isTopRated: false,
           totalSessions: 210,
-          totalEarned: 8750,
+          totalEarned: 0,
         },
       },
     },
@@ -156,7 +156,7 @@ async function main() {
           reviewCount: 1240,
           isTopRated: true,
           totalSessions: 1280,
-          totalEarned: 41200,
+          totalEarned: 0,
         },
       },
     },
@@ -184,7 +184,7 @@ async function main() {
           reviewCount: 760,
           isTopRated: false,
           totalSessions: 760,
-          totalEarned: 24800,
+          totalEarned: 0,
         },
       },
     },
@@ -426,6 +426,100 @@ async function main() {
       testId: writingOnlyTest.id,
       skill: 'WRITING',
     },
+  });
+
+  let listeningOnlyPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'listening', mockNumber: 1 },
+  });
+
+  if (!listeningOnlyPackage) {
+    listeningOnlyPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'listening-only',
+        title: 'Listening Only 001',
+        description:
+          'Computer-delivered Listening mock with auto-scoring and official CBT timing.',
+        price: 25.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'listening',
+        mockNumber: 1,
+        mostPopular: false,
+        rating: 4.8,
+        reviewCount: 210,
+        skills: ['listening'],
+        included: [
+          '40 questions · 4 parts',
+          'Auto-scored band estimate',
+          'Official CBT interface',
+          'Secure exam environment',
+        ],
+        rules: [
+          'No pause or rewind',
+          'Server-authoritative timer',
+          'Single sitting required',
+        ],
+        listeningTestId: listeningTest.id,
+      },
+    });
+  }
+
+  await prisma.packageContentTest.createMany({
+    data: [
+      {
+        packageId: listeningOnlyPackage.id,
+        testId: listeningTest.id,
+        skill: 'LISTENING',
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  let readingOnlyPackage = await prisma.mockTestPackage.findFirst({
+    where: { packageKind: 'reading', mockNumber: 1 },
+  });
+
+  if (!readingOnlyPackage) {
+    readingOnlyPackage = await prisma.mockTestPackage.create({
+      data: {
+        slug: 'reading-only',
+        title: 'Reading Only 001',
+        description:
+          'Computer-delivered Reading mock with auto-scoring and official CBT timing.',
+        price: 25.0,
+        currency: 'USD',
+        examType: ExamType.ACADEMIC,
+        packageKind: 'reading',
+        mockNumber: 1,
+        mostPopular: false,
+        rating: 4.8,
+        reviewCount: 195,
+        skills: ['reading'],
+        included: [
+          '40 questions · 3 passages',
+          'Auto-scored band estimate',
+          'Official CBT interface',
+          'Secure exam environment',
+        ],
+        rules: [
+          '60-minute window',
+          'Server-authoritative timer',
+          'Single sitting required',
+        ],
+        readingTestId: readingTest.id,
+      },
+    });
+  }
+
+  await prisma.packageContentTest.createMany({
+    data: [
+      {
+        packageId: readingOnlyPackage.id,
+        testId: readingTest.id,
+        skill: 'READING',
+      },
+    ],
+    skipDuplicates: true,
   });
 
   let generalTrainingPackage = await prisma.mockTestPackage.findFirst({
@@ -819,6 +913,15 @@ async function seedPayouts(teacherIds: string[]) {
         periodEnd: isPaid ? prevEnd : periodEnd,
         paidAt: isPaid ? prevEnd : null,
       },
+    });
+  }
+
+  for (const teacherId of teacherIds) {
+    const payouts = await prisma.payout.findMany({ where: { teacherId } });
+    const earned = payouts.reduce((sum, payout) => sum + payout.amount, 0);
+    await prisma.teacherProfile.update({
+      where: { id: teacherId },
+      data: { totalEarned: earned },
     });
   }
 }

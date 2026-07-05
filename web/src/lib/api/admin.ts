@@ -454,8 +454,8 @@ export function updateTeacherStatus(
 }
 
 export function getAdminOrders() {
-  return apiFetch<
-    {
+  return apiFetch<{
+    orders: {
       id: string;
       orderId: string;
       studentName: string;
@@ -465,8 +465,18 @@ export function getAdminOrders() {
       amount: number;
       status: string;
       createdAt: string;
-    }[]
-  >("/admin/orders");
+    }[];
+    summary: {
+      revenueCollected: number;
+      paidOrders: number;
+      paidTotal: number;
+      refundsIssued: number;
+      refundTotal: number;
+      failedPayments: number;
+      pendingPayments: number;
+    };
+    monthlyRevenue: { month: string; amount: number }[];
+  }>("/admin/orders");
 }
 
 export function refundOrder(
@@ -492,6 +502,9 @@ export type AdminPayout = {
   periodEnd: string;
   paidAt: string | null;
   createdAt: string;
+  bankLabel?: string | null;
+  accountName?: string | null;
+  payoutMethod?: string | null;
 };
 
 export function getAdminPayouts() {

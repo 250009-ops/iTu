@@ -15,7 +15,11 @@ type TeacherEarningsValue = {
 
 const emptyEarnings = mapTeacherEarnings({
   totalEarned: 0,
+  totalSessions: 0,
   commissionRate: 0,
+  speakingRate: 25,
+  writingRate: 35,
+  pendingBalance: 0,
   payoutSchedule: "weekly",
   payoutDetails: null,
   payouts: [],

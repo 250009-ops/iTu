@@ -67,3 +67,4 @@ npm run settings:migrate-day-cutoff
 if [[ "${FRESH_PACKAGES:-}" == "1" ]]; then
   npm run packages:clear -- --confirm
 fi
+npm run packages:ensure-skill

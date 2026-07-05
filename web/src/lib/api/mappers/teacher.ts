@@ -476,8 +476,7 @@ export function mapTeacherEarnings(data: Earnings) {
     );
   });
   const thisMonth = thisMonthPayouts.reduce((sum, p) => sum + p.amount, 0);
-  const pendingPayouts = data.payouts.filter((p) => p.status === "pending");
-  const availableBalance = pendingPayouts.reduce((sum, p) => sum + p.amount, 0);
+  const availableBalance = data.pendingBalance ?? 0;
 
   const monthlyMap = new Map<string, number>();
   for (const payout of [...data.payouts].reverse()) {
@@ -502,6 +501,7 @@ export function mapTeacherEarnings(data: Earnings) {
     (day) => ({ day, speaking: 0, writing: 0 }),
   );
 
+  const pendingPayouts = data.payouts.filter((p) => p.status === "pending");
   const nextPending =
     pendingPayouts[0] ?? data.payouts.find((p) => p.status !== "paid");
 
@@ -541,6 +541,12 @@ export function mapTeacherEarnings(data: Earnings) {
         hasBankDetails: Boolean(payoutDetails?.accountLast4),
       };
 
+  const txStatus = (status: string) => {
+    if (status === "paid") return "withdrawn" as const;
+    if (status === "processing") return "processing" as const;
+    return "pending" as const;
+  };
+
   const transactions = data.payouts.map((payout) => ({
     id: payout.id,
     date: new Date(payout.periodEnd).toLocaleDateString("en-US", {
@@ -558,18 +564,18 @@ export function mapTeacherEarnings(data: Earnings) {
     label: payout.status === "paid" ? "Bank Payout" : "Pending Payout",
     detail: `${new Date(payout.periodStart).toLocaleDateString()} – ${new Date(payout.periodEnd).toLocaleDateString()}`,
     reference: payout.id.slice(0, 8).toUpperCase(),
-    status:
-      payout.status === "paid"
-        ? ("withdrawn" as const)
-        : ("completed" as const),
+    status: txStatus(payout.status),
     amount: payout.status === "paid" ? -payout.amount : payout.amount,
   }));
+
+  const sessionCount = Math.max(data.totalSessions, 1);
+  const rateLabel = `$${data.speakingRate} speaking · $${data.writingRate} writing`;
 
   return {
     billingCycle,
     netThisCycle: thisMonth,
     summary: {
-      availableBalance: availableBalance || thisMonth,
+      availableBalance,
       thisMonth,
       thisMonthTrend: "—",
       thisMonthLabel: billingCycle,
@@ -577,11 +583,9 @@ export function mapTeacherEarnings(data: Earnings) {
       allTimeTrend: "—",
       allTimeSub: `${data.payouts.length} payouts on record`,
       avgPerSession:
-        data.payouts.length > 0
-          ? data.totalEarned / data.payouts.length
-          : 0,
+        sessionCount > 0 ? data.totalEarned / sessionCount : 0,
       avgTrend: "—",
-      avgSub: `${Math.round(data.commissionRate * 100)}% commission rate`,
+      avgSub: rateLabel,
       monthlyTrend: "—",
     },
     monthlyEarnings,

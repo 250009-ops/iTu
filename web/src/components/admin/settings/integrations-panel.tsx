@@ -6,8 +6,14 @@ import { cn } from "@/lib/utils";
 
 const services = [
   {
+    name: "Lemon Squeezy",
+    description: "Student checkout — cards, PayPal, Apple Pay (international cards supported)",
+    key: "lemonSqueezyConfigured" as const,
+    envManaged: true,
+  },
+  {
     name: "Stripe",
-    description: "Payment processing (Phase H)",
+    description: "Legacy placeholder — not used for student checkout",
     key: "stripeConfigured" as const,
     envManaged: false,
   },
