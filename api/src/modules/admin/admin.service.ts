@@ -1046,10 +1046,28 @@ export class AdminService {
     }
 
     const previousStatus = existing.status;
-    const updated = await this.prisma.teacherProfile.update({
-      where: { id: teacherId },
-      data: { status: status.toUpperCase() as 'APPROVED' | 'PENDING' | 'SUSPENDED' },
-      include: { user: true },
+    const nextStatus = status.toUpperCase() as 'APPROVED' | 'PENDING' | 'SUSPENDED';
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const teacher = await tx.teacherProfile.update({
+        where: { id: teacherId },
+        data: { status: nextStatus },
+        include: { user: true },
+      });
+
+      if (nextStatus === 'APPROVED' && !teacher.user.emailVerifiedAt) {
+        await tx.user.update({
+          where: { id: teacher.userId },
+          data: {
+            emailVerifiedAt: new Date(),
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+          },
+        });
+        teacher.user.emailVerifiedAt = new Date();
+      }
+
+      return teacher;
     });
 
     await this.audit.log({

@@ -27,6 +27,7 @@ import { getErrorMessage } from "@/lib/api/errors";
 import {
   TEACHER_BAND_OPTIONS,
   TEACHER_LANGUAGE_OPTIONS,
+  isTeacherRegisterStepReady,
   teacherRegisterSchema,
   teacherRegisterSteps,
   type TeacherRegisterFormValues,
@@ -88,6 +89,7 @@ export default function TeacherRegisterForm() {
     defaultValues: {
       ieltsWritingBand: "7.5",
       ieltsSpeakingBand: "7.5",
+      yearsExperience: "",
       languages: ["English"],
       acceptTerms: false,
     },
@@ -104,10 +106,9 @@ export default function TeacherRegisterForm() {
   } = form;
 
   const languages = watch("languages");
-  const acceptTerms = watch("acceptTerms");
   const values = watch();
 
-  const step3Ready = certificates.length > 0 && acceptTerms === true;
+  const canContinue = isTeacherRegisterStepReady(step, values, certificates.length);
 
   async function validateStep(targetStep: number) {
     const fieldsByStep: Record<number, (keyof TeacherRegisterFormValues)[]> = {
@@ -189,9 +190,7 @@ export default function TeacherRegisterForm() {
           <p className="mx-auto mt-3 max-w-md text-sm text-muted">
             We sent a confirmation to <strong className="text-navy">{submitted.email}</strong>.
             You will receive another email from <strong className="text-navy">noreply@itestu.uz</strong> when
-            your account is approved — usually within 1–2 business days.
-            <br />
-            Please also verify your email (link sent to your inbox) before signing in.
+            your account is approved — usually within 1–2 business days. You can sign in after approval.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Link
@@ -423,7 +422,7 @@ export default function TeacherRegisterForm() {
             {errors.acceptTerms && (
               <p className="text-xs font-medium text-red-600">{errors.acceptTerms.message}</p>
             )}
-            {!step3Ready && (
+            {step === 3 && !canContinue && (
               <p className="text-xs text-muted">
                 Upload at least one certificate and accept the terms to continue.
               </p>
@@ -496,7 +495,7 @@ export default function TeacherRegisterForm() {
               type="button"
               variant="primary"
               className="flex-1 sm:flex-none"
-              disabled={step === 3 && !step3Ready}
+              disabled={!canContinue}
               onClick={goNext}
             >
               Continue

@@ -52,3 +52,33 @@ export const teacherRegisterSteps = [
   { id: 3, label: "Credentials" },
   { id: 4, label: "Review" },
 ] as const;
+
+const step1Schema = z
+  .object({
+    fullName: teacherRegisterSchema.shape.fullName,
+    email: teacherRegisterSchema.shape.email,
+    password: teacherRegisterSchema.shape.password,
+    confirmPassword: teacherRegisterSchema.shape.confirmPassword,
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+const step2Schema = teacherRegisterSchema.pick({
+  ieltsWritingBand: true,
+  ieltsSpeakingBand: true,
+  yearsExperience: true,
+  languages: true,
+});
+
+export function isTeacherRegisterStepReady(
+  step: number,
+  values: TeacherRegisterFormValues,
+  certificateCount: number,
+): boolean {
+  if (step === 1) return step1Schema.safeParse(values).success;
+  if (step === 2) return step2Schema.safeParse(values).success;
+  if (step === 3) return certificateCount > 0 && values.acceptTerms === true;
+  return true;
+}

@@ -74,6 +74,7 @@ export function SectionCards() {
 
   if (!data) return null;
   const isMissed = data.status === "missed";
+  const examLocked = isMissed || data.mockDayClosed;
   const { sections, speaking, sessionCode, hasSpeaking } = data;
   const speakingDone = speaking.status === "completed";
   const slotAccess = speakingJoinAccess(speaking.scheduledAt);
@@ -325,7 +326,7 @@ export function SectionCards() {
                 <CheckCircle size={14} />
                 Completed
               </span>
-            ) : isMissed ? (
+            ) : examLocked ? (
               <span
                 className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-gray-400"
                 style={{ fontSize: "13px" }}

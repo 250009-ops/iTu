@@ -245,9 +245,6 @@ export function teacherApprovedEmail(name: string, email: string, loginUrl: stri
     bodyHtml: `
       <p>Hi ${escapeHtml(name)},</p>
       <p><strong>Welcome to iTestU!</strong> Your teacher application has been approved and your account is ready.</p>
-      <p style="margin-top:12px; font-size:13px; color:#64748b;">
-        If you haven&apos;t verified your email yet, verify it first — otherwise sign-in may be blocked.
-      </p>
       <p style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
         <strong>Your sign-in credentials</strong><br />
         Email: <strong>${escapeHtml(email)}</strong><br />

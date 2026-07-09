@@ -92,9 +92,24 @@ export class AuthService {
     this.assertTeacherCanLogin(user);
 
     if (!user.emailVerifiedAt) {
-      throw new UnauthorizedException(
-        'Please verify your email before signing in.',
-      );
+      if (
+        user.role === UserRole.TEACHER &&
+        user.teacherProfile?.status === 'APPROVED'
+      ) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            emailVerifiedAt: new Date(),
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+          },
+        });
+        user.emailVerifiedAt = new Date();
+      } else {
+        throw new UnauthorizedException(
+          'Please verify your email before signing in.',
+        );
+      }
     }
 
     if (user.totpEnabled) {

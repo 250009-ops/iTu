@@ -31,10 +31,11 @@ export function MockDaySidebar() {
   if (!data) return null;
   const { checkIn, speakingTip, sessionCode, hasSpeaking, checkInCompleted } = data;
   const isMissed = data.status === "missed";
-  const canReschedule = !isMissed && data.canReschedule && data.state === "enrolled";
+  const examLocked = isMissed || data.mockDayClosed;
+  const canReschedule = !examLocked && data.canReschedule && data.state === "enrolled";
   const speakingDone = data.speaking.status === "completed";
   const showCheckIn =
-    !isMissed && (!checkInCompleted || (hasSpeaking && !speakingDone));
+    !examLocked && (!checkInCompleted || (hasSpeaking && !speakingDone));
 
   return (
     <div className="space-y-4">

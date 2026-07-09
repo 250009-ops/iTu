@@ -394,6 +394,12 @@ export function mapMockDayHub(data: MockDayApi) {
 
   const secondsUntilTarget = secondsUntil(countdownTarget, now);
   const countdownParts = splitCountdown(secondsUntilTarget);
+  const mockDayClosed =
+    isMissed ||
+    (!examStarted &&
+      !checkInCompleted &&
+      mockCutoff != null &&
+      now > mockCutoff.getTime());
   const displayTime =
     enrollment.mockTime ??
     (mockCutoff ? formatTime(mockCutoff) : "Flexible");
@@ -554,7 +560,8 @@ export function mapMockDayHub(data: MockDayApi) {
     examStarted,
     needsSpeakingSlot,
     speakingTeacherId: enrollment.speakingTeacherId ?? null,
-    canReschedule: !isMissed && !examStarted && !checkInCompleted,
+    canReschedule:
+      !isMissed && !mockDayClosed && !examStarted && !checkInCompleted,
     progressPct: Math.round((completedCount / totalModules) * 100),
     modulesComplete: completedCount,
     totalModules,
@@ -562,37 +569,54 @@ export function mapMockDayHub(data: MockDayApi) {
     countdownLabel,
     countdown: countdownParts,
     checkInCompleted,
+    mockDayClosed,
     currentPhase: {
-      label: activeSection
-        ? SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill
-        : completedCount === totalModules
-          ? "Complete"
-          : checkInCompleted
-            ? "Break"
-            : "Check-in",
-      badge: activeSection
-        ? `${(activeSection.skill as string).toUpperCase()} · ACTIVE`
-        : checkInCompleted
-          ? "MOCK DAY · IN PROGRESS"
-          : "CHECK-IN REQUIRED",
-      headline: activeSection
-        ? `${SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill} in progress`
-        : completedCount === totalModules
-          ? "All modules complete"
-          : hasSpeaking && speakingScheduled
-            ? `Speaking starts at ${formatTime(speakingScheduled)} · ${speaking?.examiner ?? "Your examiner"}`
+      label: isMissed
+        ? "Missed"
+        : mockDayClosed
+          ? "Window closed"
+          : activeSection
+            ? SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill
+            : completedCount === totalModules
+              ? "Complete"
+              : checkInCompleted
+                ? "Break"
+                : "Check-in",
+      badge: isMissed
+        ? "MOCK DAY · MISSED"
+        : mockDayClosed
+          ? "MOCK DAY · CLOSED"
+          : activeSection
+            ? `${(activeSection.skill as string).toUpperCase()} · ACTIVE`
             : checkInCompleted
-              ? "Continue your mock exam"
-              : flexibleStart
-              ? "Start your mock anytime before the day cutoff"
-              : "Complete check-in to begin",
-      message: activeSection
-        ? "Stay in fullscreen and follow the on-screen instructions for this section."
-        : hasSpeaking && speakingScheduled
-          ? "Return to this hub before your speaking slot. Ensure microphone and webcam are active."
-          : checkInCompleted
-            ? "Follow the schedule and complete each section in order."
-            : "Verify your identity and device setup before starting your first section.",
+              ? "MOCK DAY · IN PROGRESS"
+              : "CHECK-IN REQUIRED",
+      headline: isMissed
+        ? "Mock day missed"
+        : mockDayClosed
+          ? "The mock day window has closed"
+          : activeSection
+            ? `${SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill} in progress`
+            : completedCount === totalModules
+              ? "All modules complete"
+              : hasSpeaking && speakingScheduled
+                ? `Speaking starts at ${formatTime(speakingScheduled)} · ${speaking?.examiner ?? "Your examiner"}`
+                : checkInCompleted
+                  ? "Continue your mock exam"
+                  : flexibleStart
+                    ? "Start your mock anytime before the day cutoff"
+                    : "Complete check-in to begin",
+      message: isMissed
+        ? "This session was marked missed. Contact your centre admin to reappoint, or book a new mock from Browse."
+        : mockDayClosed
+          ? "You did not start before the day cutoff. Check your dashboard for next steps."
+          : activeSection
+            ? "Stay in fullscreen and follow the on-screen instructions for this section."
+            : hasSpeaking && speakingScheduled
+              ? "Return to this hub before your speaking slot. Ensure microphone and webcam are active."
+              : checkInCompleted
+                ? "Follow the schedule and complete each section in order."
+                : "Verify your identity and device setup before starting your first section.",
     },
     moduleRail,
     rules: getMockDayRules(enrollment.packageSkills),
@@ -600,7 +624,7 @@ export function mapMockDayHub(data: MockDayApi) {
     sections: cbtSections,
     hasSpeaking,
     speaking: {
-      status: (isMissed
+      status: (isMissed || mockDayClosed
         ? "locked"
         : sections.find((s) => s.skill === "speaking")?.completed
           ? "completed"
