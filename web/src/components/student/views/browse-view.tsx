@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight, CalendarDays, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -15,6 +17,7 @@ import {
   useStudentBrowseData,
 } from "@/contexts/student-browse-context";
 import { isExcludedPackageTypeTab } from "@/lib/package-type-tabs";
+import { Button } from "@/components/ui/button";
 
 export function BrowseView() {
   return (
@@ -90,6 +93,31 @@ function BrowseContent() {
               autoOpenBooking={autoOpenBooking}
               onBookingOpened={() => setAutoOpenBooking(false)}
             />
+          ) : activeOffer?.activeEnrollment ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-10 text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+              <p className="mt-4 text-lg font-bold text-navy">
+                You&apos;re booked for {activeOffer.activeEnrollment.packageTitle}
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                {activeOffer.activeEnrollment.enrollmentCode} · Mock day{" "}
+                {activeOffer.activeEnrollment.mockDateLabel}
+                {activeOffer.activeEnrollment.mockTime
+                  ? ` at ${activeOffer.activeEnrollment.mockTime}`
+                  : ""}
+              </p>
+              <p className="mt-3 text-sm text-emerald-900">
+                This package won&apos;t appear for purchase again — open Mock Day
+                Hub when it&apos;s time to sit the exam.
+              </p>
+              <Link href="/student/mock-day" className="mt-6 inline-block">
+                <Button size="lg" className="bg-navy hover:bg-navy-light">
+                  <CalendarDays className="h-4 w-4" />
+                  Go to Mock Day Hub
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           ) : activeOffer ? (
             <div className="rounded-xl border border-dashed border-border bg-slate-50 px-6 py-12 text-center">
               <p className="text-sm font-medium text-navy">

@@ -78,9 +78,41 @@ export class CatalogService {
         },
       );
       const meta = offerMetaForGroup(group);
+
+      let activeEnrollment: {
+        enrollmentCode: string;
+        mockDate: Date;
+        mockTime: string | null;
+        packageTitle: string;
+      } | null = null;
+
+      if (!resolved) {
+        const enrolled = await this.prisma.enrollment.findFirst({
+          where: {
+            studentId: studentProfileId,
+            status: { in: ['ENROLLED', 'IN_PROGRESS', 'AWAITING_RESULTS'] },
+            package: {
+              packageKind: group.packageKind,
+              examType: group.examType,
+            },
+          },
+          orderBy: { mockDate: 'desc' },
+          include: { package: { select: { title: true } } },
+        });
+        if (enrolled) {
+          activeEnrollment = {
+            enrollmentCode: enrolled.enrollmentCode,
+            mockDate: enrolled.mockDate,
+            mockTime: enrolled.mockTime,
+            packageTitle: enrolled.package.title,
+          };
+        }
+      }
+
       offers.push({
         ...meta,
         package: resolved ? this.toCatalogPackage(resolved) : null,
+        activeEnrollment,
       });
     }
 

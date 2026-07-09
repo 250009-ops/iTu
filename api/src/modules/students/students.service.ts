@@ -83,6 +83,10 @@ export class StudentsService {
         e.status === 'AWAITING_RESULTS',
     );
 
+    const missed = !upcoming
+      ? enrollments.find((e) => e.status === 'MISSED')
+      : null;
+
     const completed = enrollments.filter((e) => e.status === 'COMPLETED');
 
     const resolvedCompleted = await Promise.all(
@@ -201,6 +205,14 @@ export class StudentsService {
             packageSkills: upcomingPackageSkills.map((s) => s.toLowerCase()),
           }
         : null,
+      missedMock: missed
+        ? {
+            enrollmentCode: missed.enrollmentCode,
+            packageTitle: missed.package.title,
+            mockDate: missed.mockDate,
+            adminGranted: missed.adminGranted,
+          }
+        : null,
       bandProgress: resolvedCompleted
         .slice()
         .reverse()
@@ -239,24 +251,26 @@ export class StudentsService {
   async getMockDayHub(user: RequestUser) {
     this.requireStudent(user);
 
+    const mockDayEnrollmentInclude = {
+      package: true,
+      examSession: {
+        include: {
+          sectionAttempts: {
+            include: { speakingSession: { include: { grade: true } } },
+          },
+        },
+      },
+      speakingSlot: true,
+      speakingTeacher: { include: { user: true } },
+      writingTeacher: { include: { user: true } },
+    } as const;
+
     const activeEnrollments = await this.prisma.enrollment.findMany({
       where: {
         studentId: user.studentProfileId,
         status: { in: ['ENROLLED', 'IN_PROGRESS'] },
       },
-      include: {
-        package: true,
-        examSession: {
-          include: {
-            sectionAttempts: {
-              include: { speakingSession: { include: { grade: true } } },
-            },
-          },
-        },
-        speakingSlot: true,
-        speakingTeacher: { include: { user: true } },
-        writingTeacher: { include: { user: true } },
-      },
+      include: mockDayEnrollmentInclude,
     });
 
     for (const candidate of activeEnrollments) {
@@ -270,48 +284,31 @@ export class StudentsService {
         studentId: user.studentProfileId,
         status: { in: ['ENROLLED', 'IN_PROGRESS'] },
       },
-      include: {
-        package: true,
-        examSession: {
-          include: {
-            sectionAttempts: {
-              include: { speakingSession: { include: { grade: true } } },
-            },
-          },
-        },
-        speakingSlot: true,
-        speakingTeacher: { include: { user: true } },
-        writingTeacher: { include: { user: true } },
-      },
+      include: mockDayEnrollmentInclude,
     });
 
-    const enrollment = selectMockDayEnrollment(refreshed);
+    let enrollment = selectMockDayEnrollment(refreshed);
 
     if (!enrollment?.examSession) {
-      const missed = await this.prisma.enrollment.findFirst({
+      const missedEnrollment = await this.prisma.enrollment.findFirst({
         where: {
           studentId: user.studentProfileId,
           status: 'MISSED',
         },
-        include: { package: true },
+        include: mockDayEnrollmentInclude,
         orderBy: { missedAt: 'desc' },
       });
-      if (missed) {
-        return {
-          enrollment: null,
-          missed: {
-            enrollmentId: missed.id,
-            enrollmentCode: missed.enrollmentCode,
-            packageTitle: missed.package.title,
-            mockDate: missed.mockDate,
-            adminGranted: missed.adminGranted,
-          },
-        };
+      if (missedEnrollment?.examSession) {
+        enrollment = missedEnrollment;
       }
+    }
+
+    if (!enrollment?.examSession) {
       return { enrollment: null };
     }
 
     const session = enrollment.examSession;
+    const isMissed = enrollment.status === 'MISSED';
     const completedSkills = session.sectionAttempts
       .filter((a) => {
         if (a.submittedAt) return true;
@@ -350,6 +347,7 @@ export class StudentsService {
         speakingSlotId: enrollment.speakingSlotId,
         sessionCode: session.sessionCode,
         state: sessionState,
+        status: enrollment.status.toLowerCase(),
         packageTitle: enrollment.package.title,
         packageSkills: packageSkills.map((s) => s.toLowerCase()),
         checkInCompleted,
@@ -359,8 +357,9 @@ export class StudentsService {
         const attempt = session.sectionAttempts.find((a) => a.skill === skill);
         const completed = completedSkills.includes(key);
         const active =
-          sessionState.includes(key) && !completed;
+          !isMissed && sessionState.includes(key) && !completed;
         const unlocked =
+          !isMissed &&
           !completed &&
           !active &&
           checkInCompleted &&
@@ -411,9 +410,26 @@ export class StudentsService {
 
     if (!profile) return null;
 
-    const latestOrder = profile.orders.find((o) => o.status === 'PAID') ?? null;
-    const completedCount = profile.enrollments.filter(
-      (e) => e.status === 'COMPLETED',
+    const paidOrders = profile.orders.filter((o) => o.status === 'PAID');
+    const latestOrder = paidOrders[0] ?? null;
+    const paidEnrollmentIds = new Set(
+      paidOrders
+        .map((o) => o.enrollmentId)
+        .filter((id): id is string => id != null),
+    );
+    const purchasedEnrollments = profile.enrollments.filter(
+      (e) => !e.reappointmentOfId && paidEnrollmentIds.has(e.id),
+    );
+    const mocksTotal = purchasedEnrollments.length;
+    const mocksUsed = profile.enrollments.filter(
+      (e) => e.status === 'COMPLETED' && paidEnrollmentIds.has(e.id),
+    ).length;
+    const mocksRemaining = profile.enrollments.filter(
+      (e) =>
+        paidEnrollmentIds.has(e.id) &&
+        (e.status === 'ENROLLED' ||
+          e.status === 'IN_PROGRESS' ||
+          e.status === 'AWAITING_RESULTS'),
     ).length;
 
     return {
@@ -435,8 +451,9 @@ export class StudentsService {
         currency: latestOrder?.currency ?? null,
         orderCode: latestOrder?.orderCode ?? null,
         skills: latestOrder?.package.skills ?? [],
-        mocksUsed: completedCount,
-        mocksTotal: profile.enrollments.length,
+        mocksUsed,
+        mocksTotal,
+        mocksRemaining,
       },
       scoreHistory: await Promise.all(
         profile.enrollments

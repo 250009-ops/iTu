@@ -2,6 +2,7 @@
 
 import { WelcomeSection } from "@/components/student/dashboard/welcome-section";
 import { ResultsBanner } from "@/components/student/dashboard/results-banner";
+import { MissedMockBanner } from "@/components/student/dashboard/missed-mock-banner";
 import { StatCards } from "@/components/student/dashboard/stat-cards";
 import { UpcomingMockCard } from "@/components/student/dashboard/upcoming-mock-card";
 import { BandProgressChart } from "@/components/student/dashboard/band-progress-chart";
@@ -51,6 +52,7 @@ function DashboardContent() {
       <div className="mx-auto max-w-7xl space-y-6">
         <WelcomeSection />
         <ResultsBanner />
+        <MissedMockBanner />
         <StatCards />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

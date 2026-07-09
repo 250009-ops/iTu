@@ -6,8 +6,6 @@ import {
   ChevronDown,
   LifeBuoy,
   Mail,
-  MessageCircle,
-  Phone,
   Send,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
@@ -15,32 +13,7 @@ import { createSupportTicket } from "@/lib/api/support";
 import { getErrorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
-const channels = [
-  {
-    id: "chat",
-    icon: MessageCircle,
-    title: "Live chat",
-    detail: "Typical reply in under 5 minutes",
-    accent: "bg-sky-100 text-sky-600",
-    action: "Start chat",
-  },
-  {
-    id: "email",
-    icon: Mail,
-    title: "Email support",
-    detail: "support@itestu.uz",
-    accent: "bg-violet-100 text-violet-600",
-    action: "Send email",
-  },
-  {
-    id: "phone",
-    icon: Phone,
-    title: "Call us",
-    detail: "+1 800 IELTS 01 · Mon–Fri",
-    accent: "bg-emerald-100 text-emerald-600",
-    action: "Call now",
-  },
-] as const;
+const SUPPORT_EMAIL = "support@itestu.uz";
 
 const faqs = [
   {
@@ -71,21 +44,6 @@ export function HelpCenter() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  function handleChannel(id: string, title: string) {
-    if (id === "email") {
-      window.location.href = "mailto:support@itestu.uz";
-      return;
-    }
-    if (id === "phone") {
-      window.location.href = "tel:+18004358701";
-      return;
-    }
-    toast(title, {
-      description: "Connecting you to a support agent…",
-      variant: "info",
-    });
-  }
 
   async function submitRequest(e: React.FormEvent) {
     e.preventDefault();
@@ -133,34 +91,18 @@ export function HelpCenter() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {channels.map((channel) => {
-            const Icon = channel.icon;
-            return (
-              <div
-                key={channel.id}
-                className="rounded-2xl border border-border bg-white p-5 shadow-sm"
-              >
-                <span
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-xl",
-                    channel.accent,
-                  )}
-                >
-                  <Icon className="h-5 w-5" strokeWidth={1.75} />
-                </span>
-                <p className="mt-3 font-semibold text-navy">{channel.title}</p>
-                <p className="mt-0.5 text-sm text-muted">{channel.detail}</p>
-                <button
-                  type="button"
-                  onClick={() => handleChannel(channel.id, channel.title)}
-                  className="mt-3 text-sm font-semibold text-sky-600 hover:text-sky-700"
-                >
-                  {channel.action} →
-                </button>
-              </div>
-            );
-          })}
+        <div className="max-w-sm rounded-2xl border border-border bg-white p-5 shadow-sm">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+            <Mail className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <p className="mt-3 font-semibold text-navy">Email support</p>
+          <p className="mt-0.5 text-sm text-muted">{SUPPORT_EMAIL}</p>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="mt-3 inline-block text-sm font-semibold text-sky-600 hover:text-sky-700"
+          >
+            Send email →
+          </a>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

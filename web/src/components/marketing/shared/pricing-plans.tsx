@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, ArrowRight, Lock } from "lucide-react";
 import { PACKAGES, SKILL_META, type MockPackage } from "@/lib/marketing/data";
+import { formatPrice } from "@/lib/format-price";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import { SkillIcon, StarRating } from "@/components/marketing/ui/primitives";
 import { cn } from "@/lib/utils";
@@ -71,8 +72,7 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
               </div>
               <div className="text-right">
                 <p className="text-4xl font-extrabold">
-                  ${full.price}
-                  <span className="ml-1 text-sm font-medium text-slate-400">{full.currency}</span>
+                  {formatPrice(full.price, full.currency)}
                 </p>
                 <p className="text-xs text-slate-400">per exam</p>
                 <StarRating rating={full.rating} count={full.reviewCount} className="mt-1 justify-end [&_*]:text-slate-300" />
@@ -135,8 +135,7 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                 <h3 className="font-bold text-navy">{pkg.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted">{pkg.description}</p>
                 <p className="mt-4 text-3xl font-extrabold text-navy">
-                  ${pkg.price}
-                  <span className="ml-1 text-xs font-medium text-muted">{pkg.currency}</span>
+                  {formatPrice(pkg.price, pkg.currency)}
                 </p>
                 <ul className="mt-4 space-y-2">
                   {pkg.included.map((item) => (

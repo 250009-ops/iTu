@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { CurrentStatusBanner } from "@/components/student/mock-day/current-status-banner";
 import { ExamRulesBanner } from "@/components/student/mock-day/exam-rules-banner";
 import { MockDayEmptyState } from "@/components/student/mock-day/mock-day-empty-state";
-import { MockDayMissedState } from "@/components/student/mock-day/mock-day-missed-state";
 import { MockDayHeader } from "@/components/student/mock-day/mock-day-header";
 import { MockDayLoadingSkeleton } from "@/components/student/mock-day/mock-day-loading-skeleton";
 import { MockDayShellHeader } from "@/components/student/mock-day/mock-day-shell-header";
@@ -25,6 +28,16 @@ export function MockDayView() {
 
 function MockDayContent() {
   const { data, loading, error } = useStudentMockDayData();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (searchParams.get("payment") !== "success") return;
+    toast("Payment confirmed", {
+      description: "Your mock is booked. Mock Day Hub is ready when exam day arrives.",
+      variant: "success",
+    });
+  }, [searchParams, toast]);
 
   if (loading) {
     return <MockDayLoadingSkeleton />;
@@ -48,18 +61,20 @@ function MockDayContent() {
     return <MockDayEmptyState />;
   }
 
-  if (data.status === "missed") {
-    return (
-      <MockDayMissedState
-        packageTitle={data.packageTitle}
-        dateLabel={data.dateLabel}
-      />
-    );
-  }
-
   return (
     <div>
       <MockDayHeader />
+      {searchParams.get("payment") === "success" ? (
+        <div className="border-b border-emerald-200 bg-emerald-50 px-6 py-3 text-sm text-emerald-900">
+          <div className="mx-auto flex max-w-7xl items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <span>
+              <strong>Payment successful.</strong> Your mock is confirmed — use this
+              hub on exam day to check in and start each section.
+            </span>
+          </div>
+        </div>
+      ) : null}
       <CurrentStatusBanner />
 
       <div className="mx-auto max-w-7xl px-6 py-7 lg:px-8">

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyRound,
-  Laptop,
   Lock,
   Mail,
   ShieldCheck,
@@ -17,7 +16,6 @@ import {
   getMe,
   setupTwoFactor,
 } from "@/lib/api/auth";
-import { exportPersonalData } from "@/lib/api/students";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useStudentProfileData } from "@/contexts/student-profile-context";
 
@@ -52,25 +50,6 @@ function SectionCard({
   );
 }
 
-function currentDeviceLabel() {
-  if (typeof navigator === "undefined") return "This device";
-  const ua = navigator.userAgent;
-  let browser = "Browser";
-  if (ua.includes("Edg/")) browser = "Edge";
-  else if (ua.includes("Chrome/")) browser = "Chrome";
-  else if (ua.includes("Firefox/")) browser = "Firefox";
-  else if (ua.includes("Safari/")) browser = "Safari";
-
-  let os = "Unknown OS";
-  if (ua.includes("Windows")) os = "Windows";
-  else if (ua.includes("Mac OS")) os = "macOS";
-  else if (ua.includes("Linux")) os = "Linux";
-  else if (ua.includes("Android")) os = "Android";
-  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
-
-  return `${browser} · ${os}`;
-}
-
 export function ProfileSecurityTab() {
   const { toast } = useToast();
   const [current, setCurrent] = useState("");
@@ -84,7 +63,6 @@ export function ProfileSecurityTab() {
   const [enableCode, setEnableCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
   const [disableCode, setDisableCode] = useState("");
-  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void getMe()
@@ -158,35 +136,6 @@ export function ProfileSecurityTab() {
     }
   }
 
-  async function handleExportData() {
-    setExporting(true);
-    try {
-      const data = await exportPersonalData();
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `itestu-data-export-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast("Data export ready", {
-        description: "Your personal data was downloaded as JSON.",
-        variant: "success",
-      });
-    } catch (err) {
-      toast("Export failed", {
-        description: getErrorMessage(err, "Please try again."),
-        variant: "error",
-      });
-    } finally {
-      setExporting(false);
-    }
-  }
-
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     if (!current || !next || !confirm) {
@@ -226,8 +175,6 @@ export function ProfileSecurityTab() {
 
   const inputClass =
     "h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm placeholder:text-gray-400 focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10";
-
-  const deviceLabel = useMemo(() => currentDeviceLabel(), []);
 
   return (
     <div className="space-y-6">
@@ -366,39 +313,6 @@ export function ProfileSecurityTab() {
             Set up authenticator app
           </button>
         )}
-      </SectionCard>
-
-      <SectionCard
-        icon={ShieldCheck}
-        title="Download your data"
-        description="Export a copy of your profile, enrollments, orders, and activity (GDPR)."
-      >
-        <button
-          type="button"
-          onClick={() => void handleExportData()}
-          disabled={exporting}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-gray-50 disabled:opacity-60"
-        >
-          {exporting ? "Preparing export…" : "Download JSON export"}
-        </button>
-      </SectionCard>
-
-      <SectionCard
-        icon={Laptop}
-        title="Current session"
-        description="The device you are signed in on right now."
-      >
-        <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-          <Laptop className="h-4 w-4 text-gray-500" />
-          <div>
-            <p className="font-medium text-navy" style={{ fontSize: "14px" }}>
-              {deviceLabel}
-            </p>
-            <p className="text-gray-500" style={{ fontSize: "12px" }}>
-              This device · active now
-            </p>
-          </div>
-        </div>
       </SectionCard>
     </div>
   );

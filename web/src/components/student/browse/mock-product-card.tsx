@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatPrice } from "@/lib/format-price";
 import {
   BookOpen,
   Check,
@@ -137,8 +138,7 @@ export function MockProductCard({
           </div>
           <div className="shrink-0 text-left lg:text-right">
             <p className="text-3xl font-bold">
-              {product.currency === "USD" ? "$" : `${product.currency} `}
-              {product.price}
+              {formatPrice(product.price, product.currency)}
             </p>
             <p className="text-sm text-slate-400">per attempt</p>
             <p className="mt-0.5 text-xs text-slate-500">No hidden fees</p>
@@ -228,7 +228,7 @@ export function MockProductCard({
         </Button>
         <p className="flex items-center justify-center gap-1.5 text-xs text-muted sm:justify-start">
           <Lock className="h-3.5 w-3.5" />
-          Secure payment
+          Pay securely with international Visa cards (including Uzum Bank Visa)
         </p>
       </div>
 

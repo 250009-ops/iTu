@@ -33,6 +33,7 @@
     "content:repair-mocks": "npx tsx scripts/repair-mock-content-assignments.ts",
     "content:migrate-names": "npx tsx scripts/migrate-content-test-names.ts",
     "packages:ensure-skill": "npx tsx scripts/ensure-skill-packages.ts",
+    "packages:sync-prices": "npx tsx scripts/sync-catalog-prices.ts",
     "enrollments:backfill-cutoff": "npx tsx scripts/backfill-mock-day-cutoff.ts",
     "settings:migrate-day-cutoff": "npx tsx scripts/migrate-day-cutoff-setting.ts",
     "mail:test": "npx tsx scripts/test-smtp.ts",

@@ -7,8 +7,6 @@ import {
   ExternalLink,
   Headphones,
   Mail,
-  MessageCircle,
-  Phone,
   Zap,
 } from "lucide-react";
 import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
@@ -24,32 +22,19 @@ const dotTexture = {
   backgroundSize: "28px 28px",
 };
 
-const SUPPORT_PHONE = "+18004358701";
 const PROCTOR_EMAIL = "support@itestu.uz";
 
 export function MockDaySidebar() {
   const { data, refresh } = useStudentMockDayData();
   const { toast } = useToast();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  if (!data || data.status === "missed") return null;
+  if (!data) return null;
   const { checkIn, speakingTip, sessionCode, hasSpeaking, checkInCompleted } = data;
-  const canReschedule = data.canReschedule && data.state === "enrolled";
+  const isMissed = data.status === "missed";
+  const canReschedule = !isMissed && data.canReschedule && data.state === "enrolled";
   const speakingDone = data.speaking.status === "completed";
-  const showCheckIn = !checkInCompleted || (hasSpeaking && !speakingDone);
-
-  const supportActions: Record<string, () => void> = {
-    "Open Chat": () =>
-      toast("Live chat", {
-        description: "Connecting you to a support agent…",
-        variant: "info",
-      }),
-    Call: () => {
-      window.location.href = `tel:${SUPPORT_PHONE}`;
-    },
-    Email: () => {
-      window.location.href = `mailto:${PROCTOR_EMAIL}?subject=Mock%20day%20support%20-%20${sessionCode}`;
-    },
-  };
+  const showCheckIn =
+    !isMissed && (!checkInCompleted || (hasSpeaking && !speakingDone));
 
   return (
     <div className="space-y-4">
@@ -96,52 +81,27 @@ export function MockDaySidebar() {
             Technical Support
           </h3>
         </div>
-        {[
-          {
-            icon: MessageCircle,
-            label: "Live Chat",
-            sub: "Avg response < 2 min",
-            action: "Open Chat",
-          },
-          {
-            icon: Phone,
-            label: "Call Support",
-            sub: "+1 800 IELTS 01",
-            action: "Call",
-          },
-          {
-            icon: Mail,
-            label: "Email Proctor",
-            sub: "support@itestu.uz",
-            action: "Email",
-          },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="mb-2 flex items-center justify-between rounded-xl border border-gray-100 p-3 last:mb-0"
-          >
-            <div className="flex items-center gap-3">
-              <item.icon size={16} className="text-gray-400" />
-              <div>
-                <p className="font-semibold text-gray-900" style={{ fontSize: "13px" }}>
-                  {item.label}
-                </p>
-                <p className="text-gray-500" style={{ fontSize: "11px" }}>
-                  {item.sub}
-                </p>
-              </div>
+        <div className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
+          <div className="flex items-center gap-3">
+            <Mail size={16} className="text-gray-400" />
+            <div>
+              <p className="font-semibold text-gray-900" style={{ fontSize: "13px" }}>
+                Email Proctor
+              </p>
+              <p className="text-gray-500" style={{ fontSize: "11px" }}>
+                {PROCTOR_EMAIL}
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={supportActions[item.action]}
-              className="flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"
-              style={{ fontSize: "12px" }}
-            >
-              {item.action}
-              <ExternalLink size={12} />
-            </button>
           </div>
-        ))}
+          <a
+            href={`mailto:${PROCTOR_EMAIL}?subject=Mock%20day%20support%20-%20${sessionCode}`}
+            className="flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"
+            style={{ fontSize: "12px" }}
+          >
+            Email
+            <ExternalLink size={12} />
+          </a>
+        </div>
       </div>
 
       {hasSpeaking && (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, Lock, ArrowRight } from "lucide-react";
 import type { MockPackage } from "@/lib/marketing/data";
 import { SKILL_META } from "@/lib/marketing/data";
+import { formatPrice } from "@/lib/format-price";
 import { slugToBrowseTab } from "@/lib/package-slug-tabs";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import { SkillIcon, StarRating } from "@/components/marketing/ui/primitives";
@@ -28,8 +29,9 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
       <p className="mt-2 text-sm leading-relaxed text-muted">{pkg.description}</p>
 
       <div className="mt-4 flex items-end gap-1">
-        <span className="text-4xl font-extrabold text-navy">${pkg.price}</span>
-        <span className="pb-1 text-xs font-medium text-muted">{pkg.currency}</span>
+        <span className="text-4xl font-extrabold text-navy">
+          {formatPrice(pkg.price, pkg.currency)}
+        </span>
       </div>
       <StarRating rating={pkg.rating} count={pkg.reviewCount} className="mt-2" />
 

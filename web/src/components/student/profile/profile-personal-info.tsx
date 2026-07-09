@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import {
-  Calendar,
   Check,
-  Globe,
   Mail,
   MapPin,
   Pencil,
@@ -19,8 +17,6 @@ const fields = [
   { key: "fullName", label: "Full Name", icon: User, editable: true },
   { key: "email", label: "Email Address", icon: Mail, editable: false },
   { key: "phone", label: "Phone Number", icon: Phone, editable: true },
-  { key: "dateOfBirth", label: "Date of Birth", icon: Calendar, editable: false },
-  { key: "nationality", label: "Nationality", icon: Globe, editable: false },
   { key: "cityCountry", label: "City / Country", icon: MapPin, editable: true },
 ] as const;
 
@@ -38,8 +34,6 @@ export function ProfilePersonalInfo() {
     fullName: "",
     email: "",
     phone: "",
-    dateOfBirth: "",
-    nationality: "",
     cityCountry: "",
   });
   const [targetBand, setTargetBand] = useState("");
@@ -53,8 +47,6 @@ export function ProfilePersonalInfo() {
     fullName: personal.fullName,
     email: personal.email,
     phone: personal.phone,
-    dateOfBirth: personal.dateOfBirth,
-    nationality: personal.nationality,
     cityCountry: personal.cityCountry,
   };
 

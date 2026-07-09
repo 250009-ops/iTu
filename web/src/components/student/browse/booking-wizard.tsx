@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatPrice } from "@/lib/format-price";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
@@ -130,7 +131,7 @@ export function BookingWizard({
     void getPaymentConfig().then((cfg) => setPaymentsEnabled(cfg.paymentsEnabled));
   }, []);
 
-  const priceLabel = `${product.currency === "USD" ? "$" : `${product.currency} `}${product.price}`;
+  const priceLabel = formatPrice(product.price, product.currency);
   const selectedWritingTeacher = writingTeachers.find(
     (teacher) => teacher.id === writingTeacherId,
   );

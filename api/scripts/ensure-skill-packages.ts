@@ -4,6 +4,7 @@
  */
 import { ExamType, PrismaClient } from '@prisma/client';
 import { getPackageContentTemplate } from '../src/common/package-templates';
+import { CATALOG_CURRENCY } from '../src/common/catalog-pricing';
 
 const prisma = new PrismaClient();
 
@@ -23,7 +24,7 @@ async function ensureSkillPackage(
     title,
     description: template.description,
     price: template.suggestedPrice,
-    currency: 'USD',
+    currency: CATALOG_CURRENCY,
     examType: ExamType.ACADEMIC,
     packageKind,
     mockNumber: 1,

@@ -50,7 +50,7 @@ export function CurrentStatusBanner() {
     return () => clearInterval(id);
   }, []);
 
-  if (!data || data.status === "missed") return null;
+  if (!data) return null;
 
   const {
     progressPct,

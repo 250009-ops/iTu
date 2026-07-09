@@ -3,7 +3,6 @@
 import {
   Bell,
   Camera,
-  Globe,
   Mail,
   MapPin,
   Shield,
@@ -45,6 +44,7 @@ export function ProfileHero({ activeTab, onTabChange }: ProfileHeroProps) {
   if (!profile) return null;
   const name = session?.name ?? profile.name;
   const { candidateType, memberSince, heroStats, contact } = profile;
+  const country = profile.country?.trim();
 
   return (
     <div className="relative text-white" style={{ background: navyGradient }}>
@@ -93,18 +93,18 @@ export function ProfileHero({ activeTab, onTabChange }: ProfileHeroProps) {
                 {candidateType} · Member since {memberSince}
               </p>
               <div className="mt-2 flex flex-wrap gap-4 text-blue-300" style={{ fontSize: "13px" }}>
-                <span className="flex items-center gap-1.5">
-                  <Mail size={14} />
-                  {contact.email}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={14} />
-                  {contact.location}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Globe size={14} />
-                  {contact.nationality}
-                </span>
+                {contact.email ? (
+                  <span className="flex items-center gap-1.5">
+                    <Mail size={14} />
+                    {contact.email}
+                  </span>
+                ) : null}
+                {country ? (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin size={14} />
+                    {country}
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>

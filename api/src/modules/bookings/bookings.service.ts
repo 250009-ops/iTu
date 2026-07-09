@@ -165,7 +165,7 @@ export class BookingsService {
         where: { id: dto.packageId },
       });
       if (!pkg) throw new NotFoundException('Package not found');
-      const variantId = this.lemon.resolveVariantId(pkg.slug);
+      const variantId = this.lemon.resolveVariantId(pkg.slug, pkg.packageKind);
       if (!variantId) {
         throw new BadRequestException(
           `Payment is not configured for package "${pkg.slug}". Contact support.`,

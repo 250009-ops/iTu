@@ -19,6 +19,10 @@ import * as bcrypt from 'bcrypt';
 import * as fs from 'fs';
 import * as path from 'path';
 import { defaultBandRowsForSkill } from '../src/common/ielts-band-tables';
+import {
+  CATALOG_CURRENCY,
+  uzsPriceForPackageKind,
+} from '../src/common/catalog-pricing';
 
 function loadExamJson(filename: string): object {
   const filePath = path.join(__dirname, 'data', filename);
@@ -285,8 +289,8 @@ async function main() {
         title: 'Full Academic Mock 001',
         description:
           'All four skills in one day. IELTS Academic — for university, visa, and professional registration.',
-        price: 49.0,
-        currency: 'USD',
+        price: uzsPriceForPackageKind('listening+reading+writing+speaking'),
+        currency: CATALOG_CURRENCY,
         examType: ExamType.ACADEMIC,
         packageKind: 'listening+reading+writing+speaking',
         mockNumber: 1,
@@ -359,8 +363,8 @@ async function main() {
         title: 'Speaking Only 001',
         description:
           'A single live Speaking session with a certified examiner, with criteria-level feedback.',
-        price: 22.0,
-        currency: 'USD',
+        price: uzsPriceForPackageKind('speaking'),
+        currency: CATALOG_CURRENCY,
         examType: ExamType.ACADEMIC,
         packageKind: 'speaking',
         mockNumber: 1,
@@ -399,8 +403,8 @@ async function main() {
         title: 'Writing Only 001',
         description:
           'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
-        price: 18.0,
-        currency: 'USD',
+        price: uzsPriceForPackageKind('writing'),
+        currency: CATALOG_CURRENCY,
         examType: ExamType.ACADEMIC,
         packageKind: 'writing',
         mockNumber: 1,
@@ -439,8 +443,8 @@ async function main() {
         title: 'Listening Only 001',
         description:
           'Computer-delivered Listening mock with auto-scoring and official CBT timing.',
-        price: 25.0,
-        currency: 'USD',
+        price: uzsPriceForPackageKind('listening'),
+        currency: CATALOG_CURRENCY,
         examType: ExamType.ACADEMIC,
         packageKind: 'listening',
         mockNumber: 1,
@@ -486,8 +490,8 @@ async function main() {
         title: 'Reading Only 001',
         description:
           'Computer-delivered Reading mock with auto-scoring and official CBT timing.',
-        price: 25.0,
-        currency: 'USD',
+        price: uzsPriceForPackageKind('listening'),
+        currency: CATALOG_CURRENCY,
         examType: ExamType.ACADEMIC,
         packageKind: 'reading',
         mockNumber: 1,
@@ -533,8 +537,8 @@ async function main() {
         title: 'General Training Mock',
         description:
           'All four skills. IELTS General Training — for migration, permanent residency, and work programs.',
-        price: 45.0,
-        currency: 'USD',
+        price: uzsPriceForPackageKind('listening+reading+writing+speaking'),
+        currency: CATALOG_CURRENCY,
         examType: ExamType.GENERAL_TRAINING,
         packageKind: 'listening+reading+writing+speaking',
         mockNumber: 2,

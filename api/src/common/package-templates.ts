@@ -1,4 +1,5 @@
 import { ExamType } from '@prisma/client';
+import { uzsPriceForPackageKind } from './catalog-pricing';
 
 const FULL_KIND = 'listening+reading+writing+speaking';
 
@@ -14,7 +15,7 @@ function fullMockTemplate(examType: ExamType): PackageContentTemplate {
     return {
       description:
         'All four skills. IELTS General Training — for migration, permanent residency, and work programs.',
-      suggestedPrice: 45,
+      suggestedPrice: uzsPriceForPackageKind(FULL_KIND),
       included: [
         'Pick your certified examiner',
         'Full band report within 24 hours',
@@ -33,7 +34,7 @@ function fullMockTemplate(examType: ExamType): PackageContentTemplate {
   return {
     description:
       'All four skills in one day. IELTS Academic — for university, visa, and professional registration.',
-    suggestedPrice: 49,
+    suggestedPrice: uzsPriceForPackageKind(FULL_KIND),
     included: [
       'Pick your certified examiner',
       'Full band report within 24 hours',
@@ -54,7 +55,7 @@ const TEMPLATES: Record<string, PackageContentTemplate> = {
   speaking: {
     description:
       'A single live Speaking session with a certified examiner, with criteria-level feedback.',
-    suggestedPrice: 22,
+    suggestedPrice: uzsPriceForPackageKind('speaking'),
     included: [
       'Pick your certified examiner',
       'Speaking score within 24 hours',
@@ -70,7 +71,7 @@ const TEMPLATES: Record<string, PackageContentTemplate> = {
   writing: {
     description:
       'Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.',
-    suggestedPrice: 18,
+    suggestedPrice: uzsPriceForPackageKind('writing'),
     included: [
       'Expert examiner grading',
       'Task 1 + Task 2 feedback',
@@ -82,7 +83,7 @@ const TEMPLATES: Record<string, PackageContentTemplate> = {
   listening: {
     description:
       'Computer-delivered Listening mock with auto-scoring and official CBT timing.',
-    suggestedPrice: 25,
+    suggestedPrice: uzsPriceForPackageKind('listening'),
     included: [
       '40 questions · 4 parts',
       'Auto-scored band estimate',
@@ -98,7 +99,7 @@ const TEMPLATES: Record<string, PackageContentTemplate> = {
   reading: {
     description:
       'Computer-delivered Reading mock with auto-scoring and official CBT timing.',
-    suggestedPrice: 25,
+    suggestedPrice: uzsPriceForPackageKind('reading'),
     included: [
       '40 questions · 3 passages',
       'Auto-scored band estimate',

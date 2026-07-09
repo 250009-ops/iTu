@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  Award,
   BarChart3,
   BookOpen,
   CheckCircle,
@@ -22,7 +21,6 @@ const inclusionIcons = {
   Writing: PenLine,
   Speaking: Mic,
   Results: BarChart3,
-  Certificate: Award,
 };
 
 export function ProfileMockPackage() {
@@ -65,7 +63,7 @@ export function ProfileMockPackage() {
     );
   }
 
-  const pct = (pkg.used / pkg.total) * 100;
+  const pct = pkg.total > 0 ? (pkg.used / pkg.total) * 100 : 0;
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -116,7 +114,7 @@ export function ProfileMockPackage() {
           </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
           {pkg.inclusions.map((item) => {
             const Icon = inclusionIcons[item.label as keyof typeof inclusionIcons];
             return (

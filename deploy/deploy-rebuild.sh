@@ -38,6 +38,9 @@ npx tsx prisma/pre-db-push-migrate.ts
 npx prisma db push --accept-data-loss
 npm run build
 
+echo "==> Syncing catalog prices (UZS)..."
+npm run packages:sync-prices || true
+
 echo "==> Building Web..."
 cd "$APP_DIR/web"
 npm ci
@@ -45,7 +48,7 @@ npm run build
 
 echo "==> Restarting PM2..."
 cd "$APP_DIR"
-pm2 restart itestu-api itestu-web || pm2 start ecosystem.config.cjs
+pm2 restart itestu-api itestu-web --update-env || pm2 start ecosystem.config.cjs
 pm2 save
 
 if [[ -f "$DEPLOY_DIR/nginx/itestu.uz.conf" ]]; then

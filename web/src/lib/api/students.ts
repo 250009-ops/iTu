@@ -38,6 +38,12 @@ export type StudentDashboardResponse = {
     skills: { name: string; status: string }[];
     packageSkills?: string[];
   } | null;
+  missedMock: {
+    enrollmentCode: string;
+    packageTitle: string;
+    mockDate: string;
+    adminGranted: boolean;
+  } | null;
   bandProgress: { month: string; band: number | null }[];
   pastMocks: {
     id: string;
@@ -81,6 +87,7 @@ export type StudentProfileResponse = {
     skills: string[];
     mocksUsed: number;
     mocksTotal: number;
+    mocksRemaining: number;
   };
   scoreHistory: {
     date: string;
@@ -141,17 +148,11 @@ export function getMockDayHub() {
       speakingSlotId?: string | null;
       sessionCode: string;
       state: string;
+      status?: string;
       packageTitle?: string;
       packageSkills?: string[];
       checkInCompleted?: boolean;
     } | null;
-    missed?: {
-      enrollmentId: string;
-      enrollmentCode: string;
-      packageTitle: string;
-      mockDate: string;
-      adminGranted: boolean;
-    };
     sections: {
       skill: string;
       completed: boolean;
@@ -236,6 +237,12 @@ export type StudentCatalogOffer = {
   examType: string;
   displayTitle: string;
   package: StudentCatalogPackage | null;
+  activeEnrollment?: {
+    enrollmentCode: string;
+    mockDate: string;
+    mockTime: string | null;
+    packageTitle: string;
+  } | null;
 };
 
 /** One offer per mock type with the next unpurchased package auto-resolved. */

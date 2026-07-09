@@ -12,7 +12,7 @@ export const SITE = {
   description:
     "Sit a realistic, IDP-style computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
   fullMockPrice: 49,
-  currency: "USD",
+  currency: "UZS",
 } as const;
 
 export const NAV_LINKS = [
@@ -304,8 +304,8 @@ export const PACKAGES: MockPackage[] = [
     examType: "ACADEMIC",
     delivery: "Computer-delivered",
     description: "All four skills in one day. IELTS Academic — for university, visa, and professional registration.",
-    price: 49,
-    currency: "USD",
+    price: 56_000,
+    currency: "UZS",
     rating: 4.9,
     reviewCount: 1240,
     mostPopular: true,
@@ -320,8 +320,8 @@ export const PACKAGES: MockPackage[] = [
     examType: "ACADEMIC",
     delivery: "Live video",
     description: "A single live Speaking session with a certified examiner. Score + criteria feedback.",
-    price: 22,
-    currency: "USD",
+    price: 16_000,
+    currency: "UZS",
     rating: 4.9,
     reviewCount: 430,
     skills: ["speaking"],
@@ -335,8 +335,8 @@ export const PACKAGES: MockPackage[] = [
     examType: "ACADEMIC",
     delivery: "Computer-delivered",
     description: "Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.",
-    price: 18,
-    currency: "USD",
+    price: 16_000,
+    currency: "UZS",
     rating: 4.8,
     reviewCount: 320,
     skills: ["writing"],

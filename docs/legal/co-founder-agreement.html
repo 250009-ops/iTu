@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Co-Founder Operating Agreement</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f8fafc; color: #0f172a; line-height: 1.5; }
+    .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #e2e8f0; padding: 12px; z-index: 10; }
+    .toolbar-inner { max-width: 210mm; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .buttons { display: flex; gap: 8px; }
+    button { border: none; border-radius: 6px; padding: 8px 10px; color: #fff; font-weight: 600; }
+    .se-btn { background: #64748b; cursor: not-allowed; }
+    .ot-btn { background: #0f766e; cursor: pointer; }
+    .ot-btn:disabled { background: #64748b; cursor: not-allowed; }
+    .doc { max-width: 210mm; margin: 0 auto; background: #fff; padding: 20px; }
+    .print-help { max-width: 210mm; margin: 10px auto 0; background: #fffbeb; border: 1px solid #fde68a; color: #854d0e; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+    .print-help strong { display: block; margin-bottom: 4px; }
+    .print-help ol { margin: 0 0 0 18px; }
+    .print-help li { margin: 2px 0; }
+    h1 { font-size: 24px; margin-bottom: 6px; }
+    h2 { font-size: 18px; margin: 16px 0 8px; }
+    p { margin: 6px 0; }
+    ul { margin: 8px 0 8px 18px; }
+    li { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+    th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
+    th { background: #f1f5f9; }
+    .stamp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+    .stamp-box { border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
+    .stamp-state { margin-top: 8px; border: 1px dashed #94a3b8; color: #64748b; text-align: center; padding: 8px; font-weight: 600; }
+    .stamp-state.on { border-color: #0f766e; color: #0f766e; background: #ecfeff; }
+    .meta { color: #475569; font-size: 13px; }
+    .notice-box { margin: 12px 0; padding: 12px 14px; border: 2px solid #0f766e; border-radius: 8px; background: #ecfeff; }
+    .notice-box strong { display: block; margin-bottom: 6px; color: #0f766e; }
+    .notice-box ul { margin: 0 0 0 18px; }
+    @media print {
+      @page { size: A4; margin: 16mm; }
+      .no-print { display: none !important; }
+      body { background: #fff; }
+      .doc { max-width: none; padding: 0; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <div class="toolbar-inner">
+      <div>
+        <strong>Co-Founder Operating Agreement</strong>
+        <p class="meta">SE stamp is already active. OT stamp is one-time and auto-downloads PDF.</p>
+      </div>
+      <div class="buttons">
+        <button class="se-btn" disabled>SE Stamp Applied</button>
+        <button class="ot-btn" id="otBtn">Apply OT Stamp</button>
+      </div>
+    </div>
+  </div>
+  <div class="print-help no-print">
+    <strong>Before saving PDF (important)</strong>
+    <ol>
+      <li>After OT stamp, print dialog opens.</li>
+      <li>Open <em>More settings</em>.</li>
+      <li>Turn off <em>Headers and footers</em> to hide file path and page URL.</li>
+      <li>Then click <em>Save as PDF</em>.</li>
+    </ol>
+  </div>
+
+  <article class="doc">
+    <h1>Co-Founder Operating Agreement</h1>
+    <p class="meta">Project: iTestU | Place: Tashkent, Republic of Uzbekistan</p>
+    <p class="meta">OT Stamped At: <span id="stampTime">Not stamped yet</span></p>
+
+    <h2>Responsibility and Control</h2>
+    <ul>
+      <li>Founder side handles technical stack, architecture, infrastructure, security, and technical-risk approvals.</li>
+      <li>Co-founder side controls full operations/admin implementation.</li>
+      <li>Founder side keeps veto only on technical-risk matters.</li>
+    </ul>
+
+    <h2>Admin Capabilities Manager Must Handle</h2>
+    <ul>
+      <li>Pricing and package control</li>
+      <li>Sales and operations execution</li>
+      <li>Process and policy implementation</li>
+      <li>Business model improvements including subscriptions</li>
+      <li>Milestone execution and reporting</li>
+    </ul>
+
+    <h2>Profit and Equity</h2>
+    <ul>
+      <li>Initial net-profit split: Founder 75%, Co-founder 25%.</li>
+      <li>First milestone is fixed at $50 cumulative net profit.</li>
+      <li>At first milestone: equity becomes 5%, and co-founder share becomes 30% (25% + 5%).</li>
+      <li>Max co-founder outcomes: 20% equity and 45% net-profit share.</li>
+    </ul>
+
+    <table>
+      <thead><tr><th>Stage</th><th>Co-Founder Equity</th><th>Co-Founder Profit Share</th><th>Founder Share</th></tr></thead>
+      <tbody>
+        <tr><td>Initial</td><td>0%</td><td>25%</td><td>75%</td></tr>
+        <tr><td>First milestone ($50)</td><td>5%</td><td>30%</td><td>70%</td></tr>
+        <tr><td>Next award stage</td><td>10%</td><td>35%</td><td>65%</td></tr>
+        <tr><td>Next award stage</td><td>15%</td><td>40%</td><td>60%</td></tr>
+        <tr><td>Final award stage</td><td>20%</td><td>45%</td><td>55%</td></tr>
+      </tbody>
+    </table>
+    <p>Next milestone thresholds after the first milestone are set later in writing.</p>
+
+    <div class="notice-box">
+      <strong>NOTICE — 20% Equity Cap and Next Decision Process</strong>
+      <ul>
+        <li>When co-founder equity reaches 20% (maximum under this agreement), co-founder profit share is already at its maximum stage of 45%.</li>
+        <li>At that stage, both parties enter a formal decision-making process to review whether the equity limit should be increased through the next milestone cycle.</li>
+        <li>Any new equity limit must be set in writing and signed by both parties.</li>
+        <li>Profit share does not increase beyond 45%, even if the equity limit is raised later.</li>
+      </ul>
+    </div>
+
+    <h2>Lemon Fee and Tax Pricing Guidance</h2>
+    <p>Always calculate from net amount after tax and platform fee, not gross amount.</p>
+    <p>Sequence: product price -> tax -> total -> platform fee -> net amount.</p>
+    <p>Specific note from your case: from 12,000 UZS, net result noted was $0.47 in early payment conditions.</p>
+
+    <h2>Cost Baseline</h2>
+    <table>
+      <thead><tr><th>Item</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td>VPS 3</td><td>200,000 UZS</td></tr>
+        <tr><td>Mail service</td><td>84,000 UZS</td></tr>
+        <tr><td>Domain (yearly)</td><td>29,000 UZS</td></tr>
+        <tr><td>AI services (initial)</td><td>about $10/month</td></tr>
+        <tr><td>LiveKit paid plan (if needed)</td><td>about $50</td></tr>
+        <tr><td>Technical debt reserve</td><td>$100</td></tr>
+      </tbody>
+    </table>
+    <p>Technical operations can create additional valid costs.</p>
+
+    <div class="notice-box">
+      <strong>NOTICE — Tech Fee Notification Rule</strong>
+      <ul>
+        <li>Whenever technical fees or new technical costs arise (infrastructure, tooling, security, scaling, or urgent technical purchases), the CTO Founder (Party A) must notify the CEO Co-founder (Party B) in writing without delay.</li>
+        <li>The CEO Co-founder must then apply the necessary financial considerations in pricing, budgeting, and profit planning based on that notification.</li>
+      </ul>
+    </div>
+
+    <h2>Penalty Rule</h2>
+    <ul>
+      <li>Suspend variable release first.</li>
+      <li>Freeze equity progression.</li>
+      <li>Require correction plan.</li>
+      <li>Reduce or defer variable co-founder benefit on repeated failure.</li>
+      <li>Terminate if repeated failure continues after correction.</li>
+    </ul>
+
+    <div class="stamp-grid">
+      <div class="stamp-box">
+        <h2>Founder Side</h2>
+        <p>Name: Sarvarbek Erkinov</p>
+        <p class="stamp-state on">SE STAMP APPLIED (DEFAULT)</p>
+      </div>
+      <div class="stamp-box">
+        <h2>Co-Founder Side</h2>
+        <p>Name: Ozodbek To'lqinov</p>
+        <p id="otState" class="stamp-state">OT STAMP PENDING</p>
+      </div>
+    </div>
+  </article>
+
+  <script>
+    const keyLock = "itestu_ot_stamp_locked_v1";
+    const keyTime = "itestu_ot_stamp_time_v1";
+    const otBtn = document.getElementById("otBtn");
+    const otState = document.getElementById("otState");
+    const stampTime = document.getElementById("stampTime");
+
+    function applyLockedState(timeValue) {
+      otState.textContent = "OT STAMP APPLIED (LOCKED)";
+      otState.classList.add("on");
+      if (timeValue) {
+        stampTime.textContent = new Date(timeValue).toLocaleString();
+      }
+      otBtn.disabled = true;
+      otBtn.textContent = "OT Stamp Locked";
+    }
+
+    try {
+      const locked = localStorage.getItem(keyLock) === "1";
+      const t = localStorage.getItem(keyTime);
+      if (locked) {
+        applyLockedState(t);
+      }
+    } catch (e) {}
+
+    otBtn.addEventListener("click", () => {
+      if (otBtn.disabled) return;
+      const now = new Date().toISOString();
+      try {
+        localStorage.setItem(keyLock, "1");
+        localStorage.setItem(keyTime, now);
+      } catch (e) {}
+      applyLockedState(now);
+      setTimeout(() => window.print(), 200);
+    });
+  </script>
+</body>
+</html>

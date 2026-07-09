@@ -144,6 +144,12 @@ function browseBookCta(skillIds: SkillId[]): string {
   if (skillIds.length === 1 && skillIds[0] === "writing") {
     return "Book Writing Mock";
   }
+  if (skillIds.length === 1 && skillIds[0] === "listening") {
+    return "Book Listening Mock";
+  }
+  if (skillIds.length === 1 && skillIds[0] === "reading") {
+    return "Book Reading Mock";
+  }
   return "Book Full Mock Exam";
 }
 
@@ -294,6 +300,12 @@ export type BrowseOffer = {
   tabId: string;
   label: string;
   product: BrowseProduct | null;
+  activeEnrollment: {
+    enrollmentCode: string;
+    mockDateLabel: string;
+    mockTime: string | null;
+    packageTitle: string;
+  } | null;
 };
 
 export function mapBrowseOffer(offer: {
@@ -301,6 +313,12 @@ export function mapBrowseOffer(offer: {
   label: string;
   displayTitle: string;
   package: CatalogPackage | null;
+  activeEnrollment?: {
+    enrollmentCode: string;
+    mockDate: string;
+    mockTime: string | null;
+    packageTitle: string;
+  } | null;
 }): BrowseOffer {
   return {
     tabId: offer.tabId,
@@ -308,31 +326,24 @@ export function mapBrowseOffer(offer: {
     product: offer.package
       ? mapBrowseProduct({ ...offer.package, title: offer.displayTitle })
       : null,
+    activeEnrollment: offer.activeEnrollment
+      ? {
+          enrollmentCode: offer.activeEnrollment.enrollmentCode,
+          mockDateLabel: formatLongDate(new Date(offer.activeEnrollment.mockDate)),
+          mockTime: offer.activeEnrollment.mockTime,
+          packageTitle: offer.activeEnrollment.packageTitle,
+        }
+      : null,
   };
 }
 
 export function mapMockDayHub(data: MockDayApi) {
-  if ("missed" in data && data.missed) {
-    const missed = data.missed;
-    return {
-      status: "missed" as const,
-      enrollmentId: missed.enrollmentId,
-      enrollmentCode: missed.enrollmentCode,
-      packageTitle: missed.packageTitle,
-      mockDateIso:
-        typeof missed.mockDate === "string"
-          ? missed.mockDate
-          : new Date(missed.mockDate).toISOString(),
-      adminGranted: missed.adminGranted,
-      dateLabel: formatLongDate(new Date(missed.mockDate)),
-    };
-  }
-
   if (!data.enrollment) {
     return null;
   }
 
   const { enrollment, sections = [], speaking, writing } = data;
+  const isMissed = enrollment.status === "missed";
   const flexibleStart =
     Boolean(enrollment.adminGranted) && !enrollment.mockTime;
   const examStarted = Boolean(enrollment.examStartedAt);
@@ -526,7 +537,7 @@ export function mapMockDayHub(data: MockDayApi) {
     : displayTime;
 
   return {
-    status: "active" as const,
+    status: isMissed ? ("missed" as const) : ("active" as const),
     enrollmentId: enrollment.id,
     sessionCode: enrollment.sessionCode,
     dateLabel: formatLongDate(mockDate),
@@ -543,7 +554,7 @@ export function mapMockDayHub(data: MockDayApi) {
     examStarted,
     needsSpeakingSlot,
     speakingTeacherId: enrollment.speakingTeacherId ?? null,
-    canReschedule: !examStarted && !checkInCompleted,
+    canReschedule: !isMissed && !examStarted && !checkInCompleted,
     progressPct: Math.round((completedCount / totalModules) * 100),
     modulesComplete: completedCount,
     totalModules,
@@ -589,11 +600,13 @@ export function mapMockDayHub(data: MockDayApi) {
     sections: cbtSections,
     hasSpeaking,
     speaking: {
-      status: (sections.find((s) => s.skill === "speaking")?.completed
-        ? "completed"
-        : sections.find((s) => s.skill === "speaking")?.active
-          ? "in_progress"
-          : "ready") as SectionStatus,
+      status: (isMissed
+        ? "locked"
+        : sections.find((s) => s.skill === "speaking")?.completed
+          ? "completed"
+          : sections.find((s) => s.skill === "speaking")?.active
+            ? "in_progress"
+            : "ready") as SectionStatus,
       detail: "1-on-1 live interview · Parts 1, 2 & 3 · ~20 minutes total",
       timeRange: speakingTime,
       scheduledAt: speakingScheduled?.toISOString() ?? null,
@@ -1439,8 +1452,9 @@ export function mapStudentProfile(
       }
 
       const used = pkg?.mocksUsed ?? mocksTaken;
-      const total = Math.max(pkg?.mocksTotal ?? mocksTaken, 1);
-      const remaining = Math.max(total - used, 0);
+      const total = pkg?.mocksTotal ?? mocksTaken;
+      const remaining =
+        pkg?.mocksRemaining ?? Math.max(total - used, 0);
       const skillSet = new Set(
         (pkg?.skills ?? ["listening", "reading", "writing", "speaking"]).map(
           (s) => s.toLowerCase(),
@@ -1461,16 +1475,19 @@ export function mapStudentProfile(
         used,
         total,
         remainingText:
-          total > 0
+          remaining > 0
             ? `${remaining} of ${total} mock${total === 1 ? "" : "s"} remaining`
-            : "Book your first mock",
+            : used >= total && total > 0
+              ? "All mocks completed"
+              : total > 0
+                ? "No active mocks scheduled"
+                : "Book your first mock",
         inclusions: [
           { label: "Listening", included: skillSet.has("listening") },
           { label: "Reading", included: skillSet.has("reading") },
           { label: "Writing", included: skillSet.has("writing") },
           { label: "Speaking", included: skillSet.has("speaking") },
           { label: "Results", included: true },
-          { label: "Certificate", included: false },
         ],
       };
     })(),
