@@ -1,7 +1,8 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, CircleAlert } from "lucide-react";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
+import { cn } from "@/lib/utils";
 
 export function PerformanceCard() {
   const { profile } = useTeacherProfile();
@@ -10,19 +11,14 @@ export function PerformanceCard() {
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
       <h2 className="font-semibold text-navy">Performance Overview</h2>
 
-      <ul className="mt-5 space-y-4">
+      <ul className="mt-5 grid gap-4 sm:grid-cols-2">
         {profile.performance.map((metric) => (
-          <li key={metric.label}>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted">{metric.label}</span>
-              <span className="font-bold text-navy">{metric.value}</span>
-            </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-sky-500 transition-all"
-                style={{ width: `${metric.pct}%` }}
-              />
-            </div>
+          <li
+            key={metric.label}
+            className="rounded-lg border border-border bg-slate-50/60 px-4 py-3"
+          >
+            <p className="text-xs font-medium text-muted">{metric.label}</p>
+            <p className="mt-1 text-lg font-bold text-navy">{metric.value}</p>
           </li>
         ))}
       </ul>
@@ -44,8 +40,17 @@ export function SecurityCard() {
             className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
           >
             <span className="text-sm text-muted">{item.label}</span>
-            <span className="flex items-center gap-1 text-sm font-semibold text-emerald-600">
-              <CheckCircle2 className="h-4 w-4" />
+            <span
+              className={cn(
+                "flex items-center gap-1 text-sm font-semibold",
+                item.active ? "text-emerald-600" : "text-amber-600",
+              )}
+            >
+              {item.active ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <CircleAlert className="h-4 w-4" />
+              )}
               {item.status}
             </span>
           </li>

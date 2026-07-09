@@ -22,6 +22,7 @@ const emptyEarnings = mapTeacherEarnings({
   pendingBalance: 0,
   payoutSchedule: "weekly",
   payoutDetails: null,
+  weeklyRevenue: { days: [], hasData: false },
   payouts: [],
 });
 

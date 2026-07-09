@@ -1,35 +1,18 @@
 "use client";
 
-import { CheckCircle2, Pencil } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
-import { useToast } from "@/components/ui/toast";
 
 export function CredentialsCard() {
   const { profile } = useTeacherProfile();
-  const { toast } = useToast();
 
   return (
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-semibold text-navy">Professional Credentials</h2>
-          <p className="mt-0.5 text-sm text-muted">
-            Qualifications verified by IELTS Mock platform
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() =>
-            toast("Edit credentials", {
-              description: "Submit updated qualifications for verification soon.",
-              variant: "info",
-            })
-          }
-          className="flex shrink-0 items-center gap-1 text-sm font-semibold text-sky-600 hover:text-sky-700"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Edit
-        </button>
+      <div>
+        <h2 className="font-semibold text-navy">Professional Credentials</h2>
+        <p className="mt-0.5 text-sm text-muted">
+          Qualifications verified by IELTS Mock platform
+        </p>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">

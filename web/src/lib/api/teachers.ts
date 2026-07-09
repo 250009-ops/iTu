@@ -114,6 +114,10 @@ export function getTeacherEarnings() {
       accountLast4?: string;
       method?: string;
     } | null;
+    weeklyRevenue: {
+      days: { day: string; speaking: number; writing: number }[];
+      hasData: boolean;
+    };
     payouts: {
       id: string;
       amount: number;
@@ -140,11 +144,16 @@ export type TeacherProfileResponse = {
   avatarUrl: string | null;
   notificationPrefs: Record<string, boolean> | null;
   credentials: unknown;
+  languages: string[];
   speciality: string;
   rating: number | null;
+  reviewCount: number;
   totalSessions: number;
   totalEarned: number;
   status: string;
+  memberSince: string;
+  emailVerified: boolean;
+  sessionActivityMonths: { month: string; count: number }[];
 };
 
 export function getTeacherProfile() {

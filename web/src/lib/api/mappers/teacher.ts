@@ -19,6 +19,7 @@ import {
   type ScoringCriterion,
   type SpeakingPart,
 } from "@/lib/speaking/scoring";
+import { formatPrice } from "@/lib/format-price";
 
 type Dashboard = Awaited<ReturnType<typeof getTeacherDashboard>>;
 type WritingQueue = Awaited<ReturnType<typeof getWritingQueue>>;
@@ -477,6 +478,7 @@ export function mapTeacherEarnings(data: Earnings) {
   });
   const thisMonth = thisMonthPayouts.reduce((sum, p) => sum + p.amount, 0);
   const availableBalance = data.pendingBalance ?? 0;
+  const currency = (data.payouts[0]?.currency ?? "UZS").toUpperCase();
 
   const monthlyMap = new Map<string, number>();
   for (const payout of [...data.payouts].reverse()) {
@@ -484,28 +486,31 @@ export function mapTeacherEarnings(data: Earnings) {
     const key = d.toLocaleDateString("en-US", { month: "short" });
     monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + payout.amount);
   }
-  const monthlyEarnings =
-    monthlyMap.size > 0
-      ? Array.from(monthlyMap.entries()).map(([month, amount]) => ({
-          month,
-          amount,
-        }))
-      : [
-          {
-            month: now.toLocaleDateString("en-US", { month: "short" }),
-            amount: 0,
-          },
-        ];
-
-  const weeklyRevenue = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-    (day) => ({ day, speaking: 0, writing: 0 }),
+  const monthlyEarnings = Array.from(monthlyMap.entries()).map(
+    ([month, amount]) => ({
+      month,
+      amount,
+    }),
   );
+
+  const weeklyRevenue =
+    data.weeklyRevenue?.days?.length
+      ? data.weeklyRevenue.days
+      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => ({
+          day,
+          speaking: 0,
+          writing: 0,
+        }));
+  const hasWeeklyRevenue = data.weeklyRevenue?.hasData ?? false;
+  const hasMonthlyEarnings = monthlyEarnings.length > 0;
 
   const pendingPayouts = data.payouts.filter((p) => p.status === "pending");
   const nextPending =
     pendingPayouts[0] ?? data.payouts.find((p) => p.status !== "paid");
 
   const payoutDetails = data.payoutDetails;
+  const hasBankDetails = Boolean(payoutDetails?.accountLast4?.trim());
+  const canRequestPayout = availableBalance > 0 && hasBankDetails;
   const bankLabel =
     payoutDetails?.bankName && payoutDetails?.accountLast4
       ? `${payoutDetails.bankName} ···${payoutDetails.accountLast4}`
@@ -530,15 +535,15 @@ export function mapTeacherEarnings(data: Earnings) {
               86_400_000,
           ),
         ),
-        hasBankDetails: Boolean(payoutDetails?.accountLast4),
+        hasBankDetails,
       }
     : {
-        date: "TBD",
+        date: availableBalance > 0 ? "Awaiting your request" : "No payout scheduled",
         bank: bankLabel,
         method: methodLabel,
-        projectedAmount: 0,
+        projectedAmount: availableBalance,
         daysRemaining: 0,
-        hasBankDetails: Boolean(payoutDetails?.accountLast4),
+        hasBankDetails,
       };
 
   const txStatus = (status: string) => {
@@ -568,28 +573,45 @@ export function mapTeacherEarnings(data: Earnings) {
     amount: payout.status === "paid" ? -payout.amount : payout.amount,
   }));
 
-  const sessionCount = Math.max(data.totalSessions, 1);
-  const rateLabel = `$${data.speakingRate} speaking · $${data.writingRate} writing`;
+  const rateLabel = `${formatPrice(data.speakingRate, currency)} speaking · ${formatPrice(
+    data.writingRate,
+    currency,
+  )} writing per session`;
+  const avgPerSession =
+    data.totalSessions > 0 ? data.totalEarned / data.totalSessions : null;
 
   return {
     billingCycle,
     netThisCycle: thisMonth,
+    canRequestPayout,
+    hasBankDetails,
     summary: {
+      currency,
       availableBalance,
+      availableHint:
+        availableBalance > 0
+          ? "Available to request payout"
+          : hasBankDetails
+            ? "No pending balance right now"
+            : "Add bank details to request payouts",
       thisMonth,
       thisMonthTrend: "—",
       thisMonthLabel: billingCycle,
       allTimeEarned: data.totalEarned,
       allTimeTrend: "—",
       allTimeSub: `${data.payouts.length} payouts on record`,
-      avgPerSession:
-        sessionCount > 0 ? data.totalEarned / sessionCount : 0,
+      avgPerSession,
       avgTrend: "—",
-      avgSub: rateLabel,
+      avgSub:
+        data.totalSessions > 0
+          ? rateLabel
+          : `Configured rates: ${rateLabel}`,
       monthlyTrend: "—",
     },
     monthlyEarnings,
+    hasMonthlyEarnings,
     weeklyRevenue,
+    hasWeeklyRevenue,
     nextPayout,
     transactions,
   };
@@ -775,9 +797,9 @@ function mapCredentials(profile: Profile) {
     { label: "Email Address", value: profile.email },
     {
       label: "Specialisation",
-      value: profile.speciality.replace(/_/g, " "),
+      value: profile.speciality.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
     },
-    { label: "Status", value: profile.status },
+    { label: "Status", value: formatTeacherStatus(profile.status) },
   ];
 }
 
@@ -791,10 +813,46 @@ const DAY_NAMES = [
   "Saturday",
 ];
 
+function formatTeacherStatus(status: string) {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatMemberSince(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function mapSpecialisations(
+  speciality: string,
+  specialityLabel: string,
+  languages: string[],
+) {
+  const tags = [specialityLabel];
+  if (speciality === "writing" || speciality === "both") {
+    tags.push("Writing Assessment");
+  }
+  if (speciality === "speaking" || speciality === "both") {
+    tags.push("Speaking Assessment");
+  }
+  for (const language of languages) {
+    const label = language.trim();
+    if (label && !tags.includes(label)) tags.push(label);
+  }
+  return tags;
+}
+
 export function mapTeacherProfile(data: Profile) {
   const specialityLabel = data.speciality
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+  const statusLabel = formatTeacherStatus(data.status);
+  const memberSince = formatMemberSince(data.memberSince);
+  const reviewCount = data.reviewCount ?? 0;
 
   return {
     name: data.name,
@@ -802,59 +860,60 @@ export function mapTeacherProfile(data: Profile) {
     avatarUrl: data.avatarUrl,
     title: `IELTS Examiner · ${specialityLabel}`,
     rating: data.rating ?? 0,
-    reviewCount: data.totalSessions,
+    reviewCount,
     email: data.email,
-    location: "—",
-    memberSince: "—",
+    memberSince,
     verified: data.status === "approved",
-    online: data.status === "approved",
     bio: data.bio,
     credentials: mapCredentials(data),
     performance: [
       {
         label: "Total Sessions",
         value: data.totalSessions.toLocaleString(),
-        pct: 100,
+      },
+      {
+        label: "Student Reviews",
+        value: reviewCount.toLocaleString(),
       },
       {
         label: "Rating",
-        value: data.rating?.toFixed(1) ?? "—",
-        pct: data.rating ? Math.min(100, (data.rating / 9) * 100) : 0,
+        value: data.rating != null ? data.rating.toFixed(1) : "—",
       },
       {
         label: "Total Earned",
         value: `$${data.totalEarned.toFixed(0)}`,
-        pct: Math.min(100, data.totalEarned / 100),
-      },
-      {
-        label: "Account Status",
-        value: specialityLabel,
-        pct: data.status === "approved" ? 99 : 50,
       },
     ],
     security: [
-      { label: "Email verified", status: "Active" },
+      {
+        label: "Email verified",
+        status: data.emailVerified ? "Verified" : "Pending",
+        active: data.emailVerified,
+      },
       {
         label: "Account status",
-        status: data.status === "approved" ? "Active" : "Pending",
+        status: statusLabel,
+        active: data.status === "approved",
       },
-      { label: "Examiner profile", status: "Active" },
+      {
+        label: "Examiner profile",
+        status: data.status === "approved" ? "Active" : statusLabel,
+        active: data.status === "approved",
+      },
     ],
     sessionActivity: {
-      trend: `${data.totalSessions} sessions completed`,
-      months: [
-        {
-          month: new Date().toLocaleDateString("en-US", { month: "short" }),
-          count: Math.min(60, data.totalSessions),
-        },
-      ],
+      trend:
+        data.totalSessions > 0
+          ? `${data.totalSessions} session${data.totalSessions === 1 ? "" : "s"} completed`
+          : "No sessions completed yet",
+      months: data.sessionActivityMonths ?? [],
+      hasData: (data.sessionActivityMonths ?? []).some((month) => month.count > 0),
     },
-    specialisations: [
+    specialisations: mapSpecialisations(
+      data.speciality,
       specialityLabel,
-      "IELTS Academic",
-      "Speaking Assessment",
-      "Writing Assessment",
-    ],
+      data.languages ?? [],
+    ),
     availability: [] as { days: string; hours: string; active: boolean }[],
   };
 }

@@ -517,6 +517,12 @@ export class TeachersService {
       .filter((p) => p.status === 'PENDING')
       .reduce((sum, p) => sum + p.amount, 0);
 
+    const weeklyRevenue = await this.buildWeeklyRevenue(
+      teacher.id,
+      commission.speakingRate,
+      commission.writingRate,
+    );
+
     return {
       totalEarned: teacher.totalEarned,
       totalSessions: teacher.totalSessions,
@@ -526,6 +532,7 @@ export class TeachersService {
       pendingBalance,
       payoutSchedule: commission.payoutSchedule,
       payoutDetails: (teacher.payoutDetails as PayoutDetails | null) ?? null,
+      weeklyRevenue,
       payouts: payouts.map((p) => ({
         id: p.id,
         amount: p.amount,
@@ -582,12 +589,57 @@ export class TeachersService {
     return { requested: pending.length, amount };
   }
 
+  private async buildWeeklyRevenue(
+    teacherId: string,
+    speakingRate: number,
+    writingRate: number,
+  ) {
+    const now = new Date();
+    const weekStart = new Date(now);
+    const mondayOffset = (now.getDay() + 6) % 7;
+    weekStart.setDate(now.getDate() - mondayOffset);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const grades = await this.prisma.grade.findMany({
+      where: {
+        gradedById: teacherId,
+        gradedAt: { gte: weekStart },
+      },
+      select: {
+        gradedAt: true,
+        speakingSessionId: true,
+        writingSubmissionId: true,
+      },
+    });
+
+    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const days = dayLabels.map((day) => ({ day, speaking: 0, writing: 0 }));
+
+    for (const grade of grades) {
+      const dayIndex = (grade.gradedAt.getDay() + 6) % 7;
+      if (grade.speakingSessionId) {
+        days[dayIndex].speaking += speakingRate;
+      } else if (grade.writingSubmissionId) {
+        days[dayIndex].writing += writingRate;
+      }
+    }
+
+    return {
+      days,
+      hasData: grades.length > 0,
+    };
+  }
+
   async getProfile(user: RequestUser) {
     const teacher = await this.prisma.teacherProfile.findUnique({
       where: { id: user.teacherProfileId },
       include: { user: true },
     });
     if (!teacher) throw new NotFoundException('Teacher profile not found');
+
+    const sessionActivityMonths = await this.buildSessionActivityMonths(
+      teacher.id,
+    );
 
     return {
       name: teacher.user.name,
@@ -596,12 +648,50 @@ export class TeachersService {
       avatarUrl: teacher.avatarUrl,
       notificationPrefs: teacher.notificationPrefs,
       credentials: teacher.credentials,
+      languages: Array.isArray(teacher.languages)
+        ? (teacher.languages as string[])
+        : [],
       speciality: teacher.speciality.toLowerCase(),
       rating: teacher.rating,
+      reviewCount: teacher.reviewCount,
       totalSessions: teacher.totalSessions,
       totalEarned: teacher.totalEarned,
       status: teacher.status.toLowerCase(),
+      memberSince: teacher.user.createdAt,
+      emailVerified: teacher.user.emailVerifiedAt != null,
+      sessionActivityMonths,
     };
+  }
+
+  private async buildSessionActivityMonths(teacherId: string) {
+    const now = new Date();
+    const buckets: { month: string; count: number; sortKey: string }[] = [];
+
+    for (let offset = 5; offset >= 0; offset -= 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      buckets.push({
+        month: date.toLocaleDateString('en-US', { month: 'short' }),
+        count: 0,
+        sortKey: `${date.getFullYear()}-${date.getMonth()}`,
+      });
+    }
+
+    const rangeStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const grades = await this.prisma.grade.findMany({
+      where: {
+        gradedById: teacherId,
+        gradedAt: { gte: rangeStart },
+      },
+      select: { gradedAt: true },
+    });
+
+    for (const grade of grades) {
+      const key = `${grade.gradedAt.getFullYear()}-${grade.gradedAt.getMonth()}`;
+      const bucket = buckets.find((entry) => entry.sortKey === key);
+      if (bucket) bucket.count += 1;
+    }
+
+    return buckets.map(({ month, count }) => ({ month, count }));
   }
 
   async updateProfile(user: RequestUser, dto: UpdateTeacherProfileDto) {

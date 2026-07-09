@@ -35,34 +35,41 @@ export function SessionActivityChart() {
       </div>
 
       <div className="mt-4">
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={sessionActivity.months} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="4 4" stroke={CHART_GRID_STROKE} vertical={false} />
-            <XAxis
-              dataKey="month"
-              tick={CHART_AXIS_TICK}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={CHART_AXIS_TICK}
-              axisLine={false}
-              tickLine={false}
-              width={36}
-            />
-            <Tooltip
-              content={<ChartTooltip />}
-              cursor={{ fill: "#f1f5f9", radius: 4 }}
-            />
-            <Bar
-              dataKey="count"
-              name="Sessions"
-              fill="#1b2a4a"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={40}
-            />
-          </BarChart>
-        </ResponsiveContainer>
+        {sessionActivity.hasData ? (
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={sessionActivity.months} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="4 4" stroke={CHART_GRID_STROKE} vertical={false} />
+              <XAxis
+                dataKey="month"
+                tick={CHART_AXIS_TICK}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={CHART_AXIS_TICK}
+                axisLine={false}
+                tickLine={false}
+                width={36}
+                allowDecimals={false}
+              />
+              <Tooltip
+                content={<ChartTooltip />}
+                cursor={{ fill: "#f1f5f9", radius: 4 }}
+              />
+              <Bar
+                dataKey="count"
+                name="Sessions"
+                fill="#1b2a4a"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={40}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-[180px] items-center justify-center rounded-xl border border-dashed border-border bg-slate-50/60 px-6 text-center text-sm text-muted">
+            Graded sessions will appear here once you complete Writing or Speaking work.
+          </div>
+        )}
       </div>
     </div>
   );

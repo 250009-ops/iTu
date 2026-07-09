@@ -6,11 +6,13 @@ import { useTeacherEarnings } from "@/contexts/teacher-earnings-context";
 import { useToast } from "@/components/ui/toast";
 import { updateTeacherProfile } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/api/errors";
+import { formatPrice } from "@/lib/format-price";
 
 export function NextPayoutCard() {
   const { toast } = useToast();
   const { earnings, refresh } = useTeacherEarnings();
   const nextPayout = earnings.nextPayout;
+  const currency = earnings.summary.currency;
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bankName, setBankName] = useState("");
@@ -79,10 +81,7 @@ export function NextPayoutCard() {
           <div className="text-right">
             <p className="text-xs text-muted">Projected amount</p>
             <p className="text-2xl font-bold text-navy">
-              $
-              {nextPayout.projectedAmount.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-              })}
+              {formatPrice(nextPayout.projectedAmount, currency)}
             </p>
           </div>
           {nextPayout.daysRemaining > 0 && (

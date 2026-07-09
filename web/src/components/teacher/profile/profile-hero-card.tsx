@@ -7,7 +7,6 @@ import {
   Camera,
   Loader2,
   Mail,
-  MapPin,
   Star,
 } from "lucide-react";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
@@ -54,10 +53,8 @@ export function ProfileHeroCard() {
     avatarUrl,
     title,
     email,
-    location,
     memberSince,
     verified,
-    online,
     rating,
     reviewCount,
   } = profile;
@@ -150,9 +147,6 @@ export function ProfileHeroCard() {
                 initials
               )}
             </button>
-            {online && (
-              <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" />
-            )}
           </div>
           {verified && (
             <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
@@ -173,18 +167,12 @@ export function ProfileHeroCard() {
             <Mail className="h-4 w-4 shrink-0" />
             {email}
           </li>
-          {location !== "—" && (
-            <li className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 shrink-0" />
-              {location}
-            </li>
-          )}
-          {memberSince !== "—" && (
+          {memberSince ? (
             <li className="flex items-center gap-2">
               <Calendar className="h-4 w-4 shrink-0" />
               Member since {memberSince}
             </li>
-          )}
+          ) : null}
         </ul>
       </div>
     </div>

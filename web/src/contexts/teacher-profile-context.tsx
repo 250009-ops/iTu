@@ -29,11 +29,16 @@ const emptyProfile = mapTeacherProfile({
   avatarUrl: null,
   notificationPrefs: null,
   credentials: null,
+  languages: [],
   speciality: "both",
   rating: null,
+  reviewCount: 0,
   totalSessions: 0,
   totalEarned: 0,
   status: "pending",
+  memberSince: new Date().toISOString(),
+  emailVerified: false,
+  sessionActivityMonths: [],
 });
 
 const TeacherProfileContext = createContext<TeacherProfileValue | null>(null);
