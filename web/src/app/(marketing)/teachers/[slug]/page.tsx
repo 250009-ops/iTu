@@ -134,7 +134,7 @@ export default async function TeacherProfilePage({
       <FinalCta
         title="Book your mock with a certified examiner"
         subtitle="Pick your package, choose your date, and select your examiner at checkout."
-        primaryLabel="Book a Full Mock — $49"
+        primaryLabel="Book a Full Mock — 56,000 so'm"
       />
     </>
   );

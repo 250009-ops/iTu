@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import { formatMoney } from '../../common/format-money';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -101,7 +102,7 @@ export class SearchService {
         type: 'order',
         id: o.id,
         label: o.orderCode,
-        subtitle: `${o.student.user.name} · $${o.amount}`,
+        subtitle: `${o.student.user.name} · ${formatMoney(o.amount, o.currency)}`,
         href: '/admin/orders',
       })),
       ...tests.map((t) => ({

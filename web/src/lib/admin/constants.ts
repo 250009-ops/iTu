@@ -348,5 +348,7 @@ export function normalizePaymentMethod(method: string): PaymentMethod {
   if (m.includes("paypal")) return "paypal";
   if (m.includes("apple")) return "apple_pay";
   if (m.includes("complimentary")) return "complimentary";
+  // Lemon Checkout / booking default — still a card payment.
+  if (m.includes("card")) return "visa";
   return "visa";
 }

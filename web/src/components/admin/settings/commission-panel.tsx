@@ -29,16 +29,16 @@ export function CommissionPanel() {
       key: "speakingRate" as const,
       label: "Speaking Teacher Rate",
       tag: "Speaking",
-      hint: "Fixed payout per 20-minute speaking session.",
-      prefix: "$",
+      hint: "Fixed payout per 20-minute speaking session (UZS so'm).",
+      prefix: "so'm",
       value: commissionSettings.speakingRate,
     },
     {
       key: "writingRate" as const,
       label: "Writing Teacher Rate",
       tag: "Writing",
-      hint: "Fixed payout per written script graded.",
-      prefix: "$",
+      hint: "Fixed payout per written script graded (UZS so'm).",
+      prefix: "so'm",
       value: commissionSettings.writingRate,
     },
     {
@@ -71,7 +71,7 @@ export function CommissionPanel() {
 
       <div className="mt-6">
         <p className="text-xs font-bold uppercase tracking-wide text-muted">
-          Revenue Split Visualiser · Per $100 booking
+          Revenue Split Visualiser · Percentage of booking
         </p>
         <div className="mt-3 flex h-4 overflow-hidden rounded-full">
           <div className="bg-navy" style={{ width: `${platformPct}%` }} />
@@ -80,11 +80,11 @@ export function CommissionPanel() {
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-navy" />
-            Platform ${platformPct} per booking
+            Platform {platformPct}% per booking
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-sky-300" />
-            Teacher Payout ${teacherPct} per booking
+            Teacher payout {teacherPct}% per booking
           </span>
         </div>
       </div>
@@ -104,8 +104,13 @@ export function CommissionPanel() {
               </div>
               <p className="mt-0.5 text-sm text-muted">{row.hint}</p>
             </div>
-            <div className="relative w-full sm:w-28">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
+            <div className="relative w-full sm:w-36">
+              <span
+                className={cn(
+                  "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted",
+                  row.prefix === "so'm" ? "text-[10px]" : "text-sm",
+                )}
+              >
                 {row.prefix}
               </span>
               <Input
@@ -114,7 +119,10 @@ export function CommissionPanel() {
                 onChange={(e) =>
                   setField("commission", row.key, Number(e.target.value))
                 }
-                className="h-9 pl-7 text-right"
+                className={cn(
+                  "h-9 text-right",
+                  row.prefix === "so'm" ? "pl-12" : "pl-7",
+                )}
               />
             </div>
           </div>

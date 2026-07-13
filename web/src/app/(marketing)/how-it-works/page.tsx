@@ -253,7 +253,7 @@ export default function HowItWorksPage() {
       <FinalCta
         title="Ready to sit your mock?"
         subtitle="Book a full 4-skill mock with a certified examiner. Same-day results."
-        primaryLabel="Book a Full Mock — $49"
+        primaryLabel="Book a Full Mock — 56,000 so'm"
       />
     </>
   );

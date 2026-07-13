@@ -138,7 +138,7 @@ export default async function PricingPage() {
       <FinalCta
         title="See your own band report"
         subtitle="Book a full mock and receive the same detailed breakdown with criteria-level examiner feedback."
-        primaryLabel="Book a Full Mock — $49"
+        primaryLabel="Book a Full Mock — 56,000 so'm"
       />
     </>
   );

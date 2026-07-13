@@ -19,7 +19,7 @@ import {
   type ScoringCriterion,
   type SpeakingPart,
 } from "@/lib/speaking/scoring";
-import { formatPrice } from "@/lib/format-price";
+import { DEFAULT_CURRENCY, formatPrice } from "@/lib/format-price";
 
 type Dashboard = Awaited<ReturnType<typeof getTeacherDashboard>>;
 type WritingQueue = Awaited<ReturnType<typeof getWritingQueue>>;
@@ -139,7 +139,7 @@ export function mapTeacherStats(data: Dashboard) {
     {
       id: "earnings",
       label: "Total Earned",
-      value: `$${data.stats.totalEarned.toFixed(0)}`,
+      value: formatPrice(data.stats.totalEarned),
       sub: "Lifetime earnings",
       trend: null,
       tone: "emerald" as const,
@@ -478,7 +478,7 @@ export function mapTeacherEarnings(data: Earnings) {
   });
   const thisMonth = thisMonthPayouts.reduce((sum, p) => sum + p.amount, 0);
   const availableBalance = data.pendingBalance ?? 0;
-  const currency = (data.payouts[0]?.currency ?? "UZS").toUpperCase();
+  const currency = DEFAULT_CURRENCY;
 
   const monthlyMap = new Map<string, number>();
   for (const payout of [...data.payouts].reverse()) {
@@ -881,7 +881,7 @@ export function mapTeacherProfile(data: Profile) {
       },
       {
         label: "Total Earned",
-        value: `$${data.totalEarned.toFixed(0)}`,
+        value: formatPrice(data.totalEarned),
       },
     ],
     security: [

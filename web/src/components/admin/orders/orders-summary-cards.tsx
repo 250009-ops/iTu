@@ -8,36 +8,61 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAdminOrders } from "@/contexts/admin-orders-context";
+import type { OrderStatus } from "@/lib/admin/types";
+import { formatPrice, DEFAULT_CURRENCY } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 export function OrdersSummaryCards() {
-  const { summary } = useAdminOrders();
+  const { summary, statusFilter, setStatusFilter, focusLedgerFilters } =
+    useAdminOrders();
 
-  const cards = [
+  const trendIsUp =
+    summary.revenueTrend.startsWith("+") || summary.revenueTrend === "0%";
+  const trendIsFlat = summary.revenueTrend === "—";
+
+  const cards: {
+    label: string;
+    value: string;
+    sub: string;
+    icon: typeof DollarSign;
+    card: string;
+    subClass: string;
+    showTrend?: boolean;
+    trendUp?: boolean;
+    filter: "all" | OrderStatus;
+  }[] = [
     {
       label: "Revenue Collected",
-      value: `$${summary.revenueCollected}`,
+      value: formatPrice(Number(summary.revenueCollected), DEFAULT_CURRENCY),
       sub: `${summary.revenueTrend} vs last month`,
       icon: DollarSign,
       card: "bg-navy text-white border-navy",
-      subClass: "text-emerald-300",
-      showTrend: true,
+      subClass: trendIsFlat
+        ? "text-white/60"
+        : trendIsUp
+          ? "text-emerald-300"
+          : "text-rose-300",
+      showTrend: !trendIsFlat,
+      trendUp: trendIsUp,
+      filter: "paid",
     },
     {
       label: "Paid Orders",
       value: String(summary.paidOrders),
-      sub: `$${summary.paidTotal} collected`,
+      sub: `${formatPrice(Number(summary.paidTotal), DEFAULT_CURRENCY)} collected`,
       icon: CheckCircle2,
       card: "border-emerald-100 bg-emerald-50",
       subClass: "text-muted",
+      filter: "paid",
     },
     {
       label: "Refunds Issued",
       value: String(summary.refundsIssued),
-      sub: `$${summary.refundTotal} returned`,
+      sub: `${formatPrice(Number(summary.refundTotal), DEFAULT_CURRENCY)} returned`,
       icon: ArrowDownRight,
       card: "border-border bg-white",
       subClass: "text-muted",
+      filter: "refunded",
     },
     {
       label: "Failed Payments",
@@ -46,6 +71,7 @@ export function OrdersSummaryCards() {
       icon: AlertCircle,
       card: "border-rose-100 bg-rose-50",
       subClass: "text-muted",
+      filter: "failed",
     },
   ];
 
@@ -54,11 +80,24 @@ export function OrdersSummaryCards() {
       {cards.map((card) => {
         const Icon = card.icon;
         const isNavy = card.card.startsWith("bg-navy");
+        const active = statusFilter === card.filter;
 
         return (
-          <div
+          <button
             key={card.label}
-            className={cn("rounded-xl border p-4 shadow-sm sm:p-5", card.card)}
+            type="button"
+            onClick={() => {
+              setStatusFilter(
+                statusFilter === card.filter ? "all" : card.filter,
+              );
+              focusLedgerFilters();
+            }}
+            className={cn(
+              "rounded-xl border p-4 text-left shadow-sm transition-shadow sm:p-5",
+              card.card,
+              active && "ring-2 ring-navy/30 ring-offset-2",
+              "hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy/40",
+            )}
           >
             <div
               className={cn(
@@ -96,12 +135,15 @@ export function OrdersSummaryCards() {
                 card.subClass,
               )}
             >
-              {card.showTrend && (
-                <TrendingUp className="h-3 w-3 shrink-0" />
-              )}
+              {card.showTrend &&
+                (card.trendUp ? (
+                  <TrendingUp className="h-3 w-3 shrink-0" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3 shrink-0" />
+                ))}
               {card.sub}
             </p>
-          </div>
+          </button>
         );
       })}
     </div>

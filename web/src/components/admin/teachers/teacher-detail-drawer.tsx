@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { getAdminTeacher } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { Examiner, TeacherSpeciality, TeacherStatus } from "@/lib/admin/types";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 const statusStyles: Record<
@@ -162,7 +163,7 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
                     Total earned
                   </p>
                   <p className="mt-1 text-lg font-bold text-navy">
-                    ${teacher.totalEarned.toLocaleString("en-US")}
+                    {formatPrice(teacher.totalEarned)}
                   </p>
                 </div>
               </div>

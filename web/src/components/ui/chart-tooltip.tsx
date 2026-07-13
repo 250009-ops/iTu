@@ -53,7 +53,8 @@ export function ChartTooltip({
 export const CHART_AXIS_TICK = { fontSize: 10, fill: "#94a3b8" };
 export const CHART_GRID_STROKE = "#e2e8f0";
 
-export function formatCurrency(value: number) {
-  if (value >= 1000) return `$${Math.round(value / 1000)}k`;
-  return `$${value.toLocaleString()}`;
-}
+export {
+  formatCurrencyCompact as formatCurrency,
+  formatPrice,
+  DEFAULT_CURRENCY,
+} from "@/lib/format-price";

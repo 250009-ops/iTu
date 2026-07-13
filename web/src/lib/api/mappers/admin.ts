@@ -30,6 +30,7 @@ import type {
   getContentTests,
   getLiveSessions,
 } from "@/lib/api/admin";
+import { formatPrice } from "@/lib/format-price";
 
 type Dashboard = Awaited<ReturnType<typeof getAdminDashboard>>;
 type EnrollmentsResponse = Awaited<ReturnType<typeof getAdminEnrollments>>;
@@ -177,7 +178,7 @@ export function mapAdminStats(data: Dashboard) {
     {
       id: "revenue",
       label: "Total Revenue",
-      value: `$${data.kpis.totalRevenue.toLocaleString()}`,
+      value: formatPrice(data.kpis.totalRevenue),
       sub: "Paid orders",
       tone: "violet" as const,
     },
@@ -374,6 +375,19 @@ export function mapStudents(students: Students) {
   return { students: rows, summary };
 }
 
+function formatRevenueTrendFromMonthly(
+  monthly: { amount: number }[],
+): string {
+  if (monthly.length < 2) return "—";
+  const prev = monthly[monthly.length - 2]?.amount ?? 0;
+  const curr = monthly[monthly.length - 1]?.amount ?? 0;
+  if (prev === 0 && curr === 0) return "—";
+  if (prev === 0) return "+100%";
+  const pct = Math.round(((curr - prev) / prev) * 100);
+  if (pct === 0) return "0%";
+  return `${pct > 0 ? "+" : ""}${pct}%`;
+}
+
 export function mapOrders(payload: Orders) {
   const orders = payload.orders ?? [];
   const mapped: Order[] = orders.map((o, i) => {
@@ -393,25 +407,37 @@ export function mapOrders(payload: Orders) {
     };
   });
 
+  const monthlyRevenue = payload.monthlyRevenue ?? [];
+  const fallbackTrend = formatRevenueTrendFromMonthly(monthlyRevenue);
+
   const summary = payload.summary ?? {
-    revenueCollected: mapped.filter((o) => o.status === "paid").reduce((s, o) => s + o.amount, 0),
-    revenueTrend: "—",
+    revenueCollected: mapped
+      .filter((o) => o.status === "paid")
+      .reduce((s, o) => s + o.amount, 0),
+    revenueTrend: fallbackTrend,
     paidOrders: mapped.filter((o) => o.status === "paid").length,
-    paidTotal: mapped.filter((o) => o.status === "paid").reduce((s, o) => s + o.amount, 0),
+    paidTotal: mapped
+      .filter((o) => o.status === "paid")
+      .reduce((s, o) => s + o.amount, 0),
     refundsIssued: mapped.filter((o) => o.status === "refunded").length,
-    refundTotal: mapped.filter((o) => o.status === "refunded").reduce((s, o) => s + o.amount, 0),
+    refundTotal: mapped
+      .filter((o) => o.status === "refunded")
+      .reduce((s, o) => s + o.amount, 0),
     failedPayments: mapped.filter((o) => o.status === "failed").length,
   };
 
-  const monthlyOrderTrend = (payload.monthlyRevenue ?? []).map((row) => ({
+  const monthlyOrderTrend = monthlyRevenue.map((row) => ({
     month: row.month,
     revenue: row.amount,
-    orders: 0,
+    orders: row.orderCount ?? 0,
   }));
 
   return {
     orders: mapped,
-    summary: { ...summary, revenueTrend: "—" },
+    summary: {
+      ...summary,
+      revenueTrend: summary.revenueTrend ?? fallbackTrend,
+    },
     monthlyOrderTrend,
   };
 }
@@ -498,7 +524,7 @@ export function mapDisputes(disputes: Disputes) {
 export function mapReports(data: Reports) {
   const summary = {
     revenueMtd: data.revenue.total,
-    revenueTrend: "—",
+    revenueTrend: data.revenue.trend ?? "—",
     examsDelivered: data.revenue.orderCount,
     examsPeriod: new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }),
     examsTrend: "—",

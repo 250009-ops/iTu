@@ -26,7 +26,7 @@ export function RevenueChart() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-navy">Monthly Revenue</h2>
-          <p className="mt-0.5 text-sm text-muted">Last 6 months · USD</p>
+          <p className="mt-0.5 text-sm text-muted">Last 6 months · UZS</p>
         </div>
         {monthlyRevenue.some((point) => point.amount > 0) && (
           <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">

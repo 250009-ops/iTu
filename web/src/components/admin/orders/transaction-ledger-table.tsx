@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreditCard, Gift, RotateCcw, Search, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import type { Order, OrderStatus, PaymentMethod } from "@/lib/admin/types";
 import { useAdminOrders } from "@/contexts/admin-orders-context";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api/errors";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 6;
@@ -68,9 +69,15 @@ function PaymentMethodCell({
 }
 
 export function TransactionLedgerTable() {
-  const { orders, issueRefund } = useAdminOrders();
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  const {
+    filteredOrders,
+    query,
+    statusFilter,
+    setQuery,
+    setStatusFilter,
+    ledgerSearchRef,
+    issueRefund,
+  } = useAdminOrders();
   const [page, setPage] = useState(1);
   const [refunding, setRefunding] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
@@ -84,7 +91,7 @@ export function TransactionLedgerTable() {
     try {
       await issueRefund(target.id, { reason: "Admin-initiated refund" });
       toast(`${target.orderId} refunded`, {
-        description: `$${target.amount.toFixed(2)} returned to ${target.studentName}.`,
+        description: `Enrollment cancelled and ${formatPrice(target.amount)} marked returned for ${target.studentName}.`,
         variant: "success",
       });
       setRefunding(null);
@@ -98,28 +105,24 @@ export function TransactionLedgerTable() {
     }
   }
 
-  const filtered = useMemo(() => {
-    return orders.filter((order) => {
-      const matchesStatus =
-        statusFilter === "all" || order.status === statusFilter;
-      const matchesQuery =
-        !query.trim() ||
-        order.studentName.toLowerCase().includes(query.toLowerCase()) ||
-        order.orderId.toLowerCase().includes(query.toLowerCase());
-      return matchesStatus && matchesQuery;
-    });
-  }, [orders, query, statusFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [query, statusFilter]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
 
   const paged = useMemo(
-    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filtered, safePage],
+    () =>
+      filteredOrders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filteredOrders, safePage],
   );
 
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm">
+    <div
+      id="transaction-ledger"
+      className="scroll-mt-4 rounded-xl border border-border bg-white shadow-sm"
+    >
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <h2 className="font-semibold text-navy">Transaction Ledger</h2>
         <p className="mt-0.5 text-sm text-muted">
@@ -129,6 +132,7 @@ export function TransactionLedgerTable() {
           <div className="relative min-w-0 flex-1 sm:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
+              ref={ledgerSearchRef}
               type="search"
               placeholder="Search order or student…"
               value={query}
@@ -168,7 +172,7 @@ export function TransactionLedgerTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filtered.length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <tr>
                 <td
                   colSpan={9}
@@ -183,13 +187,7 @@ export function TransactionLedgerTable() {
                 return (
                   <tr
                     key={order.id}
-                    onClick={() =>
-                      toast(`${order.orderId} · ${order.studentName}`, {
-                        description: `${order.package} · $${order.amount.toFixed(2)} · ${status.label}`,
-                        variant: "info",
-                      })
-                    }
-                    className="cursor-pointer transition-colors hover:bg-slate-50/80"
+                    className="transition-colors hover:bg-slate-50/80"
                   >
                     <td className="px-5 py-4 font-semibold text-navy sm:px-6">
                       {order.orderId}
@@ -207,10 +205,7 @@ export function TransactionLedgerTable() {
                     <td className="px-5 py-4 sm:px-6">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push("/admin/enrollments");
-                        }}
+                        onClick={() => router.push("/admin/enrollments")}
                         className="font-medium text-sky-600 hover:underline"
                       >
                         {order.enrollmentRef}
@@ -229,7 +224,7 @@ export function TransactionLedgerTable() {
                       {order.date}
                     </td>
                     <td className="px-5 py-4 font-bold text-navy sm:px-6">
-                      ${order.amount.toFixed(2)}
+                      {formatPrice(order.amount)}
                     </td>
                     <td className="px-5 py-4 sm:px-6">
                       <span
@@ -252,10 +247,7 @@ export function TransactionLedgerTable() {
                             variant="secondary"
                             size="sm"
                             className="h-8 border-rose-200 text-brand-red hover:bg-rose-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRefunding(order);
-                            }}
+                            onClick={() => setRefunding(order)}
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
                             Refund
@@ -275,8 +267,8 @@ export function TransactionLedgerTable() {
 
       <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p className="text-sm text-muted">
-          Showing {paged.length} of {filtered.length} transaction
-          {filtered.length !== 1 ? "s" : ""}
+          Showing {paged.length} of {filteredOrders.length} transaction
+          {filteredOrders.length !== 1 ? "s" : ""}
         </p>
         <div className="flex gap-1">
           {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
@@ -302,7 +294,7 @@ export function TransactionLedgerTable() {
         title={refunding ? `Refund ${refunding.orderId}?` : ""}
         message={
           refunding
-            ? `Issue a full refund of $${refunding.amount.toFixed(2)} to ${refunding.studentName}? This cannot be undone.`
+            ? `This cancels the enrollment and marks ${formatPrice(refunding.amount)} as refunded for ${refunding.studentName}. Card money must still be reversed in Lemon Squeezy if the student paid via Checkout. This cannot be undone.`
             : ""
         }
         confirmLabel={busy ? "Processing…" : "Issue refund"}

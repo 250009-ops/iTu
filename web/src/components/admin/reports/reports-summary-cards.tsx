@@ -8,6 +8,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAdminReports } from "@/contexts/admin-reports-context";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 export function ReportsSummaryCards() {
@@ -16,7 +17,7 @@ export function ReportsSummaryCards() {
   const cards = [
     {
       label: "Revenue MTD",
-      value: `$${summary.revenueMtd.toLocaleString()}`,
+      value: formatPrice(summary.revenueMtd),
       sub: `${summary.revenueTrend} vs last month`,
       icon: DollarSign,
       card: "bg-navy text-white border-navy",

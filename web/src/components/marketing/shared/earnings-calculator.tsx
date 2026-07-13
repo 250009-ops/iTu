@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { PenLine, Mic, TrendingUp } from "lucide-react";
+import { formatPrice } from "@/lib/format-price";
 
-const WRITING_RATE = 20;
-const SPEAKING_RATE = 20;
+/** Example examiner rates in UZS so'm (marketing estimate only). */
+const WRITING_RATE = 20_000;
+const SPEAKING_RATE = 20_000;
 
 export function EarningsCalculator() {
   const [writing, setWriting] = useState(20);
@@ -21,9 +23,11 @@ export function EarningsCalculator() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
           Estimated monthly earnings
         </p>
-        <p className="mt-2 text-5xl font-extrabold">${monthly.toLocaleString()}</p>
+        <p className="mt-2 text-4xl font-extrabold sm:text-5xl">
+          {formatPrice(monthly)}
+        </p>
         <p className="inline-flex items-center gap-1 text-sm font-medium text-emerald-400">
-          <TrendingUp className="h-4 w-4" /> Weekly payout ~${weekly.toLocaleString()}
+          <TrendingUp className="h-4 w-4" /> Weekly payout ~{formatPrice(weekly)}
         </p>
       </div>
 
@@ -35,7 +39,7 @@ export function EarningsCalculator() {
           onChange={setWriting}
           accent="accent-violet-500"
           total={writingTotal}
-          rateLabel={`$${WRITING_RATE} per task × ${writing}`}
+          rateLabel={`${formatPrice(WRITING_RATE)} per task × ${writing}`}
           totalClass="bg-violet-50 text-violet-700"
         />
         <Slider
@@ -45,14 +49,14 @@ export function EarningsCalculator() {
           onChange={setSpeaking}
           accent="accent-rose-500"
           total={speakingTotal}
-          rateLabel={`$${SPEAKING_RATE} per session × ${speaking}`}
+          rateLabel={`${formatPrice(SPEAKING_RATE)} per session × ${speaking}`}
           totalClass="bg-rose-50 text-rose-700"
         />
       </div>
 
       <p className="mt-6 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-relaxed text-muted">
-        Rates shown are example estimates. Actual rates may vary based on exam type and session
-        length. Full rate card provided after onboarding.
+        Rates shown are example estimates in Uzbek so&apos;m. Actual rates may vary based on
+        exam type and session length. Full rate card provided after onboarding.
       </p>
     </div>
   );
@@ -79,28 +83,24 @@ function Slider({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-          {icon} {label}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-sm font-semibold text-navy">
+          {icon}
+          {label}
         </span>
-        <span className="text-lg font-bold text-navy">{value}</span>
+        <span className={`rounded-lg px-2 py-1 text-xs font-bold ${totalClass}`}>
+          {formatPrice(total)}
+        </span>
       </div>
       <input
         type="range"
         min={0}
-        max={80}
+        max={40}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className={`mt-3 w-full ${accent}`}
+        className={`w-full ${accent}`}
       />
-      <div className="mt-1 flex justify-between text-[11px] text-muted">
-        <span>0</span>
-        <span>80</span>
-      </div>
-      <div className={`mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${totalClass}`}>
-        <span className="font-normal opacity-80">{rateLabel}</span>
-        <span>${total.toLocaleString()}</span>
-      </div>
+      <p className="mt-1.5 text-xs text-muted">{rateLabel}</p>
     </div>
   );
 }

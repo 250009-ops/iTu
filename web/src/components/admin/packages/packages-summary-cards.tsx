@@ -2,6 +2,7 @@
 
 import { CircleDollarSign, Layers, Sparkles, Tag } from "lucide-react";
 import { useAdminPackages } from "@/contexts/admin-packages-context";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 export function PackagesSummaryCards() {
@@ -31,7 +32,7 @@ export function PackagesSummaryCards() {
     },
     {
       label: "Avg Price (active)",
-      value: `$${summary.avgPrice.toLocaleString()}`,
+      value: formatPrice(summary.avgPrice),
       icon: CircleDollarSign,
       card: "border-violet-100 bg-violet-50",
       iconWrap: "text-violet-600",

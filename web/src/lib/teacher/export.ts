@@ -35,7 +35,7 @@ export function exportEarningsCsv(transactions: Transaction[]) {
     "Detail",
     "Reference",
     "Status",
-    "Amount (USD)",
+    "Amount (UZS)",
   ];
   const rows = transactions.map((t) =>
     [

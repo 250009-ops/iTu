@@ -28,6 +28,8 @@ import {
   overallBandFromSkillBands,
   resolveAttemptBand,
 } from '../../common/band-resolution';
+import { CATALOG_CURRENCY } from '../../common/catalog-pricing';
+import { formatMoney } from '../../common/format-money';
 import { MailService } from '../../common/mail/mail.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -116,6 +118,26 @@ function monthEnd(date = new Date()): Date {
 function formatMonthShort(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short' });
 }
+
+/** Month-over-month change label for revenue summary cards. */
+function formatRevenueTrend(monthly: { amount: number }[]): string {
+  if (monthly.length < 2) return '—';
+  const prev = monthly[monthly.length - 2]?.amount ?? 0;
+  const curr = monthly[monthly.length - 1]?.amount ?? 0;
+  if (prev === 0 && curr === 0) return '—';
+  if (prev === 0) return '+100%';
+  const pct = Math.round(((curr - prev) / prev) * 100);
+  if (pct === 0) return '0%';
+  return `${pct > 0 ? '+' : ''}${pct}%`;
+}
+
+/** Seed demo teacher emails / amounts from prisma/seed.ts — never real earnings. */
+const SEED_DEMO_TEACHER_EMAILS = [
+  'teacher@example.com',
+  'emma.williams@example.com',
+  'daniel.whitfield@example.com',
+] as const;
+const SEED_DEMO_PAYOUT_AMOUNTS = [325, 210, 890] as const;
 
 function formatTimeLeft(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -227,11 +249,16 @@ export class AdminService {
     orders: { amount: number; createdAt: Date }[],
     anchor: Date,
   ) {
-    const buckets: { key: string; month: string; amount: number }[] = [];
+    const buckets: {
+      key: string;
+      month: string;
+      amount: number;
+      orderCount: number;
+    }[] = [];
     for (let offset = 5; offset >= 0; offset -= 1) {
       const d = new Date(anchor.getFullYear(), anchor.getMonth() - offset, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      buckets.push({ key, month: formatMonthShort(d), amount: 0 });
+      buckets.push({ key, month: formatMonthShort(d), amount: 0, orderCount: 0 });
     }
 
     const bucketMap = new Map(buckets.map((b) => [b.key, b]));
@@ -240,12 +267,14 @@ export class AdminService {
       const bucket = bucketMap.get(key);
       if (bucket) {
         bucket.amount += order.amount;
+        bucket.orderCount += 1;
       }
     }
 
-    return buckets.map(({ month, amount }) => ({
+    return buckets.map(({ month, amount, orderCount }) => ({
       month,
       amount: Math.round(amount * 100) / 100,
+      orderCount,
     }));
   }
 
@@ -967,7 +996,7 @@ export class AdminService {
    * Admin-initiated complimentary enrollment. Reuses the shared booking
    * provisioning so the granted mock behaves identically to a paid one
    * (speaking slot is locked and the appointed session appears in the teacher
-   * panel), but the order is recorded as a $0 COMPLIMENTARY payment.
+   * panel), but the order is recorded as a 0 so'm COMPLIMENTARY payment.
    */
   async grantEnrollment(dto: GrantEnrollmentDto, actorId: string) {
     const student = await this.prisma.studentProfile.findUnique({
@@ -1209,6 +1238,7 @@ export class AdminService {
       orders: mapped,
       summary: {
         revenueCollected: paid.reduce((s, o) => s + o.amount, 0),
+        revenueTrend: formatRevenueTrend(monthlyRevenue),
         paidOrders: paid.length,
         paidTotal: paid.reduce((s, o) => s + o.amount, 0),
         refundsIssued: refunded.length,
@@ -1243,7 +1273,14 @@ export class AdminService {
   }
 
   async getReports() {
-    const [enrollments, orders, teachers] = await Promise.all([
+    const syncedAt = new Date();
+    const revenueWindowStart = new Date(
+      syncedAt.getFullYear(),
+      syncedAt.getMonth() - 5,
+      1,
+    );
+
+    const [enrollments, orders, teachers, monthlyOrders] = await Promise.all([
       this.prisma.enrollment.groupBy({
         by: ['status'],
         _count: true,
@@ -1258,7 +1295,16 @@ export class AdminService {
         take: 5,
         include: { user: true },
       }),
+      this.prisma.order.findMany({
+        where: {
+          status: 'PAID',
+          createdAt: { gte: revenueWindowStart },
+        },
+        select: { amount: true, createdAt: true },
+      }),
     ]);
+
+    const monthlyRevenue = this.buildMonthlyRevenue(monthlyOrders, syncedAt);
 
     return {
       funnel: enrollments.map((e) => ({
@@ -1268,6 +1314,7 @@ export class AdminService {
       revenue: {
         total: orders._sum.amount ?? 0,
         orderCount: orders._count,
+        trend: formatRevenueTrend(monthlyRevenue),
       },
       teacherLeaderboard: teachers.map((t) => ({
         name: t.user.name,
@@ -1406,7 +1453,7 @@ export class AdminService {
         title: dto.title,
         description: dto.description ?? null,
         price: dto.price,
-        currency: dto.currency ?? 'USD',
+        currency: dto.currency ?? CATALOG_CURRENCY,
         examType: dto.examType ?? 'ACADEMIC',
         packageKind,
         mockNumber,
@@ -2327,7 +2374,7 @@ export class AdminService {
     await this.notifications.create(
       order.student.userId,
       'Refund processed',
-      `A refund of $${refundAmount.toFixed(2)} has been issued for order ${order.orderCode}.`,
+      `A refund of ${formatMoney(refundAmount, order.currency)} has been issued for order ${order.orderCode}.`,
       NotificationType.PAYMENT,
       '/student/profile',
     );
@@ -2360,34 +2407,97 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return payouts.map((p) => {
-      const details = p.teacher.payoutDetails as {
-        bankName?: string;
-        accountLast4?: string;
-        accountName?: string;
-        method?: string;
-      } | null;
-      const bankLabel =
-        details?.bankName && details?.accountLast4
-          ? `${details.bankName} ···${details.accountLast4}`
-          : null;
+    const seedEmails = new Set<string>(SEED_DEMO_TEACHER_EMAILS);
+    const seedAmounts = new Set<number>(SEED_DEMO_PAYOUT_AMOUNTS);
 
-      return {
-        id: p.id,
-        teacherId: p.teacherId,
-        teacherName: p.teacher.user.name,
-        amount: p.amount,
-        currency: p.currency,
-        status: p.status.toLowerCase(),
-        periodStart: p.periodStart,
-        periodEnd: p.periodEnd,
-        paidAt: p.paidAt,
-        createdAt: p.createdAt,
-        bankLabel,
-        accountName: details?.accountName ?? null,
-        payoutMethod: details?.method ?? null,
-      };
+    return payouts
+      .filter((p) => {
+        // Hide prisma seed demo rows until they are purged from the DB.
+        const email = p.teacher.user.email.toLowerCase();
+        return !(seedEmails.has(email) && seedAmounts.has(p.amount));
+      })
+      .map((p) => {
+        const details = p.teacher.payoutDetails as {
+          bankName?: string;
+          accountLast4?: string;
+          accountName?: string;
+          method?: string;
+        } | null;
+        const bankLabel =
+          details?.bankName && details?.accountLast4
+            ? `${details.bankName} ···${details.accountLast4}`
+            : null;
+
+        return {
+          id: p.id,
+          teacherId: p.teacherId,
+          teacherName: p.teacher.user.name,
+          amount: p.amount,
+          currency: p.currency,
+          status: p.status.toLowerCase(),
+          periodStart: p.periodStart,
+          periodEnd: p.periodEnd,
+          paidAt: p.paidAt,
+          createdAt: p.createdAt,
+          bankLabel,
+          accountName: details?.accountName ?? null,
+          payoutMethod: details?.method ?? null,
+        };
+      });
+  }
+
+  /**
+   * Removes known prisma-seed demo payouts ($325 / $210 / $890 for @example.com
+   * teachers) and recalculates those teachers' totalEarned from remaining rows.
+   * Safe for production: only matches the seed fingerprint.
+   */
+  async purgeSeedDemoPayouts(actorId: string) {
+    const teachers = await this.prisma.teacherProfile.findMany({
+      where: {
+        user: { email: { in: [...SEED_DEMO_TEACHER_EMAILS] } },
+      },
+      select: { id: true, user: { select: { email: true, name: true } } },
     });
+
+    if (teachers.length === 0) {
+      return { deleted: 0, teachersUpdated: 0 };
+    }
+
+    const teacherIds = teachers.map((t) => t.id);
+    const deleted = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.payout.deleteMany({
+        where: {
+          teacherId: { in: teacherIds },
+          amount: { in: [...SEED_DEMO_PAYOUT_AMOUNTS] },
+        },
+      });
+
+      for (const teacher of teachers) {
+        const remaining = await tx.payout.aggregate({
+          where: { teacherId: teacher.id },
+          _sum: { amount: true },
+        });
+        await tx.teacherProfile.update({
+          where: { id: teacher.id },
+          data: { totalEarned: remaining._sum.amount ?? 0 },
+        });
+      }
+
+      return result.count;
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: 'PURGE_SEED_DEMO_PAYOUTS',
+      entity: 'payout',
+      entityId: null,
+      metadata: {
+        deleted,
+        teachers: teachers.map((t) => t.user.email),
+      },
+    });
+
+    return { deleted, teachersUpdated: teachers.length };
   }
 
   async updatePayout(id: string, dto: UpdatePayoutDto, actorId: string) {
@@ -2420,8 +2530,8 @@ export class AdminService {
         dto.status === 'PAID' ? 'Payout processed' : 'Payout failed';
       const body =
         dto.status === 'PAID'
-          ? `$${payout.amount.toFixed(2)} has been marked as paid for the period ending ${payout.periodEnd.toLocaleDateString()}.`
-          : `Your payout of $${payout.amount.toFixed(2)} could not be processed. Update your bank details or contact support.`;
+          ? `${formatMoney(payout.amount, payout.currency)} has been marked as paid for the period ending ${payout.periodEnd.toLocaleDateString()}.`
+          : `Your payout of ${formatMoney(payout.amount, payout.currency)} could not be processed. Update your bank details or contact support.`;
 
       await this.notifications.create(
         payout.teacher.userId,

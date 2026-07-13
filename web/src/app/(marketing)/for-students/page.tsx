@@ -126,7 +126,7 @@ export default function ForStudentsPage() {
         </Stagger>
         <Reveal className="mt-10 flex justify-center">
           <CtaButton href="/mock-exams" variant="primary" size="lg" withArrow>
-            Book a Full Mock — $49
+            Book a Full Mock — 56,000 so'm
           </CtaButton>
         </Reveal>
       </Section>

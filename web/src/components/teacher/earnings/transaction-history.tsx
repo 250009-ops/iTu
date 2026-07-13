@@ -8,6 +8,7 @@ import {
   PenLine,
 } from "lucide-react";
 import { useTeacherEarnings } from "@/contexts/teacher-earnings-context";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 const typeConfig = {
@@ -39,14 +40,15 @@ const statusConfig = {
   },
 } as const;
 
-function formatAmount(amount: number): string {
+function formatAmount(amount: number, currency: string): string {
   const sign = amount >= 0 ? "+" : "-";
-  return `${sign}$${Math.abs(amount).toFixed(2)}`;
+  return `${sign}${formatPrice(Math.abs(amount), currency)}`;
 }
 
 export function TransactionHistory() {
   const { earnings } = useTeacherEarnings();
-  const { transactions, netThisCycle } = earnings;
+  const { transactions, netThisCycle, summary } = earnings;
+  const currency = summary.currency;
 
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
@@ -136,7 +138,7 @@ export function TransactionHistory() {
                         tx.amount >= 0 ? "text-emerald-600" : "text-navy",
                       )}
                     >
-                      {formatAmount(tx.amount)}
+                      {formatAmount(tx.amount, currency)}
                     </td>
                   </tr>
                 );
@@ -151,7 +153,7 @@ export function TransactionHistory() {
                   Net this cycle
                 </td>
                 <td className="px-5 py-4 text-right text-lg font-bold text-emerald-600 sm:px-6">
-                  +${netThisCycle.toFixed(2)}
+                  +{formatPrice(netThisCycle, currency)}
                 </td>
               </tr>
             </tfoot>

@@ -138,6 +138,11 @@ export class AdminController {
     return this.admin.getPayouts();
   }
 
+  @Post('payouts/purge-seed-demo')
+  purgeSeedDemoPayouts(@CurrentUser() user: RequestUser) {
+    return this.admin.purgeSeedDemoPayouts(user.id);
+  }
+
   @Patch('payouts/:id')
   updatePayout(
     @Param('id') id: string,

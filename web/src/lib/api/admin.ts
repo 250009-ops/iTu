@@ -125,7 +125,7 @@ export function getAdminDashboard() {
       integrity: string;
       flags: number;
     }[];
-    monthlyRevenue: { month: string; amount: number }[];
+    monthlyRevenue: { month: string; amount: number; orderCount?: number }[];
     completionRates: {
       skill: string;
       pct: number;
@@ -468,6 +468,7 @@ export function getAdminOrders() {
     }[];
     summary: {
       revenueCollected: number;
+      revenueTrend: string;
       paidOrders: number;
       paidTotal: number;
       refundsIssued: number;
@@ -475,8 +476,16 @@ export function getAdminOrders() {
       failedPayments: number;
       pendingPayments: number;
     };
-    monthlyRevenue: { month: string; amount: number }[];
+    monthlyRevenue: { month: string; amount: number; orderCount: number }[];
   }>("/admin/orders");
+}
+
+/** Removes prisma-seed demo teacher payouts ($325/$210/$890 for @example.com teachers). */
+export function purgeSeedDemoPayouts() {
+  return apiFetch<{ deleted: number; teachersUpdated: number }>(
+    "/admin/payouts/purge-seed-demo",
+    { method: "POST" },
+  );
 }
 
 export function refundOrder(
@@ -557,7 +566,7 @@ export function getAdminDisputes() {
 export function getAdminReports() {
   return apiFetch<{
     funnel: { status: string; count: number }[];
-    revenue: { total: number; orderCount: number };
+    revenue: { total: number; orderCount: number; trend?: string };
     teacherLeaderboard: {
       name: string;
       sessions: number;

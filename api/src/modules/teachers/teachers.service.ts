@@ -14,6 +14,7 @@ import {
   ExamSkill,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
+import { formatMoney } from '../../common/format-money';
 import {
   addCalendarDaysIso,
   calendarDateIsoInTimeZone,
@@ -579,7 +580,7 @@ export class TeachersService {
         this.notifications.create(
           admin.id,
           'Payout requested',
-          `${user.name} requested $${amount.toFixed(2)} in pending earnings.`,
+          `${user.name} requested ${formatMoney(amount)} in pending earnings.`,
           NotificationType.SYSTEM,
           '/admin/orders',
         ),

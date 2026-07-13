@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { useAdminOrders } from "@/contexts/admin-orders-context";
 import type { AdminPayout } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 const statusStyles: Record<
@@ -61,13 +62,15 @@ export function PayoutsTable() {
   const [confirming, setConfirming] = useState<ConfirmAction | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const pending = useMemo(
-    () =>
-      payouts.filter(
-        (p) => p.status === "pending" || p.status === "processing",
-      ),
-    [payouts],
-  );
+  const { requestedCount, accruedCount } = useMemo(() => {
+    let requested = 0;
+    let accrued = 0;
+    for (const p of payouts) {
+      if (p.status === "processing") requested += 1;
+      else if (p.status === "pending") accrued += 1;
+    }
+    return { requestedCount: requested, accruedCount: accrued };
+  }, [payouts]);
 
   async function confirmAction() {
     if (!confirming) return;
@@ -86,7 +89,7 @@ export function PayoutsTable() {
             ? `${payout.teacherName} payout marked failed`
             : `${payout.teacherName} payout reopened`,
         {
-          description: `$${payout.amount.toFixed(2)} ${payout.currency}`,
+          description: formatPrice(payout.amount, payout.currency),
           variant: status === "FAILED" ? "warning" : "success",
         },
       );
@@ -106,8 +109,11 @@ export function PayoutsTable() {
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <h2 className="font-semibold text-navy">Teacher Payouts</h2>
         <p className="mt-0.5 text-sm text-muted">
-          {pending.length} payout{pending.length !== 1 ? "s" : ""} awaiting
-          processing.
+          {requestedCount} requested (processing)
+          {accruedCount > 0
+            ? ` · ${accruedCount} accrued (pending teacher request)`
+            : ""}
+          . Transfer offline using bank details, then mark Paid.
         </p>
       </div>
 
@@ -155,16 +161,23 @@ export function PayoutsTable() {
                       {formatDate(payout.periodEnd)}
                     </td>
                     <td className="px-5 py-4 text-muted sm:px-6">
-                      {payout.bankLabel ?? "—"}
-                      {payout.accountName ? (
-                        <span className="mt-0.5 block text-xs">{payout.accountName}</span>
-                      ) : null}
+                      {payout.bankLabel ? (
+                        <>
+                          {payout.bankLabel}
+                          {payout.accountName ? (
+                            <span className="mt-0.5 block text-xs">
+                              {payout.accountName}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-amber-700">
+                          No bank details on file
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4 font-bold tabular-nums text-navy sm:px-6">
-                      ${payout.amount.toFixed(2)}{" "}
-                      <span className="text-xs font-normal text-muted">
-                        {payout.currency}
-                      </span>
+                      {formatPrice(payout.amount, payout.currency)}
                     </td>
                     <td className="px-5 py-4 sm:px-6">
                       <span
@@ -189,7 +202,7 @@ export function PayoutsTable() {
                                 payout,
                                 status: "PAID",
                                 title: `Mark ${payout.teacherName}'s payout as paid?`,
-                                message: `Confirm $${payout.amount.toFixed(2)} ${payout.currency} has been transferred.`,
+                                message: `Confirm ${formatPrice(payout.amount, payout.currency)} has been transferred.`,
                                 confirmLabel: "Mark as paid",
                               })
                             }

@@ -566,11 +566,18 @@ async function main() {
 
   await seedBandTables();
 
-  await seedPayouts([
-    teacherUser.teacherProfile!.id,
-    writingTeacher.teacherProfile!.id,
-    danielUser.teacherProfile!.id,
-  ]);
+  // Demo payouts are for local/dev only — never auto-create on production seeds.
+  if (process.env.SEED_DEMO_PAYOUTS === 'true') {
+    await seedPayouts([
+      teacherUser.teacherProfile!.id,
+      writingTeacher.teacherProfile!.id,
+      danielUser.teacherProfile!.id,
+    ]);
+  } else {
+    console.log(
+      'Skipping seed demo payouts (set SEED_DEMO_PAYOUTS=true to enable).',
+    );
+  }
 
   await prisma.teacherSlot.create({
     data: {
@@ -911,7 +918,7 @@ async function seedPayouts(teacherIds: string[]) {
       data: {
         teacherId: teacherIds[i],
         amount: amounts[i] ?? 200,
-        currency: 'USD',
+        currency: 'UZS',
         status: statuses[i] ?? PayoutStatus.PENDING,
         periodStart: isPaid ? prevStart : periodStart,
         periodEnd: isPaid ? prevEnd : periodEnd,

@@ -1,4 +1,5 @@
 import { PayoutStatus, Prisma } from '@prisma/client';
+import { CATALOG_CURRENCY } from './catalog-pricing';
 import {
   getPayoutPeriod,
   normalizePayoutSchedule,
@@ -55,6 +56,7 @@ export async function accrueTeacherGradingEarning(
     data: {
       teacherId,
       amount,
+      currency: CATALOG_CURRENCY,
       status: PayoutStatus.PENDING,
       periodStart,
       periodEnd,

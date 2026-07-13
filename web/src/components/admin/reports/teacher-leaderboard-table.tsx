@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { specialityPillStyles } from "@/lib/admin/constants";
 import { useAdminReports } from "@/contexts/admin-reports-context";
 import { useToast } from "@/components/ui/toast";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 export function TeacherLeaderboardTable() {
@@ -110,7 +111,7 @@ export function TeacherLeaderboardTable() {
                     )}
                   </td>
                   <td className="px-5 py-4 font-bold text-navy sm:px-6">
-                    ${teacher.totalEarned.toLocaleString()}
+                    {formatPrice(teacher.totalEarned)}
                   </td>
                   <td className="px-5 py-4 sm:px-6">
                     {teacher.mom > 0 ? (

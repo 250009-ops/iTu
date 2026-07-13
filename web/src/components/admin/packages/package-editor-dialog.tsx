@@ -16,6 +16,7 @@ import type {
 } from "@/lib/admin/types";
 import { getErrorMessage } from "@/lib/api/errors";
 import { getNextMockNumber } from "@/lib/api/admin";
+import { DEFAULT_CURRENCY, formatPrice } from "@/lib/format-price";
 import {
   examTypeForPackageTypeTab,
   isFullMockTypeTab,
@@ -49,7 +50,7 @@ const emptyForm: FormState = {
   slug: "",
   description: "",
   price: "",
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   examType: "ACADEMIC",
   skills: ["listening", "reading", "writing", "speaking"],
   mostPopular: false,
@@ -291,7 +292,7 @@ export function PackageEditorDialog() {
           : null,
       });
       toast(isEdit ? "Package updated" : "Package created", {
-        description: `${form.title.trim()} · $${priceValue} ${form.currency}`,
+        description: `${form.title.trim()} · ${formatPrice(priceValue, form.currency)}`,
         variant: "success",
       });
       closeEditor();
@@ -438,8 +439,8 @@ export function PackageEditorDialog() {
             <div className="space-y-1.5">
               <label className={labelCls}>Price</label>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
-                  $
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted">
+                  so'm
                 </span>
                 <Input
                   type="number"
@@ -448,7 +449,7 @@ export function PackageEditorDialog() {
                   value={form.price}
                   error={priceInvalid}
                   onChange={(e) => set("price", e.target.value)}
-                  className="pl-7"
+                  className="pl-12"
                   placeholder="Enter price"
                 />
               </div>
@@ -460,10 +461,7 @@ export function PackageEditorDialog() {
                 onChange={(e) => set("currency", e.target.value)}
                 className="h-10 w-full"
               >
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-                <option value="AUD">AUD</option>
+                <option value="UZS">UZS (so'm)</option>
               </Select>
             </div>
             {showExamType && (

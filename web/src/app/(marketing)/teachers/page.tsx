@@ -30,7 +30,7 @@ export default async function TeachersPage() {
       <FinalCta
         title="Found your examiner?"
         subtitle="Book a mock and select your Writing grader and Speaking examiner at checkout."
-        primaryLabel="Book a Full Mock — $49"
+        primaryLabel="Book a Full Mock — 56,000 so'm"
       />
     </>
   );

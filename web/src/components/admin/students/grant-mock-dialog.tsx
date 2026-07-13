@@ -20,6 +20,7 @@ import { getGrantablePackagesForStudent } from "@/lib/api/admin";
 import { listTeachers } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { ActiveAdminGrant, Student } from "@/lib/admin/types";
+import { formatPrice } from "@/lib/format-price";
 import { localTodayIso } from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
@@ -198,7 +199,7 @@ export function GrantMockDialog({
               id: existingGrant.packageId,
               title: existingGrant.packageTitle,
               price: 0,
-              currency: "USD",
+              currency: "UZS",
               needsWriting: existingGrant.needsWriting,
               needsSpeaking: existingGrant.needsSpeaking,
             },
@@ -458,10 +459,10 @@ export function GrantMockDialog({
                     <p className="mt-1.5">
                       List price{" "}
                       <span className="line-through">
-                        {selectedPackage.currency === "USD"
-                          ? "$"
-                          : `${selectedPackage.currency} `}
-                        {selectedPackage.price}
+                        {formatPrice(
+                          selectedPackage.price,
+                          selectedPackage.currency,
+                        )}
                       </span>{" "}
                       · granted free
                     </p>
@@ -615,7 +616,7 @@ export function GrantMockDialog({
                 )}
                 <div className="mt-2 flex justify-between border-t border-border pt-2">
                   <dt className="font-semibold text-navy">Charge</dt>
-                  <dd className="font-bold text-emerald-600">Free · $0.00</dd>
+                  <dd className="font-bold text-emerald-600">Free · 0 so'm</dd>
                 </div>
               </dl>
             </div>
@@ -623,7 +624,7 @@ export function GrantMockDialog({
               <Gift size={12} />
               {isEdit
                 ? "Changes apply immediately and the student will be notified."
-                : "A complimentary $0 order will be recorded and the student will be notified. The student schedules their speaking slot on mock day."}
+                : "A complimentary 0 so'm order will be recorded and the student will be notified. The student schedules their speaking slot on mock day."}
             </p>
           </div>
         )}

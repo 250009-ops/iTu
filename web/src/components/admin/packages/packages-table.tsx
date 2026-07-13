@@ -17,6 +17,7 @@ import {
   packageMatchesTypeTab,
   type PackageTypeTabId,
 } from "@/lib/package-type-tabs";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 const examTypeLabels: Record<AdminPackage["examType"], string> = {
@@ -201,8 +202,7 @@ export function PackagesTable({
                     {examTypeLabels[pkg.examType]}
                   </td>
                   <td className="px-5 py-4 font-semibold tabular-nums text-navy sm:px-6">
-                    ${pkg.price.toLocaleString()}{" "}
-                    <span className="text-xs font-normal text-muted">{pkg.currency}</span>
+                    {formatPrice(pkg.price, pkg.currency)}
                   </td>
                   <td className="px-5 py-4 sm:px-6">
                     <span

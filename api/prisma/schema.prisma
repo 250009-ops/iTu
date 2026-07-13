@@ -297,7 +297,7 @@ model MockTestPackage {
   title           String
   description     String?
   price           Float
-  currency        String   @default("USD")
+  currency        String   @default("UZS")
   examType        ExamType @default(ACADEMIC) @map("exam_type")
   /// Skill-set key (e.g. "listening+reading+writing+speaking") — separate mock-number sequence per kind.
   packageKind     String   @default("listening+reading+writing+speaking") @map("package_kind")
@@ -455,7 +455,7 @@ model Order {
   enrollmentId  String?       @unique @map("enrollment_id")
   packageId     String        @map("package_id")
   amount        Float
-  currency      String        @default("USD")
+  currency      String        @default("UZS")
   paymentMethod PaymentMethod @default(CARD) @map("payment_method")
   status        OrderStatus   @default(PENDING)
   stripePaymentId String?     @map("stripe_payment_id")
@@ -636,7 +636,7 @@ model Payout {
   id         String       @id @default(cuid())
   teacherId  String       @map("teacher_id")
   amount     Float
-  currency   String       @default("USD")
+  currency   String       @default("UZS")
   status     PayoutStatus @default(PENDING)
   periodStart DateTime    @map("period_start")
   periodEnd   DateTime    @map("period_end")

@@ -10,6 +10,7 @@ import { teacherStatusFilterOptions } from "@/lib/admin/constants";
 import type { Examiner, TeacherSpeciality, TeacherStatus } from "@/lib/admin/types";
 import { useAdminTeachers } from "@/contexts/admin-teachers-context";
 import { useToast } from "@/components/ui/toast";
+import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 const statusStyles: Record<
@@ -228,7 +229,7 @@ export function ExaminersTable() {
                       {teacher.sessions.toLocaleString()}
                     </td>
                     <td className="px-5 py-4 font-semibold tabular-nums text-navy sm:px-6">
-                      ${teacher.totalEarned.toLocaleString("en-US")}
+                      {formatPrice(teacher.totalEarned)}
                     </td>
                     <td className="px-5 py-4 text-muted sm:px-6">{teacher.joined}</td>
                     <td className="px-5 py-4 sm:px-6">
