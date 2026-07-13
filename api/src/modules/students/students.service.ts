@@ -8,6 +8,7 @@ import {
   ExamSkill,
   NotificationType,
   Prisma,
+  TicketPriority,
   TicketType,
   UserRole,
 } from '@prisma/client';
@@ -36,6 +37,15 @@ const TICKET_TYPE_MAP: Record<
   teacher_no_show: TicketType.TEACHER_NO_SHOW,
   technical_issue: TicketType.TECHNICAL_ISSUE,
   payment_dispute: TicketType.PAYMENT_DISPUTE,
+  student_conduct: TicketType.STUDENT_CONDUCT,
+};
+
+const DEFAULT_TICKET_PRIORITY: Record<TicketType, TicketPriority> = {
+  REGRADE_REQUEST: TicketPriority.MEDIUM,
+  TEACHER_NO_SHOW: TicketPriority.HIGH,
+  TECHNICAL_ISSUE: TicketPriority.MEDIUM,
+  PAYMENT_DISPUTE: TicketPriority.HIGH,
+  STUDENT_CONDUCT: TicketPriority.HIGH,
 };
 
 @Injectable()
@@ -644,13 +654,17 @@ export class StudentsService {
     const ticketType =
       TICKET_TYPE_MAP[dto.type ?? 'technical_issue'] ??
       TicketType.TECHNICAL_ISSUE;
+    const description = dto.relatedRef?.trim()
+      ? `Related: ${dto.relatedRef.trim()}\n\n${dto.message.trim()}`
+      : dto.message.trim();
 
     const ticket = await this.prisma.supportTicket.create({
       data: {
         ticketCode,
-        subject: dto.subject,
-        description: dto.message,
+        subject: dto.subject.trim(),
+        description,
         type: ticketType,
+        priority: DEFAULT_TICKET_PRIORITY[ticketType],
         userId: user.id,
         enrollmentId: dto.enrollmentId,
         slaProgress: 0,
@@ -675,7 +689,7 @@ export class StudentsService {
         this.notifications.create(
           admin.id,
           'New support ticket',
-          `${ticket.ticketCode}: ${dto.subject}`,
+          `${ticket.ticketCode}: ${user.name}: ${dto.subject}`,
           NotificationType.SYSTEM,
           '/admin/disputes',
         ),
@@ -686,6 +700,8 @@ export class StudentsService {
       id: ticket.id,
       ticketId: ticket.ticketCode,
       status: ticket.status.toLowerCase(),
+      type: ticket.type.toLowerCase(),
+      priority: ticket.priority.toLowerCase(),
     };
   }
 

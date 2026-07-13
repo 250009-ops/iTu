@@ -8,7 +8,12 @@ export type TeacherStatus = "approved" | "pending" | "suspended";
 
 export type TeacherSpeciality = "writing" | "speaking" | "both";
 
-export type OrderStatus = "paid" | "refunded" | "failed" | "pending";
+export type OrderStatus =
+  | "paid"
+  | "complimentary"
+  | "refunded"
+  | "failed"
+  | "pending";
 
 export type PaymentMethod =
   | "visa"
@@ -52,13 +57,16 @@ export type TicketType =
   | "regrade_request"
   | "teacher_no_show"
   | "technical_issue"
-  | "payment_dispute";
+  | "payment_dispute"
+  | "student_conduct";
 
-export type TicketPriority = "urgent" | "high" | "low";
+export type TicketPriority = "urgent" | "high" | "medium" | "low";
 
 export type TicketStatus = "open" | "in_progress" | "resolved";
 
 export type SlaState = "active" | "overdue" | "resolved";
+
+export type TicketReporterRole = "student" | "teacher" | "admin" | "unknown";
 
 export type ReportTimeframe = "jun" | "q2" | "ytd";
 
@@ -142,9 +150,10 @@ export type Ticket = {
   id: string;
   ticketId: string;
   date: string;
-  studentName: string;
+  reporterName: string;
+  reporterRole: TicketReporterRole;
   initials: string;
-  country: string;
+  relatedRef: string | null;
   enrollmentRef: string;
   type: TicketType;
   preview: string;
@@ -155,7 +164,6 @@ export type Ticket = {
     progress?: number;
     tone?: "amber" | "emerald" | "rose";
   };
-  assignee: string | null;
   status: TicketStatus;
 };
 

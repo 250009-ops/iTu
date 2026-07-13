@@ -67,6 +67,7 @@ export const teacherStatusFilterOptions: {
 export const orderStatusFilterOptions = [
   { value: "all", label: "All Status" },
   { value: "paid", label: "Paid" },
+  { value: "complimentary", label: "Complimentary" },
   { value: "refunded", label: "Refunded" },
   { value: "failed", label: "Failed" },
   { value: "pending", label: "Pending" },
@@ -83,6 +84,7 @@ export const disputePriorityFilterOptions = [
   { value: "all", label: "All Priority" },
   { value: "urgent", label: "Urgent" },
   { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
   { value: "low", label: "Low" },
 ] as const;
 
@@ -109,6 +111,11 @@ export const ticketTypeMeta: Record<
     label: "Payment Dispute",
     iconTone: "text-amber-600 bg-amber-100",
     pill: "text-amber-700",
+  },
+  student_conduct: {
+    label: "Student Conduct",
+    iconTone: "text-orange-600 bg-orange-100",
+    pill: "text-orange-700",
   },
 };
 

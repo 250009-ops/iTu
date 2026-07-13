@@ -141,6 +141,7 @@ enum TicketType {
   TEACHER_NO_SHOW
   TECHNICAL_ISSUE
   PAYMENT_DISPUTE
+  STUDENT_CONDUCT
 }
 
 enum TicketPriority {

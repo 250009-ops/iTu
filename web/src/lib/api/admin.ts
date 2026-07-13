@@ -556,8 +556,13 @@ export function getAdminDisputes() {
       priority: string;
       status: string;
       subject: string;
+      description?: string;
+      preview?: string;
       sla: { state: string; progress: number };
-      assignee?: string;
+      reporter?: { id: string; name: string; role: string } | null;
+      relatedStudent?: string | null;
+      relatedRef?: string | null;
+      enrollmentRef?: string | null;
       createdAt: string;
     }[]
   >("/admin/disputes");

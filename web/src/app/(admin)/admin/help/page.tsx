@@ -1,8 +1,7 @@
-import type { Metadata } from "next";
-import { HelpCenter } from "@/components/portal/help-center";
+"use client";
 
-export const metadata: Metadata = { title: "Help & Support" };
+import { HelpSupportView } from "@/components/portal/help-support-view";
 
 export default function AdminHelpPage() {
-  return <HelpCenter />;
+  return <HelpSupportView role="admin" />;
 }

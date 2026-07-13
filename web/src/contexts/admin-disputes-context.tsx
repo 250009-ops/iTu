@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   type ReactNode,
 } from "react";
@@ -12,6 +13,8 @@ import { mapDisputes } from "@/lib/api/mappers/admin";
 import { useApiQuery } from "@/hooks/use-api-query";
 import type { Ticket } from "@/lib/admin/types";
 
+const POLL_MS = 20_000;
+
 type DisputesValue = {
   loading: boolean;
   error: string | null;
@@ -19,6 +22,7 @@ type DisputesValue = {
   summary: ReturnType<typeof mapDisputes>["summary"];
   ticketsByType: ReturnType<typeof mapDisputes>["ticketsByType"];
   resolveTicket: (id: string) => Promise<void>;
+  refresh: (opts?: { silent?: boolean }) => Promise<void>;
 };
 
 const AdminDisputesContext = createContext<DisputesValue | null>(null);
@@ -26,10 +30,17 @@ const AdminDisputesContext = createContext<DisputesValue | null>(null);
 export function AdminDisputesProvider({ children }: { children: ReactNode }) {
   const { data, loading, error, refresh } = useApiQuery(getAdminDisputes);
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refresh({ silent: true });
+    }, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [refresh]);
+
   const resolveTicket = useCallback(
     async (id: string) => {
       await updateTicket(id, { status: "RESOLVED" });
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -49,8 +60,9 @@ export function AdminDisputesProvider({ children }: { children: ReactNode }) {
       },
       ticketsByType: mapped?.ticketsByType ?? [],
       resolveTicket,
+      refresh,
     };
-  }, [data, loading, error, resolveTicket]);
+  }, [data, loading, error, resolveTicket, refresh]);
 
   return (
     <AdminDisputesContext.Provider value={value}>

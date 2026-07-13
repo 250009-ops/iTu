@@ -11,16 +11,25 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ContactInquiryDto } from './dto/contact-inquiry.dto';
-import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
+import {
+  CreateSupportTicketDto,
+  SupportTicketType,
+} from './dto/create-support-ticket.dto';
 
-const TICKET_TYPE_MAP: Record<
-  NonNullable<CreateSupportTicketDto['type']>,
-  TicketType
-> = {
+const TICKET_TYPE_MAP: Record<SupportTicketType, TicketType> = {
   regrade_request: TicketType.REGRADE_REQUEST,
   teacher_no_show: TicketType.TEACHER_NO_SHOW,
   technical_issue: TicketType.TECHNICAL_ISSUE,
   payment_dispute: TicketType.PAYMENT_DISPUTE,
+  student_conduct: TicketType.STUDENT_CONDUCT,
+};
+
+const DEFAULT_PRIORITY: Record<TicketType, TicketPriority> = {
+  REGRADE_REQUEST: TicketPriority.MEDIUM,
+  TEACHER_NO_SHOW: TicketPriority.HIGH,
+  TECHNICAL_ISSUE: TicketPriority.MEDIUM,
+  PAYMENT_DISPUTE: TicketPriority.HIGH,
+  STUDENT_CONDUCT: TicketPriority.HIGH,
 };
 
 const CONTACT_TOPIC_TYPE: Record<ContactInquiryDto['topic'], TicketType> = {
@@ -73,12 +82,17 @@ export class SupportService {
       TICKET_TYPE_MAP[dto.type ?? 'technical_issue'] ??
       TicketType.TECHNICAL_ISSUE;
 
+    const description = dto.relatedRef?.trim()
+      ? `Related: ${dto.relatedRef.trim()}\n\n${dto.message.trim()}`
+      : dto.message.trim();
+
     const ticket = await this.prisma.supportTicket.create({
       data: {
         ticketCode,
-        subject: dto.subject,
-        description: dto.message,
+        subject: dto.subject.trim(),
+        description,
         type: ticketType,
+        priority: DEFAULT_PRIORITY[ticketType],
         userId: user.id,
         enrollmentId:
           user.role === UserRole.STUDENT ? dto.enrollmentId : undefined,
@@ -111,7 +125,38 @@ export class SupportService {
       id: ticket.id,
       ticketId: ticket.ticketCode,
       status: ticket.status.toLowerCase(),
+      type: ticket.type.toLowerCase(),
+      priority: ticket.priority.toLowerCase(),
     };
+  }
+
+  async listMyTickets(user: RequestUser) {
+    const tickets = await this.prisma.supportTicket.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        ticketCode: true,
+        subject: true,
+        type: true,
+        priority: true,
+        status: true,
+        createdAt: true,
+        resolvedAt: true,
+      },
+    });
+
+    return tickets.map((t) => ({
+      id: t.id,
+      ticketId: t.ticketCode,
+      subject: t.subject,
+      type: t.type.toLowerCase(),
+      priority: t.priority.toLowerCase(),
+      status: t.status.toLowerCase(),
+      createdAt: t.createdAt,
+      resolvedAt: t.resolvedAt,
+    }));
   }
 
   async submitContactInquiry(dto: ContactInquiryDto) {

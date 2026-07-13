@@ -6,6 +6,7 @@ import {
   CreditCard,
   Monitor,
   Search,
+  ShieldAlert,
   UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ const typeIcons: Record<TicketType, typeof ClipboardList> = {
   teacher_no_show: UserX,
   technical_issue: Monitor,
   payment_dispute: CreditCard,
+  student_conduct: ShieldAlert,
 };
 
 const priorityStyles: Record<
@@ -47,6 +49,11 @@ const priorityStyles: Record<
     label: "High",
     dot: "bg-amber-500",
     pill: "bg-amber-50 text-amber-700",
+  },
+  medium: {
+    label: "Medium",
+    dot: "bg-sky-500",
+    pill: "bg-sky-50 text-sky-700",
   },
   low: {
     label: "Low",
@@ -82,11 +89,20 @@ const slaBarColors = {
   rose: "bg-rose-500",
 };
 
-function SlaCell({
-  sla,
-}: {
-  sla: Ticket["sla"];
-}) {
+function roleLabel(role: Ticket["reporterRole"]) {
+  if (role === "teacher") return "Teacher";
+  if (role === "student") return "Student";
+  if (role === "admin") return "Admin";
+  return "Reporter";
+}
+
+function notifyCopy(role: Ticket["reporterRole"]) {
+  if (role === "teacher") return "The teacher who filed this request will be notified.";
+  if (role === "student") return "The student who filed this request will be notified.";
+  return "The reporter will be notified.";
+}
+
+function SlaCell({ sla }: { sla: Ticket["sla"] }) {
   if (sla.state === "resolved") {
     return (
       <span className="text-sm font-semibold text-emerald-600">{sla.label}</span>
@@ -133,8 +149,6 @@ export function DisputesTable() {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
-  const rows = tickets;
-
   async function handleResolve() {
     if (!resolving) return;
     const target = resolving;
@@ -142,7 +156,7 @@ export function DisputesTable() {
     try {
       await resolveTicket(target.id);
       toast(`${target.ticketId} resolved`, {
-        description: `${target.studentName}'s ticket has been closed.`,
+        description: `${target.reporterName}'s ticket has been closed.`,
         variant: "success",
       });
       setResolving(null);
@@ -157,26 +171,28 @@ export function DisputesTable() {
   }
 
   const filtered = useMemo(() => {
-    return rows.filter((ticket) => {
+    return tickets.filter((ticket) => {
       const matchesStatus =
         statusFilter === "all" || ticket.status === statusFilter;
       const matchesPriority =
         priorityFilter === "all" || ticket.priority === priorityFilter;
+      const q = query.trim().toLowerCase();
       const matchesQuery =
-        !query.trim() ||
-        ticket.studentName.toLowerCase().includes(query.toLowerCase()) ||
-        ticket.ticketId.toLowerCase().includes(query.toLowerCase()) ||
-        ticket.preview.toLowerCase().includes(query.toLowerCase());
+        !q ||
+        ticket.reporterName.toLowerCase().includes(q) ||
+        ticket.ticketId.toLowerCase().includes(q) ||
+        ticket.preview.toLowerCase().includes(q) ||
+        (ticket.relatedRef?.toLowerCase().includes(q) ?? false);
       return matchesStatus && matchesPriority && matchesQuery;
     });
-  }, [rows, query, statusFilter, priorityFilter]);
+  }, [tickets, query, statusFilter, priorityFilter]);
 
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <h2 className="font-semibold text-navy">All Tickets</h2>
         <p className="mt-0.5 text-sm text-muted">
-          Sorted by priority — SLA countdown active for open tickets.
+          Sorted by newest — SLA countdown active for open tickets. Auto-refreshes.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <div className="relative min-w-0 flex-1 sm:max-w-xs">
@@ -223,11 +239,10 @@ export function DisputesTable() {
           <thead>
             <tr className="border-b border-border bg-slate-50 text-xs font-semibold uppercase tracking-wide text-muted">
               <th className="px-5 py-3 sm:px-6">Ticket</th>
-              <th className="px-5 py-3 sm:px-6">Student</th>
+              <th className="px-5 py-3 sm:px-6">Reporter</th>
               <th className="px-5 py-3 sm:px-6">Type &amp; Preview</th>
               <th className="px-5 py-3 sm:px-6">Priority</th>
               <th className="px-5 py-3 sm:px-6">SLA</th>
-              <th className="px-5 py-3 sm:px-6">Assignee</th>
               <th className="px-5 py-3 sm:px-6">Status</th>
               <th className="px-5 py-3 sm:px-6">Actions</th>
             </tr>
@@ -236,7 +251,7 @@ export function DisputesTable() {
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={7}
                   className="px-5 py-8 text-center text-muted sm:px-6"
                 >
                   No tickets found.
@@ -266,10 +281,15 @@ export function DisputesTable() {
                         </div>
                         <div>
                           <p className="font-semibold text-navy">
-                            {ticket.studentName}
+                            {ticket.reporterName}
                           </p>
                           <p className="text-xs text-muted">
-                            {ticket.country} · {ticket.enrollmentRef}
+                            {roleLabel(ticket.reporterRole)}
+                            {ticket.relatedRef
+                              ? ` · ${ticket.relatedRef}`
+                              : ticket.enrollmentRef !== "—"
+                                ? ` · ${ticket.enrollmentRef}`
+                                : ""}
                           </p>
                         </div>
                       </div>
@@ -316,17 +336,6 @@ export function DisputesTable() {
                       <SlaCell sla={ticket.sla} />
                     </td>
                     <td className="px-5 py-4 sm:px-6">
-                      {ticket.assignee ? (
-                        <span className="text-sm text-navy">
-                          {ticket.assignee}
-                        </span>
-                      ) : (
-                        <span className="text-sm italic text-muted">
-                          Unassigned
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 sm:px-6">
                       <span
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
@@ -347,10 +356,13 @@ export function DisputesTable() {
                             size="sm"
                             className="h-8 px-3"
                             onClick={() =>
-                              toast(`${ticket.ticketId} · ${ticket.studentName}`, {
-                                description: ticket.preview,
-                                variant: "info",
-                              })
+                              toast(
+                                `${ticket.ticketId} · ${ticket.reporterName}`,
+                                {
+                                  description: ticket.preview,
+                                  variant: "info",
+                                },
+                              )
                             }
                           >
                             View
@@ -370,10 +382,13 @@ export function DisputesTable() {
                           size="sm"
                           className="h-8 px-3"
                           onClick={() =>
-                            toast(`${ticket.ticketId} · ${ticket.studentName}`, {
-                              description: ticket.preview,
-                              variant: "info",
-                            })
+                            toast(
+                              `${ticket.ticketId} · ${ticket.reporterName}`,
+                              {
+                                description: ticket.preview,
+                                variant: "info",
+                              },
+                            )
                           }
                         >
                           View
@@ -399,7 +414,7 @@ export function DisputesTable() {
         title="Resolve ticket"
         message={
           resolving
-            ? `Mark ${resolving.ticketId} (${resolving.studentName}) as resolved? The student will be notified.`
+            ? `Mark ${resolving.ticketId} (${resolving.reporterName}) as resolved? ${notifyCopy(resolving.reporterRole)}`
             : ""
         }
         confirmLabel={busy ? "Resolving…" : "Resolve ticket"}

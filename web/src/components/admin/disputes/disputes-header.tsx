@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Download, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -9,6 +10,7 @@ import { exportDisputesCsv } from "@/lib/admin/export";
 export function DisputesHeader() {
   const { toast } = useToast();
   const { tickets } = useAdminDisputes();
+  const router = useRouter();
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -18,7 +20,8 @@ export function DisputesHeader() {
           Disputes &amp; Support
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Ticket queue · SLA tracking · Resolution management.
+          Support queue from Student &amp; Teacher Help · SLA tracking · Resolve
+          notifies the reporter.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -38,12 +41,7 @@ export function DisputesHeader() {
         <Button
           variant="primary"
           size="sm"
-          onClick={() =>
-            toast("New ticket", {
-              description: "Open a support ticket on behalf of a user soon.",
-              variant: "info",
-            })
-          }
+          onClick={() => router.push("/admin/help")}
         >
           <Plus className="h-4 w-4" />
           New Ticket

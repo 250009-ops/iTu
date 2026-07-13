@@ -25,6 +25,11 @@ const statusStyles: Record<
     dot: "bg-emerald-500",
     pill: "bg-emerald-50 text-emerald-700",
   },
+  complimentary: {
+    label: "Complimentary",
+    dot: "bg-sky-500",
+    pill: "bg-sky-50 text-sky-700",
+  },
   refunded: {
     label: "Refunded",
     dot: "bg-slate-400",

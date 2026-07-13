@@ -67,10 +67,12 @@ export function useApiQuery<T>(
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!canFetch) return;
 
-    setLoading(true);
+    if (!opts?.silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -79,7 +81,9 @@ export function useApiQuery<T>(
     } catch (err) {
       setError(getErrorMessage(err, "Request failed"));
     } finally {
-      setLoading(false);
+      if (!opts?.silent) {
+        setLoading(false);
+      }
     }
   }, [canFetch]);
 

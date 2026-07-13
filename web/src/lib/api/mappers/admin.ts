@@ -107,8 +107,27 @@ function normalizeTeacherSpeciality(value: string): TeacherSpeciality {
 
 function normalizeOrderStatus(status: string): OrderStatus {
   const s = status.toLowerCase();
-  if (s === "paid" || s === "refunded" || s === "failed" || s === "pending") return s;
+  if (
+    s === "paid" ||
+    s === "complimentary" ||
+    s === "refunded" ||
+    s === "failed" ||
+    s === "pending"
+  ) {
+    return s;
+  }
   return "pending";
+}
+
+/** Paid checkout only — free admin grants / reappointments are not revenue. */
+function isPaidCheckoutOrder(order: {
+  status: OrderStatus;
+  paymentMethod: string;
+}): boolean {
+  return (
+    order.status === "paid" &&
+    !String(order.paymentMethod).toLowerCase().includes("complimentary")
+  );
 }
 
 function normalizeTicketType(type: string): TicketType {
@@ -117,11 +136,13 @@ function normalizeTicketType(type: string): TicketType {
     t === "regrade_request" ||
     t === "teacher_no_show" ||
     t === "technical_issue" ||
-    t === "payment_dispute"
+    t === "payment_dispute" ||
+    t === "student_conduct"
   ) {
     return t;
   }
   if (t.includes("regrade")) return "regrade_request";
+  if (t.includes("conduct") || t.includes("misbehav")) return "student_conduct";
   if (t.includes("no_show") || t.includes("noshow")) return "teacher_no_show";
   if (t.includes("payment")) return "payment_dispute";
   return "technical_issue";
@@ -129,8 +150,8 @@ function normalizeTicketType(type: string): TicketType {
 
 function normalizeTicketPriority(priority: string): TicketPriority {
   const p = priority.toLowerCase();
-  if (p === "urgent" || p === "high" || p === "low") return p;
-  return "low";
+  if (p === "urgent" || p === "high" || p === "medium" || p === "low") return p;
+  return "medium";
 }
 
 function normalizeTicketStatus(status: string): TicketStatus {
@@ -392,6 +413,12 @@ export function mapOrders(payload: Orders) {
   const orders = payload.orders ?? [];
   const mapped: Order[] = orders.map((o, i) => {
     const method = normalizePaymentMethod(o.paymentMethod);
+    const rawStatus = normalizeOrderStatus(o.status);
+    // Free grants stay PAID in DB for fulfillment, but admin UI must not treat them as paid.
+    const status: OrderStatus =
+      rawStatus === "paid" && method === "complimentary"
+        ? "complimentary"
+        : rawStatus;
     return {
       id: o.id || o.orderId || String(i),
       orderId: o.orderId,
@@ -403,22 +430,19 @@ export function mapOrders(payload: Orders) {
       paymentLabel: paymentLabel(o.paymentMethod),
       date: formatDate(o.createdAt),
       amount: o.amount,
-      status: normalizeOrderStatus(o.status),
+      status,
     };
   });
 
   const monthlyRevenue = payload.monthlyRevenue ?? [];
   const fallbackTrend = formatRevenueTrendFromMonthly(monthlyRevenue);
+  const paidCheckout = mapped.filter(isPaidCheckoutOrder);
 
   const summary = payload.summary ?? {
-    revenueCollected: mapped
-      .filter((o) => o.status === "paid")
-      .reduce((s, o) => s + o.amount, 0),
+    revenueCollected: paidCheckout.reduce((s, o) => s + o.amount, 0),
     revenueTrend: fallbackTrend,
-    paidOrders: mapped.filter((o) => o.status === "paid").length,
-    paidTotal: mapped
-      .filter((o) => o.status === "paid")
-      .reduce((s, o) => s + o.amount, 0),
+    paidOrders: paidCheckout.length,
+    paidTotal: paidCheckout.reduce((s, o) => s + o.amount, 0),
     refundsIssued: mapped.filter((o) => o.status === "refunded").length,
     refundTotal: mapped
       .filter((o) => o.status === "refunded")
@@ -462,21 +486,35 @@ function mapSla(sla: { state: string; progress: number }) {
 }
 
 export function mapDisputes(disputes: Disputes) {
-  const tickets: Ticket[] = disputes.map((d, i) => ({
-    id: d.id || d.ticketId || String(i),
-    ticketId: d.ticketId,
-    date: formatDate(d.createdAt),
-    studentName: d.subject.split("·")[0]?.trim() || d.subject,
-    initials: initials(d.subject.split("·")[0]?.trim() || "ST"),
-    country: "—",
-    enrollmentRef: "—",
-    type: normalizeTicketType(d.type),
-    preview: d.subject,
-    priority: normalizeTicketPriority(d.priority),
-    sla: mapSla(d.sla),
-    assignee: d.assignee ?? null,
-    status: normalizeTicketStatus(d.status),
-  }));
+  const tickets: Ticket[] = disputes.map((d, i) => {
+    const roleRaw = d.reporter?.role?.toLowerCase() ?? "";
+    const reporterRole: Ticket["reporterRole"] =
+      roleRaw === "student" || roleRaw === "teacher" || roleRaw === "admin"
+        ? roleRaw
+        : "unknown";
+    const reporterName = d.reporter?.name?.trim() || "Unknown reporter";
+    const related =
+      d.relatedRef?.trim() ||
+      d.relatedStudent?.trim() ||
+      d.enrollmentRef?.trim() ||
+      null;
+
+    return {
+      id: d.id || d.ticketId || String(i),
+      ticketId: d.ticketId,
+      date: formatDate(d.createdAt),
+      reporterName,
+      reporterRole,
+      initials: initials(reporterName),
+      relatedRef: related,
+      enrollmentRef: d.enrollmentRef ?? "—",
+      type: normalizeTicketType(d.type),
+      preview: d.subject,
+      priority: normalizeTicketPriority(d.priority),
+      sla: mapSla(d.sla),
+      status: normalizeTicketStatus(d.status),
+    };
+  });
 
   const open = tickets.filter((t) => t.status === "open");
   const inProgress = tickets.filter((t) => t.status === "in_progress");
@@ -501,7 +539,9 @@ export function mapDisputes(disputes: Disputes) {
           ? "Teacher No-show"
           : t.type === "payment_dispute"
             ? "Payment Dispute"
-            : "Technical Issue";
+            : t.type === "student_conduct"
+              ? "Student Conduct"
+              : "Technical Issue";
     typeCounts.set(label, (typeCounts.get(label) ?? 0) + 1);
   }
   const max = Math.max(1, ...typeCounts.values());
@@ -509,6 +549,7 @@ export function mapDisputes(disputes: Disputes) {
     "Regrade Request": "bg-violet-500",
     "Teacher No-show": "bg-rose-500",
     "Payment Dispute": "bg-amber-500",
+    "Student Conduct": "bg-orange-500",
     "Technical Issue": "bg-sky-500",
   };
   const ticketsByType = Array.from(typeCounts.entries()).map(([type, count]) => ({

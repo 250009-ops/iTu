@@ -13,6 +13,7 @@ import {
   Prisma,
   ResultsStatus,
   SlotStatus,
+  UserRole,
 } from '@prisma/client';
 import {
   ACTIVE_PACKAGE_ENROLLMENT_STATUSES,
@@ -199,7 +200,10 @@ export class AdminService {
     ] = await Promise.all([
       this.prisma.enrollment.count(),
       this.prisma.order.aggregate({
-        where: { status: 'PAID' },
+        where: {
+          status: 'PAID',
+          paymentMethod: { not: 'COMPLIMENTARY' },
+        },
         _sum: { amount: true },
       }),
       this.prisma.supportTicket.count({
@@ -209,6 +213,7 @@ export class AdminService {
       this.prisma.order.findMany({
         where: {
           status: 'PAID',
+          paymentMethod: { not: 'COMPLIMENTARY' },
           createdAt: { gte: revenueWindowStart },
         },
         select: { amount: true, createdAt: true },
@@ -1202,6 +1207,7 @@ export class AdminService {
       this.prisma.order.findMany({
         where: {
           status: 'PAID',
+          paymentMethod: { not: 'COMPLIMENTARY' },
           createdAt: {
             gte: new Date(
               new Date().getFullYear(),
@@ -1217,17 +1223,27 @@ export class AdminService {
     const syncedAt = new Date();
     const monthlyRevenue = this.buildMonthlyRevenue(monthlyOrders, syncedAt);
 
-    const mapped = orders.map((o) => ({
-      id: o.id,
-      orderId: o.orderCode,
-      studentName: o.student.user.name,
-      enrollmentRef: o.enrollment?.enrollmentCode,
-      package: o.package.title,
-      paymentMethod: o.paymentMethod.toLowerCase(),
-      amount: o.amount,
-      status: o.status.toLowerCase(),
-      createdAt: o.createdAt,
-    }));
+    const mapped = orders.map((o) => {
+      const paymentMethod = o.paymentMethod.toLowerCase();
+      const rawStatus = o.status.toLowerCase();
+      // Keep PAID in DB for fulfillment, but surface grants separately in admin.
+      const status =
+        rawStatus === 'paid' && paymentMethod === 'complimentary'
+          ? 'complimentary'
+          : rawStatus;
+
+      return {
+        id: o.id,
+        orderId: o.orderCode,
+        studentName: o.student.user.name,
+        enrollmentRef: o.enrollment?.enrollmentCode,
+        package: o.package.title,
+        paymentMethod,
+        amount: o.amount,
+        status,
+        createdAt: o.createdAt,
+      };
+    });
 
     const paid = mapped.filter((o) => o.status === 'paid');
     const refunded = mapped.filter((o) => o.status === 'refunded');
@@ -1252,24 +1268,56 @@ export class AdminService {
 
   async getDisputes() {
     const tickets = await this.prisma.supportTicket.findMany({
-      include: { assignee: true, enrollment: true },
+      include: {
+        user: { select: { id: true, name: true, role: true } },
+        enrollment: {
+          select: {
+            enrollmentCode: true,
+            student: { select: { user: { select: { name: true } } } },
+            package: { select: { title: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
-    return tickets.map((t) => ({
-      id: t.id,
-      ticketId: t.ticketCode,
-      type: t.type.toLowerCase(),
-      priority: t.priority.toLowerCase(),
-      status: t.status.toLowerCase(),
-      subject: t.subject,
-      sla: {
-        state: t.slaState.toLowerCase(),
-        progress: t.slaProgress,
-      },
-      assignee: t.assignee?.name,
-      createdAt: t.createdAt,
-    }));
+    return tickets.map((t) => {
+      const relatedFromDescription = t.description.startsWith('Related:')
+        ? t.description.split('\n')[0]?.replace(/^Related:\s*/i, '').trim()
+        : null;
+      const enrollmentStudent = t.enrollment?.student?.user?.name ?? null;
+      const enrollmentRef = t.enrollment?.enrollmentCode ?? null;
+
+      return {
+        id: t.id,
+        ticketId: t.ticketCode,
+        type: t.type.toLowerCase(),
+        priority: t.priority.toLowerCase(),
+        status: t.status.toLowerCase(),
+        subject: t.subject,
+        description: t.description,
+        preview: t.subject,
+        sla: {
+          state: t.slaState.toLowerCase(),
+          progress: t.slaProgress,
+        },
+        reporter: t.user
+          ? {
+              id: t.user.id,
+              name: t.user.name,
+              role: t.user.role.toLowerCase(),
+            }
+          : null,
+        relatedStudent: enrollmentStudent,
+        relatedRef:
+          relatedFromDescription ||
+          (enrollmentRef
+            ? `${enrollmentRef}${t.enrollment?.package?.title ? ` · ${t.enrollment.package.title}` : ''}`
+            : null),
+        enrollmentRef,
+        createdAt: t.createdAt,
+      };
+    });
   }
 
   async getReports() {
@@ -1286,7 +1334,10 @@ export class AdminService {
         _count: true,
       }),
       this.prisma.order.aggregate({
-        where: { status: 'PAID' },
+        where: {
+          status: 'PAID',
+          paymentMethod: { not: 'COMPLIMENTARY' },
+        },
         _sum: { amount: true },
         _count: true,
       }),
@@ -1298,6 +1349,7 @@ export class AdminService {
       this.prisma.order.findMany({
         where: {
           status: 'PAID',
+          paymentMethod: { not: 'COMPLIMENTARY' },
           createdAt: { gte: revenueWindowStart },
         },
         select: { amount: true, createdAt: true },
@@ -2121,9 +2173,11 @@ export class AdminService {
         ? { connect: { id: dto.assigneeId } }
         : { disconnect: true };
     }
+    const resolving =
+      dto.status === 'RESOLVED' || dto.status === 'CLOSED';
     if (dto.status !== undefined) {
       data.status = dto.status;
-      if (dto.status === 'RESOLVED' || dto.status === 'CLOSED') {
+      if (resolving) {
         data.resolvedAt = new Date();
         data.slaState = 'ON_TRACK';
         data.slaProgress = 100;
@@ -2135,6 +2189,25 @@ export class AdminService {
     }
 
     const updated = await this.prisma.supportTicket.update({ where: { id }, data });
+
+    if (resolving && ticket.userId) {
+      const helpPath =
+        (
+          await this.prisma.user.findUnique({
+            where: { id: ticket.userId },
+            select: { role: true },
+          })
+        )?.role === UserRole.TEACHER
+          ? '/teacher/help'
+          : '/student/help';
+      await this.notifications.create(
+        ticket.userId,
+        'Support ticket resolved',
+        `${ticket.ticketCode} (“${ticket.subject}”) has been resolved by the support team.`,
+        NotificationType.INFO,
+        helpPath,
+      );
+    }
 
     await this.audit.log({
       userId: actorId,

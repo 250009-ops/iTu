@@ -5,6 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { SUPPORT_TICKET_TYPES } from '../../support/dto/create-support-ticket.dto';
 
 export class CreateSupportTicketDto {
   @IsString()
@@ -18,19 +19,15 @@ export class CreateSupportTicketDto {
   message: string;
 
   @IsOptional()
-  @IsIn([
-    'regrade_request',
-    'teacher_no_show',
-    'technical_issue',
-    'payment_dispute',
-  ])
-  type?:
-    | 'regrade_request'
-    | 'teacher_no_show'
-    | 'technical_issue'
-    | 'payment_dispute';
+  @IsIn([...SUPPORT_TICKET_TYPES])
+  type?: (typeof SUPPORT_TICKET_TYPES)[number];
 
   @IsOptional()
   @IsString()
   enrollmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  relatedRef?: string;
 }

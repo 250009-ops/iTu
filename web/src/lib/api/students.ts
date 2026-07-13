@@ -196,8 +196,10 @@ export function createSupportTicket(body: {
     | "regrade_request"
     | "teacher_no_show"
     | "technical_issue"
-    | "payment_dispute";
+    | "payment_dispute"
+    | "student_conduct";
   enrollmentId?: string;
+  relatedRef?: string;
 }) {
   return apiFetch<{ id: string; ticketId: string; status: string }>(
     "/students/support-tickets",

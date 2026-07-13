@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { HelpCenter } from "@/components/portal/help-center";
+import { TeacherHelpPage } from "@/components/teacher/help/teacher-help-page";
 
-export const metadata: Metadata = { title: "Help & Support" };
-
-export default function TeacherHelpPage() {
-  return <HelpCenter />;
+export default function TeacherHelpRoute() {
+  return <TeacherHelpPage />;
 }

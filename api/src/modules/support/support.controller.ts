@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -16,6 +16,12 @@ export class SupportController {
   @Post('contact')
   submitContact(@Body() dto: ContactInquiryDto) {
     return this.support.submitContactInquiry(dto);
+  }
+
+  @ApiBearerAuth()
+  @Get('tickets/mine')
+  listMyTickets(@CurrentUser() user: RequestUser) {
+    return this.support.listMyTickets(user);
   }
 
   @ApiBearerAuth()
