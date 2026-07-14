@@ -147,7 +147,7 @@ export default async function ForStudentsPage() {
         </Section>
       )}
 
-      <StatsBand stats={stats} />
+      {stats.length > 0 ? <StatsBand stats={stats} /> : null}
     </>
   );
 }

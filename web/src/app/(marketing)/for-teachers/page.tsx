@@ -6,6 +6,7 @@ import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reve
 import { EarningsCalculator } from "@/components/marketing/shared/earnings-calculator";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchHeroStats } from "@/lib/marketing/server-data";
+import { examinerCtaCopy, examinerHeadlineCopy } from "@/lib/marketing/social-proof";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -45,7 +46,7 @@ export default async function ForTeachersPage() {
       <PageHero
         eyebrow="For Examiners"
         title="Turn your expertise into income"
-        subtitle={`Certified examiner? Join ${stats.examiners} professionals earning from flexible, fully remote IELTS grading and live Speaking sessions.`}
+        subtitle={examinerHeadlineCopy(stats.examiners)}
       >
         <CtaButton href="/register/teacher" variant="primary" size="lg" withArrow className="mt-4">
           Apply to become an examiner
@@ -124,7 +125,7 @@ export default async function ForTeachersPage() {
       <FinalCta
         eyebrow="Join the team"
         title="Ready to start earning?"
-        subtitle={`Join ${stats.examiners} certified examiners already on the platform. The application takes 10 minutes.`}
+        subtitle={examinerCtaCopy(stats.examiners)}
         primaryHref="/register/teacher"
         primaryLabel="Apply to become an examiner"
       />

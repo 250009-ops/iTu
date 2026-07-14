@@ -1,11 +1,7 @@
 import { API_BASE_URL } from "@/lib/api/config";
 import { SPECIALITY_ACCENT } from "@/components/marketing/ui/accents";
 import {
-  STATS,
-  TOP_STUDENTS,
-  TOP_TEACHERS,
   PACKAGES,
-  MARKETING_TESTIMONIALS,
   type AccentColor,
   type TopStudent,
   type TopTeacher,
@@ -14,6 +10,7 @@ import {
   type Testimonial,
   type SkillId,
 } from "./data";
+import { formatSocialCount, SOCIAL_PROOF_MIN } from "./social-proof";
 
 const ACCENT_CYCLE: AccentColor[] = ["sky", "emerald", "violet", "rose"];
 
@@ -52,62 +49,94 @@ type ApiStats = {
 };
 
 export type HeroStats = {
-  candidates: string;
-  mocks: string;
-  rating: string;
-  examiners: string;
+  candidates: string | null;
+  mocks: string | null;
+  rating: string | null;
+  examiners: string | null;
   candidatesRaw: number;
   examinersRaw: number;
+  mocksRaw: number;
+  ratingRaw: number | null;
 };
 
-const HERO_STATS_FALLBACK: HeroStats = {
-  candidates: "9,500+",
-  mocks: "9,500+",
-  rating: "4.9",
-  examiners: "320+",
-  candidatesRaw: 9500,
-  examinersRaw: 320,
+const EMPTY_HERO_STATS: HeroStats = {
+  candidates: null,
+  mocks: null,
+  rating: null,
+  examiners: null,
+  candidatesRaw: 0,
+  examinersRaw: 0,
+  mocksRaw: 0,
+  ratingRaw: null,
 };
 
-function withPlus(n: number): string {
-  return `${n.toLocaleString()}+`;
-}
+export type MarketingStat = {
+  id: string;
+  value: number;
+  label: string;
+  prefix?: string;
+  suffix?: string;
+  decimals?: number;
+};
 
-/** Formatted platform-stat strings for hero/CTA copy, with static fallback. */
+/** Formatted platform-stat strings for hero/CTA copy. Counts hidden below SOCIAL_PROOF_MIN. */
 export async function fetchHeroStats(): Promise<HeroStats> {
   const s = await get<ApiStats>("/marketing/stats");
-  if (!s) return HERO_STATS_FALLBACK;
+  if (!s) return EMPTY_HERO_STATS;
   return {
-    candidates: withPlus(s.candidates),
-    mocks: withPlus(s.mocksDelivered),
-    rating: (s.examinerRating ?? 4.9).toFixed(1),
-    examiners: withPlus(s.certifiedExaminers),
+    candidates: formatSocialCount(s.candidates),
+    mocks: formatSocialCount(s.mocksDelivered),
+    rating: s.examinerRating != null ? s.examinerRating.toFixed(1) : null,
+    examiners: formatSocialCount(s.certifiedExaminers),
     candidatesRaw: s.candidates,
     examinersRaw: s.certifiedExaminers,
+    mocksRaw: s.mocksDelivered,
+    ratingRaw: s.examinerRating,
   };
 }
 
-export async function fetchStats(): Promise<typeof STATS> {
+export async function fetchStats(): Promise<MarketingStat[]> {
   const s = await get<ApiStats>("/marketing/stats");
-  if (!s) return STATS;
-  return [
-    { id: "mocks", value: s.mocksDelivered, suffix: "+", label: "Mocks delivered" },
-    {
+  if (!s) return [];
+
+  const stats: MarketingStat[] = [];
+
+  if (s.mocksDelivered >= SOCIAL_PROOF_MIN) {
+    stats.push({
+      id: "mocks",
+      value: s.mocksDelivered,
+      suffix: "+",
+      label: "Mocks delivered",
+    });
+  }
+  if (s.avgBandImprovement != null) {
+    stats.push({
       id: "improvement",
       prefix: "+",
-      value: s.avgBandImprovement ?? 1.5,
+      value: s.avgBandImprovement,
       decimals: 1,
       label: "Avg. band improvement",
-    },
-    {
+    });
+  }
+  if (s.examinerRating != null) {
+    stats.push({
       id: "rating",
-      value: s.examinerRating ?? 4.9,
+      value: s.examinerRating,
       decimals: 1,
       suffix: "★",
       label: "Examiner rating",
-    },
-    { id: "examiners", value: s.certifiedExaminers, suffix: "+", label: "Certified examiners" },
-  ] as unknown as typeof STATS;
+    });
+  }
+  if (s.certifiedExaminers >= SOCIAL_PROOF_MIN) {
+    stats.push({
+      id: "examiners",
+      value: s.certifiedExaminers,
+      suffix: "+",
+      label: "Certified examiners",
+    });
+  }
+
+  return stats;
 }
 
 // ─── Teachers ──────────────────────────────────────────────────────────────────
@@ -161,14 +190,14 @@ function mapTeacher(t: ApiTeacher): TopTeacher {
 
 export async function fetchTeachers(): Promise<TopTeacher[]> {
   const data = await get<ApiTeacher[]>("/marketing/teachers");
-  if (!data || data.length === 0) return TOP_TEACHERS;
+  if (!data || data.length === 0) return [];
   return data.map(mapTeacher);
 }
 
 export async function fetchTeacher(slug: string): Promise<TopTeacher | null> {
   const data = await get<ApiTeacher | null>(`/marketing/teachers/${slug}`);
   if (data) return mapTeacher(data);
-  return TOP_TEACHERS.find((t) => t.slug === slug) ?? null;
+  return null;
 }
 
 // ─── Packages ───────────────────────────────────────────────────────────────────
@@ -191,7 +220,6 @@ type ApiPackage = {
 
 export async function fetchPackages(): Promise<MockPackage[]> {
   const data = await get<ApiPackage[]>("/catalog/packages");
-  // Only use static demo data when the API is unreachable — not when the catalog is empty.
   if (data === null) return PACKAGES;
   if (data.length === 0) return [];
   return data.map((p) => ({
@@ -199,11 +227,14 @@ export async function fetchPackages(): Promise<MockPackage[]> {
     slug: p.slug,
     title: p.title,
     examType: p.examType,
-    delivery: p.skills.length === 1 && p.skills[0] === "speaking" ? "Live video" : "Computer-delivered",
+    delivery:
+      p.skills.length === 1 && p.skills[0] === "speaking"
+        ? "Live video"
+        : "Computer-delivered",
     description: p.description ?? "",
     price: p.price,
     currency: p.currency,
-    rating: p.rating ?? 4.8,
+    rating: p.rating ?? 0,
     reviewCount: p.reviewCount,
     mostPopular: p.mostPopular,
     skills: p.skills as SkillId[],
@@ -226,7 +257,7 @@ type ApiLeaderboardEntry = {
 
 export async function fetchLeaderboard(): Promise<TopStudent[]> {
   const data = await get<ApiLeaderboardEntry[]>("/marketing/leaderboard");
-  if (!data || data.length < 3) return TOP_STUDENTS;
+  if (!data || data.length < 3) return [];
   return data.map((s, i) => ({
     id: s.id,
     rank: s.rank,
@@ -286,13 +317,13 @@ export async function fetchCenter(
 
 export async function fetchTestimonials(): Promise<Testimonial[]> {
   const data = await get<ApiTestimonial[]>("/marketing/testimonials");
-  if (!data || data.length === 0) return MARKETING_TESTIMONIALS;
+  if (!data || data.length === 0) return [];
   return data.map((t) => ({
     id: t.id,
     quote: t.quote,
     name: t.name,
     initials: initialsOf(t.name),
     country: t.country,
-    band: t.band ?? 7.5,
+    band: t.band ?? 0,
   }));
 }

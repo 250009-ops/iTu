@@ -61,18 +61,20 @@ export default async function MockExamsPage() {
         </Stagger>
       </Section>
 
-      <Section className="bg-white pt-0">
-        <Reveal>
-          <h2 className="text-2xl font-bold text-navy">What candidates say</h2>
-        </Reveal>
-        <Stagger className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-          {testimonials.slice(0, 3).map((item) => (
-            <StaggerItem key={item.id}>
-              <TestimonialCard item={item} />
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </Section>
+      {testimonials.length > 0 ? (
+        <Section className="bg-white pt-0">
+          <Reveal>
+            <h2 className="text-2xl font-bold text-navy">What candidates say</h2>
+          </Reveal>
+          <Stagger className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {testimonials.slice(0, 3).map((item) => (
+              <StaggerItem key={item.id}>
+                <TestimonialCard item={item} />
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </Section>
+      ) : null}
 
       <FinalCta
         title="Ready to sit your mock?"

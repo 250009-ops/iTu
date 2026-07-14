@@ -15,6 +15,7 @@ import { CenterLogo } from "@/components/marketing/shared/center-logo";
 import { CenterJoinForm } from "@/components/marketing/shared/center-join-form";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchCenter } from "@/lib/marketing/server-data";
+import { formatSocialCount } from "@/lib/marketing/social-proof";
 
 export const dynamic = "force-dynamic";
 
@@ -45,23 +46,17 @@ export default async function CenterDetailPage({
   if (!center) notFound();
 
   const partnerSince = new Date(center.partnerSince).getFullYear();
+
+  function statEntry(count: number, icon: typeof Users, label: string) {
+    const value = formatSocialCount(count);
+    return value ? { icon, value, label } : null;
+  }
+
   const stats = [
-    {
-      icon: Users,
-      value: center.studentCount.toLocaleString(),
-      label: "Active students",
-    },
-    {
-      icon: ClipboardCheck,
-      value: center.mocksDelivered.toLocaleString(),
-      label: "Mocks delivered",
-    },
-    {
-      icon: GraduationCap,
-      value: center.examinerCount.toLocaleString(),
-      label: "Examiners",
-    },
-  ];
+    statEntry(center.studentCount, Users, "Active students"),
+    statEntry(center.mocksDelivered, ClipboardCheck, "Mocks delivered"),
+    statEntry(center.examinerCount, GraduationCap, "Examiners"),
+  ].filter(Boolean) as { icon: typeof Users; value: string; label: string }[];
 
   return (
     <>
@@ -78,12 +73,7 @@ export default async function CenterDetailPage({
           </Link>
 
           <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <CenterLogo
-              name={center.name}
-              logoUrl={center.logoUrl}
-              size="lg"
-              className="h-24 w-24 border-white/10 bg-white"
-            />
+            <CenterLogo name={center.name} size="lg" className="h-24 w-24" />
             <div>
               <Pill tone="onNavy">Official Partner · since {partnerSince}</Pill>
               <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
@@ -98,18 +88,20 @@ export default async function CenterDetailPage({
             </div>
           </div>
 
-          <div className="mt-10 grid grid-cols-3 gap-3 sm:max-w-lg">
-            {stats.map(({ icon: Icon, value, label }) => (
-              <div
-                key={label}
-                className="rounded-xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur"
-              >
-                <Icon className="mx-auto h-5 w-5 text-sky-300" />
-                <p className="mt-2 text-2xl font-extrabold text-white">{value}</p>
-                <p className="text-[11px] text-slate-400">{label}</p>
-              </div>
-            ))}
-          </div>
+          {stats.length > 0 ? (
+            <div className="mt-10 grid grid-cols-3 gap-3 sm:max-w-lg">
+              {stats.map(({ icon: Icon, value, label }) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur"
+                >
+                  <Icon className="mx-auto h-5 w-5 text-sky-300" />
+                  <p className="mt-2 text-2xl font-extrabold text-white">{value}</p>
+                  <p className="text-[11px] text-slate-400">{label}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <WaveDivider />

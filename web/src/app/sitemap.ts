@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { SITE, TOP_TEACHERS } from "@/lib/marketing/data";
-import { fetchCenters } from "@/lib/marketing/server-data";
+import { SITE } from "@/lib/marketing/data";
+import { fetchCenters, fetchTeachers } from "@/lib/marketing/server-data";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = SITE.domain;
@@ -23,7 +23,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/privacy", priority: 0.3, freq: "yearly" as const },
   ];
 
-  const teacherRoutes = TOP_TEACHERS.map((t) => ({
+  const teachers = await fetchTeachers().catch(() => []);
+  const teacherRoutes = teachers.map((t) => ({
     path: `/teachers/${t.slug}`,
     priority: 0.6,
     freq: "monthly" as const,

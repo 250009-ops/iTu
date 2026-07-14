@@ -13,7 +13,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
 };
 
-
 const VALUES = [
   { icon: ShieldCheck, title: "Exam fidelity above all", body: "We will never make the test easier to flatter candidates. Realistic conditions are the whole point.", accent: "bg-sky-50 text-sky-600" },
   { icon: Award, title: "Examiner excellence", body: "Every examiner is verified, calibrated, and held to a quality standard. Candidates deserve the real thing.", accent: "bg-violet-50 text-violet-600" },
@@ -31,9 +30,9 @@ export default async function AboutPage() {
   const stats = await fetchHeroStats();
   const storyStats: [string, string][] = [
     ["2022", "Founded"],
-    [stats.mocks, "Mocks delivered"],
-    [stats.examiners, "Certified examiners"],
-    [`${stats.rating}★`, "Avg. examiner rating"],
+    ...(stats.mocks ? [[stats.mocks, "Mocks delivered"] as [string, string]] : []),
+    ...(stats.examiners ? [[stats.examiners, "Certified examiners"] as [string, string]] : []),
+    ...(stats.rating ? [[`${stats.rating}★`, "Avg. examiner rating"] as [string, string]] : []),
   ];
 
   return (
@@ -68,7 +67,12 @@ export default async function AboutPage() {
           </Reveal>
 
           <Reveal direction="right">
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 shadow-lg">
+            <div
+              className={cn(
+                "grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 shadow-lg",
+                storyStats.length === 1 ? "grid-cols-1" : "grid-cols-2",
+              )}
+            >
               {storyStats.map(([value, label]) => (
                 <div key={label} className="bg-navy p-6">
                   <p className="text-3xl font-extrabold text-white">{value}</p>

@@ -11,9 +11,11 @@ export function TestimonialCard({ item }: { item: Testimonial }) {
             <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
           ))}
         </div>
-        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-          Band {item.band}
-        </span>
+        {item.band > 0 ? (
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+            Band {item.band}
+          </span>
+        ) : null}
       </div>
       <p className="mt-4 flex-1 text-sm leading-relaxed text-foreground">
         &ldquo;{item.quote}&rdquo;

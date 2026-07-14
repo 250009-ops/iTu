@@ -33,7 +33,9 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
           {formatPrice(pkg.price, pkg.currency)}
         </span>
       </div>
-      <StarRating rating={pkg.rating} count={pkg.reviewCount} className="mt-2" />
+      {pkg.rating > 0 && pkg.reviewCount > 0 ? (
+        <StarRating rating={pkg.rating} count={pkg.reviewCount} className="mt-2" />
+      ) : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
         {pkg.skills.map((id) => {

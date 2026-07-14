@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { MarketingHeaderAuth, MarketingMobileAuth } from "@/components/marketing/layout/marketing-header-auth";
 import { useHasMounted } from "@/hooks/use-has-mounted";
 import { NAV_LINKS } from "@/lib/marketing/data";
 import { cn } from "@/lib/utils";
@@ -69,12 +70,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="hidden rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:inline-flex"
-          >
-            Log in
-          </Link>
+          <MarketingHeaderAuth />
           <Link
             href="/mock-exams"
             className="hidden rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5 sm:inline-flex"
@@ -106,14 +102,10 @@ export function SiteHeader() {
               </Link>
             ))}
             <div className="mt-2 flex gap-3 border-t border-white/10 pt-4">
-              <Link
-                href="/login"
-                className="flex-1 rounded-lg border border-white/20 px-4 py-2.5 text-center text-sm font-semibold text-white"
-              >
-                Log in
-              </Link>
+              <MarketingMobileAuth onNavigate={() => setMenuOpen(false)} />
               <Link
                 href="/mock-exams"
+                onClick={() => setMenuOpen(false)}
                 className="flex-1 rounded-lg bg-brand-red px-4 py-2.5 text-center text-sm font-semibold text-white"
               >
                 Book a Mock

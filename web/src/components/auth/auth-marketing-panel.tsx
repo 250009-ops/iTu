@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { fetchHeroStats } from "@/lib/marketing/server-data";
 
-const trust = [
-  { value: "9,500+", label: "Mocks delivered" },
-  { value: "4.9★", label: "Examiner rating" },
-  { value: "320+", label: "Certified examiners" },
-] as const;
+export async function AuthMarketingPanel() {
+  const stats = await fetchHeroStats();
+  const trust = [
+    stats.mocks ? { value: stats.mocks, label: "Mocks delivered" } : null,
+    stats.rating ? { value: `${stats.rating}★`, label: "Examiner rating" } : null,
+    stats.examiners ? { value: stats.examiners, label: "Certified examiners" } : null,
+  ].filter(Boolean) as { value: string; label: string }[];
 
-export function AuthMarketingPanel() {
   return (
     <div className="relative flex h-full flex-col justify-between overflow-hidden bg-navy p-8 text-white lg:p-12 xl:p-16">
-      {/* Dot grid + glow blobs — matches the marketing hero */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] [background-size:32px_32px]" />
       <div
         aria-hidden
@@ -24,7 +25,6 @@ export function AuthMarketingPanel() {
         style={{ background: "radial-gradient(circle, rgba(227,24,55,0.18) 0%, transparent 70%)" }}
       />
 
-      {/* Top row: logo + back to site */}
       <div className="relative flex items-center justify-between">
         <Link href="/">
           <BrandMark size="lg" />
@@ -37,7 +37,6 @@ export function AuthMarketingPanel() {
         </Link>
       </div>
 
-      {/* Center: one lean headline + a brand band-score chip */}
       <div className="relative max-w-md">
         <h2 className="text-3xl font-bold leading-tight tracking-tight lg:text-4xl xl:text-[2.75rem] xl:leading-[1.12]">
           Your real IELTS band is{" "}
@@ -67,16 +66,17 @@ export function AuthMarketingPanel() {
         </div>
       </div>
 
-      {/* Bottom: compact trust row + copyright */}
       <div className="relative space-y-6">
-        <div className="flex items-center gap-8">
-          {trust.map((item) => (
-            <div key={item.label}>
-              <p className="text-xl font-bold text-white">{item.value}</p>
-              <p className="text-xs text-slate-400">{item.label}</p>
-            </div>
-          ))}
-        </div>
+        {trust.length > 0 ? (
+          <div className="flex items-center gap-8">
+            {trust.map((item) => (
+              <div key={item.label}>
+                <p className="text-xl font-bold text-white">{item.value}</p>
+                <p className="text-xs text-slate-400">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <p className="text-xs text-slate-500">
           © {new Date().getFullYear()} itestu. For practice only.
         </p>

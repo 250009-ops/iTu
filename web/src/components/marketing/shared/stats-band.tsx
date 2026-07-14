@@ -1,8 +1,10 @@
-import { STATS } from "@/lib/marketing/data";
+import type { MarketingStat } from "@/lib/marketing/server-data";
 import { CountUp } from "@/components/marketing/motion/count-up";
 import { Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 
-export function StatsBand({ stats = STATS }: { stats?: typeof STATS }) {
+export function StatsBand({ stats }: { stats: MarketingStat[] }) {
+  if (stats.length === 0) return null;
+
   return (
     <section className="bg-navy">
       <div className="mx-auto max-w-6xl px-6 py-16">
@@ -12,9 +14,9 @@ export function StatsBand({ stats = STATS }: { stats?: typeof STATS }) {
               <p className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
                 <CountUp
                   value={stat.value}
-                  decimals={"decimals" in stat ? (stat.decimals as number) : 0}
-                  prefix={"prefix" in stat ? (stat.prefix as string) : ""}
-                  suffix={"suffix" in stat ? (stat.suffix as string) : ""}
+                  decimals={stat.decimals ?? 0}
+                  prefix={stat.prefix ?? ""}
+                  suffix={stat.suffix ?? ""}
                 />
               </p>
               <p className="mt-2 text-xs font-medium uppercase tracking-wider text-slate-400">

@@ -10,6 +10,7 @@ import {
   fetchTestimonials,
   fetchCenters,
 } from "@/lib/marketing/server-data";
+import { candidatesCtaCopy } from "@/lib/marketing/social-proof";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { HomeHero } from "@/components/marketing/home/home-hero";
@@ -30,39 +31,49 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      name: SITE.name,
-      url: SITE.domain,
-      description: SITE.description,
+function buildJsonLd(rating: string | null) {
+  const product: Record<string, unknown> = {
+    "@type": "Product",
+    name: "Full Academic IELTS Mock Exam",
+    description:
+      "A complete 4-skill IELTS mock exam delivered in one day, graded by certified examiners.",
+    brand: { "@type": "Brand", name: SITE.name },
+    offers: {
+      "@type": "Offer",
+      price: String(SITE.fullMockPrice),
+      priceCurrency: SITE.currency,
+      availability: "https://schema.org/InStock",
     },
-    {
-      "@type": "Product",
-      name: "Full Academic IELTS Mock Exam",
-      description:
-        "A complete 4-skill IELTS mock exam delivered in one day, graded by certified examiners.",
-      brand: { "@type": "Brand", name: SITE.name },
-      aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", reviewCount: "1240" },
-      offers: {
-        "@type": "Offer",
-        price: String(SITE.fullMockPrice),
-        priceCurrency: SITE.currency,
-        availability: "https://schema.org/InStock",
+  };
+
+  if (rating) {
+    product.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: rating,
+    };
+  }
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: SITE.name,
+        url: SITE.domain,
+        description: SITE.description,
       },
-    },
-    {
-      "@type": "FAQPage",
-      mainEntity: MARKETING_FAQS.slice(0, 6).map((f) => ({
-        "@type": "Question",
-        name: f.question,
-        acceptedAnswer: { "@type": "Answer", text: f.answer },
-      })),
-    },
-  ],
-};
+      product,
+      {
+        "@type": "FAQPage",
+        mainEntity: MARKETING_FAQS.slice(0, 6).map((f) => ({
+          "@type": "Question",
+          name: f.question,
+          acceptedAnswer: { "@type": "Answer", text: f.answer },
+        })),
+      },
+    ],
+  };
+}
 
 export default async function HomePage() {
   const [stats, heroStats, leaderboard, teachers, testimonials, centers] = await Promise.all([
@@ -74,6 +85,7 @@ export default async function HomePage() {
     fetchCenters(),
   ]);
   const topTeachers = teachers.slice(0, 4);
+  const jsonLd = buildJsonLd(heroStats.rating);
 
   return (
     <>
@@ -83,10 +95,9 @@ export default async function HomePage() {
       />
 
       <HomeHero stats={heroStats} />
-      <PartnerMarquee centers={centers} />
+      {centers.length > 0 ? <PartnerMarquee centers={centers} /> : null}
       <StatsBand stats={stats} />
 
-      {/* Skills */}
       <Section>
         <Reveal>
           <SectionHeading
@@ -110,7 +121,6 @@ export default async function HomePage() {
         </Reveal>
       </Section>
 
-      {/* Journey */}
       <Section className="bg-white">
         <Reveal>
           <SectionHeading
@@ -130,68 +140,70 @@ export default async function HomePage() {
         </Reveal>
       </Section>
 
-      {/* Top Students */}
-      <Section>
-        <Reveal>
-          <SectionHeading
-            eyebrow="Band Heroes"
-            title="Top-scoring candidates this month"
-            subtitle="Real results from real exams. Every band verified by certified examiners."
-          />
-        </Reveal>
-        <div className="mt-12">
-          <Leaderboard students={leaderboard} />
-        </div>
-      </Section>
+      {leaderboard.length > 0 ? (
+        <Section>
+          <Reveal>
+            <SectionHeading
+              eyebrow="Band Heroes"
+              title="Top-scoring candidates this month"
+              subtitle="Real results from real exams. Every band verified by certified examiners."
+            />
+          </Reveal>
+          <div className="mt-12">
+            <Leaderboard students={leaderboard} />
+          </div>
+        </Section>
+      ) : null}
 
-      {/* Top Teachers */}
-      <Section className="bg-white">
-        <Reveal>
-          <SectionHeading
-            eyebrow="Meet Your Examiners"
-            title="Real certified examiners. Your choice."
-            subtitle="Browse, compare, and select who grades your Writing and conducts your Speaking session."
-          />
-        </Reveal>
-        <Stagger className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {topTeachers.map((teacher) => (
-            <StaggerItem key={teacher.id}>
-              <TeacherCard teacher={teacher} />
-            </StaggerItem>
-          ))}
-        </Stagger>
-        <Reveal className="mt-10 flex justify-center">
-          <Link
-            href="/teachers"
-            className="inline-flex items-center gap-2 rounded-xl bg-navy px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-navy-light hover:-translate-y-0.5"
-          >
-            Browse all examiners <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Reveal>
-      </Section>
+      {topTeachers.length > 0 ? (
+        <Section className="bg-white">
+          <Reveal>
+            <SectionHeading
+              eyebrow="Meet Your Examiners"
+              title="Real certified examiners. Your choice."
+              subtitle="Browse, compare, and select who grades your Writing and conducts your Speaking session."
+            />
+          </Reveal>
+          <Stagger className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {topTeachers.map((teacher) => (
+              <StaggerItem key={teacher.id}>
+                <TeacherCard teacher={teacher} />
+              </StaggerItem>
+            ))}
+          </Stagger>
+          <Reveal className="mt-10 flex justify-center">
+            <Link
+              href="/teachers"
+              className="inline-flex items-center gap-2 rounded-xl bg-navy px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-navy-light hover:-translate-y-0.5"
+            >
+              Browse all examiners <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Reveal>
+        </Section>
+      ) : null}
 
-      {/* Testimonials */}
-      <Section>
-        <Reveal>
-          <SectionHeading
-            align="center"
-            eyebrow="Student Reviews"
-            title="Real results. Real stories."
-            subtitle="Every testimonial tied to a verified exam result."
-          />
-        </Reveal>
-        <Stagger className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
-          {testimonials.map((item) => (
-            <StaggerItem key={item.id}>
-              <TestimonialCard item={item} />
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </Section>
+      {testimonials.length > 0 ? (
+        <Section>
+          <Reveal>
+            <SectionHeading
+              align="center"
+              eyebrow="Student Reviews"
+              title="Real results. Real stories."
+              subtitle="Every testimonial tied to a verified exam result."
+            />
+          </Reveal>
+          <Stagger className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {testimonials.map((item) => (
+              <StaggerItem key={item.id}>
+                <TestimonialCard item={item} />
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </Section>
+      ) : null}
 
       <ExaminerBand examiners={heroStats.examiners} />
 
-      {/* FAQ */}
       <Section className="bg-white">
         <Reveal>
           <SectionHeading
@@ -208,8 +220,8 @@ export default async function HomePage() {
 
       <FinalCta
         title="Ready to find out your real band?"
-        subtitle={`Join ${heroStats.candidates} candidates who took the test that prepares you for the test.`}
-        primaryLabel={`Book a Full Mock`}
+        subtitle={candidatesCtaCopy(heroStats.candidates)}
+        primaryLabel="Book a Full Mock"
       />
     </>
   );

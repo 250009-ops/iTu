@@ -75,7 +75,13 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                   {formatPrice(full.price, full.currency)}
                 </p>
                 <p className="text-xs text-slate-400">per exam</p>
-                <StarRating rating={full.rating} count={full.reviewCount} className="mt-1 justify-end [&_*]:text-slate-300" />
+                {full.rating > 0 && full.reviewCount > 0 ? (
+                  <StarRating
+                    rating={full.rating}
+                    count={full.reviewCount}
+                    className="mt-1 justify-end [&_*]:text-slate-300"
+                  />
+                ) : null}
               </div>
             </div>
 

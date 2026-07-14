@@ -4,6 +4,7 @@ import type { PartnerCenter } from "@/lib/marketing/server-data";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import type { AccentColor } from "@/lib/marketing/data";
 import { CenterLogo } from "./center-logo";
+import { formatSocialCount } from "@/lib/marketing/social-proof";
 import { cn } from "@/lib/utils";
 
 const ACCENT_CYCLE: AccentColor[] = ["sky", "emerald", "violet", "rose"];
@@ -16,6 +17,7 @@ function accentFor(id: string): AccentColor {
 
 export function CenterCard({ center }: { center: PartnerCenter }) {
   const accent = ACCENT[accentFor(center.id)];
+  const studentLabel = formatSocialCount(center.studentCount);
   const bio =
     center.bio?.trim() ||
     "An official iTestU Edu Center delivering real computer-delivered IELTS mocks with certified examiner feedback.";
@@ -28,7 +30,7 @@ export function CenterCard({ center }: { center: PartnerCenter }) {
       )}
     >
       <div className="flex items-start gap-3">
-        <CenterLogo name={center.name} logoUrl={center.logoUrl} size="md" />
+        <CenterLogo name={center.name} size="md" />
         <div className="min-w-0 flex-1">
           <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
             <ShieldCheck className="h-3 w-3" /> Official Partner
@@ -46,11 +48,12 @@ export function CenterCard({ center }: { center: PartnerCenter }) {
         <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", accent.softBg, accent.text)}>
           Edu Center
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-          <Users className="h-3 w-3" />
-          {center.studentCount.toLocaleString()}{" "}
-          {center.studentCount === 1 ? "student" : "students"}
-        </span>
+        {studentLabel ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+            <Users className="h-3 w-3" />
+            {studentLabel} students
+          </span>
+        ) : null}
       </div>
 
       <p className="mt-3 line-clamp-4 min-h-[4.5rem] flex-1 text-sm leading-relaxed text-muted">

@@ -52,7 +52,9 @@ export default async function PricingPage() {
   const TRUST = [
     { icon: Lock, title: "Secure payment", body: "Lemon Squeezy encrypted checkout" },
     { icon: ShieldCheck, title: "Certified examiners", body: "CELTA+ qualified, ID verified" },
-    { icon: Star, title: `${stats.rating}★ rating`, body: `${stats.candidates} satisfied candidates` },
+    ...(stats.rating
+      ? [{ icon: Star, title: `${stats.rating}★ rating`, body: "From verified examiner reviews" }]
+      : []),
     { icon: BadgeCheck, title: "Official CBT format", body: "Server-authoritative timers" },
   ];
 

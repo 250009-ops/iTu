@@ -39,7 +39,7 @@ function PartnerChip({ center }: { center: PartnerCenter }) {
       className="group inline-flex shrink-0 items-center gap-3 rounded-xl px-2 py-1 transition-colors"
       aria-label={center.name}
     >
-      <CenterLogo name={center.name} logoUrl={center.logoUrl} size="sm" />
+      <CenterLogo name={center.name} size="sm" />
       <span className="text-base font-semibold text-slate-500 transition-colors group-hover:text-navy">
         {center.name}
       </span>

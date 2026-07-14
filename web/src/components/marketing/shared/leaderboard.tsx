@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Crown, TrendingUp, ArrowRight } from "lucide-react";
-import { TOP_STUDENTS, type TopStudent } from "@/lib/marketing/data";
+import type { TopStudent } from "@/lib/marketing/data";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import { Avatar } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
@@ -66,7 +66,9 @@ function PodiumCard({ student, place }: { student: TopStudent; place: 1 | 2 | 3 
   );
 }
 
-export function Leaderboard({ students = TOP_STUDENTS }: { students?: TopStudent[] }) {
+export function Leaderboard({ students = [] }: { students?: TopStudent[] }) {
+  if (students.length < 3) return null;
+
   const [first, second, third, ...rest] = students;
 
   return (

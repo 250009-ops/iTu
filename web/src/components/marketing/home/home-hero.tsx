@@ -10,13 +10,15 @@ import { Glow } from "@/components/marketing/ui/primitives";
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
 import { EASE } from "@/components/marketing/motion/reveal";
 
-const HERO_STATS_DEFAULT: HeroStats = {
-  candidates: "9,500+",
-  mocks: "9,500+",
-  rating: "4.9",
-  examiners: "320+",
-  candidatesRaw: 9500,
-  examinersRaw: 320,
+const EMPTY_HERO_STATS: HeroStats = {
+  candidates: null,
+  mocks: null,
+  rating: null,
+  examiners: null,
+  candidatesRaw: 0,
+  examinersRaw: 0,
+  mocksRaw: 0,
+  ratingRaw: null,
 };
 
 const container = {
@@ -28,7 +30,17 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE } },
 };
 
-export function HomeHero({ stats = HERO_STATS_DEFAULT }: { stats?: HeroStats }) {
+function heroTrustLine(stats: HeroStats): string | null {
+  const parts: string[] = [];
+  if (stats.candidates) parts.push(`${stats.candidates} candidates`);
+  if (stats.rating) parts.push(`${stats.rating}★ examiner rating`);
+  if (stats.examiners) parts.push(`${stats.examiners} certified examiners`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
+  const trustLine = heroTrustLine(stats);
+
   return (
     <section className="relative overflow-hidden bg-navy pt-28 pb-20 sm:pt-36 sm:pb-28">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] [background-size:32px_32px]" />
@@ -76,24 +88,15 @@ export function HomeHero({ stats = HERO_STATS_DEFAULT }: { stats?: HeroStats }) 
             </Link>
           </motion.div>
 
-          <motion.div variants={item} className="mt-8 flex items-center gap-3">
-            <div className="flex -space-x-2">
-              {["AK", "LB", "MT", "CM", "FA"].map((i, idx) => (
-                <span
-                  key={i}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-navy bg-gradient-to-br from-sky-500 to-violet-500 text-[10px] font-bold text-white"
-                  style={{ zIndex: 5 - idx }}
-                >
-                  {i}
-                </span>
-              ))}
-            </div>
-            <p className="text-sm text-slate-300">
-              <span className="font-semibold text-white">{stats.candidates}</span> candidates ·{" "}
-              <span className="font-semibold text-amber-400">{stats.rating}★</span> ·{" "}
-              <span className="font-semibold text-white">{stats.examiners}</span> certified examiners
-            </p>
-          </motion.div>
+          {trustLine ? (
+            <motion.p variants={item} className="mt-8 text-sm text-slate-300">
+              <span className="font-semibold text-white">{trustLine}</span>
+            </motion.p>
+          ) : (
+            <motion.p variants={item} className="mt-8 text-sm text-slate-400">
+              Human-graded by certified examiners · Same-day band scores
+            </motion.p>
+          )}
         </motion.div>
 
         <motion.div
@@ -170,7 +173,6 @@ function ExamMockup() {
         </div>
       </div>
 
-      {/* Floating band result card */}
       <motion.div
         initial={{ opacity: 0, y: 20, x: 20 }}
         animate={{ opacity: 1, y: 0, x: 0 }}

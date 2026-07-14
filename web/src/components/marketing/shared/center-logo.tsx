@@ -17,11 +17,9 @@ const SIZES = {
   lg: "h-20 w-20 text-2xl rounded-2xl",
 } as const;
 
-// Renders a partner centre's uploaded logo, or a clean navy monogram fallback
-// so the marketing surfaces never show a broken image.
+/** Monogram-only centre mark — uploaded logos are not shown on public marketing. */
 export function CenterLogo({
   name,
-  logoUrl,
   size = "md",
   className,
 }: {
@@ -30,26 +28,6 @@ export function CenterLogo({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  if (logoUrl) {
-    return (
-      <div
-        className={cn(
-          "flex shrink-0 items-center justify-center overflow-hidden border border-border bg-white",
-          SIZES[size],
-          className,
-        )}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={logoUrl}
-          alt={`${name} logo`}
-          className="h-full w-full object-contain p-1.5"
-          loading="lazy"
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       className={cn(
