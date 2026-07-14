@@ -117,7 +117,7 @@ export default async function CenterDetailPage({
 
       <Section className="pt-12">
         <div className="grid items-start gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-          <Reveal direction="left">
+          <Reveal>
             <SectionHeading
               eyebrow="About"
               title={`About ${center.name}`}
@@ -128,7 +128,7 @@ export default async function CenterDetailPage({
             </p>
           </Reveal>
 
-          <Reveal direction="right">
+          <Reveal delay={0.1}>
             <CenterJoinForm
               slug={center.slug}
               centerName={center.name}

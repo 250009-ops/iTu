@@ -9,10 +9,10 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 type Direction = "up" | "down" | "left" | "right" | "none";
 
 const offset: Record<Direction, { x: number; y: number }> = {
-  up: { x: 0, y: 48 },
-  down: { x: 0, y: -48 },
-  left: { x: 48, y: 0 },
-  right: { x: -48, y: 0 },
+  up: { x: 0, y: 32 },
+  down: { x: 0, y: -32 },
+  left: { x: -32, y: 0 },
+  right: { x: 32, y: 0 },
   none: { x: 0, y: 0 },
 };
 
@@ -56,8 +56,8 @@ const containerVariants: Variants = {
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 40 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EASE } },
 };
 
 export function Stagger({

@@ -66,14 +66,7 @@ export default async function CentersPage() {
         </Reveal>
 
         {centers.length > 0 ? (
-          <Stagger
-            className={cn(
-              "mt-12 grid gap-6",
-              centers.length === 1 && "mx-auto max-w-md grid-cols-1",
-              centers.length === 2 && "mx-auto max-w-3xl grid-cols-1 sm:grid-cols-2",
-              centers.length >= 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-            )}
-          >
+          <Stagger className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {centers.map((center) => (
               <StaggerItem key={center.id}>
                 <CenterCard center={center} />
@@ -98,7 +91,7 @@ export default async function CentersPage() {
 
       <Section id="partner" className="scroll-mt-24 bg-white">
         <div className="grid items-start gap-12 lg:grid-cols-[1fr_1.1fr]">
-          <Reveal direction="left">
+          <Reveal>
             <SectionHeading
               eyebrow="Partner with iTestU"
               title="Run an Edu Center?"
@@ -136,7 +129,7 @@ export default async function CentersPage() {
             </p>
           </Reveal>
 
-          <Reveal direction="right">
+          <Reveal delay={0.1}>
             <InstitutionForm />
           </Reveal>
         </div>

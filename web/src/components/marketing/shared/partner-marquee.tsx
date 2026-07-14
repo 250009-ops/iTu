@@ -1,57 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PartnerCenter } from "@/lib/marketing/server-data";
 import { CenterLogo } from "./center-logo";
 import { cn } from "@/lib/utils";
 
-const ITEM_HEIGHT = 72;
-const MIN_REPEAT = 8;
+/** Approximate width of one logo + name chip in the marquee row. */
+const ITEM_WIDTH = 176;
 
-function PartnerColumn({
-  center,
-  repeat,
-  reverse,
-}: {
-  center: PartnerCenter;
-  repeat: number;
-  reverse?: boolean;
-}) {
-  const items = useMemo(
-    () => Array.from({ length: repeat * 2 }, () => center),
-    [center, repeat],
-  );
+function buildRow(
+  centers: PartnerCenter[],
+  containerWidth: number,
+): { items: PartnerCenter[]; animate: boolean } {
+  if (centers.length === 0) return { items: [], animate: false };
 
+  const naturalWidth = centers.length * ITEM_WIDTH;
+  const fillsRow = naturalWidth >= containerWidth * 0.92;
+
+  if (fillsRow) {
+    // Enough unique centres — show each once, no duplicate logos in the row.
+    return { items: centers, animate: false };
+  }
+
+  // Too few — repeat the existing set horizontally until the row is full,
+  // then duplicate once more so the marquee loop is seamless.
+  let filled: PartnerCenter[] = [];
+  while (filled.length * ITEM_WIDTH < containerWidth * 1.05) {
+    filled = filled.concat(centers);
+  }
+  return { items: [...filled, ...filled], animate: true };
+}
+
+function PartnerChip({ center }: { center: PartnerCenter }) {
   return (
-    <div className="relative h-full min-h-0 flex-1 overflow-hidden">
-      <div
-        className={cn(
-          "flex w-full flex-col items-center gap-6",
-          reverse ? "animate-marquee-vertical-reverse" : "animate-marquee-vertical",
-        )}
-      >
-        {items.map((c, i) => (
-          <Link
-            key={`${c.id}-${i}`}
-            href={`/centers/${c.slug}`}
-            className="group flex shrink-0 flex-col items-center gap-2 px-3 py-1 transition-opacity hover:opacity-80"
-            aria-label={c.name}
-            style={{ minHeight: ITEM_HEIGHT }}
-          >
-            <CenterLogo name={c.name} logoUrl={c.logoUrl} size="md" />
-            <span className="max-w-[9rem] truncate text-center text-sm font-semibold text-slate-500 transition-colors group-hover:text-navy">
-              {c.name}
-            </span>
-          </Link>
-        ))}
-      </div>
-    </div>
+    <Link
+      href={`/centers/${center.slug}`}
+      className="group inline-flex shrink-0 items-center gap-3 rounded-xl px-2 py-1 transition-colors"
+      aria-label={center.name}
+    >
+      <CenterLogo name={center.name} logoUrl={center.logoUrl} size="sm" />
+      <span className="text-base font-semibold text-slate-500 transition-colors group-hover:text-navy">
+        {center.name}
+      </span>
+    </Link>
   );
 }
 
-// Vertical partner wall — each Edu Center gets its own column, repeated enough
-// times to fill the band height (1 center = one full column; 2+ = side-by-side).
+// One horizontal row of Edu Center logos. Repeats existing partners only when
+// there are too few to fill the viewport width; stops repeating once the count
+// is enough to cover the line naturally.
 export function PartnerMarquee({
   centers,
   heading = "Trusted by Edu Centers",
@@ -59,48 +57,53 @@ export function PartnerMarquee({
   centers: PartnerCenter[];
   heading?: string;
 }) {
-  const [repeat, setRepeat] = useState(MIN_REPEAT);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   useEffect(() => {
-    function calc() {
-      const band = Math.min(window.innerHeight * 0.38, 420);
-      const needed = Math.ceil(band / ITEM_HEIGHT) + 2;
-      setRepeat(Math.max(MIN_REPEAT, needed));
-    }
-    calc();
-    window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = () => setContainerWidth(el.clientWidth);
+    update();
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
-  if (centers.length === 0) return null;
+  const { items, animate } = useMemo(
+    () => buildRow(centers, containerWidth || (typeof window !== "undefined" ? window.innerWidth : 1200)),
+    [centers, containerWidth],
+  );
 
-  const columnCount = centers.length;
-  const bandHeight = "min(420px, 38vh)";
+  if (centers.length === 0) return null;
 
   return (
     <section className="border-y border-border bg-white py-8">
       <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted">
         {heading}
       </p>
-      <div
-        className="marquee-mask-vertical relative mx-auto mt-6 max-w-6xl px-4 sm:px-6"
-        style={{ height: bandHeight }}
-      >
-        <div
-          className={cn(
-            "flex h-full gap-4 sm:gap-8",
-            columnCount === 1 && "justify-center",
-          )}
-        >
-          {centers.map((center, i) => (
-            <PartnerColumn
-              key={center.id}
-              center={center}
-              repeat={repeat}
-              reverse={i % 2 === 1}
-            />
-          ))}
-        </div>
+      <div ref={containerRef} className="relative mx-auto mt-6 max-w-6xl px-6">
+        {animate ? (
+          <div className="marquee-mask overflow-hidden">
+            <div className="animate-marquee flex w-max items-center gap-10 whitespace-nowrap">
+              {items.map((center, i) => (
+                <PartnerChip key={`${center.id}-${i}`} center={center} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-start gap-x-10 gap-y-4">
+            {items.map((center) => (
+              <PartnerChip key={center.id} center={center} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
