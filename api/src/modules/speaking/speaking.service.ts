@@ -16,6 +16,7 @@ import {
 } from './dto/update-speaking-state.dto';
 import { LivekitService } from './livekit.service';
 import { SettingsService } from '../settings/settings.service';
+import { EnrollmentLifecycleService } from '../bookings/enrollment-lifecycle.service';
 import { speakingJoinWindow } from '../../common/mock-day-policy';
 
 type PartTimestamps = Record<string, string> & {
@@ -48,6 +49,7 @@ export class SpeakingService {
     private livekit: LivekitService,
     private storage: StorageService,
     private settings: SettingsService,
+    private enrollmentLifecycle: EnrollmentLifecycleService,
   ) {}
 
   async getByExamSessionCode(sessionCode: string, user: RequestUser) {
@@ -526,6 +528,7 @@ export class SpeakingService {
   }
 
   private async joinAccessFields(session: {
+    id: string;
     scheduledAt: Date | null;
     status: SpeakingSessionStatus;
     startedAt: Date | null;
@@ -540,6 +543,7 @@ export class SpeakingService {
   }
 
   private async joinAccess(session: {
+    id: string;
     scheduledAt: Date | null;
     status: SpeakingSessionStatus;
     startedAt: Date | null;
@@ -550,6 +554,23 @@ export class SpeakingService {
         opensAt: null as Date | null,
         closesAt: null as Date | null,
         message: 'This speaking session has ended.',
+      };
+    }
+    if (session.status === SpeakingSessionStatus.NO_SHOW) {
+      return {
+        allowed: false,
+        opensAt: null as Date | null,
+        closesAt: null as Date | null,
+        message:
+          'You were marked absent after missing the late-join window. Contact your centre admin to reappoint.',
+      };
+    }
+    if (session.status === SpeakingSessionStatus.CANCELLED) {
+      return {
+        allowed: false,
+        opensAt: null as Date | null,
+        closesAt: null as Date | null,
+        message: 'This speaking session was cancelled.',
       };
     }
     if (session.startedAt) {
@@ -568,6 +589,9 @@ export class SpeakingService {
     });
 
     if (!window.allowed) {
+      if (window.tooLate) {
+        await this.enrollmentLifecycle.markSpeakingNoShowBySessionId(session.id);
+      }
       return {
         allowed: false,
         opensAt: window.opensAt,
@@ -576,7 +600,7 @@ export class SpeakingService {
           window.message ??
           (window.tooEarly
             ? 'Your speaking slot is not open yet.'
-            : 'The late-join window for this speaking slot has closed.'),
+            : 'The late-join window for this speaking slot has closed. You have been marked absent.'),
       };
     }
 
@@ -589,6 +613,7 @@ export class SpeakingService {
   }
 
   private async assertJoinWindow(session: {
+    id: string;
     scheduledAt: Date | null;
     status: SpeakingSessionStatus;
     startedAt: Date | null;

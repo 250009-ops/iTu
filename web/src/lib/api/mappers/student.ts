@@ -592,7 +592,9 @@ export function mapMockDayHub(data: MockDayApi) {
               ? "MOCK DAY · IN PROGRESS"
               : "CHECK-IN REQUIRED",
       headline: isMissed
-        ? "Mock day missed"
+        ? enrollment.examStartedAt
+          ? "Speaking marked absent"
+          : "Mock day missed"
         : mockDayClosed
           ? "The mock day window has closed"
           : activeSection
@@ -607,7 +609,9 @@ export function mapMockDayHub(data: MockDayApi) {
                     ? "Start your mock anytime before the day cutoff"
                     : "Complete check-in to begin",
       message: isMissed
-        ? "This session was marked missed. Contact your centre admin to reappoint, or book a new mock from Browse."
+        ? enrollment.examStartedAt
+          ? "You were marked absent after missing the speaking late-join window. Contact your centre admin to reappoint, or book a new mock from Browse."
+          : "This session was marked missed. Contact your centre admin to reappoint, or book a new mock from Browse."
         : mockDayClosed
           ? "You did not start before the day cutoff. Check your dashboard for next steps."
           : activeSection

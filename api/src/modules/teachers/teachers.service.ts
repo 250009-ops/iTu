@@ -159,13 +159,17 @@ export class TeachersService {
       const studentName = enrollment.student.user.name;
       const examType = enrollment.package.examType;
 
-      let uiStatus: 'upcoming' | 'live' | 'awaiting_grade' | 'graded';
+      let uiStatus: 'upcoming' | 'live' | 'awaiting_grade' | 'graded' | 'no_show';
       if (s.grade) {
         uiStatus = 'graded';
+      } else if (s.status === 'NO_SHOW') {
+        uiStatus = 'no_show';
       } else if (s.status === 'COMPLETED') {
         uiStatus = 'awaiting_grade';
       } else if (s.status === 'ACTIVE' || s.status === 'WAITING') {
         uiStatus = 'live';
+      } else if (s.status === 'CANCELLED') {
+        uiStatus = 'no_show';
       } else {
         uiStatus = 'upcoming';
       }

@@ -5,6 +5,7 @@ import {
   ExamSkill,
   NotificationType,
   ResultsStatus,
+  SpeakingSessionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -52,7 +53,11 @@ export class ResultsReleaseService {
       const attempt = attempts.find((a) => a.skill === skill);
       if (!attempt) return false;
       if (skill === ExamSkill.WRITING) return !!attempt.writingSubmission?.grade;
-      if (skill === ExamSkill.SPEAKING) return !!attempt.speakingSession?.grade;
+      if (skill === ExamSkill.SPEAKING) {
+        // Student no-show closes Speaking without a grade so other skills can release.
+        if (attempt.speakingSession?.status === SpeakingSessionStatus.NO_SHOW) return true;
+        return !!attempt.speakingSession?.grade;
+      }
       // Listening / Reading are auto-scored on submit — require submission plus a score.
       if (attempt.submittedAt == null) return false;
       if (attempt.band != null) return true;

@@ -184,15 +184,15 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
 
     setSubmitting(true);
     try {
-      const related = relatedOptions.find((o) => o.value === relatedValue);
+      const related = selectedCategory.requiresRelated
+        ? relatedOptions.find((o) => o.value === relatedValue)
+        : undefined;
       const ticket = await createSupportTicket({
         subject: subject.trim(),
         message: message.trim(),
         type,
         enrollmentId: related?.enrollmentId,
-        relatedRef: related
-          ? related.label
-          : relatedValue.trim() || undefined,
+        relatedRef: related?.label,
       });
       setSubject("");
       setMessage("");
@@ -361,14 +361,12 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                   </div>
                 </div>
 
-                {(selectedCategory.requiresRelated ||
-                  relatedOptions.length > 0) && (
+                {selectedCategory.requiresRelated && (
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted">
                       {role === "teacher"
-                        ? "Related session / student"
-                        : "Related mock"}
-                      {selectedCategory.requiresRelated ? " *" : " (optional)"}
+                        ? "Related session / student *"
+                        : "Related mock *"}
                     </label>
                     <Select
                       value={relatedValue}

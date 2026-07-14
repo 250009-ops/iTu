@@ -98,7 +98,13 @@ export class LemonSqueezyService implements OnModuleInit {
       this.storeSlug = store.data.attributes.slug?.trim() ?? '';
       this.logger.log(`Lemon store slug: ${this.storeSlug} (${storeId})`);
 
-      const ids = [...new Set(Object.values(this.variantMap).map((id) => id.trim()))];
+      const ids = [
+        ...new Set(
+          Object.values(this.variantMap)
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0),
+        ),
+      ];
       for (const id of ids) {
         const variant = await this.lemonFetch(`/variants/${id}`);
         const slug = variant.data.attributes.slug?.trim();

@@ -3,7 +3,13 @@ import type { UserRole } from "@/lib/auth/session";
 type Role = UserRole | undefined;
 
 /** Full notifications page for the current role's portal. */
-export function notificationsPath(role: Role): string {
+export function notificationsPath(role: Role, pathname?: string): string {
+  if (pathname?.startsWith("/inst-student")) {
+    return "/inst-student/notifications";
+  }
+  if (pathname?.startsWith("/inst-examiner")) {
+    return "/inst-examiner/notifications";
+  }
   switch (role) {
     case "teacher":
       return "/teacher/notifications";
@@ -15,7 +21,13 @@ export function notificationsPath(role: Role): string {
 }
 
 /** Help & support centre for the current role's portal. */
-export function helpPath(role: Role): string {
+export function helpPath(role: Role, pathname?: string): string {
+  if (pathname?.startsWith("/inst-student")) {
+    return "/inst-student/help";
+  }
+  if (pathname?.startsWith("/inst-examiner")) {
+    return "/inst-examiner/help";
+  }
   switch (role) {
     case "teacher":
       return "/teacher/help";

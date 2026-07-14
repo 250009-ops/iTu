@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Download, Plus } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useAdminDisputes } from "@/contexts/admin-disputes-context";
@@ -10,7 +9,6 @@ import { exportDisputesCsv } from "@/lib/admin/export";
 export function DisputesHeader() {
   const { toast } = useToast();
   const { tickets } = useAdminDisputes();
-  const router = useRouter();
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -37,14 +35,6 @@ export function DisputesHeader() {
         >
           <Download className="h-4 w-4" />
           Export
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => router.push("/admin/help")}
-        >
-          <Plus className="h-4 w-4" />
-          New Ticket
         </Button>
       </div>
     </div>

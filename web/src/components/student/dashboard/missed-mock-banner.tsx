@@ -18,17 +18,32 @@ export function MissedMockBanner() {
     year: "numeric",
   });
 
+  const speakingNoShow = missed.reason === "speaking_no_show";
+
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-start sm:gap-5 sm:p-5">
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
         <CalendarX2 size={22} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-amber-950">Mock day missed</p>
+        <p className="font-semibold text-amber-950">
+          {speakingNoShow ? "Speaking marked absent" : "Mock day missed"}
+        </p>
         <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
-          You did not start <span className="font-semibold">{missed.packageTitle}</span>{" "}
-          on {dateLabel} before the day cutoff. Contact your centre admin to
-          reappoint this mock.
+          {speakingNoShow ? (
+            <>
+              You missed the late-join window for{" "}
+              <span className="font-semibold">{missed.packageTitle}</span> on{" "}
+              {dateLabel}. Contact your centre admin to reappoint this mock.
+            </>
+          ) : (
+            <>
+              You did not start{" "}
+              <span className="font-semibold">{missed.packageTitle}</span> on{" "}
+              {dateLabel} before the day cutoff. Contact your centre admin to
+              reappoint this mock.
+            </>
+          )}
         </p>
         <p className="mt-2 text-xs text-amber-800/80">
           Reappointment is available for both complimentary and paid mocks once

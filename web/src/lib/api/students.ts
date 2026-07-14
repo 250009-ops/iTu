@@ -43,8 +43,16 @@ export type StudentDashboardResponse = {
     packageTitle: string;
     mockDate: string;
     adminGranted: boolean;
+    reason?: "speaking_no_show" | "never_started";
   } | null;
-  bandProgress: { month: string; band: number | null }[];
+  bandProgress: {
+    month: string;
+    band: number | null;
+    listening?: number | null;
+    reading?: number | null;
+    writing?: number | null;
+    speaking?: number | null;
+  }[];
   pastMocks: {
     id: string;
     enrollmentCode: string;

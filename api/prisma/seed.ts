@@ -1,12 +1,16 @@
 import {
   ContentTestStatus,
   ContentTestType,
+  CreditTxnType,
   EnrollmentStatus,
   ExamSessionState,
   ExamSkill,
   ExamType,
+  InstitutionMemberStatus,
+  InstitutionStatus,
   NotificationType,
   OrderStatus,
+  OrderType,
   PaymentMethod,
   PayoutStatus,
   PrismaClient,
@@ -43,6 +47,7 @@ async function main() {
   console.log('Seeding database...');
 
   await prisma.$transaction([
+    prisma.institutionCreditTxn.deleteMany(),
     prisma.answer.deleteMany(),
     prisma.grade.deleteMany(),
     prisma.writingSubmission.deleteMany(),
@@ -66,6 +71,7 @@ async function main() {
     prisma.teacherProfile.deleteMany(),
     prisma.studentProfile.deleteMany(),
     prisma.user.deleteMany(),
+    prisma.institution.deleteMany(),
   ]);
 
   const passwordHash = await bcrypt.hash('student', 12);
@@ -713,6 +719,8 @@ async function main() {
     both: danielUser.teacherProfile!.id,
   });
 
+  await seedInstitution(mockPackage.id);
+
   console.log('Seed complete.');
   console.log('Seed accounts created for local development.');
   console.log('Fresh student: Alex Johnson — book a mock via Browse Mocks');
@@ -790,6 +798,238 @@ const LEADERBOARD_SEED: LeaderboardSeed[] = [
     publish: true,
   },
 ];
+
+async function seedInstitution(packageId: string) {
+  const ownerHash = await bcrypt.hash('institution', 12);
+  const studentHash = await bcrypt.hash('student', 12);
+
+  const institution = await prisma.institution.create({
+    data: {
+      name: 'BrightPath Education Center',
+      slug: 'brightpath',
+      status: InstitutionStatus.ACTIVE,
+      city: 'Tashkent',
+      address: '15 Amir Temur Ave, Tashkent',
+      bio: 'A leading after-school IELTS preparation center partnering to deliver CD mock exams.',
+      contactName: 'Nodira Yusupova',
+      contactEmail: 'owner@brightpath.uz',
+      contactPhone: '+998 90 123 45 67',
+      wholesalePrice: 40000,
+      currency: 'UZS',
+      creditBalance: 0,
+      approvedAt: new Date(),
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      email: 'institution@example.com',
+      name: 'Nodira Yusupova',
+      emailVerifiedAt: new Date(),
+      passwordHash: ownerHash,
+      role: UserRole.INSTITUTION,
+      institutionId: institution.id,
+    },
+  });
+
+  // Scoped examiners (auto-approved, hidden from marketplace, no platform payouts).
+  const scopedExaminers = [
+    {
+      email: 'examiner1@brightpath.uz',
+      name: 'Kamola Rashidova',
+      slug: 'brightpath-kamola-rashidova',
+      speciality: TeacherSpeciality.WRITING,
+      totalSessions: 48,
+      rating: 4.7,
+    },
+    {
+      email: 'examiner2@brightpath.uz',
+      name: 'Jasur Aliyev',
+      slug: 'brightpath-jasur-aliyev',
+      speciality: TeacherSpeciality.SPEAKING,
+      totalSessions: 63,
+      rating: 4.8,
+    },
+  ];
+
+  const examiners: { id: string; speciality: TeacherSpeciality }[] = [];
+  for (const ex of scopedExaminers) {
+    const user = await prisma.user.create({
+      data: {
+        email: ex.email,
+        name: ex.name,
+        emailVerifiedAt: new Date(),
+        passwordHash: ownerHash,
+        role: UserRole.TEACHER,
+        institutionId: institution.id,
+        teacherProfile: {
+          create: {
+            slug: ex.slug,
+            bio: `${institution.name} in-house examiner.`,
+            credentials: ['CELTA'],
+            languages: ['English', 'Uzbek'],
+            status: TeacherStatus.APPROVED,
+            speciality: ex.speciality,
+            rating: ex.rating,
+            reviewCount: 0,
+            totalSessions: ex.totalSessions,
+            totalEarned: 0,
+            institutionId: institution.id,
+          },
+        },
+      },
+      include: { teacherProfile: true },
+    });
+    examiners.push({
+      id: user.teacherProfile!.id,
+      speciality: ex.speciality,
+    });
+  }
+
+  const writingExaminer =
+    examiners.find((e) => e.speciality === TeacherSpeciality.WRITING) ??
+    examiners[0];
+  const speakingExaminer =
+    examiners.find((e) => e.speciality === TeacherSpeciality.SPEAKING) ??
+    examiners[0];
+
+  // Roster: a mix of ACTIVE and PENDING members.
+  const roster = [
+    { email: 'bp.student1@example.com', name: 'Dilnoza Karimova', status: InstitutionMemberStatus.ACTIVE },
+    { email: 'bp.student2@example.com', name: 'Sardor Umarov', status: InstitutionMemberStatus.ACTIVE },
+    { email: 'bp.student3@example.com', name: 'Malika Toshpulatova', status: InstitutionMemberStatus.ACTIVE },
+    { email: 'bp.student4@example.com', name: 'Bekzod Nazarov', status: InstitutionMemberStatus.PENDING },
+    { email: 'bp.student5@example.com', name: 'Sevara Ismoilova', status: InstitutionMemberStatus.PENDING },
+  ];
+
+  const activeStudentIds: string[] = [];
+  for (const s of roster) {
+    const user = await prisma.user.create({
+      data: {
+        email: s.email,
+        name: s.name,
+        // Students verify email + set a password via the emailed link before
+        // the center approves them, so PENDING members can still sign in and
+        // see the waiting-for-approval screen.
+        emailVerifiedAt: new Date(),
+        passwordHash: studentHash,
+        role: UserRole.STUDENT,
+        institutionId: institution.id,
+        studentProfile: {
+          create: {
+            targetBand: 7.0,
+            examType: ExamType.ACADEMIC,
+            country: 'Uzbekistan',
+            institutionId: institution.id,
+            institutionStatus: s.status,
+          },
+        },
+      },
+      include: { studentProfile: true },
+    });
+    if (s.status === InstitutionMemberStatus.ACTIVE) {
+      activeStudentIds.push(user.studentProfile!.id);
+    }
+  }
+
+  // Credit ledger: initial purchase, an admin adjustment, then consumption.
+  let balance = 0;
+  const recordTxn = async (
+    type: CreditTxnType,
+    delta: number,
+    note: string,
+    refs: { orderId?: string; enrollmentId?: string } = {},
+  ) => {
+    balance += delta;
+    await prisma.institutionCreditTxn.create({
+      data: {
+        institutionId: institution.id,
+        type,
+        delta,
+        balanceAfter: balance,
+        note,
+        orderId: refs.orderId ?? null,
+        enrollmentId: refs.enrollmentId ?? null,
+      },
+    });
+  };
+
+  const purchaseOrder = await prisma.order.create({
+    data: {
+      orderCode: 'ORD-INST-0001',
+      orderType: OrderType.CREDIT_PACK,
+      institutionId: institution.id,
+      creditQuantity: 50,
+      amount: 50 * institution.wholesalePrice,
+      currency: institution.currency,
+      paymentMethod: PaymentMethod.CARD,
+      status: OrderStatus.PAID,
+    },
+  });
+  await recordTxn(CreditTxnType.PURCHASE, 50, 'Growth pack (50 credits)', {
+    orderId: purchaseOrder.id,
+  });
+  await recordTxn(
+    CreditTxnType.ADJUSTMENT,
+    5,
+    'Goodwill credits from platform admin',
+  );
+
+  // Enroll the active students, spending one credit each.
+  let enrollmentIndex = 0;
+  for (const studentId of activeStudentIds) {
+    enrollmentIndex += 1;
+    const mockDate = new Date();
+    mockDate.setDate(mockDate.getDate() + enrollmentIndex * 3);
+
+    const enrollment = await prisma.enrollment.create({
+      data: {
+        enrollmentCode: `ENR-INST${1000 + enrollmentIndex}`,
+        studentId,
+        packageId,
+        institutionId: institution.id,
+        institutionGranted: true,
+        mockDate,
+        mockTime: '10:00',
+        status: EnrollmentStatus.ENROLLED,
+        resultsStatus: 'PENDING',
+        writingTeacherId: writingExaminer?.id ?? null,
+        speakingTeacherId: speakingExaminer?.id ?? null,
+      },
+    });
+
+    const consumeOrder = await prisma.order.create({
+      data: {
+        orderCode: `ORD-INST${1000 + enrollmentIndex}`,
+        orderType: OrderType.ENROLLMENT,
+        studentId,
+        enrollmentId: enrollment.id,
+        institutionId: institution.id,
+        packageId,
+        amount: 0,
+        currency: institution.currency,
+        paymentMethod: PaymentMethod.COMPLIMENTARY,
+        status: OrderStatus.PAID,
+      },
+    });
+
+    await recordTxn(
+      CreditTxnType.CONSUME,
+      -1,
+      `Enrollment ${enrollment.enrollmentCode}`,
+      { orderId: consumeOrder.id, enrollmentId: enrollment.id },
+    );
+  }
+
+  await prisma.institution.update({
+    where: { id: institution.id },
+    data: { creditBalance: balance },
+  });
+
+  console.log(
+    `Seeded institution "${institution.name}" (login institution@example.com / institution), balance ${balance} credits.`,
+  );
+}
 
 async function seedLeaderboardStudents(
   packageId: string,

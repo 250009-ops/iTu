@@ -13,6 +13,31 @@ enum UserRole {
   ADMIN
   TEACHER
   STUDENT
+  INSTITUTION
+}
+
+enum InstitutionStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum InstitutionMemberStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  REMOVED
+}
+
+enum OrderType {
+  ENROLLMENT
+  CREDIT_PACK
+}
+
+enum CreditTxnType {
+  PURCHASE
+  CONSUME
+  ADJUSTMENT
 }
 
 enum TeacherStatus {
@@ -125,6 +150,8 @@ enum SpeakingSessionStatus {
   ACTIVE
   COMPLETED
   CANCELLED
+  /// Student never joined after the late-join window closed.
+  NO_SHOW
 }
 
 enum NotificationType {
@@ -179,26 +206,28 @@ enum PayoutStatus {
 // ─── Users & Profiles ────────────────────────────────────────────────────────
 
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  passwordHash          String    @map("password_hash")
-  name                  String
-  role                  UserRole
-  passwordResetToken    String?   @map("password_reset_token")
-  passwordResetExpires  DateTime? @map("password_reset_expires")
-  emailVerifiedAt      DateTime? @map("email_verified_at")
-  emailVerificationToken    String?   @map("email_verification_token")
-  emailVerificationExpires  DateTime? @map("email_verification_expires")
-  totpSecret            String?   @map("totp_secret")
-  totpPendingSecret     String?   @map("totp_pending_secret")
-  totpEnabled           Boolean   @default(false) @map("totp_enabled")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  id                       String    @id @default(cuid())
+  email                    String    @unique
+  passwordHash             String    @map("password_hash")
+  name                     String
+  role                     UserRole
+  passwordResetToken       String?   @map("password_reset_token")
+  passwordResetExpires     DateTime? @map("password_reset_expires")
+  emailVerifiedAt          DateTime? @map("email_verified_at")
+  emailVerificationToken   String?   @map("email_verification_token")
+  emailVerificationExpires DateTime? @map("email_verification_expires")
+  totpSecret               String?   @map("totp_secret")
+  totpPendingSecret        String?   @map("totp_pending_secret")
+  totpEnabled              Boolean   @default(false) @map("totp_enabled")
+  institutionId            String?   @map("institution_id")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
 
-  studentProfile StudentProfile?
-  teacherProfile TeacherProfile?
-  notifications  Notification[]
-  auditLogs      AuditLog[]
+  studentProfile  StudentProfile?
+  teacherProfile  TeacherProfile?
+  institution     Institution?    @relation("InstitutionAdmins", fields: [institutionId], references: [id])
+  notifications   Notification[]
+  auditLogs       AuditLog[]
   assignedTickets SupportTicket[] @relation("TicketAssignee")
   reportedTickets SupportTicket[] @relation("TicketReporter")
 
@@ -206,59 +235,66 @@ model User {
 }
 
 model StudentProfile {
-  id                   String    @id @default(cuid())
-  userId               String    @unique @map("user_id")
-  targetBand           Float?    @map("target_band")
-  examType             ExamType  @default(ACADEMIC) @map("exam_type")
+  id                   String                   @id @default(cuid())
+  userId               String                   @unique @map("user_id")
+  targetBand           Float?                   @map("target_band")
+  examType             ExamType                 @default(ACADEMIC) @map("exam_type")
   country              String?
   phone                String?
-  publishToLeaderboard Boolean   @default(false) @map("publish_to_leaderboard")
-  notificationPrefs    Json?     @map("notification_prefs")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  publishToLeaderboard Boolean                  @default(false) @map("publish_to_leaderboard")
+  notificationPrefs    Json?                    @map("notification_prefs")
+  institutionId        String?                  @map("institution_id")
+  institutionStatus    InstitutionMemberStatus? @map("institution_status")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
 
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution Institution? @relation(fields: [institutionId], references: [id])
   enrollments Enrollment[]
   orders      Order[]
   reviews     Review[]
 
+  @@index([institutionId])
   @@map("student_profiles")
 }
 
 model TeacherProfile {
-  id             String            @id @default(cuid())
-  userId         String            @unique @map("user_id")
-  slug           String?           @unique
-  bio            String?
-  longBio        String?           @map("long_bio")
-  avatarUrl      String?           @map("avatar_url")
-  notificationPrefs Json?          @map("notification_prefs")
-  payoutDetails    Json?           @map("payout_details")
-  applicationData  Json?           @map("application_data")
-  credentials    Json?
-  languages      Json              @default("[]")
-  commissionRate Float             @default(0.25) @map("commission_rate")
-  status         TeacherStatus     @default(PENDING)
-  speciality     TeacherSpeciality @default(BOTH)
-  rating         Float?
-  reviewCount    Int               @default(0) @map("review_count")
-  isTopRated     Boolean           @default(false) @map("is_top_rated")
-  totalSessions  Int               @default(0) @map("total_sessions")
-  totalEarned    Float             @default(0) @map("total_earned")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  id                String            @id @default(cuid())
+  userId            String            @unique @map("user_id")
+  slug              String?           @unique
+  bio               String?
+  longBio           String?           @map("long_bio")
+  avatarUrl         String?           @map("avatar_url")
+  notificationPrefs Json?             @map("notification_prefs")
+  payoutDetails     Json?             @map("payout_details")
+  applicationData   Json?             @map("application_data")
+  credentials       Json?
+  languages         Json              @default("[]")
+  commissionRate    Float             @default(0.25) @map("commission_rate")
+  status            TeacherStatus     @default(PENDING)
+  speciality        TeacherSpeciality @default(BOTH)
+  rating            Float?
+  reviewCount       Int               @default(0) @map("review_count")
+  isTopRated        Boolean           @default(false) @map("is_top_rated")
+  totalSessions     Int               @default(0) @map("total_sessions")
+  totalEarned       Float             @default(0) @map("total_earned")
+  institutionId     String?           @map("institution_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
 
-  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  availability         TeacherAvailability[]
-  slots                TeacherSlot[]
-  writingEnrollments   Enrollment[]          @relation("WritingTeacher")
-  speakingEnrollments  Enrollment[]          @relation("SpeakingTeacher")
-  writingSubmissions   WritingSubmission[]
-  speakingSessions     SpeakingSession[]
-  grades               Grade[]
-  payouts              Payout[]
-  reviews              Review[]
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution         Institution?          @relation(fields: [institutionId], references: [id])
+  availability        TeacherAvailability[]
+  slots               TeacherSlot[]
+  writingEnrollments  Enrollment[]          @relation("WritingTeacher")
+  speakingEnrollments Enrollment[]          @relation("SpeakingTeacher")
+  writingSubmissions  WritingSubmission[]
+  speakingSessions    SpeakingSession[]
+  grades              Grade[]
+  payouts             Payout[]
+  reviews             Review[]
 
+  @@index([institutionId])
   @@map("teacher_profiles")
 }
 
@@ -306,9 +342,9 @@ model MockTestPackage {
   mostPopular     Boolean  @default(false) @map("most_popular")
   rating          Float?
   reviewCount     Int      @default(0) @map("review_count")
-  skills          Json              @default("[]")
-  included        Json              @default("[]")
-  rules           Json              @default("[]")
+  skills          Json     @default("[]")
+  included        Json     @default("[]")
+  rules           Json     @default("[]")
   listeningTestId String?  @map("listening_test_id")
   readingTestId   String?  @map("reading_test_id")
   writingTestId   String?  @map("writing_test_id")
@@ -317,10 +353,10 @@ model MockTestPackage {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  listeningTest ContentTest? @relation("PackageListening", fields: [listeningTestId], references: [id])
-  readingTest   ContentTest? @relation("PackageReading", fields: [readingTestId], references: [id])
-  writingTest   ContentTest? @relation("PackageWriting", fields: [writingTestId], references: [id])
-  speakingBank  ContentTest? @relation("PackageSpeaking", fields: [speakingBankId], references: [id])
+  listeningTest ContentTest?         @relation("PackageListening", fields: [listeningTestId], references: [id])
+  readingTest   ContentTest?         @relation("PackageReading", fields: [readingTestId], references: [id])
+  writingTest   ContentTest?         @relation("PackageWriting", fields: [writingTestId], references: [id])
+  speakingBank  ContentTest?         @relation("PackageSpeaking", fields: [speakingBankId], references: [id])
   contentPool   PackageContentTest[]
   enrollments   Enrollment[]
   orders        Order[]
@@ -344,10 +380,10 @@ model ContentTest {
   updatedAt   DateTime          @updatedAt @map("updated_at")
   publishedAt DateTime?         @map("published_at")
 
-  packageListening MockTestPackage[] @relation("PackageListening")
-  packageReading   MockTestPackage[] @relation("PackageReading")
-  packageWriting   MockTestPackage[] @relation("PackageWriting")
-  packageSpeaking  MockTestPackage[] @relation("PackageSpeaking")
+  packageListening MockTestPackage[]    @relation("PackageListening")
+  packageReading   MockTestPackage[]    @relation("PackageReading")
+  packageWriting   MockTestPackage[]    @relation("PackageWriting")
+  packageSpeaking  MockTestPackage[]    @relation("PackageSpeaking")
   mediaAssets      MediaAsset[]
   poolEntries      PackageContentTest[] @relation("PoolTest")
   sectionAttempts  SectionAttempt[]     @relation("AttemptContent")
@@ -392,41 +428,45 @@ model MediaAsset {
 // ─── Enrollments & Orders ────────────────────────────────────────────────────
 
 model Enrollment {
-  id               String           @id @default(cuid())
-  enrollmentCode   String           @unique @map("enrollment_code")
-  studentId        String           @map("student_id")
-  packageId        String           @map("package_id")
-  mockDate          DateTime         @map("mock_date")
+  id                 String           @id @default(cuid())
+  enrollmentCode     String           @unique @map("enrollment_code")
+  studentId          String           @map("student_id")
+  packageId          String           @map("package_id")
+  mockDate           DateTime         @map("mock_date")
   /// Null for admin-granted flexible-start mocks; HH:mm for scheduled bookings.
-  mockTime          String?          @map("mock_time")
+  mockTime           String?          @map("mock_time")
   /// Latest time the student may begin the mock on mockDate (platform cutoff).
-  mockDayCutoffAt   DateTime?        @map("mock_day_cutoff_at")
+  mockDayCutoffAt    DateTime?        @map("mock_day_cutoff_at")
   /// Set when check-in completes — point of no return for rescheduling.
-  examStartedAt     DateTime?        @map("exam_started_at")
-  missedAt          DateTime?        @map("missed_at")
-  reappointmentOfId String?          @map("reappointment_of_id")
-  status            EnrollmentStatus @default(ENROLLED)
-  resultsStatus     ResultsStatus    @default(PENDING) @map("results_status")
-  resultPdfUrl      String?          @map("result_pdf_url")
-  writingTeacherId  String?          @map("writing_teacher_id")
-  speakingTeacherId String?          @map("speaking_teacher_id")
-  speakingSlotId    String?          @map("speaking_slot_id")
-  adminGranted      Boolean          @default(false) @map("admin_granted")
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
+  examStartedAt      DateTime?        @map("exam_started_at")
+  missedAt           DateTime?        @map("missed_at")
+  reappointmentOfId  String?          @map("reappointment_of_id")
+  status             EnrollmentStatus @default(ENROLLED)
+  resultsStatus      ResultsStatus    @default(PENDING) @map("results_status")
+  resultPdfUrl       String?          @map("result_pdf_url")
+  writingTeacherId   String?          @map("writing_teacher_id")
+  speakingTeacherId  String?          @map("speaking_teacher_id")
+  speakingSlotId     String?          @map("speaking_slot_id")
+  adminGranted       Boolean          @default(false) @map("admin_granted")
+  institutionId      String?          @map("institution_id")
+  institutionGranted Boolean          @default(false) @map("institution_granted")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
 
-  student           StudentProfile  @relation(fields: [studentId], references: [id])
-  package           MockTestPackage @relation(fields: [packageId], references: [id])
-  writingTeacher    TeacherProfile? @relation("WritingTeacher", fields: [writingTeacherId], references: [id])
-  speakingTeacher   TeacherProfile? @relation("SpeakingTeacher", fields: [speakingTeacherId], references: [id])
-  speakingSlot      TeacherSlot?    @relation(fields: [speakingSlotId], references: [id])
-  reappointmentOf   Enrollment?     @relation("Reappointment", fields: [reappointmentOfId], references: [id])
-  reappointments    Enrollment[]    @relation("Reappointment")
-  order             Order?
-  examSession       ExamSession?
-  tickets           SupportTicket[]
-  review            Review?
+  student         StudentProfile  @relation(fields: [studentId], references: [id])
+  package         MockTestPackage @relation(fields: [packageId], references: [id])
+  institution     Institution?    @relation(fields: [institutionId], references: [id])
+  writingTeacher  TeacherProfile? @relation("WritingTeacher", fields: [writingTeacherId], references: [id])
+  speakingTeacher TeacherProfile? @relation("SpeakingTeacher", fields: [speakingTeacherId], references: [id])
+  speakingSlot    TeacherSlot?    @relation(fields: [speakingSlotId], references: [id])
+  reappointmentOf Enrollment?     @relation("Reappointment", fields: [reappointmentOfId], references: [id])
+  reappointments  Enrollment[]    @relation("Reappointment")
+  order           Order?
+  examSession     ExamSession?
+  tickets         SupportTicket[]
+  review          Review?
 
+  @@index([institutionId])
   @@map("enrollments")
 }
 
@@ -450,28 +490,33 @@ model Review {
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  orderCode     String        @unique @map("order_code")
-  studentId     String        @map("student_id")
-  enrollmentId  String?       @unique @map("enrollment_id")
-  packageId     String        @map("package_id")
-  amount        Float
-  currency      String        @default("UZS")
-  paymentMethod PaymentMethod @default(CARD) @map("payment_method")
-  status        OrderStatus   @default(PENDING)
-  stripePaymentId String?     @map("stripe_payment_id")
-  lemonCheckoutId String?     @map("lemon_checkout_id")
-  lemonOrderId    String?     @map("lemon_order_id")
-  checkoutUrl     String?     @map("checkout_url")
-  checkoutExpiresAt DateTime? @map("checkout_expires_at")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id                String        @id @default(cuid())
+  orderCode         String        @unique @map("order_code")
+  orderType         OrderType     @default(ENROLLMENT) @map("order_type")
+  studentId         String?       @map("student_id")
+  institutionId     String?       @map("institution_id")
+  creditQuantity    Int?          @map("credit_quantity")
+  enrollmentId      String?       @unique @map("enrollment_id")
+  packageId         String?       @map("package_id")
+  amount            Float
+  currency          String        @default("UZS")
+  paymentMethod     PaymentMethod @default(CARD) @map("payment_method")
+  status            OrderStatus   @default(PENDING)
+  stripePaymentId   String?       @map("stripe_payment_id")
+  lemonCheckoutId   String?       @map("lemon_checkout_id")
+  lemonOrderId      String?       @map("lemon_order_id")
+  checkoutUrl       String?       @map("checkout_url")
+  checkoutExpiresAt DateTime?     @map("checkout_expires_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
 
-  student    StudentProfile  @relation(fields: [studentId], references: [id])
-  enrollment Enrollment?     @relation(fields: [enrollmentId], references: [id])
-  package    MockTestPackage @relation(fields: [packageId], references: [id])
-  refunds    Refund[]
+  student     StudentProfile?  @relation(fields: [studentId], references: [id])
+  institution Institution?     @relation(fields: [institutionId], references: [id])
+  enrollment  Enrollment?      @relation(fields: [enrollmentId], references: [id])
+  package     MockTestPackage? @relation(fields: [packageId], references: [id])
+  refunds     Refund[]
 
+  @@index([institutionId])
   @@map("orders")
 }
 
@@ -487,22 +532,75 @@ model Refund {
   @@map("refunds")
 }
 
+// ─── Institutions (Edu-Center Partners) ──────────────────────────────────────
+
+model Institution {
+  id                String            @id @default(cuid())
+  name              String
+  slug              String            @unique
+  status            InstitutionStatus @default(PENDING)
+  city              String?
+  address           String?
+  logoUrl           String?           @map("logo_url")
+  bio               String?
+  contactName       String            @map("contact_name")
+  contactEmail      String            @map("contact_email")
+  contactPhone      String?           @map("contact_phone")
+  telegramChatId    String?           @map("telegram_chat_id")
+  /// What the platform charges the center per credit.
+  wholesalePrice    Float             @default(40000) @map("wholesale_price")
+  currency          String            @default("UZS")
+  creditBalance     Int               @default(0) @map("credit_balance")
+  notificationPrefs Json?             @map("notification_prefs")
+  approvedAt        DateTime?         @map("approved_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  admins      User[]                 @relation("InstitutionAdmins")
+  students    StudentProfile[]
+  teachers    TeacherProfile[]
+  enrollments Enrollment[]
+  orders      Order[]
+  creditTxns  InstitutionCreditTxn[]
+
+  @@map("institutions")
+}
+
+model InstitutionCreditTxn {
+  id            String        @id @default(cuid())
+  institutionId String        @map("institution_id")
+  type          CreditTxnType
+  /// Signed delta: +N for PURCHASE/positive ADJUSTMENT, -1 for CONSUME.
+  delta         Int
+  balanceAfter  Int           @map("balance_after")
+  orderId       String?       @map("order_id")
+  enrollmentId  String?       @map("enrollment_id")
+  reference     String?
+  note          String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@index([institutionId])
+  @@map("institution_credit_txns")
+}
+
 // ─── Exam Delivery ───────────────────────────────────────────────────────────
 
 model ExamSession {
-  id           String           @id @default(cuid())
-  sessionCode  String           @unique @map("session_code")
-  enrollmentId String           @unique @map("enrollment_id")
-  state        ExamSessionState @default(ENROLLED)
-  sectionTimers Json?           @map("section_timers")
-  integrityLog Json?            @map("integrity_log")
-  integrity    IntegrityStatus  @default(CLEAR)
-  suspendedAt  DateTime?        @map("suspended_at")
-  suspendReason String?         @map("suspend_reason")
-  version      Int              @default(0)
-  checkInAt    DateTime?        @map("check_in_at")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
+  id            String           @id @default(cuid())
+  sessionCode   String           @unique @map("session_code")
+  enrollmentId  String           @unique @map("enrollment_id")
+  state         ExamSessionState @default(ENROLLED)
+  sectionTimers Json?            @map("section_timers")
+  integrityLog  Json?            @map("integrity_log")
+  integrity     IntegrityStatus  @default(CLEAR)
+  suspendedAt   DateTime?        @map("suspended_at")
+  suspendReason String?          @map("suspend_reason")
+  version       Int              @default(0)
+  checkInAt     DateTime?        @map("check_in_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
 
   enrollment      Enrollment       @relation(fields: [enrollmentId], references: [id])
   sectionAttempts SectionAttempt[]
@@ -523,11 +621,11 @@ model SectionAttempt {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  session            ExamSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  contentTest        ContentTest?        @relation("AttemptContent", fields: [contentTestId], references: [id])
-  answers            Answer[]
-  writingSubmission  WritingSubmission?
-  speakingSession    SpeakingSession?
+  session           ExamSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  contentTest       ContentTest?       @relation("AttemptContent", fields: [contentTestId], references: [id])
+  answers           Answer[]
+  writingSubmission WritingSubmission?
+  speakingSession   SpeakingSession?
 
   @@unique([sessionId, skill])
   @@map("section_attempts")
@@ -562,8 +660,8 @@ model WritingSubmission {
   createdAt        DateTime                @default(now()) @map("created_at")
   updatedAt        DateTime                @updatedAt @map("updated_at")
 
-  sectionAttempt SectionAttempt  @relation(fields: [sectionAttemptId], references: [id], onDelete: Cascade)
-  teacher        TeacherProfile? @relation(fields: [teacherId], references: [id])
+  sectionAttempt SectionAttempt       @relation(fields: [sectionAttemptId], references: [id], onDelete: Cascade)
+  teacher        TeacherProfile?      @relation(fields: [teacherId], references: [id])
   grade          Grade?
   aiEvaluation   WritingAiEvaluation?
 
@@ -571,20 +669,20 @@ model WritingSubmission {
 }
 
 model WritingAiEvaluation {
-  id                   String                    @id @default(cuid())
-  writingSubmissionId  String                    @unique @map("writing_submission_id")
-  status               WritingAiEvaluationStatus @default(QUEUED)
-  task1Annotations     Json?                     @map("task1_annotations")
-  task2Annotations     Json?                     @map("task2_annotations")
-  task1SuggestedScores Json?                     @map("task1_suggested_scores")
-  task2SuggestedScores Json?                     @map("task2_suggested_scores")
-  task1CriterionSummaries Json?                  @map("task1_criterion_summaries")
-  task2CriterionSummaries Json?                  @map("task2_criterion_summaries")
-  modelVersion         String?                   @map("model_version")
-  errorMessage         String?                   @map("error_message")
-  generatedAt          DateTime?                 @map("generated_at")
-  createdAt            DateTime                  @default(now()) @map("created_at")
-  updatedAt            DateTime                  @updatedAt @map("updated_at")
+  id                      String                    @id @default(cuid())
+  writingSubmissionId     String                    @unique @map("writing_submission_id")
+  status                  WritingAiEvaluationStatus @default(QUEUED)
+  task1Annotations        Json?                     @map("task1_annotations")
+  task2Annotations        Json?                     @map("task2_annotations")
+  task1SuggestedScores    Json?                     @map("task1_suggested_scores")
+  task2SuggestedScores    Json?                     @map("task2_suggested_scores")
+  task1CriterionSummaries Json?                     @map("task1_criterion_summaries")
+  task2CriterionSummaries Json?                     @map("task2_criterion_summaries")
+  modelVersion            String?                   @map("model_version")
+  errorMessage            String?                   @map("error_message")
+  generatedAt             DateTime?                 @map("generated_at")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
 
   writingSubmission WritingSubmission @relation(fields: [writingSubmissionId], references: [id], onDelete: Cascade)
 
@@ -634,15 +732,15 @@ model Grade {
 // ─── Commerce & Payouts ──────────────────────────────────────────────────────
 
 model Payout {
-  id         String       @id @default(cuid())
-  teacherId  String       @map("teacher_id")
-  amount     Float
-  currency   String       @default("UZS")
-  status     PayoutStatus @default(PENDING)
-  periodStart DateTime    @map("period_start")
-  periodEnd   DateTime    @map("period_end")
-  paidAt     DateTime?    @map("paid_at")
-  createdAt  DateTime     @default(now()) @map("created_at")
+  id          String       @id @default(cuid())
+  teacherId   String       @map("teacher_id")
+  amount      Float
+  currency    String       @default("UZS")
+  status      PayoutStatus @default(PENDING)
+  periodStart DateTime     @map("period_start")
+  periodEnd   DateTime     @map("period_end")
+  paidAt      DateTime?    @map("paid_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
 
   teacher TeacherProfile @relation(fields: [teacherId], references: [id])
 

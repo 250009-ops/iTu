@@ -9,11 +9,17 @@ export type ApiUser = {
   name: string;
   role: UserRole;
   totpEnabled?: boolean;
+  institution?: {
+    id: string;
+    name: string;
+    status: string;
+  };
   studentProfile?: {
     id: string;
     targetBand: number | null;
     examType: string;
     country: string | null;
+    institutionStatus?: string | null;
   };
   teacherProfile?: {
     id: string;

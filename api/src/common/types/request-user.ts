@@ -7,4 +7,5 @@ export class RequestUser {
   role!: UserRole;
   studentProfileId?: string;
   teacherProfileId?: string;
+  institutionId?: string;
 }

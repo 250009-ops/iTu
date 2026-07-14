@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, CircleHelp, LogOut } from "lucide-react";
 import { getInitials, useAuth } from "@/hooks/use-auth";
 import { useClickOutside } from "@/hooks/use-click-outside";
@@ -12,6 +12,7 @@ export function UserMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const { session, signOut } = useAuth();
 
   useClickOutside(ref, () => setOpen(false), open);
@@ -79,7 +80,7 @@ export function UserMenu() {
           <div className="py-1">
             <button
               type="button"
-              onClick={() => navigate(helpPath(session?.role))}
+              onClick={() => navigate(helpPath(session?.role, pathname))}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-slate-50"
             >
               <CircleHelp className="h-4 w-4 text-muted" />

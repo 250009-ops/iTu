@@ -300,7 +300,7 @@ export function speakingJoinWindow(
       tooLate: true,
       opensAt,
       closesAt: end,
-      message: 'The late-join window for this speaking slot has closed.',
+      message: 'The late-join window for this speaking slot has closed. You have been marked absent.',
     };
   }
   return {
@@ -311,4 +311,47 @@ export function speakingJoinWindow(
     closesAt: end,
     message: null,
   };
+}
+
+/** Late-join window closed and the student never entered the live room. */
+export function shouldMarkSpeakingNoShow(
+  session: {
+    status: string;
+    startedAt: Date | null;
+    scheduledAt: Date | null;
+  },
+  lateJoinMin = 15,
+  now = new Date(),
+): boolean {
+  if (session.startedAt) return false;
+  if (!session.scheduledAt) return false;
+  if (session.status !== 'SCHEDULED' && session.status !== 'WAITING') {
+    return false;
+  }
+  const closesAt = new Date(
+    session.scheduledAt.getTime() + lateJoinMin * 60_000,
+  );
+  return now.getTime() > closesAt.getTime();
+}
+
+/**
+ * When Speaking is marked no-show, mark the whole enrollment MISSED unless the
+ * student already submitted other package skills (those can still release).
+ */
+export function shouldMissEnrollmentForSpeakingNoShow(
+  packageSkills: string[],
+  sectionAttempts: { skill: string; submittedAt: Date | null }[],
+): boolean {
+  const otherSkills = packageSkills.filter(
+    (skill) => skill.toUpperCase() !== 'SPEAKING',
+  );
+  if (otherSkills.length === 0) return true;
+
+  return !otherSkills.some((skill) =>
+    sectionAttempts.some(
+      (attempt) =>
+        attempt.skill.toUpperCase() === skill.toUpperCase() &&
+        attempt.submittedAt != null,
+    ),
+  );
 }

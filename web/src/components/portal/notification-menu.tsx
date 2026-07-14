@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   CalendarDays,
@@ -120,6 +120,7 @@ export function NotificationMenu() {
   const [items, setItems] = useState<UiNotification[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const { session, isAuthenticated } = useAuth();
 
@@ -156,7 +157,7 @@ export function NotificationMenu() {
     if (item.href) {
       router.push(item.href);
     } else {
-      router.push(notificationsPath(session?.role));
+      router.push(notificationsPath(session?.role, pathname));
     }
   }
 
@@ -226,7 +227,7 @@ export function NotificationMenu() {
               type="button"
               onClick={() => {
                 setOpen(false);
-                router.push(notificationsPath(session?.role));
+                router.push(notificationsPath(session?.role, pathname));
               }}
               className="w-full rounded-lg py-2 text-center text-sm font-medium text-brand-red hover:bg-slate-50"
             >

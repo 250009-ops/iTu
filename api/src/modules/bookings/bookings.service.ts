@@ -70,6 +70,10 @@ export interface ProvisionEnrollmentParams {
   complimentary?: boolean;
   /** Reappointment of a paid mock — no charge, not flagged adminGranted. */
   isReappointment?: boolean;
+  /** When set: enrollment belongs to an institution (credit-funded, off-platform pay). */
+  institutionId?: string;
+  /** When true: $0 order, institution-funded enrollment (credit already spent). */
+  institutionGranted?: boolean;
   auditAction: AuditActionName;
   /** Only used for paid bookings; ignored when {@link complimentary} is true. */
   paymentMethod?: string;
@@ -126,6 +130,7 @@ export class BookingsService {
     const teachers = await this.prisma.teacherProfile.findMany({
       where: {
         status: 'APPROVED',
+        institutionId: null,
         ...teacherSpecialityWhere(speciality),
       },
       include: { user: { select: { id: true, name: true, email: true } } },
@@ -191,6 +196,8 @@ export class BookingsService {
   async provisionEnrollment(params: ProvisionEnrollmentParams) {
     const { studentProfileId, actorUserId, auditAction } = params;
     const complimentary = params.complimentary ?? false;
+    const institutionGranted = params.institutionGranted ?? false;
+    const zeroCharge = complimentary || institutionGranted;
 
     const pkg = await this.prisma.mockTestPackage.findUnique({
       where: { id: params.packageId },
@@ -207,7 +214,7 @@ export class BookingsService {
       throw new BadRequestException('Writing examiner is required for this package');
     }
 
-    const flexibleGrant = complimentary && !params.mockTime;
+    const flexibleGrant = zeroCharge && !params.mockTime;
     if (complimentary && !params.reappointmentOfId) {
       await this.assertNoActiveAdminGrant(studentProfileId);
     }
@@ -287,10 +294,9 @@ export class BookingsService {
     const sessionCode = await this.generateCode('MOCK');
 
     const amount =
-      complimentary || params.isReappointment ? 0 : pkg.price;
-    const paymentMethod = complimentary
-      ? PaymentMethod.COMPLIMENTARY
-      : params.isReappointment
+      zeroCharge || params.isReappointment ? 0 : pkg.price;
+    const paymentMethod =
+      zeroCharge || params.isReappointment
         ? PaymentMethod.COMPLIMENTARY
         : ((params.paymentMethod?.toUpperCase() as PaymentMethod) ??
           PaymentMethod.CARD);
@@ -335,6 +341,8 @@ export class BookingsService {
           mockDayCutoffAt,
           status: EnrollmentStatus.ENROLLED,
           adminGranted: complimentary,
+          institutionId: params.institutionId ?? null,
+          institutionGranted,
           reappointmentOfId: params.reappointmentOfId ?? null,
           writingTeacherId: params.writingTeacherId ?? null,
           speakingTeacherId:
@@ -348,6 +356,7 @@ export class BookingsService {
           orderCode,
           studentId: studentProfileId,
           enrollmentId: enrollment.id,
+          institutionId: params.institutionId ?? null,
           packageId: params.packageId,
           amount,
           currency: pkg.currency,
@@ -1407,7 +1416,7 @@ export class BookingsService {
         student: { include: { user: true } },
       },
     });
-    if (!order?.enrollment) {
+    if (!order?.enrollment || !order.package || !order.student || !order.studentId) {
       throw new NotFoundException('Pending order not found');
     }
     if (order.enrollment.status !== EnrollmentStatus.PENDING_PAYMENT) {

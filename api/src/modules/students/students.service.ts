@@ -86,7 +86,30 @@ export class StudentsService {
       orderBy: { mockDate: 'desc' },
     });
 
-    const upcoming = enrollments.find(
+    for (const enrollment of enrollments) {
+      if (
+        enrollment.status === 'ENROLLED' ||
+        enrollment.status === 'IN_PROGRESS'
+      ) {
+        await this.enrollmentLifecycle.markMissedIfEligible(enrollment.id);
+        await this.enrollmentLifecycle.markSpeakingNoShowIfEligible(
+          enrollment.id,
+        );
+      }
+    }
+
+    const refreshed = await this.prisma.enrollment.findMany({
+      where: { studentId: user.studentProfileId },
+      include: {
+        package: true,
+        examSession: { include: { sectionAttempts: true } },
+        writingTeacher: { include: { user: true } },
+        speakingTeacher: { include: { user: true } },
+      },
+      orderBy: { mockDate: 'desc' },
+    });
+
+    const upcoming = refreshed.find(
       (e) =>
         e.status === 'ENROLLED' ||
         e.status === 'IN_PROGRESS' ||
@@ -94,10 +117,10 @@ export class StudentsService {
     );
 
     const missed = !upcoming
-      ? enrollments.find((e) => e.status === 'MISSED')
+      ? refreshed.find((e) => e.status === 'MISSED')
       : null;
 
-    const completed = enrollments.filter((e) => e.status === 'COMPLETED');
+    const completed = refreshed.filter((e) => e.status === 'COMPLETED');
 
     const resolvedCompleted = await Promise.all(
       completed.map(async (e) => ({
@@ -221,6 +244,7 @@ export class StudentsService {
             packageTitle: missed.package.title,
             mockDate: missed.mockDate,
             adminGranted: missed.adminGranted,
+            reason: missed.examStartedAt ? 'speaking_no_show' : 'never_started',
           }
         : null,
       bandProgress: resolvedCompleted
@@ -232,6 +256,10 @@ export class StudentsService {
             day: 'numeric',
           }),
           band: scores.overall,
+          listening: scores.bySkill.listening ?? null,
+          reading: scores.bySkill.reading ?? null,
+          writing: scores.bySkill.writing ?? null,
+          speaking: scores.bySkill.speaking ?? null,
         }))
         .filter((p) => p.band != null),
       pastMocks: resolvedCompleted.slice(0, 5).map(({ enrollment: e, scores }) => ({
@@ -286,6 +314,7 @@ export class StudentsService {
     for (const candidate of activeEnrollments) {
       if (candidate.examSession) {
         await this.enrollmentLifecycle.markMissedIfEligible(candidate.id);
+        await this.enrollmentLifecycle.markSpeakingNoShowIfEligible(candidate.id);
       }
     }
 
@@ -326,7 +355,10 @@ export class StudentsService {
         // been graded, even if the attempt's submittedAt wasn't stamped.
         const speaking = a.speakingSession;
         return Boolean(
-          speaking && (speaking.status === 'COMPLETED' || speaking.grade),
+          speaking &&
+            (speaking.status === 'COMPLETED' ||
+              speaking.status === 'NO_SHOW' ||
+              speaking.grade),
         );
       })
       .map((a) => a.skill.toLowerCase());
@@ -455,12 +487,12 @@ export class StudentsService {
         | Record<string, boolean>
         | null,
       package: {
-        title: latestOrder?.package.title ?? null,
+        title: latestOrder?.package?.title ?? null,
         purchasedAt: latestOrder?.createdAt ?? null,
         amount: latestOrder?.amount ?? null,
         currency: latestOrder?.currency ?? null,
         orderCode: latestOrder?.orderCode ?? null,
-        skills: latestOrder?.package.skills ?? [],
+        skills: latestOrder?.package?.skills ?? [],
         mocksUsed,
         mocksTotal,
         mocksRemaining,

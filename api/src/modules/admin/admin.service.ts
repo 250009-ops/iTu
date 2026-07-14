@@ -1201,6 +1201,7 @@ export class AdminService {
           student: { include: { user: true } },
           package: true,
           enrollment: true,
+          institution: { select: { name: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -1235,9 +1236,12 @@ export class AdminService {
       return {
         id: o.id,
         orderId: o.orderCode,
-        studentName: o.student.user.name,
+        studentName:
+          o.student?.user.name ?? o.institution?.name ?? '—',
         enrollmentRef: o.enrollment?.enrollmentCode,
-        package: o.package.title,
+        package:
+          o.package?.title ??
+          (o.creditQuantity ? `${o.creditQuantity} mock credits` : '—'),
         paymentMethod,
         amount: o.amount,
         status,
@@ -2398,6 +2402,11 @@ export class AdminService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
+    if (!order.student) {
+      throw new BadRequestException(
+        'Only student enrollment orders can be refunded here',
+      );
+    }
     if (order.status !== 'PAID') {
       throw new BadRequestException('Only paid orders can be refunded');
     }

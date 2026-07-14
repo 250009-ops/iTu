@@ -9,6 +9,7 @@ export type AdminNavIcon =
   | "receipt"
   | "alert-triangle"
   | "bar-chart"
+  | "building"
   | "settings";
 
 export type AdminNavBadgeKey = "liveSessions" | "openTickets";
@@ -43,6 +44,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       { label: "Teachers", href: "/admin/teachers", icon: "user-check" },
       { label: "Students", href: "/admin/students", icon: "graduation-cap" },
+      { label: "Institutions", href: "/admin/institutions", icon: "building" },
       {
         label: "Live Monitor",
         href: "/admin/sessions",

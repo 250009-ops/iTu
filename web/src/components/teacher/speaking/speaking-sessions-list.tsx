@@ -45,6 +45,10 @@ function StatusBadge({
       label: "Graded",
       className: "bg-emerald-50 text-emerald-700",
     },
+    no_show: {
+      label: "Student absent",
+      className: "bg-rose-50 text-rose-700",
+    },
   };
 
   const style = styles[uiStatus];
@@ -68,6 +72,14 @@ function SessionAction({ session }: { session: MappedSpeakingSessionItem }) {
           Review
         </Button>
       </Link>
+    );
+  }
+
+  if (session.uiStatus === "no_show") {
+    return (
+      <Button variant="secondary" size="sm" disabled>
+        Student absent
+      </Button>
     );
   }
 

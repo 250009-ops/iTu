@@ -14,3 +14,20 @@ export function getMarketingTestimonials() {
     auth: false,
   });
 }
+
+export type InstitutionApplicationInput = {
+  name: string;
+  organisation: string;
+  email: string;
+  phone?: string;
+  expectedStudents?: string;
+  message?: string;
+};
+
+export function submitInstitutionApplication(input: InstitutionApplicationInput) {
+  return apiFetch<{ status: string }>("/marketing/institution-application", {
+    method: "POST",
+    body: input,
+    auth: false,
+  });
+}

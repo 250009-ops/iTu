@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ResultsModule } from '../results/results.module';
 import { SettingsModule } from '../settings/settings.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { BookingsController } from './bookings.controller';
@@ -10,6 +11,7 @@ import { EnrollmentLifecycleService } from './enrollment-lifecycle.service';
   imports: [
     NotificationsModule,
     SettingsModule,
+    ResultsModule,
     forwardRef(() => PaymentsModule),
   ],
   controllers: [BookingsController],

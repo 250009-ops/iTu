@@ -55,7 +55,7 @@ export function speakingJoinAccess(
       tooLate: true,
       opensAt,
       closesAt: end,
-      message: 'The late-join window for this speaking slot has closed.',
+      message: 'The late-join window for this speaking slot has closed. You have been marked absent.',
     };
   }
   return {

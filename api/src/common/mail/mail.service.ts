@@ -194,6 +194,104 @@ export class MailService {
     }
   }
 
+  private actionLinkHtml(
+    name: string,
+    intro: string,
+    buttonLabel: string,
+    url: string,
+    footer: string,
+  ): { text: string; html: string } {
+    const text = `Hi ${name},\n\n${intro}\n\n${buttonLabel}: ${url}\n\n${footer}`;
+    const html = `
+      <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">
+        <p>Hi ${name},</p>
+        <p>${intro}</p>
+        <p style="margin:28px 0">
+          <a href="${url}" style="background:#e31837;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;display:inline-block">${buttonLabel}</a>
+        </p>
+        <p style="color:#64748b;font-size:13px">${footer}</p>
+      </div>`;
+    return { text, html };
+  }
+
+  async sendInstitutionApprovedEmail(
+    to: string,
+    name: string,
+    centerName: string,
+    setupUrl: string,
+  ): Promise<void> {
+    const { text, html } = this.actionLinkHtml(
+      name,
+      `Great news — <strong>${centerName}</strong> has been approved as a partner institution on iTestU. Set your password to access your institution portal.`,
+      'Set your password',
+      setupUrl,
+      'This link expires in 24 hours. If you did not expect this, you can ignore this email.',
+    );
+    const sent = await this.send({
+      to,
+      subject: `${centerName} is approved — set your password`,
+      text,
+      html,
+    });
+    if (!sent) {
+      this.logger.warn(`SMTP not configured — institution setup link for ${to}: ${setupUrl}`);
+      return;
+    }
+    this.logger.log(`Institution approval email sent to ${to}`);
+  }
+
+  async sendInstitutionStudentInviteEmail(
+    to: string,
+    name: string,
+    centerName: string,
+    setupUrl: string,
+  ): Promise<void> {
+    const { text, html } = this.actionLinkHtml(
+      name,
+      `You signed up with <strong>${centerName}</strong> on iTestU. Verify your email and set a password to access your student portal.`,
+      'Verify & set password',
+      setupUrl,
+      'This link expires in 24 hours. After your center approves your account you can start booking mocks.',
+    );
+    const sent = await this.send({
+      to,
+      subject: `Verify your email for ${centerName}`,
+      text,
+      html,
+    });
+    if (!sent) {
+      this.logger.warn(`SMTP not configured — student verify link for ${to}: ${setupUrl}`);
+      return;
+    }
+    this.logger.log(`Institution student invite sent to ${to}`);
+  }
+
+  async sendInstitutionExaminerInviteEmail(
+    to: string,
+    name: string,
+    centerName: string,
+    setupUrl: string,
+  ): Promise<void> {
+    const { text, html } = this.actionLinkHtml(
+      name,
+      `<strong>${centerName}</strong> invited you to grade IELTS mocks as an examiner on iTestU. Set your password to complete onboarding.`,
+      'Set your password',
+      setupUrl,
+      'This link expires in 24 hours. You will grade only mocks assigned by your center.',
+    );
+    const sent = await this.send({
+      to,
+      subject: `${centerName} invited you as an examiner`,
+      text,
+      html,
+    });
+    if (!sent) {
+      this.logger.warn(`SMTP not configured — examiner setup link for ${to}: ${setupUrl}`);
+      return;
+    }
+    this.logger.log(`Institution examiner invite sent to ${to}`);
+  }
+
   async verifyConnection(): Promise<{ ok: boolean; message: string }> {
     const transporter = this.getTransporter();
     if (!transporter) {

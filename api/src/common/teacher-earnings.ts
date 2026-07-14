@@ -23,6 +23,20 @@ export async function accrueTeacherGradingEarning(
       ? (commission.writingRate ?? 35)
       : (commission.speakingRate ?? 25);
 
+  // Institution-scoped examiners are paid by their center off-platform, so they
+  // accrue session counts but never platform earnings or payout rows.
+  const teacher = await tx.teacherProfile.findUnique({
+    where: { id: teacherId },
+    select: { institutionId: true },
+  });
+  if (teacher?.institutionId) {
+    await tx.teacherProfile.update({
+      where: { id: teacherId },
+      data: { totalSessions: { increment: 1 } },
+    });
+    return;
+  }
+
   await tx.teacherProfile.update({
     where: { id: teacherId },
     data: {

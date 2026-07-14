@@ -27,6 +27,9 @@ import { SupportModule } from './modules/support/support.module';
 import { SpeakingModule } from './modules/speaking/speaking.module';
 import { StudentsModule } from './modules/students/students.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
+import { InstitutionModule } from './modules/institution/institution.module';
+import { InstExaminerModule } from './modules/inst-examiner/inst-examiner.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuditModule } from './common/audit/audit.module';
@@ -69,6 +72,9 @@ import { StorageModule } from './common/storage/storage.module';
     PaymentsModule,
     StudentsModule,
     TeachersModule,
+    InstitutionModule,
+    InstExaminerModule,
+    TelegramModule,
     ExamSessionsModule,
     GradingModule,
     ResultsModule,

@@ -35,7 +35,7 @@ export type SpeakingSessionListItem = {
   scheduledAt: string | null;
   endsAt: string | null;
   status: string;
-  uiStatus: "upcoming" | "live" | "awaiting_grade" | "graded";
+  uiStatus: "upcoming" | "live" | "awaiting_grade" | "graded" | "no_show";
   examType: string;
   packageTitle: string;
   grade: {

@@ -1,18 +1,90 @@
 import { Injectable } from '@nestjs/common';
+import { InstitutionStatus } from '@prisma/client';
+import { randomBytes } from 'crypto';
+import { AuditAction } from '../../common/audit/audit.actions';
+import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { teacherSpecialityWhere } from '../../common/teacher-speciality';
+import { InstitutionApplicationDto } from './dto/institution-application.dto';
 
 @Injectable()
 export class MarketingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AuditService,
+  ) {}
+
+  /**
+   * Public institution lead from the marketing site. Creates a PENDING
+   * institution (the same record the Telegram bot produces) so it lands in the
+   * admin Institutions → Applications queue. Idempotent per contact email and
+   * intentionally non-leaky: always reports success.
+   */
+  async createInstitutionApplication(dto: InstitutionApplicationDto) {
+    const contactEmail = dto.email.trim().toLowerCase();
+
+    const existing = await this.prisma.institution.findFirst({
+      where: { contactEmail },
+      select: { id: true },
+    });
+    if (existing) {
+      return { status: 'received' as const };
+    }
+
+    const slug = await this.uniqueSlug(dto.organisation);
+    const institution = await this.prisma.institution.create({
+      data: {
+        name: dto.organisation.trim(),
+        slug,
+        status: InstitutionStatus.PENDING,
+        contactName: dto.name.trim(),
+        contactEmail,
+        contactPhone: dto.phone?.trim() || null,
+      },
+    });
+
+    await this.audit.log({
+      action: AuditAction.INSTITUTION_APPLICATION,
+      entity: 'institution',
+      entityId: institution.id,
+      metadata: {
+        source: 'marketing-site',
+        contactEmail,
+        expectedStudents: dto.expectedStudents ?? null,
+        message: dto.message ?? null,
+      },
+    });
+
+    return { status: 'received' as const };
+  }
+
+  private async uniqueSlug(name: string): Promise<string> {
+    const base =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 40) || 'center';
+    let slug = base;
+    for (let i = 0; i < 5; i++) {
+      const clash = await this.prisma.institution.findUnique({
+        where: { slug },
+      });
+      if (!clash) return slug;
+      slug = `${base}-${randomBytes(2).toString('hex')}`;
+    }
+    return `${base}-${randomBytes(4).toString('hex')}`;
+  }
 
   async getStats() {
     const [mocksDelivered, examiners, ratingAgg, candidates, improvement] =
       await Promise.all([
         this.prisma.enrollment.count({ where: { status: 'COMPLETED' } }),
-        this.prisma.teacherProfile.count({ where: { status: 'APPROVED' } }),
+        this.prisma.teacherProfile.count({
+          where: { status: 'APPROVED', institutionId: null },
+        }),
         this.prisma.teacherProfile.aggregate({
-          where: { status: 'APPROVED', rating: { not: null } },
+          where: { status: 'APPROVED', institutionId: null, rating: { not: null } },
           _avg: { rating: true },
         }),
         this.prisma.studentProfile.count({
@@ -169,6 +241,7 @@ export class MarketingService {
     const teachers = await this.prisma.teacherProfile.findMany({
       where: {
         status: 'APPROVED',
+        institutionId: null,
         ...teacherSpecialityWhere(speciality),
       },
       include: { user: { select: { name: true } } },
@@ -180,7 +253,7 @@ export class MarketingService {
 
   async getTeacher(slug: string) {
     const t = await this.prisma.teacherProfile.findFirst({
-      where: { slug, status: 'APPROVED' },
+      where: { slug, status: 'APPROVED', institutionId: null },
       include: {
         user: { select: { name: true } },
         reviews: {

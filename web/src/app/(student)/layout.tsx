@@ -2,6 +2,7 @@
 
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { SidebarProvider } from "@/contexts/sidebar-context";
+import { InstitutionStudentRedirect } from "@/components/student/institution-student-redirect";
 import { StudentMobileNav } from "@/components/student/student-mobile-nav";
 import { StudentSidebar } from "@/components/student/student-sidebar";
 import { StudentTopBar } from "@/components/student/student-top-bar";
@@ -10,6 +11,7 @@ import { StudentViewRouter } from "@/components/student/student-view-router";
 export default function StudentLayout() {
   return (
     <AuthGuard allowedRoles={["student"]}>
+      <InstitutionStudentRedirect />
       <SidebarProvider>
         <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
           <StudentTopBar />

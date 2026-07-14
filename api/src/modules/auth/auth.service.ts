@@ -28,6 +28,7 @@ const DASHBOARD_PATHS: Record<UserRole, string> = {
   STUDENT: '/student',
   TEACHER: '/teacher/dashboard',
   ADMIN: '/admin/dashboard',
+  INSTITUTION: '/institution',
 };
 
 const CERT_MIME_TYPES = new Set([
@@ -65,6 +66,7 @@ export class AuthService {
       include: {
         studentProfile: true,
         teacherProfile: true,
+        institution: true,
       },
     });
 
@@ -415,6 +417,7 @@ export class AuthService {
       include: {
         studentProfile: true,
         teacherProfile: true,
+        institution: true,
       },
     });
 
@@ -510,6 +513,15 @@ export class AuthService {
         passwordHash,
         passwordResetToken: null,
         passwordResetExpires: null,
+        // Setting a password via an emailed link also proves email ownership,
+        // so it doubles as email verification for bot/invite onboarding.
+        ...(user.emailVerifiedAt
+          ? {}
+          : {
+              emailVerifiedAt: new Date(),
+              emailVerificationToken: null,
+              emailVerificationExpires: null,
+            }),
       },
     });
 
@@ -685,16 +697,28 @@ export class AuthService {
     role: UserRole;
     studentProfile: { id: string } | null;
     teacherProfile: { id: string } | null;
+    institution?: { id: string; name: string; status: string } | null;
   }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwt.sign(payload, {
       expiresIn: this.config.get('JWT_EXPIRES_IN', '7d'),
     });
 
+    // Members linked to an institution belong to a center-scoped portal, not
+    // the B2C student/marketplace-teacher portals.
+    let dashboardPath = DASHBOARD_PATHS[user.role];
+    if (user.institution) {
+      if (user.role === UserRole.STUDENT) {
+        dashboardPath = '/inst-student';
+      } else if (user.role === UserRole.TEACHER) {
+        dashboardPath = '/inst-examiner';
+      }
+    }
+
     return {
       accessToken,
       user: this.toUserResponse(user),
-      dashboardPath: DASHBOARD_PATHS[user.role],
+      dashboardPath,
     };
   }
 
@@ -710,12 +734,18 @@ export class AuthService {
         targetBand?: number | null;
         examType?: string;
         country?: string | null;
+        institutionStatus?: string | null;
       } | null;
       teacherProfile?: {
         id: string;
         status?: string;
         speciality?: string;
         rating?: number | null;
+      } | null;
+      institution?: {
+        id: string;
+        name: string;
+        status: string;
       } | null;
     },
   ) {
@@ -725,6 +755,13 @@ export class AuthService {
       name: user.name,
       role: user.role.toLowerCase(),
       totpEnabled: user.totpEnabled ?? false,
+      institution: user.institution
+        ? {
+            id: user.institution.id,
+            name: user.institution.name,
+            status: user.institution.status.toLowerCase(),
+          }
+        : undefined,
       studentProfile: user.studentProfile
         ? {
             id: user.studentProfile.id,
@@ -733,6 +770,8 @@ export class AuthService {
               ?.toLowerCase()
               .replace('_', '_'),
             country: user.studentProfile.country ?? null,
+            institutionStatus:
+              user.studentProfile.institutionStatus?.toLowerCase() ?? null,
           }
         : undefined,
       teacherProfile: user.teacherProfile

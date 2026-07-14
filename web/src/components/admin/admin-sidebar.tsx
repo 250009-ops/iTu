@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
+  Building2,
   GraduationCap,
   LayoutDashboard,
   Package,
@@ -31,6 +32,7 @@ const iconMap = {
   receipt: Receipt,
   "alert-triangle": AlertTriangle,
   "bar-chart": BarChart3,
+  building: Building2,
   settings: Settings,
 } as const;
 

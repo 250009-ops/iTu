@@ -102,7 +102,7 @@ export class SearchService {
         type: 'order',
         id: o.id,
         label: o.orderCode,
-        subtitle: `${o.student.user.name} · ${formatMoney(o.amount, o.currency)}`,
+        subtitle: `${o.student?.user.name ?? 'Institution'} · ${formatMoney(o.amount, o.currency)}`,
         href: '/admin/orders',
       })),
       ...tests.map((t) => ({

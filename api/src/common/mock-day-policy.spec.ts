@@ -4,6 +4,8 @@ import {
   mockDayCutoffDateTime,
   resolveMockDayCutoffAt,
   shouldMarkMissed,
+  shouldMarkSpeakingNoShow,
+  shouldMissEnrollmentForSpeakingNoShow,
   speakingJoinWindow,
 } from './mock-day-policy';
 
@@ -124,5 +126,67 @@ describe('speakingJoinWindow', () => {
       now: new Date('2026-07-08T14:55:00'),
     });
     expect(onTime.allowed).toBe(true);
+  });
+});
+
+describe('shouldMarkSpeakingNoShow', () => {
+  const scheduledAt = new Date('2026-07-08T15:00:00.000Z');
+
+  it('marks no-show after late-join window when never started', () => {
+    expect(
+      shouldMarkSpeakingNoShow(
+        { status: 'SCHEDULED', startedAt: null, scheduledAt },
+        15,
+        new Date('2026-07-08T15:16:00.000Z'),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not mark before late-join cutoff', () => {
+    expect(
+      shouldMarkSpeakingNoShow(
+        { status: 'WAITING', startedAt: null, scheduledAt },
+        15,
+        new Date('2026-07-08T15:14:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not mark after the student has joined', () => {
+    expect(
+      shouldMarkSpeakingNoShow(
+        {
+          status: 'ACTIVE',
+          startedAt: new Date('2026-07-08T15:02:00.000Z'),
+          scheduledAt,
+        },
+        15,
+        new Date('2026-07-08T15:30:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('shouldMissEnrollmentForSpeakingNoShow', () => {
+  it('misses speaking-only packages', () => {
+    expect(
+      shouldMissEnrollmentForSpeakingNoShow(['SPEAKING'], [
+        { skill: 'SPEAKING', submittedAt: null },
+      ]),
+    ).toBe(true);
+  });
+
+  it('keeps enrollment when other skills were already submitted', () => {
+    expect(
+      shouldMissEnrollmentForSpeakingNoShow(
+        ['LISTENING', 'READING', 'WRITING', 'SPEAKING'],
+        [
+          { skill: 'LISTENING', submittedAt: new Date() },
+          { skill: 'READING', submittedAt: new Date() },
+          { skill: 'WRITING', submittedAt: new Date() },
+          { skill: 'SPEAKING', submittedAt: null },
+        ],
+      ),
+    ).toBe(false);
   });
 });

@@ -178,7 +178,8 @@ export type SpeakingSessionUiStatus =
   | "upcoming"
   | "live"
   | "awaiting_grade"
-  | "graded";
+  | "graded"
+  | "no_show";
 
 export type MappedSpeakingSessionItem = {
   id: string;

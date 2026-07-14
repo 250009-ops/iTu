@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
+import { InstitutionApplicationDto } from './dto/institution-application.dto';
 import { MarketingService } from './marketing.service';
 
 @ApiTags('marketing')
@@ -12,6 +13,13 @@ export class MarketingController {
   @Get('stats')
   getStats() {
     return this.marketing.getStats();
+  }
+
+  @Public()
+  @Post('institution-application')
+  @HttpCode(200)
+  submitInstitutionApplication(@Body() dto: InstitutionApplicationDto) {
+    return this.marketing.createInstitutionApplication(dto);
   }
 
   @Public()

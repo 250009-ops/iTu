@@ -1,4 +1,4 @@
-export type UserRole = "student" | "teacher" | "admin";
+export type UserRole = "student" | "teacher" | "admin" | "institution";
 
 export interface AuthSession {
   accessToken: string;
@@ -18,6 +18,7 @@ export const DASHBOARD_PATHS: Record<UserRole, string> = {
   student: "/student",
   teacher: "/teacher/dashboard",
   admin: "/admin/dashboard",
+  institution: "/institution",
 };
 
 function readRawSession(): string | null {
@@ -122,7 +123,12 @@ export function getDashboardPath(role: UserRole): string {
 
 export function normalizeRole(role: string): UserRole {
   const lower = role.toLowerCase() as UserRole;
-  if (lower === "student" || lower === "teacher" || lower === "admin") {
+  if (
+    lower === "student" ||
+    lower === "teacher" ||
+    lower === "admin" ||
+    lower === "institution"
+  ) {
     return lower;
   }
   return "student";

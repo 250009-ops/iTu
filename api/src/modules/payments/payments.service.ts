@@ -7,8 +7,10 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import {
+  CreditTxnType,
   EnrollmentStatus,
   OrderStatus,
+  OrderType,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingsService } from '../bookings/bookings.service';
@@ -96,7 +98,51 @@ export class PaymentsService {
       },
     });
 
+    if (
+      order.orderType === OrderType.CREDIT_PACK &&
+      order.institutionId &&
+      order.creditQuantity
+    ) {
+      await this.fulfillCreditPack(
+        order.institutionId,
+        order.creditQuantity,
+        order.id,
+        order.orderCode,
+      );
+      return;
+    }
+
     await this.bookings.fulfillPendingPayment(order.id);
+  }
+
+  /** Credits an institution's balance and records a PURCHASE ledger entry. */
+  private async fulfillCreditPack(
+    institutionId: string,
+    credits: number,
+    orderId: string,
+    orderCode: string,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      const institution = await tx.institution.update({
+        where: { id: institutionId },
+        data: { creditBalance: { increment: credits } },
+      });
+      await tx.institutionCreditTxn.create({
+        data: {
+          institutionId,
+          type: CreditTxnType.PURCHASE,
+          delta: credits,
+          balanceAfter: institution.creditBalance,
+          orderId,
+          reference: orderCode,
+          note: `Purchased ${credits} credits`,
+        },
+      });
+    });
+
+    this.logger.log(
+      `Credited ${credits} credits to institution ${institutionId} (order ${orderCode})`,
+    );
   }
 
   private async markRefundedByOrderId(orderId: string) {

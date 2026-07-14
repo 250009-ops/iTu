@@ -7,6 +7,8 @@ import { ResultsModule } from '../results/results.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AdminInstitutionsController } from './admin-institutions.controller';
+import { AdminInstitutionsService } from './admin-institutions.service';
 
 @Module({
   imports: [
@@ -17,8 +19,8 @@ import { AdminService } from './admin.service';
     SettingsModule,
     BookingsModule,
   ],
-  controllers: [AdminController],
-  providers: [AdminService],
+  controllers: [AdminController, AdminInstitutionsController],
+  providers: [AdminService, AdminInstitutionsService],
   exports: [AdminService],
 })
 export class AdminModule {}

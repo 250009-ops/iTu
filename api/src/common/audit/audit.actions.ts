@@ -50,6 +50,19 @@ export const AuditAction = {
   ADMIN_SCORE_RESCORE: 'admin.score.rescore',
   ADMIN_RESULTS_EXPORT: 'admin.results.export',
   ADMIN_WRITING_EXPORT: 'admin.writing.export',
+
+  ADMIN_INSTITUTION_APPROVE: 'admin.institution.approve',
+  ADMIN_INSTITUTION_REJECT: 'admin.institution.reject',
+  ADMIN_INSTITUTION_UPDATE: 'admin.institution.update',
+  ADMIN_INSTITUTION_CREDIT_ADJUST: 'admin.institution.credit_adjust',
+
+  INSTITUTION_APPLICATION: 'institution.application',
+  INSTITUTION_CREDIT_PURCHASE: 'institution.credit.purchase',
+  INSTITUTION_ENROLL: 'institution.enroll',
+  INSTITUTION_STUDENT_APPROVE: 'institution.student.approve',
+  INSTITUTION_STUDENT_REJECT: 'institution.student.reject',
+  INSTITUTION_EXAMINER_INVITE: 'institution.examiner.invite',
+  INSTITUTION_PROFILE_UPDATE: 'institution.profile.update',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];
