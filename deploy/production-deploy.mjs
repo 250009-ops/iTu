@@ -87,7 +87,8 @@ rm -f web/src/components/teacher/availability/availability-grid.tsx \\
   web/src/components/teacher/speaking/speaking-empty-state.tsx \\
   web/src/components/teacher/grading/grading-header.tsx \\
   web/src/components/teacher/grading/submissions-table.tsx \\
-  web/src/components/teacher/grading/grading-queue-empty.tsx
+  web/src/components/teacher/grading/grading-queue-empty.tsx \\
+  web/src/components/marketing/shared/trust-marquee.tsx
 mkdir -p /var/www/itestu/deploy/nginx
 for f in deploy-rebuild.sh ensure-local-media.sh; do
   if [ -f "/var/www/itestu/app/deploy/$f" ]; then
