@@ -20,6 +20,8 @@ enum InstitutionStatus {
   PENDING
   ACTIVE
   SUSPENDED
+  /// Application declined before approval — not an operational partner.
+  REJECTED
 }
 
 enum InstitutionMemberStatus {

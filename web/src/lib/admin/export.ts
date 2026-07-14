@@ -130,7 +130,8 @@ export function exportDisputesCsv(tickets: Ticket[]) {
       "Type",
       "Priority",
       "Status",
-      "Preview",
+      "Subject",
+      "Description",
     ],
     tickets.map((t) => [
       t.ticketId,
@@ -143,6 +144,7 @@ export function exportDisputesCsv(tickets: Ticket[]) {
       t.priority,
       t.status,
       t.preview,
+      t.description,
     ]),
   );
 }

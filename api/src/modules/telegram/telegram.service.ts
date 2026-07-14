@@ -10,8 +10,11 @@ import { createHash, randomBytes } from 'crypto';
 import * as dns from 'dns';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { submitInstitutionApplication } from '../../common/institution/institution-applications';
+import { notifyAdminsOfInstitutionApplication } from '../../common/institution/notify-admins';
 import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // This VPS resolves api.telegram.org to a dead IPv6 first; prefer IPv4 so
 // outbound Bot API calls don't hang then die with "fetch failed".
@@ -21,6 +24,7 @@ const SETUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_MS = 700;
 const TELEGRAM_TIMEOUT_MS = 8_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[\d\s().-]{7,20}$/;
 
 // Button labels for the reply keyboard ("attached" buttons that auto-send text).
 const BTN_APPLY = '🏫 Apply as institution';
@@ -70,6 +74,7 @@ export class TelegramService {
     private mail: MailService,
     private audit: AuditService,
     private config: ConfigService,
+    private notifications: NotificationsService,
   ) {}
 
   isConfigured(): boolean {
@@ -409,6 +414,10 @@ export class TelegramService {
         await this.send(chatId, 'Great. What is the contact person’s full name?');
         return;
       case 1:
+        if (text.length < 2) {
+          await this.send(chatId, 'Please enter the contact person’s full name.');
+          return;
+        }
         convo.data.contactName = text;
         convo.step = 2;
         await this.send(chatId, 'What is the best contact email?');
@@ -419,30 +428,16 @@ export class TelegramService {
           return;
         }
         const email = text.trim().toLowerCase();
-        // Instant feedback — typing indicator + ⏳ message — then a fast indexed
-        // lookup. Fail fast so we never create applications that can't be approved.
         const statusId = await this.beginCheck(chatId);
-        const [userClash, appClash] = await Promise.all([
-          this.prisma.user.findUnique({ where: { email }, select: { id: true } }),
-          this.prisma.institution.findFirst({
-            where: { contactEmail: email },
-            select: { id: true },
-          }),
-        ]);
+        const userClash = await this.prisma.user.findUnique({
+          where: { email },
+          select: { id: true },
+        });
         await this.endCheck(chatId, statusId);
         if (userClash) {
           await this.send(
             chatId,
             'That email is already registered on iTestU. Please enter a different email for the centre owner account.',
-          );
-          return; // stay on this step
-        }
-        if (appClash) {
-          this.conversations.delete(chatId);
-          await this.send(
-            chatId,
-            'An application with this email already exists. We’ll be in touch soon.',
-            KB_REMOVE,
           );
           return;
         }
@@ -452,11 +447,22 @@ export class TelegramService {
         return;
       }
       case 3:
+        if (!PHONE_RE.test(text)) {
+          await this.send(
+            chatId,
+            'Please enter a valid phone number (e.g. +998901234567).',
+          );
+          return;
+        }
         convo.data.contactPhone = text;
         convo.step = 4;
         await this.send(chatId, 'Which city is your center in?');
         return;
       case 4:
+        if (text.length < 2) {
+          await this.send(chatId, 'Please enter your center’s city.');
+          return;
+        }
         convo.data.city = text;
         await this.finishInstitution(chatId, convo);
         return;
@@ -473,16 +479,10 @@ export class TelegramService {
     const { name, contactName, contactEmail, contactPhone, city } = convo.data;
 
     const statusId = await this.beginCheck(chatId, '⏳ Submitting your application…');
-    const [existing, userClash] = await Promise.all([
-      this.prisma.institution.findFirst({
-        where: { contactEmail },
-        select: { id: true },
-      }),
-      this.prisma.user.findUnique({
-        where: { email: contactEmail },
-        select: { id: true },
-      }),
-    ]);
+    const userClash = await this.prisma.user.findUnique({
+      where: { email: contactEmail },
+      select: { id: true },
+    });
     if (userClash) {
       await this.endCheck(chatId, statusId);
       this.conversations.delete(chatId);
@@ -493,43 +493,62 @@ export class TelegramService {
       );
       return;
     }
-    if (existing) {
+
+    const slug = await this.uniqueSlug(name);
+    const result = await submitInstitutionApplication(this.prisma, {
+      name,
+      slug,
+      contactName,
+      contactEmail,
+      contactPhone,
+      city,
+      telegramChatId: String(chatId),
+    });
+
+    if (result.kind === 'duplicate_pending') {
       await this.endCheck(chatId, statusId);
       this.conversations.delete(chatId);
       await this.send(
         chatId,
-        'An application with this email already exists. We’ll be in touch soon.',
+        'An application with this email is already being reviewed. We’ll be in touch soon.',
+        KB_REMOVE,
+      );
+      return;
+    }
+    if (result.kind === 'duplicate_active') {
+      await this.endCheck(chatId, statusId);
+      this.conversations.delete(chatId);
+      await this.send(
+        chatId,
+        'This email is already linked to a partner centre on iTestU.',
         KB_REMOVE,
       );
       return;
     }
 
-    const slug = await this.uniqueSlug(name);
-    const institution = await this.prisma.institution.create({
-      data: {
-        name,
-        slug,
-        status: InstitutionStatus.PENDING,
-        city,
-        contactName,
-        contactEmail,
-        contactPhone,
-        telegramChatId: String(chatId),
-      },
-    });
-
     await this.audit.log({
       action: AuditAction.INSTITUTION_APPLICATION,
       entity: 'institution',
-      entityId: institution.id,
+      entityId: result.institutionId,
       metadata: { source: 'telegram', contactEmail },
     });
 
+    void notifyAdminsOfInstitutionApplication(
+      this.prisma,
+      this.notifications,
+      name,
+      contactEmail,
+      'telegram',
+    ).catch(() => undefined);
+
     await this.endCheck(chatId, statusId);
     this.conversations.delete(chatId);
+    const reopened = result.kind === 'reopened';
     await this.send(
       chatId,
-      `Thank you! Your application for <b>${name}</b> has been received. Our team will review it and email <b>${contactEmail}</b> with next steps once approved.`,
+      reopened
+        ? `Welcome back! Your updated application for <b>${name}</b> has been resubmitted. Our team will review it and email <b>${contactEmail}</b> with next steps once approved.`
+        : `Thank you! Your application for <b>${name}</b> has been received. Our team will review it and email <b>${contactEmail}</b> with next steps once approved.`,
       KB_REMOVE,
     );
   }

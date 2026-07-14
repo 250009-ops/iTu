@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -24,7 +25,7 @@ import { PatchInstitutionDto } from './dto/patch-institution.dto';
 const SETUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
-export class AdminInstitutionsService {
+export class AdminInstitutionsService implements OnModuleInit {
   private readonly logger = new Logger(AdminInstitutionsService.name);
 
   constructor(
@@ -35,13 +36,33 @@ export class AdminInstitutionsService {
     private telegram: TelegramService,
   ) {}
 
+  /** One-time fix: rejected applications were previously stored as SUSPENDED. */
+  async onModuleInit(): Promise<void> {
+    const { count } = await this.prisma.institution.updateMany({
+      where: {
+        status: InstitutionStatus.SUSPENDED,
+        approvedAt: null,
+        admins: { none: {} },
+      },
+      data: { status: InstitutionStatus.REJECTED },
+    });
+    if (count > 0) {
+      this.logger.log(
+        `Migrated ${count} rejected application(s) from SUSPENDED to REJECTED`,
+      );
+    }
+  }
+
   private appUrl(): string {
     return this.config
       .get<string>('APP_URL', 'http://localhost:3000')
       .replace(/\/$/, '');
   }
 
-  private async mapRow(institutionId: string) {
+  private async mapRow(
+    institutionId: string,
+    applicationSource?: string | null,
+  ) {
     const inst = await this.prisma.institution.findUnique({
       where: { id: institutionId },
       include: {
@@ -65,6 +86,7 @@ export class AdminInstitutionsService {
       students: inst._count.students,
       examiners: inst._count.teachers,
       enrollments: inst._count.enrollments,
+      applicationSource: applicationSource ?? null,
       owner: inst.admins[0]
         ? {
             id: inst.admins[0].id,
@@ -78,12 +100,35 @@ export class AdminInstitutionsService {
     };
   }
 
+  private async applicationSources(
+    ids: string[],
+  ): Promise<Map<string, string>> {
+    if (!ids.length) return new Map();
+    const logs = await this.prisma.auditLog.findMany({
+      where: {
+        entity: 'institution',
+        action: AuditAction.INSTITUTION_APPLICATION,
+        entityId: { in: ids },
+      },
+      select: { entityId: true, metadata: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const map = new Map<string, string>();
+    for (const log of logs) {
+      if (!log.entityId) continue;
+      const meta = log.metadata as { source?: string } | null;
+      if (meta?.source) map.set(log.entityId, meta.source);
+    }
+    return map;
+  }
+
   async list(status?: string) {
     const normalized = status?.toUpperCase();
     const where =
       normalized === 'PENDING' ||
       normalized === 'ACTIVE' ||
-      normalized === 'SUSPENDED'
+      normalized === 'SUSPENDED' ||
+      normalized === 'REJECTED'
         ? { status: normalized as InstitutionStatus }
         : {};
     const rows = await this.prisma.institution.findMany({
@@ -91,7 +136,10 @@ export class AdminInstitutionsService {
       orderBy: { createdAt: 'desc' },
       select: { id: true },
     });
-    return Promise.all(rows.map((r) => this.mapRow(r.id)));
+    const sources = await this.applicationSources(rows.map((r) => r.id));
+    return Promise.all(
+      rows.map((r) => this.mapRow(r.id, sources.get(r.id) ?? null)),
+    );
   }
 
   async applications() {
@@ -186,11 +234,39 @@ export class AdminInstitutionsService {
       where: { id },
     });
     if (!institution) throw new NotFoundException('Institution not found');
+    if (institution.status !== InstitutionStatus.PENDING) {
+      throw new BadRequestException('Only pending applications can be rejected');
+    }
 
     await this.prisma.institution.update({
       where: { id },
-      data: { status: InstitutionStatus.SUSPENDED },
+      data: { status: InstitutionStatus.REJECTED },
     });
+
+    const email = institution.contactEmail.trim().toLowerCase();
+    void this.mail
+      .sendInstitutionRejectedEmail(
+        email,
+        institution.contactName,
+        institution.name,
+      )
+      .catch(() => undefined);
+
+    if (institution.telegramChatId) {
+      void this.telegram
+        .notifyChat(
+          institution.telegramChatId,
+          `Thank you for your interest in partnering with iTestU.\n\n` +
+            `After review we’re unable to approve <b>${institution.name}</b> at this time. ` +
+            `You can reply here or email <b>institutions@itestu.uz</b> if you’d like more detail.\n\n` +
+            `You may submit a new application later with updated information.`,
+        )
+        .catch((err) =>
+          this.logger.warn(
+            `Telegram rejection notify failed: ${err instanceof Error ? err.message : err}`,
+          ),
+        );
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -266,6 +342,14 @@ export class AdminInstitutionsService {
       where: { id },
     });
     if (!institution) throw new NotFoundException('Institution not found');
+    if (
+      institution.status !== InstitutionStatus.ACTIVE &&
+      institution.status !== InstitutionStatus.SUSPENDED
+    ) {
+      throw new BadRequestException(
+        'Credits can only be adjusted for active or suspended partners',
+      );
+    }
 
     const newBalance = institution.creditBalance + dto.delta;
     if (newBalance < 0) {

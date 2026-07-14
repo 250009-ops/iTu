@@ -547,25 +547,57 @@ export function updateBandTable(
   });
 }
 
+export type AdminDisputeRecord = {
+  id: string;
+  ticketId: string;
+  type: string;
+  priority: string;
+  status: string;
+  subject: string;
+  description?: string;
+  message?: string;
+  preview?: string;
+  sla: { state: string; progress: number };
+  reporter?: { id: string; name: string; role: string } | null;
+  relatedStudent?: string | null;
+  relatedRef?: string | null;
+  enrollmentId?: string | null;
+  enrollmentRef?: string | null;
+  enrollmentAdminGranted?: boolean;
+  sessionCode?: string | null;
+  orderId?: string | null;
+  orderCode?: string | null;
+  orderStatus?: string | null;
+  orderAmount?: number | null;
+  createdAt: string;
+};
+
 export function getAdminDisputes() {
-  return apiFetch<
-    {
-      id: string;
-      ticketId: string;
-      type: string;
-      priority: string;
-      status: string;
-      subject: string;
-      description?: string;
-      preview?: string;
-      sla: { state: string; progress: number };
-      reporter?: { id: string; name: string; role: string } | null;
-      relatedStudent?: string | null;
-      relatedRef?: string | null;
-      enrollmentRef?: string | null;
-      createdAt: string;
-    }[]
-  >("/admin/disputes");
+  return apiFetch<AdminDisputeRecord[]>("/admin/disputes");
+}
+
+export function getAdminDispute(id: string) {
+  return apiFetch<AdminDisputeRecord>(`/admin/disputes/${encodeURIComponent(id)}`);
+}
+
+export function reopenEnrollmentRegrade(
+  enrollmentId: string,
+  body: { skill: "writing" | "speaking"; reason?: string },
+) {
+  return apiFetch<{ reopened: boolean }>(
+    `/admin/enrollments/${encodeURIComponent(enrollmentId)}/regrade`,
+    { method: "POST", body },
+  );
+}
+
+export function reassignWritingTeacher(
+  enrollmentId: string,
+  body: { teacherId: string },
+) {
+  return apiFetch<{ reassigned: boolean }>(
+    `/admin/enrollments/${encodeURIComponent(enrollmentId)}/reassign-writing-teacher`,
+    { method: "POST", body },
+  );
 }
 
 export function getAdminReports() {

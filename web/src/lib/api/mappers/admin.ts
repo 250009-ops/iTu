@@ -485,36 +485,59 @@ function mapSla(sla: { state: string; progress: number }) {
   return { state, label, progress: sla.progress, tone };
 }
 
-export function mapDisputes(disputes: Disputes) {
-  const tickets: Ticket[] = disputes.map((d, i) => {
-    const roleRaw = d.reporter?.role?.toLowerCase() ?? "";
-    const reporterRole: Ticket["reporterRole"] =
-      roleRaw === "student" || roleRaw === "teacher" || roleRaw === "admin"
-        ? roleRaw
-        : "unknown";
-    const reporterName = d.reporter?.name?.trim() || "Unknown reporter";
-    const related =
-      d.relatedRef?.trim() ||
-      d.relatedStudent?.trim() ||
-      d.enrollmentRef?.trim() ||
-      null;
+function mapDisputeRecord(d: Disputes[number], indexFallback: string): Ticket {
+  const roleRaw = d.reporter?.role?.toLowerCase() ?? "";
+  const reporterRole: Ticket["reporterRole"] =
+    roleRaw === "student" || roleRaw === "teacher" || roleRaw === "admin"
+      ? roleRaw
+      : "unknown";
+  const reporterName = d.reporter?.name?.trim() || "Unknown reporter";
+  const related =
+    d.relatedRef?.trim() ||
+    d.relatedStudent?.trim() ||
+    (d.enrollmentRef && d.enrollmentRef !== "—" ? d.enrollmentRef : null) ||
+    null;
+  const message =
+    d.message?.trim() ||
+    (d.description?.startsWith("Related:")
+      ? d.description.split("\n\n").slice(1).join("\n\n").trim()
+      : d.description?.trim()) ||
+    "";
 
-    return {
-      id: d.id || d.ticketId || String(i),
-      ticketId: d.ticketId,
-      date: formatDate(d.createdAt),
-      reporterName,
-      reporterRole,
-      initials: initials(reporterName),
-      relatedRef: related,
-      enrollmentRef: d.enrollmentRef ?? "—",
-      type: normalizeTicketType(d.type),
-      preview: d.subject,
-      priority: normalizeTicketPriority(d.priority),
-      sla: mapSla(d.sla),
-      status: normalizeTicketStatus(d.status),
-    };
-  });
+  return {
+    id: d.id || d.ticketId || indexFallback,
+    ticketId: d.ticketId,
+    date: formatDate(d.createdAt),
+    reporterName,
+    reporterRole,
+    initials: initials(reporterName),
+    relatedRef: related,
+    relatedStudent: d.relatedStudent?.trim() || null,
+    enrollmentId: d.enrollmentId ?? null,
+    enrollmentRef: d.enrollmentRef ?? "—",
+    enrollmentAdminGranted: d.enrollmentAdminGranted ?? false,
+    sessionCode: d.sessionCode ?? null,
+    orderId: d.orderId ?? null,
+    orderCode: d.orderCode ?? null,
+    orderStatus: d.orderStatus ?? null,
+    orderAmount: d.orderAmount ?? null,
+    type: normalizeTicketType(d.type),
+    preview: d.subject,
+    description: message,
+    priority: normalizeTicketPriority(d.priority),
+    sla: mapSla(d.sla),
+    status: normalizeTicketStatus(d.status),
+  };
+}
+
+export function mapSingleDispute(d: Disputes[number]): Ticket {
+  return mapDisputeRecord(d, d.id ?? "0");
+}
+
+export function mapDisputes(disputes: Disputes) {
+  const tickets: Ticket[] = disputes.map((d, i) =>
+    mapDisputeRecord(d, String(i)),
+  );
 
   const open = tickets.filter((t) => t.status === "open");
   const inProgress = tickets.filter((t) => t.status === "in_progress");

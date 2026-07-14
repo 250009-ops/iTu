@@ -29,8 +29,8 @@ export class PatchInstitutionDto {
   contactPhone?: string;
 
   @IsOptional()
-  @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
-  status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'])
+  status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED';
 
   @IsOptional()
   @IsNumber()

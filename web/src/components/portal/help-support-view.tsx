@@ -143,9 +143,11 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
             const when = s.scheduledAt
               ? formatTicketDate(s.scheduledAt)
               : "unscheduled";
+            const label = `${s.studentName} · ${s.packageTitle} · ${when}`;
             opts.push({
-              value: `${s.studentName} · ${s.packageTitle} · ${when}`,
-              label: `${s.studentName} · ${s.packageTitle} · ${when}`,
+              value: s.enrollmentId ?? label,
+              enrollmentId: s.enrollmentId,
+              label,
             });
           }
           if (!cancelled) setRelatedOptions(opts);

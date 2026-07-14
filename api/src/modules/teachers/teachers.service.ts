@@ -176,6 +176,9 @@ export class TeachersService {
 
       return {
         id: s.id,
+        enrollmentId: enrollment.id,
+        enrollmentCode: enrollment.enrollmentCode,
+        sessionCode: s.sectionAttempt.session.sessionCode,
         studentName,
         scheduledAt,
         endsAt,

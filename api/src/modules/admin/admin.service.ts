@@ -1272,56 +1272,143 @@ export class AdminService {
 
   async getDisputes() {
     const tickets = await this.prisma.supportTicket.findMany({
-      include: {
-        user: { select: { id: true, name: true, role: true } },
-        enrollment: {
-          select: {
-            enrollmentCode: true,
-            student: { select: { user: { select: { name: true } } } },
-            package: { select: { title: true } },
-          },
-        },
-      },
+      include: this.disputeTicketInclude(),
       orderBy: { createdAt: 'desc' },
     });
 
-    return tickets.map((t) => {
-      const relatedFromDescription = t.description.startsWith('Related:')
-        ? t.description.split('\n')[0]?.replace(/^Related:\s*/i, '').trim()
-        : null;
-      const enrollmentStudent = t.enrollment?.student?.user?.name ?? null;
-      const enrollmentRef = t.enrollment?.enrollmentCode ?? null;
+    const enrollmentIds = tickets
+      .map((t) => t.enrollmentId)
+      .filter((id): id is string => Boolean(id));
+    const orderByEnrollment = await this.ordersByEnrollmentIds(enrollmentIds);
 
-      return {
-        id: t.id,
-        ticketId: t.ticketCode,
-        type: t.type.toLowerCase(),
-        priority: t.priority.toLowerCase(),
-        status: t.status.toLowerCase(),
-        subject: t.subject,
-        description: t.description,
-        preview: t.subject,
-        sla: {
-          state: t.slaState.toLowerCase(),
-          progress: t.slaProgress,
-        },
-        reporter: t.user
-          ? {
-              id: t.user.id,
-              name: t.user.name,
-              role: t.user.role.toLowerCase(),
-            }
-          : null,
-        relatedStudent: enrollmentStudent,
-        relatedRef:
-          relatedFromDescription ||
-          (enrollmentRef
-            ? `${enrollmentRef}${t.enrollment?.package?.title ? ` · ${t.enrollment.package.title}` : ''}`
-            : null),
-        enrollmentRef,
-        createdAt: t.createdAt,
-      };
+    return tickets.map((t) =>
+      this.mapDisputeTicket(t, orderByEnrollment.get(t.enrollmentId ?? '') ?? null),
+    );
+  }
+
+  async getDisputeById(id: string) {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id },
+      include: this.disputeTicketInclude(),
     });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    const order = ticket.enrollmentId
+      ? await this.prisma.order.findFirst({
+          where: { enrollmentId: ticket.enrollmentId },
+          select: { id: true, orderCode: true, status: true, amount: true },
+        })
+      : null;
+
+    return this.mapDisputeTicket(ticket, order);
+  }
+
+  private disputeTicketInclude() {
+    return {
+      user: { select: { id: true, name: true, role: true } },
+      enrollment: {
+        select: {
+          id: true,
+          enrollmentCode: true,
+          adminGranted: true,
+          student: { select: { user: { select: { name: true } } } },
+          package: { select: { title: true } },
+          examSession: { select: { sessionCode: true } },
+        },
+      },
+    } satisfies Prisma.SupportTicketInclude;
+  }
+
+  private async ordersByEnrollmentIds(enrollmentIds: string[]) {
+    if (enrollmentIds.length === 0) return new Map<string, { id: string; orderCode: string; status: string; amount: number }>();
+    const orders = await this.prisma.order.findMany({
+      where: { enrollmentId: { in: enrollmentIds } },
+      select: { id: true, orderCode: true, status: true, amount: true, enrollmentId: true },
+    });
+    return new Map(
+      orders
+        .filter((o) => o.enrollmentId)
+        .map((o) => [o.enrollmentId!, o]),
+    );
+  }
+
+  private parseTicketMessage(description: string): string {
+    if (description.startsWith('Related:')) {
+      const parts = description.split('\n\n');
+      if (parts.length > 1) return parts.slice(1).join('\n\n').trim();
+    }
+    return description.trim();
+  }
+
+  private mapDisputeTicket(
+    t: {
+      id: string;
+      ticketCode: string;
+      type: string;
+      priority: string;
+      status: string;
+      subject: string;
+      description: string;
+      slaState: string;
+      slaProgress: number;
+      enrollmentId: string | null;
+      createdAt: Date;
+      user: { id: string; name: string; role: string } | null;
+      enrollment: {
+        id: string;
+        enrollmentCode: string;
+        adminGranted: boolean;
+        student: { user: { name: string } };
+        package: { title: string };
+        examSession: { sessionCode: string } | null;
+      } | null;
+    },
+    order: { id: string; orderCode: string; status: string; amount: number } | null,
+  ) {
+    const relatedFromDescription = t.description.startsWith('Related:')
+      ? t.description.split('\n')[0]?.replace(/^Related:\s*/i, '').trim()
+      : null;
+    const enrollmentStudent = t.enrollment?.student?.user?.name ?? null;
+    const enrollmentRef = t.enrollment?.enrollmentCode ?? null;
+    const sessionCode = t.enrollment?.examSession?.sessionCode ?? null;
+
+    return {
+      id: t.id,
+      ticketId: t.ticketCode,
+      type: t.type.toLowerCase(),
+      priority: t.priority.toLowerCase(),
+      status: t.status.toLowerCase(),
+      subject: t.subject,
+      description: t.description,
+      message: this.parseTicketMessage(t.description),
+      preview: t.subject,
+      sla: {
+        state: t.slaState.toLowerCase(),
+        progress: t.slaProgress,
+      },
+      reporter: t.user
+        ? {
+            id: t.user.id,
+            name: t.user.name,
+            role: t.user.role.toLowerCase(),
+          }
+        : null,
+      relatedStudent: enrollmentStudent,
+      relatedRef:
+        relatedFromDescription ||
+        (enrollmentRef
+          ? `${enrollmentRef}${t.enrollment?.package?.title ? ` · ${t.enrollment.package.title}` : ''}`
+          : null),
+      enrollmentId: t.enrollmentId ?? t.enrollment?.id ?? null,
+      enrollmentRef,
+      enrollmentAdminGranted: t.enrollment?.adminGranted ?? false,
+      sessionCode,
+      orderId: order?.id ?? null,
+      orderCode: order?.orderCode ?? null,
+      orderStatus: order?.status?.toLowerCase() ?? null,
+      orderAmount: order?.amount ?? null,
+      createdAt: t.createdAt,
+    };
   }
 
   async getReports() {

@@ -31,6 +31,9 @@ export function getTeacherSpeakingSessions() {
 
 export type SpeakingSessionListItem = {
   id: string;
+  enrollmentId?: string;
+  enrollmentCode?: string;
+  sessionCode?: string;
   studentName: string;
   scheduledAt: string | null;
   endsAt: string | null;

@@ -10,8 +10,8 @@ import {
   UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
+import { TicketDetailDialog } from "@/components/admin/disputes/ticket-detail-dialog";
 import {
   disputePriorityFilterOptions,
   disputeStatusFilterOptions,
@@ -96,12 +96,6 @@ function roleLabel(role: Ticket["reporterRole"]) {
   return "Reporter";
 }
 
-function notifyCopy(role: Ticket["reporterRole"]) {
-  if (role === "teacher") return "The teacher who filed this request will be notified.";
-  if (role === "student") return "The student who filed this request will be notified.";
-  return "The reporter will be notified.";
-}
-
 function SlaCell({ sla }: { sla: Ticket["sla"] }) {
   if (sla.state === "resolved") {
     return (
@@ -139,34 +133,32 @@ function SlaCell({ sla }: { sla: Ticket["sla"] }) {
 }
 
 export function DisputesTable() {
-  const { tickets, resolveTicket } = useAdminDisputes();
+  const { tickets, resolveTicket, refresh } = useAdminDisputes();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | TicketStatus>("all");
   const [priorityFilter, setPriorityFilter] = useState<
     "all" | TicketPriority
   >("all");
-  const [resolving, setResolving] = useState<Ticket | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [detailTicket, setDetailTicket] = useState<Ticket | null>(null);
   const { toast } = useToast();
 
-  async function handleResolve() {
-    if (!resolving) return;
-    const target = resolving;
-    setBusy(true);
+  async function handleResolveFromDetail(
+    target: Ticket,
+    _checklistSummary: string,
+  ) {
     try {
       await resolveTicket(target.id);
       toast(`${target.ticketId} resolved`, {
         description: `${target.reporterName}'s ticket has been closed.`,
         variant: "success",
       });
-      setResolving(null);
+      setDetailTicket(null);
     } catch (err) {
       toast("Failed to resolve ticket", {
         description: getErrorMessage(err, "Please try again."),
         variant: "warning",
       });
-    } finally {
-      setBusy(false);
+      throw err;
     }
   }
 
@@ -263,7 +255,6 @@ export function DisputesTable() {
                 const TypeIcon = typeIcons[ticket.type];
                 const priority = priorityStyles[ticket.priority];
                 const status = statusStyles[ticket.status];
-                const showActions = ticket.status !== "resolved";
 
                 return (
                   <tr
@@ -316,6 +307,11 @@ export function DisputesTable() {
                           <p className="mt-0.5 line-clamp-2 text-xs text-muted">
                             {ticket.preview}
                           </p>
+                          {ticket.description && ticket.description !== ticket.preview && (
+                            <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                              {ticket.description}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -349,51 +345,14 @@ export function DisputesTable() {
                       </span>
                     </td>
                     <td className="px-5 py-4 sm:px-6">
-                      {showActions ? (
-                        <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-8 px-3"
-                            onClick={() =>
-                              toast(
-                                `${ticket.ticketId} · ${ticket.reporterName}`,
-                                {
-                                  description: ticket.preview,
-                                  variant: "info",
-                                },
-                              )
-                            }
-                          >
-                            View
-                          </Button>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            className="h-8 px-3"
-                            onClick={() => setResolving(ticket)}
-                          >
-                            Resolve
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="h-8 px-3"
-                          onClick={() =>
-                            toast(
-                              `${ticket.ticketId} · ${ticket.reporterName}`,
-                              {
-                                description: ticket.preview,
-                                variant: "info",
-                              },
-                            )
-                          }
-                        >
-                          View
-                        </Button>
-                      )}
+                      <Button
+                        variant={ticket.status === "resolved" ? "secondary" : "primary"}
+                        size="sm"
+                        className="h-8 px-3"
+                        onClick={() => setDetailTicket(ticket)}
+                      >
+                        {ticket.status === "resolved" ? "View" : "Open"}
+                      </Button>
                     </td>
                   </tr>
                 );
@@ -409,17 +368,12 @@ export function DisputesTable() {
         </p>
       </div>
 
-      <ConfirmDialog
-        open={resolving !== null}
-        title="Resolve ticket"
-        message={
-          resolving
-            ? `Mark ${resolving.ticketId} (${resolving.reporterName}) as resolved? ${notifyCopy(resolving.reporterRole)}`
-            : ""
-        }
-        confirmLabel={busy ? "Resolving…" : "Resolve ticket"}
-        onConfirm={handleResolve}
-        onCancel={() => setResolving(null)}
+      <TicketDetailDialog
+        ticket={detailTicket}
+        open={detailTicket !== null}
+        onClose={() => setDetailTicket(null)}
+        onUpdated={() => void refresh({ silent: true })}
+        onResolve={handleResolveFromDetail}
       />
     </div>
   );

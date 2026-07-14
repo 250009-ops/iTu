@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import {
   NotificationType,
   TicketPriority,
@@ -65,6 +65,8 @@ export class SupportService {
   ) {}
 
   async createTicket(user: RequestUser, dto: CreateSupportTicketDto) {
+    let enrollmentId: string | undefined;
+
     if (dto.enrollmentId && user.role === UserRole.STUDENT) {
       const enrollment = await this.prisma.enrollment.findFirst({
         where: {
@@ -75,6 +77,29 @@ export class SupportService {
       if (!enrollment) {
         throw new NotFoundException('Enrollment not found');
       }
+      enrollmentId = enrollment.id;
+    }
+
+    if (dto.enrollmentId && user.role === UserRole.TEACHER) {
+      const teacherId = user.teacherProfileId;
+      if (!teacherId) {
+        throw new BadRequestException('Teacher profile required');
+      }
+      const enrollment = await this.prisma.enrollment.findFirst({
+        where: {
+          id: dto.enrollmentId,
+          OR: [
+            { speakingTeacherId: teacherId },
+            { writingTeacherId: teacherId },
+          ],
+        },
+      });
+      if (!enrollment) {
+        throw new NotFoundException(
+          'Enrollment not found or not linked to your sessions',
+        );
+      }
+      enrollmentId = enrollment.id;
     }
 
     const ticketCode = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -94,8 +119,7 @@ export class SupportService {
         type: ticketType,
         priority: DEFAULT_PRIORITY[ticketType],
         userId: user.id,
-        enrollmentId:
-          user.role === UserRole.STUDENT ? dto.enrollmentId : undefined,
+        enrollmentId,
         slaProgress: 0,
         slaState: 'ON_TRACK',
       },

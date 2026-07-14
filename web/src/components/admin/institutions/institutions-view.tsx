@@ -30,6 +30,7 @@ const TABS = [
   { id: "pending", label: "Applications" },
   { id: "active", label: "Active" },
   { id: "suspended", label: "Suspended" },
+  { id: "rejected", label: "Rejected" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -40,16 +41,20 @@ export function AdminInstitutionsView() {
     () => getAdminInstitutions(tab),
     [tab],
   );
+  const { data: allData } = useApiQuery(() => getAdminInstitutions("all"), []);
   const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creditTarget, setCreditTarget] = useState<AdminInstitution | null>(null);
   const [editTarget, setEditTarget] = useState<AdminInstitution | null>(null);
 
   const summary = {
-    total: data?.length ?? 0,
-    pending: data?.filter((i) => i.status === "pending").length ?? 0,
-    active: data?.filter((i) => i.status === "active").length ?? 0,
-    credits: data?.reduce((a, i) => a + i.creditBalance, 0) ?? 0,
+    total: allData?.length ?? 0,
+    pending: allData?.filter((i) => i.status === "pending").length ?? 0,
+    active: allData?.filter((i) => i.status === "active").length ?? 0,
+    credits:
+      allData
+        ?.filter((i) => i.status === "active")
+        .reduce((a, i) => a + i.creditBalance, 0) ?? 0,
   };
 
   async function handleApprove(id: string) {
@@ -130,6 +135,7 @@ export function AdminInstitutionsView() {
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                   <th className="px-5 py-3 font-medium">Center</th>
                   <th className="px-5 py-3 font-medium">Contact</th>
+                  <th className="px-5 py-3 font-medium">Source</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Students</th>
                   <th className="px-5 py-3 font-medium">Credits</th>
@@ -149,6 +155,9 @@ export function AdminInstitutionsView() {
                     <td className="px-5 py-3">
                       <p className="text-navy">{inst.contactName}</p>
                       <p className="text-xs text-muted">{inst.contactEmail}</p>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-muted">
+                      {formatApplicationSource(inst.applicationSource)}
                     </td>
                     <td className="px-5 py-3">
                       <StatusPill status={inst.status} />
@@ -187,7 +196,17 @@ export function AdminInstitutionsView() {
                               <X className="h-4 w-4" />
                             </Button>
                           </>
-                        ) : (
+                        ) : inst.status === "rejected" ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            loading={busyId === inst.id}
+                            onClick={() => handleApprove(inst.id)}
+                          >
+                            <Check className="h-4 w-4" />
+                            Approve
+                          </Button>
+                        ) : inst.status === "active" || inst.status === "suspended" ? (
                           <Button
                             variant="secondary"
                             size="sm"
@@ -196,6 +215,8 @@ export function AdminInstitutionsView() {
                             <Coins className="h-4 w-4" />
                             Credits
                           </Button>
+                        ) : (
+                          <span className="px-2 text-xs text-muted">—</span>
                         )}
                       </div>
                     </td>
@@ -220,6 +241,13 @@ export function AdminInstitutionsView() {
       />
     </div>
   );
+}
+
+function formatApplicationSource(source: string | null | undefined): string {
+  if (!source) return "—";
+  if (source === "telegram") return "Telegram";
+  if (source === "marketing-site") return "Website";
+  return source;
 }
 
 function EditOwnerModal({

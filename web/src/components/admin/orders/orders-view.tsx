@@ -22,7 +22,9 @@ function OrdersContent() {
           <OrdersSummaryCards />
           <RevenueTrendChart />
           <TransactionLedgerTable />
-          <PayoutsTable />
+          <div id="payouts">
+            <PayoutsTable />
+          </div>
         </div>
       </div>
     </ApiDataShell>

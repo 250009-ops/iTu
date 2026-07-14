@@ -307,6 +307,15 @@ export async function fetchCenters(): Promise<PartnerCenter[]> {
   return data ?? [];
 }
 
+export async function fetchPartnerOnboarding(): Promise<{
+  telegramApplyLink: string | null;
+}> {
+  const data = await get<{ telegramApplyLink: string | null }>(
+    "/marketing/partner-onboarding",
+  );
+  return data ?? { telegramApplyLink: null };
+}
+
 export async function fetchCenter(
   slug: string,
 ): Promise<PartnerCenterDetail | null> {

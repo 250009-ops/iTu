@@ -154,9 +154,18 @@ export type Ticket = {
   reporterRole: TicketReporterRole;
   initials: string;
   relatedRef: string | null;
+  relatedStudent: string | null;
+  enrollmentId: string | null;
   enrollmentRef: string;
+  enrollmentAdminGranted: boolean;
+  sessionCode: string | null;
+  orderId: string | null;
+  orderCode: string | null;
+  orderStatus: string | null;
+  orderAmount: number | null;
   type: TicketType;
   preview: string;
+  description: string;
   priority: TicketPriority;
   sla: {
     state: SlaState;

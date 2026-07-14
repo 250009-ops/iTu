@@ -170,6 +170,11 @@ export class AdminController {
     return this.admin.getDisputes();
   }
 
+  @Get('disputes/:id')
+  getDisputeById(@Param('id') id: string) {
+    return this.admin.getDisputeById(id);
+  }
+
   @Patch('disputes/:id')
   updateTicket(
     @Param('id') id: string,

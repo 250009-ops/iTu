@@ -15,6 +15,7 @@ export interface AdminInstitution {
   students: number;
   examiners: number;
   enrollments: number;
+  applicationSource: string | null;
   owner: {
     id: string;
     name: string;
@@ -49,7 +50,7 @@ export function patchInstitution(
     contactName?: string;
     contactEmail?: string;
     contactPhone?: string;
-    status?: "PENDING" | "ACTIVE" | "SUSPENDED";
+    status?: "PENDING" | "ACTIVE" | "SUSPENDED" | "REJECTED";
     wholesalePrice?: number;
     city?: string;
   },

@@ -9,8 +9,11 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { submitInstitutionApplication } from '../../common/institution/institution-applications';
+import { notifyAdminsOfInstitutionApplication } from '../../common/institution/notify-admins';
 import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { teacherSpecialityWhere } from '../../common/teacher-speciality';
 import { InstitutionApplicationDto } from './dto/institution-application.dto';
 import { JoinCenterDto } from './dto/join-center.dto';
@@ -24,6 +27,7 @@ export class MarketingService {
     private audit: AuditService,
     private config: ConfigService,
     private mail: MailService,
+    private notifications: NotificationsService,
   ) {}
 
   private appUrl(): string {
@@ -53,39 +57,52 @@ export class MarketingService {
       );
     }
 
-    const existing = await this.prisma.institution.findFirst({
-      where: { contactEmail },
-      select: { id: true },
+    const slug = await this.uniqueSlug(dto.organisation);
+    const result = await submitInstitutionApplication(this.prisma, {
+      name: dto.organisation.trim(),
+      slug,
+      contactName: dto.name.trim(),
+      contactEmail,
+      contactPhone: dto.phone?.trim() || null,
     });
-    if (existing) {
+
+    if (
+      result.kind === 'duplicate_pending' ||
+      result.kind === 'duplicate_active'
+    ) {
       return { status: 'received' as const };
     }
-
-    const slug = await this.uniqueSlug(dto.organisation);
-    const institution = await this.prisma.institution.create({
-      data: {
-        name: dto.organisation.trim(),
-        slug,
-        status: InstitutionStatus.PENDING,
-        contactName: dto.name.trim(),
-        contactEmail,
-        contactPhone: dto.phone?.trim() || null,
-      },
-    });
 
     await this.audit.log({
       action: AuditAction.INSTITUTION_APPLICATION,
       entity: 'institution',
-      entityId: institution.id,
+      entityId: result.institutionId,
       metadata: {
         source: 'marketing-site',
         contactEmail,
         expectedStudents: dto.expectedStudents ?? null,
         message: dto.message ?? null,
+        reopened: result.kind === 'reopened',
       },
     });
 
+    void notifyAdminsOfInstitutionApplication(
+      this.prisma,
+      this.notifications,
+      dto.organisation.trim(),
+      contactEmail,
+      'marketing-site',
+    ).catch(() => undefined);
+
     return { status: 'received' as const };
+  }
+
+  /** Public partner-onboarding links for the marketing site. */
+  getPartnerOnboarding() {
+    const bot = this.botUsername();
+    return {
+      telegramApplyLink: bot ? `https://t.me/${bot}` : null,
+    };
   }
 
   private async uniqueSlug(name: string): Promise<string> {

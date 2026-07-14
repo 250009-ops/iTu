@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Building2, GraduationCap, Users, BarChart3 } from "lucide-react";
+import { Building2, GraduationCap, Send, Users, BarChart3 } from "lucide-react";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { CenterCard } from "@/components/marketing/shared/center-card";
 import { InstitutionForm } from "@/components/marketing/shared/institution-form";
 import { PartnerMarquee } from "@/components/marketing/shared/partner-marquee";
-import { fetchCenters } from "@/lib/marketing/server-data";
+import { fetchCenters, fetchPartnerOnboarding } from "@/lib/marketing/server-data";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,11 @@ const PARTNER_BENEFITS = [
 ];
 
 export default async function CentersPage() {
-  const centers = await fetchCenters();
+  const [centers, partnerOnboarding] = await Promise.all([
+    fetchCenters(),
+    fetchPartnerOnboarding(),
+  ]);
+  const telegramApplyLink = partnerOnboarding.telegramApplyLink;
 
   return (
     <>
@@ -127,6 +131,20 @@ export default async function CentersPage() {
                 institutions@itestu.uz
               </a>
             </p>
+            {telegramApplyLink ? (
+              <p className="mt-3 text-sm text-muted">
+                Prefer Telegram?{" "}
+                <a
+                  href={telegramApplyLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-semibold text-sky-700 underline-offset-4 hover:text-sky-900 hover:underline"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Apply via Telegram bot
+                </a>
+              </p>
+            ) : null}
           </Reveal>
 
           <Reveal delay={0.1}>

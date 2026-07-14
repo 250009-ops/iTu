@@ -48,6 +48,12 @@ export class MarketingController {
   }
 
   @Public()
+  @Get('partner-onboarding')
+  getPartnerOnboarding() {
+    return this.marketing.getPartnerOnboarding();
+  }
+
+  @Public()
   @Get('centers')
   getCenters() {
     return this.marketing.getCenters();

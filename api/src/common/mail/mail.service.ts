@@ -240,6 +240,37 @@ export class MailService {
     this.logger.log(`Institution approval email sent to ${to}`);
   }
 
+  async sendInstitutionRejectedEmail(
+    to: string,
+    name: string,
+    centerName: string,
+  ): Promise<void> {
+    const text =
+      `Hi ${name},\n\n` +
+      `Thank you for applying to partner with iTestU as ${centerName}.\n\n` +
+      `After review we’re unable to approve your application at this time. ` +
+      `If you’d like more detail, reply to this email or contact institutions@itestu.uz.\n\n` +
+      `You may submit a new application later with updated information.`;
+    const html = `
+      <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">
+        <p>Hi ${name},</p>
+        <p>Thank you for applying to partner with iTestU as <strong>${centerName}</strong>.</p>
+        <p>After review we’re unable to approve your application at this time. If you’d like more detail, reply to this email or contact <a href="mailto:institutions@itestu.uz">institutions@itestu.uz</a>.</p>
+        <p style="color:#64748b;font-size:13px">You may submit a new application later with updated information.</p>
+      </div>`;
+    const sent = await this.send({
+      to,
+      subject: `Update on your ${centerName} partner application`,
+      text,
+      html,
+    });
+    if (!sent) {
+      this.logger.warn(`SMTP not configured — institution rejection email for ${to}`);
+      return;
+    }
+    this.logger.log(`Institution rejection email sent to ${to}`);
+  }
+
   async sendInstitutionStudentInviteEmail(
     to: string,
     name: string,
