@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InstitutionStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { AuditAction } from '../../common/audit/audit.actions';
@@ -22,6 +22,18 @@ export class MarketingService {
    */
   async createInstitutionApplication(dto: InstitutionApplicationDto) {
     const contactEmail = dto.email.trim().toLowerCase();
+
+    // The owner account is created fresh on approval, so the email must be
+    // unused. Reject early with a clear message the applicant can act on.
+    const userClash = await this.prisma.user.findUnique({
+      where: { email: contactEmail },
+      select: { id: true },
+    });
+    if (userClash) {
+      throw new BadRequestException(
+        'This email is already registered on iTestU. Please sign in, or use a different email for the centre owner.',
+      );
+    }
 
     const existing = await this.prisma.institution.findFirst({
       where: { contactEmail },

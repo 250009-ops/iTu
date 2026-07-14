@@ -46,6 +46,9 @@ export function patchInstitution(
   id: string,
   body: {
     name?: string;
+    contactName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
     status?: "PENDING" | "ACTIVE" | "SUSPENDED";
     wholesalePrice?: number;
     city?: string;

@@ -1,4 +1,5 @@
 import {
+  IsEmail,
   IsIn,
   IsNumber,
   IsOptional,
@@ -12,6 +13,20 @@ export class PatchInstitutionDto {
   @IsString()
   @MaxLength(160)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  contactName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  contactEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  contactPhone?: string;
 
   @IsOptional()
   @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])

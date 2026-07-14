@@ -115,6 +115,26 @@ export class TelegramService {
     }
   }
 
+  /**
+   * Warms the DB connection pool and the Telegram HTTPS keep-alive on boot so
+   * the first real user message doesn't pay the cold-start cost.
+   */
+  async warmUp(): Promise<void> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+    } catch {
+      /* ignore — warm-up is best-effort */
+    }
+    const token = this.token();
+    if (token) {
+      try {
+        await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   /** Long-poll for updates (dev mode — no public webhook required). */
   async getUpdates(offset: number, timeoutSec = 25): Promise<TelegramUpdate[]> {
     const token = this.token();
@@ -312,15 +332,43 @@ export class TelegramService {
         convo.step = 2;
         await this.send(chatId, 'What is the best contact email?');
         return;
-      case 2:
+      case 2: {
         if (!EMAIL_RE.test(text)) {
           await this.send(chatId, 'That doesn’t look like a valid email. Try again.');
           return;
         }
-        convo.data.contactEmail = text.toLowerCase();
+        const email = text.trim().toLowerCase();
+        // Fail fast: the owner account is created fresh on approval, so the
+        // email must not already belong to a user, and must not duplicate an
+        // existing application. Checking here avoids doomed approvals later.
+        const [userClash, appClash] = await Promise.all([
+          this.prisma.user.findUnique({ where: { email }, select: { id: true } }),
+          this.prisma.institution.findFirst({
+            where: { contactEmail: email },
+            select: { id: true },
+          }),
+        ]);
+        if (userClash) {
+          await this.send(
+            chatId,
+            'That email is already registered on iTestU. Please enter a different email for the centre owner account.',
+          );
+          return; // stay on this step
+        }
+        if (appClash) {
+          this.conversations.delete(chatId);
+          await this.send(
+            chatId,
+            'An application with this email already exists. We’ll be in touch soon.',
+            KB_REMOVE,
+          );
+          return;
+        }
+        convo.data.contactEmail = email;
         convo.step = 3;
         await this.send(chatId, 'Contact phone number?');
         return;
+      }
       case 3:
         convo.data.contactPhone = text;
         convo.step = 4;
@@ -342,9 +390,22 @@ export class TelegramService {
   ): Promise<void> {
     const { name, contactName, contactEmail, contactPhone, city } = convo.data;
 
-    const existing = await this.prisma.institution.findFirst({
-      where: { contactEmail },
-    });
+    const [existing, userClash] = await Promise.all([
+      this.prisma.institution.findFirst({ where: { contactEmail } }),
+      this.prisma.user.findUnique({
+        where: { email: contactEmail },
+        select: { id: true },
+      }),
+    ]);
+    if (userClash) {
+      this.conversations.delete(chatId);
+      await this.send(
+        chatId,
+        'That email is already registered on iTestU. Please send /start to apply again with a different owner email.',
+        KB_REMOVE,
+      );
+      return;
+    }
     if (existing) {
       this.conversations.delete(chatId);
       await this.send(

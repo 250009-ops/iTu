@@ -188,10 +188,42 @@ export class AdminInstitutionsService {
     });
     if (!institution) throw new NotFoundException('Institution not found');
 
+    let contactEmail: string | undefined;
+    if (dto.contactEmail) {
+      contactEmail = dto.contactEmail.trim().toLowerCase();
+      if (contactEmail !== institution.contactEmail) {
+        // The owner account is created from this email on approval — keep it
+        // free of any existing user and any other institution's application.
+        const [userClash, instClash] = await Promise.all([
+          this.prisma.user.findUnique({
+            where: { email: contactEmail },
+            select: { id: true },
+          }),
+          this.prisma.institution.findFirst({
+            where: { contactEmail, id: { not: id } },
+            select: { id: true },
+          }),
+        ]);
+        if (userClash) {
+          throw new ConflictException(
+            'A user already exists with this email. Choose a different owner email.',
+          );
+        }
+        if (instClash) {
+          throw new ConflictException(
+            'Another institution already uses this contact email.',
+          );
+        }
+      }
+    }
+
     await this.prisma.institution.update({
       where: { id },
       data: {
         name: dto.name ?? undefined,
+        contactName: dto.contactName ?? undefined,
+        contactEmail,
+        contactPhone: dto.contactPhone ?? undefined,
         city: dto.city ?? undefined,
         wholesalePrice: dto.wholesalePrice ?? undefined,
         status: dto.status ? (dto.status as InstitutionStatus) : undefined,

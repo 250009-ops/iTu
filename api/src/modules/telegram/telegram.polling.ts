@@ -41,6 +41,9 @@ export class TelegramPollingService implements OnModuleInit, OnModuleDestroy {
     // Command menu works in both webhook and polling modes.
     await this.telegram.registerCommands();
 
+    // Prime DB pool + Telegram keep-alive so the first user message is fast.
+    void this.telegram.warmUp();
+
     if (!this.shouldPoll()) {
       await this.registerWebhook();
       return;
