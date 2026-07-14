@@ -101,12 +101,12 @@ export function SiteHeader() {
                 {link.label}
               </Link>
             ))}
-            <div className="mt-2 flex gap-3 border-t border-white/10 pt-4">
+            <div className="mt-2 space-y-3 border-t border-white/10 pt-4">
               <MarketingMobileAuth onNavigate={() => setMenuOpen(false)} />
               <Link
                 href="/mock-exams"
                 onClick={() => setMenuOpen(false)}
-                className="flex-1 rounded-lg bg-brand-red px-4 py-2.5 text-center text-sm font-semibold text-white"
+                className="block rounded-lg bg-brand-red px-4 py-2.5 text-center text-sm font-semibold text-white shadow-lg shadow-brand-red/20"
               >
                 Book a Mock
               </Link>
