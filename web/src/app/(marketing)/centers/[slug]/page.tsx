@@ -11,7 +11,6 @@ import {
 import { Glow, Pill, Section, SectionHeading } from "@/components/marketing/ui/primitives";
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
 import { Reveal } from "@/components/marketing/motion/reveal";
-import { CenterLogo } from "@/components/marketing/shared/center-logo";
 import { CenterJoinForm } from "@/components/marketing/shared/center-join-form";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchCenter } from "@/lib/marketing/server-data";
@@ -72,20 +71,17 @@ export default async function CenterDetailPage({
             <ChevronLeft className="h-4 w-4" /> All Edu Centers
           </Link>
 
-          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <CenterLogo name={center.name} size="lg" className="h-24 w-24" />
-            <div>
-              <Pill tone="onNavy">Official Partner · since {partnerSince}</Pill>
-              <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
-                {center.name}
-              </h1>
-              {center.city || center.address ? (
-                <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-300">
-                  <MapPin className="h-4 w-4" />
-                  {[center.address, center.city].filter(Boolean).join(", ")}
-                </p>
-              ) : null}
-            </div>
+          <div className="mt-6">
+            <Pill tone="onNavy">Official Partner · since {partnerSince}</Pill>
+            <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
+              {center.name}
+            </h1>
+            {center.city || center.address ? (
+              <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-300">
+                <MapPin className="h-4 w-4" />
+                {[center.address, center.city].filter(Boolean).join(", ")}
+              </p>
+            ) : null}
           </div>
 
           {stats.length > 0 ? (

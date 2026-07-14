@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PartnerCenter } from "@/lib/marketing/server-data";
-import { CenterLogo } from "./center-logo";
-import { cn } from "@/lib/utils";
 
-/** Approximate width of one logo + name chip in the marquee row. */
-const ITEM_WIDTH = 176;
+/** Approximate width of one name chip in the marquee row. */
+const ITEM_WIDTH = 120;
 
 function buildRow(
   centers: PartnerCenter[],
@@ -19,12 +17,9 @@ function buildRow(
   const fillsRow = naturalWidth >= containerWidth * 0.92;
 
   if (fillsRow) {
-    // Enough unique centres — show each once, no duplicate logos in the row.
     return { items: centers, animate: false };
   }
 
-  // Too few — repeat the existing set horizontally until the row is full,
-  // then duplicate once more so the marquee loop is seamless.
   let filled: PartnerCenter[] = [];
   while (filled.length * ITEM_WIDTH < containerWidth * 1.05) {
     filled = filled.concat(centers);
@@ -36,10 +31,9 @@ function PartnerChip({ center }: { center: PartnerCenter }) {
   return (
     <Link
       href={`/centers/${center.slug}`}
-      className="group inline-flex shrink-0 items-center gap-3 rounded-xl px-2 py-1 transition-colors"
+      className="group inline-flex shrink-0 items-center rounded-xl px-2 py-1 transition-colors"
       aria-label={center.name}
     >
-      <CenterLogo name={center.name} size="sm" />
       <span className="text-base font-semibold text-slate-500 transition-colors group-hover:text-navy">
         {center.name}
       </span>
@@ -47,7 +41,7 @@ function PartnerChip({ center }: { center: PartnerCenter }) {
   );
 }
 
-// One horizontal row of Edu Center logos. Repeats existing partners only when
+// One horizontal row of Edu Center names. Repeats existing partners only when
 // there are too few to fill the viewport width; stops repeating once the count
 // is enough to cover the line naturally.
 export function PartnerMarquee({

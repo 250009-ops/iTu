@@ -3,7 +3,6 @@ import { ArrowRight, MapPin, ShieldCheck, Users } from "lucide-react";
 import type { PartnerCenter } from "@/lib/marketing/server-data";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import type { AccentColor } from "@/lib/marketing/data";
-import { CenterLogo } from "./center-logo";
 import { formatSocialCount } from "@/lib/marketing/social-proof";
 import { cn } from "@/lib/utils";
 
@@ -29,19 +28,16 @@ export function CenterCard({ center }: { center: PartnerCenter }) {
         accent.topBorder,
       )}
     >
-      <div className="flex items-start gap-3">
-        <CenterLogo name={center.name} size="md" />
-        <div className="min-w-0 flex-1">
-          <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-            <ShieldCheck className="h-3 w-3" /> Official Partner
-          </span>
-          <h3 className="truncate font-bold text-navy">{center.name}</h3>
-          {center.city ? (
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted">
-              <MapPin className="h-3.5 w-3.5" /> {center.city}
-            </p>
-          ) : null}
-        </div>
+      <div>
+        <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+          <ShieldCheck className="h-3 w-3" /> Official Partner
+        </span>
+        <h3 className="truncate font-bold text-navy">{center.name}</h3>
+        {center.city ? (
+          <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted">
+            <MapPin className="h-3.5 w-3.5" /> {center.city}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
