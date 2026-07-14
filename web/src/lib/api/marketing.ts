@@ -31,3 +31,14 @@ export function submitInstitutionApplication(input: InstitutionApplicationInput)
     auth: false,
   });
 }
+
+export function joinCenter(slug: string, input: { name: string; email: string }) {
+  return apiFetch<{ status: string; centerName: string; email: string }>(
+    `/marketing/centers/${encodeURIComponent(slug)}/join`,
+    {
+      method: "POST",
+      body: input,
+      auth: false,
+    },
+  );
+}

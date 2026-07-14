@@ -7,11 +7,11 @@ import {
   Users,
   ClipboardCheck,
   GraduationCap,
-  Send,
 } from "lucide-react";
 import { Glow, Pill, Section } from "@/components/marketing/ui/primitives";
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
 import { CenterLogo } from "@/components/marketing/shared/center-logo";
+import { CenterJoinForm } from "@/components/marketing/shared/center-join-form";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchCenter } from "@/lib/marketing/server-data";
 
@@ -98,29 +98,11 @@ export default async function CenterDetailPage({
               </div>
             </div>
 
-            <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur lg:w-80">
-              <p className="text-sm font-semibold text-white">
-                Study here? Join via Telegram
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                Sign up with this centre through our bot, then verify your email
-                to open your student panel.
-              </p>
-              {center.joinDeepLink ? (
-                <a
-                  href={center.joinDeepLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 flex h-12 items-center justify-center gap-2 rounded-xl bg-brand-red text-sm font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
-                >
-                  <Send className="h-4 w-4" /> Join via Telegram
-                </a>
-              ) : (
-                <p className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-center text-xs text-slate-400">
-                  Sign-up link coming soon — contact the centre directly.
-                </p>
-              )}
-            </div>
+            <CenterJoinForm
+              slug={center.slug}
+              centerName={center.name}
+              joinDeepLink={center.joinDeepLink}
+            />
           </div>
 
           <div className="mt-10 grid grid-cols-3 gap-3 sm:max-w-lg">

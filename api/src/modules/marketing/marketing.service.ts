@@ -1,12 +1,21 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InstitutionStatus, InstitutionMemberStatus } from '@prisma/client';
-import { randomBytes } from 'crypto';
+import {
+  InstitutionStatus,
+  InstitutionMemberStatus,
+  UserRole,
+} from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { teacherSpecialityWhere } from '../../common/teacher-speciality';
 import { InstitutionApplicationDto } from './dto/institution-application.dto';
+import { JoinCenterDto } from './dto/join-center.dto';
+
+const SETUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class MarketingService {
@@ -14,7 +23,14 @@ export class MarketingService {
     private prisma: PrismaService,
     private audit: AuditService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
+
+  private appUrl(): string {
+    return this.config
+      .get<string>('APP_URL', 'http://localhost:3000')
+      .replace(/\/$/, '');
+  }
 
   /**
    * Public institution lead from the marketing site. Creates a PENDING
@@ -424,6 +440,85 @@ export class MarketingService {
       examinerCount: c._count.teachers,
       joinDeepLink: this.joinDeepLink(c.id),
     };
+  }
+
+  /**
+   * Web-native student sign-up for a centre — the same outcome as the Telegram
+   * bot's student flow, but entirely on our own domain so it works where
+   * Telegram is blocked. Creates a PENDING centre student and emails a
+   * verify-and-set-password link. The centre still approves access afterwards.
+   */
+  async joinCenter(slug: string, dto: JoinCenterDto) {
+    const institution = await this.prisma.institution.findFirst({
+      where: { slug, status: InstitutionStatus.ACTIVE },
+      select: { id: true, name: true },
+    });
+    if (!institution) {
+      throw new BadRequestException(
+        'This centre is not available for sign-up right now.',
+      );
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const name = dto.name.trim();
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        `This email is already registered on iTestU. Please sign in at ${this.appUrl()}/login instead.`,
+      );
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const passwordResetToken = createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const passwordResetExpires = new Date(Date.now() + SETUP_TOKEN_TTL_MS);
+    const passwordHash = await bcrypt.hash(
+      randomBytes(16).toString('hex'),
+      12,
+    );
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        name,
+        passwordHash,
+        role: UserRole.STUDENT,
+        institutionId: institution.id,
+        passwordResetToken,
+        passwordResetExpires,
+        studentProfile: {
+          create: {
+            institutionId: institution.id,
+            institutionStatus: InstitutionMemberStatus.PENDING,
+          },
+        },
+      },
+    });
+
+    const setupUrl = `${this.appUrl()}/reset-password?token=${rawToken}`;
+    void this.mail
+      .sendInstitutionStudentInviteEmail(
+        email,
+        name,
+        institution.name,
+        setupUrl,
+      )
+      .catch(() => undefined);
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_STUDENT_JOIN,
+      entity: 'user',
+      entityId: user.id,
+      metadata: { source: 'web', institutionId: institution.id },
+    });
+
+    return { status: 'ok', centerName: institution.name, email };
   }
 }
 

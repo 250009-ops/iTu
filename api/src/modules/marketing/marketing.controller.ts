@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/com
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { InstitutionApplicationDto } from './dto/institution-application.dto';
+import { JoinCenterDto } from './dto/join-center.dto';
 import { MarketingService } from './marketing.service';
 
 @ApiTags('marketing')
@@ -56,5 +57,12 @@ export class MarketingController {
   @Get('centers/:slug')
   getCenter(@Param('slug') slug: string) {
     return this.marketing.getCenter(slug);
+  }
+
+  @Public()
+  @Post('centers/:slug/join')
+  @HttpCode(200)
+  joinCenter(@Param('slug') slug: string, @Body() dto: JoinCenterDto) {
+    return this.marketing.joinCenter(slug, dto);
   }
 }

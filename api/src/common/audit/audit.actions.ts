@@ -57,6 +57,7 @@ export const AuditAction = {
   ADMIN_INSTITUTION_CREDIT_ADJUST: 'admin.institution.credit_adjust',
 
   INSTITUTION_APPLICATION: 'institution.application',
+  INSTITUTION_STUDENT_JOIN: 'institution.student.join',
   INSTITUTION_CREDIT_PURCHASE: 'institution.credit.purchase',
   INSTITUTION_ENROLL: 'institution.enroll',
   INSTITUTION_STUDENT_APPROVE: 'institution.student.approve',
