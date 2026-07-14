@@ -7,13 +7,19 @@ import {
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
+import * as dns from 'dns';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
 import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+// This VPS resolves api.telegram.org to a dead IPv6 first; prefer IPv4 so
+// outbound Bot API calls don't hang then die with "fetch failed".
+dns.setDefaultResultOrder('ipv4first');
+
 const SETUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_MS = 700;
+const TELEGRAM_TIMEOUT_MS = 8_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Button labels for the reply keyboard ("attached" buttons that auto-send text).
@@ -87,31 +93,126 @@ export class TelegramService {
     return this.config.get<string>('TELEGRAM_BOT_TOKEN')?.trim() || undefined;
   }
 
+  private errDetail(err: unknown): string {
+    if (!(err instanceof Error)) return String(err);
+    const cause = (err as Error & { cause?: unknown }).cause;
+    return cause instanceof Error
+      ? `${err.message} (${cause.message})`
+      : err.message;
+  }
+
+  /**
+   * Low-level Telegram Bot API call with a hard timeout and one retry.
+   * Returns the parsed JSON body, or null on total failure.
+   */
+  private async telegramCall(
+    method: string,
+    body?: Record<string, unknown>,
+    retries = 1,
+  ): Promise<{ ok?: boolean; result?: unknown; description?: string } | null> {
+    const token = this.token();
+    if (!token) return null;
+
+    let lastErr: unknown;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TELEGRAM_TIMEOUT_MS);
+      try {
+        const res = await fetch(
+          `https://api.telegram.org/bot${token}/${method}`,
+          {
+            method: body ? 'POST' : 'GET',
+            headers: body ? { 'Content-Type': 'application/json' } : undefined,
+            body: body ? JSON.stringify(body) : undefined,
+            signal: controller.signal,
+          },
+        );
+        const data = (await res.json()) as {
+          ok?: boolean;
+          result?: unknown;
+          description?: string;
+        };
+        if (!data.ok) {
+          this.logger.warn(
+            `Telegram ${method}: ${data.description ?? `HTTP ${res.status}`}`,
+          );
+        }
+        return data;
+      } catch (err) {
+        lastErr = err;
+        this.logger.warn(
+          `Telegram ${method} attempt ${attempt + 1} failed: ${this.errDetail(err)}`,
+        );
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 350));
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    this.logger.error(
+      `Telegram ${method} failed: ${this.errDetail(lastErr)}`,
+    );
+    return null;
+  }
+
+  /** Show the native "typing…" indicator so the user knows we received them. */
+  private async sendTyping(chatId: number): Promise<void> {
+    await this.telegramCall('sendChatAction', {
+      chat_id: chatId,
+      action: 'typing',
+    }, 0);
+  }
+
+  /** Sends a message; returns Telegram message_id (or null). */
   private async send(
     chatId: number,
     text: string,
     replyMarkup?: unknown,
-  ): Promise<void> {
-    const token = this.token();
-    if (!token) {
+  ): Promise<number | null> {
+    if (!this.token()) {
       this.logger.warn(`Telegram not configured — message to ${chatId}: ${text}`);
-      return;
+      return null;
     }
-    try {
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          parse_mode: 'HTML',
-          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-        }),
-      });
-    } catch (err) {
-      this.logger.error(
-        `Failed to send Telegram message: ${err instanceof Error ? err.message : err}`,
-      );
+    const data = await this.telegramCall('sendMessage', {
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+    });
+    const result = data?.result as { message_id?: number } | undefined;
+    return result?.message_id ?? null;
+  }
+
+  private async deleteMessage(
+    chatId: number,
+    messageId: number,
+  ): Promise<void> {
+    await this.telegramCall(
+      'deleteMessage',
+      { chat_id: chatId, message_id: messageId },
+      0,
+    );
+  }
+
+  /**
+   * Instant UX while we do a DB lookup: typing indicator + a short status
+   * message (⏳). Caller should delete the status message when done.
+   */
+  private async beginCheck(
+    chatId: number,
+    label = '⏳ Checking that email…',
+  ): Promise<number | null> {
+    await this.sendTyping(chatId);
+    return this.send(chatId, label);
+  }
+
+  private async endCheck(
+    chatId: number,
+    statusMessageId: number | null,
+  ): Promise<void> {
+    if (statusMessageId != null) {
+      await this.deleteMessage(chatId, statusMessageId);
     }
   }
 
@@ -125,94 +226,62 @@ export class TelegramService {
     } catch {
       /* ignore — warm-up is best-effort */
     }
-    const token = this.token();
-    if (token) {
-      try {
-        await fetch(`https://api.telegram.org/bot${token}/getMe`);
-      } catch {
-        /* ignore */
-      }
-    }
+    await this.telegramCall('getMe', undefined, 0);
   }
 
   /** Long-poll for updates (dev mode — no public webhook required). */
   async getUpdates(offset: number, timeoutSec = 25): Promise<TelegramUpdate[]> {
     const token = this.token();
     if (!token) return [];
-    const res = await fetch(
-      `https://api.telegram.org/bot${token}/getUpdates?timeout=${timeoutSec}&offset=${offset}`,
+    const controller = new AbortController();
+    // Long poll itself needs longer than TELEGRAM_TIMEOUT_MS.
+    const timer = setTimeout(
+      () => controller.abort(),
+      (timeoutSec + 5) * 1000,
     );
-    if (!res.ok) {
-      throw new Error(`getUpdates HTTP ${res.status}`);
+    try {
+      const res = await fetch(
+        `https://api.telegram.org/bot${token}/getUpdates?timeout=${timeoutSec}&offset=${offset}`,
+        { signal: controller.signal },
+      );
+      if (!res.ok) throw new Error(`getUpdates HTTP ${res.status}`);
+      const body = (await res.json()) as {
+        ok: boolean;
+        result?: TelegramUpdate[];
+      };
+      return body.result ?? [];
+    } finally {
+      clearTimeout(timer);
     }
-    const body = (await res.json()) as {
-      ok: boolean;
-      result?: TelegramUpdate[];
-    };
-    return body.result ?? [];
   }
 
   /** Registers the webhook with Telegram (production). Returns success. */
   async setWebhook(url: string, secret?: string): Promise<boolean> {
-    const token = this.token();
-    if (!token) return false;
-    try {
-      const res = await fetch(
-        `https://api.telegram.org/bot${token}/setWebhook`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url,
-            secret_token: secret || undefined,
-            allowed_updates: ['message'],
-          }),
-        },
-      );
-      const body = (await res.json()) as { ok?: boolean; description?: string };
-      if (!body.ok) {
-        this.logger.warn(`setWebhook failed: ${body.description ?? 'unknown'}`);
-      }
-      return body.ok === true;
-    } catch (err) {
-      this.logger.warn(
-        `setWebhook error: ${err instanceof Error ? err.message : err}`,
-      );
-      return false;
-    }
+    const data = await this.telegramCall('setWebhook', {
+      url,
+      secret_token: secret || undefined,
+      allowed_updates: ['message'],
+    });
+    return data?.ok === true;
   }
 
   /** Removes any registered webhook so getUpdates (polling) can run. */
   async deleteWebhook(): Promise<void> {
-    const token = this.token();
-    if (!token) return;
-    try {
-      await fetch(
-        `https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=false`,
-      );
-    } catch {
-      // Non-fatal — polling will still surface the error if unresolved.
-    }
+    await this.telegramCall('deleteWebhook', { drop_pending_updates: false }, 0);
   }
 
   /** Registers the command menu so the Telegram "Menu" button lists commands. */
   async registerCommands(): Promise<void> {
-    const token = this.token();
-    if (!token) return;
-    try {
-      await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          commands: [
-            { command: 'start', description: 'Start / apply as an institution' },
-            { command: 'cancel', description: 'Cancel the current step' },
-          ],
-        }),
-      });
-    } catch {
-      // Non-fatal.
-    }
+    await this.telegramCall(
+      'setMyCommands',
+      {
+        commands: [
+          { command: 'start', description: 'Start / apply as an institution' },
+          { command: 'cancel', description: 'Cancel the current step' },
+        ],
+      },
+      0,
+    );
   }
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
@@ -338,9 +407,9 @@ export class TelegramService {
           return;
         }
         const email = text.trim().toLowerCase();
-        // Fail fast: the owner account is created fresh on approval, so the
-        // email must not already belong to a user, and must not duplicate an
-        // existing application. Checking here avoids doomed approvals later.
+        // Instant feedback — typing indicator + ⏳ message — then a fast indexed
+        // lookup. Fail fast so we never create applications that can't be approved.
+        const statusId = await this.beginCheck(chatId);
         const [userClash, appClash] = await Promise.all([
           this.prisma.user.findUnique({ where: { email }, select: { id: true } }),
           this.prisma.institution.findFirst({
@@ -348,6 +417,7 @@ export class TelegramService {
             select: { id: true },
           }),
         ]);
+        await this.endCheck(chatId, statusId);
         if (userClash) {
           await this.send(
             chatId,
@@ -390,14 +460,19 @@ export class TelegramService {
   ): Promise<void> {
     const { name, contactName, contactEmail, contactPhone, city } = convo.data;
 
+    const statusId = await this.beginCheck(chatId, '⏳ Submitting your application…');
     const [existing, userClash] = await Promise.all([
-      this.prisma.institution.findFirst({ where: { contactEmail } }),
+      this.prisma.institution.findFirst({
+        where: { contactEmail },
+        select: { id: true },
+      }),
       this.prisma.user.findUnique({
         where: { email: contactEmail },
         select: { id: true },
       }),
     ]);
     if (userClash) {
+      await this.endCheck(chatId, statusId);
       this.conversations.delete(chatId);
       await this.send(
         chatId,
@@ -407,6 +482,7 @@ export class TelegramService {
       return;
     }
     if (existing) {
+      await this.endCheck(chatId, statusId);
       this.conversations.delete(chatId);
       await this.send(
         chatId,
@@ -437,6 +513,7 @@ export class TelegramService {
       metadata: { source: 'telegram', contactEmail },
     });
 
+    await this.endCheck(chatId, statusId);
     this.conversations.delete(chatId);
     await this.send(
       chatId,
@@ -462,14 +539,32 @@ export class TelegramService {
         convo.step = 1;
         await this.send(chatId, 'Thanks. What is your email address?');
         return;
-      case 1:
+      case 1: {
         if (!EMAIL_RE.test(text)) {
           await this.send(chatId, 'That doesn’t look like a valid email. Try again.');
           return;
         }
-        convo.data.email = text.toLowerCase();
+        const email = text.trim().toLowerCase();
+        const statusId = await this.beginCheck(chatId);
+        const existing = await this.prisma.user.findUnique({
+          where: { email },
+          select: { id: true },
+        });
+        await this.endCheck(chatId, statusId);
+        if (existing) {
+          this.conversations.delete(chatId);
+          await this.send(
+            chatId,
+            'An account with this email already exists. Please sign in at ' +
+              `${this.appUrl()}/login`,
+            KB_REMOVE,
+          );
+          return;
+        }
+        convo.data.email = email;
         await this.finishStudent(chatId, convo);
         return;
+      }
       default:
         this.conversations.delete(chatId);
         await this.send(chatId, 'Something went wrong. Please use your center’s link again.');
@@ -483,17 +578,28 @@ export class TelegramService {
     const { name, email } = convo.data;
     const institutionId = convo.institutionId!;
 
+    const statusId = await this.beginCheck(
+      chatId,
+      '⏳ Setting up your account…',
+    );
+
     const institution = await this.prisma.institution.findUnique({
       where: { id: institutionId },
+      select: { id: true, name: true },
     });
     if (!institution) {
+      await this.endCheck(chatId, statusId);
       this.conversations.delete(chatId);
       await this.send(chatId, 'This center is no longer available.', KB_REMOVE);
       return;
     }
 
-    const existing = await this.prisma.user.findUnique({ where: { email } });
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
     if (existing) {
+      await this.endCheck(chatId, statusId);
       this.conversations.delete(chatId);
       await this.send(
         chatId,
@@ -532,6 +638,7 @@ export class TelegramService {
       .sendInstitutionStudentInviteEmail(email, name, institution.name, setupUrl)
       .catch(() => undefined);
 
+    await this.endCheck(chatId, statusId);
     this.conversations.delete(chatId);
     await this.send(
       chatId,

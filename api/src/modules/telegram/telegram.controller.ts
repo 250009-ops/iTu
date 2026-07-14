@@ -30,7 +30,13 @@ export class TelegramController {
     // Always ack fast; process best-effort so Telegram doesn't retry storms.
     void this.telegram
       .handleUpdate(update as never)
-      .catch(() => undefined);
+      .catch((err) => {
+        // Logged inside TelegramService; keep a last-line visible here.
+        console.error(
+          '[telegram webhook]',
+          err instanceof Error ? err.message : err,
+        );
+      });
     return { ok: true };
   }
 }
