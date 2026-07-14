@@ -154,6 +154,7 @@ function mapTeacher(t: ApiTeacher): TopTeacher {
           quote:
             "Criteria-level written feedback pinpoints exactly where to gain marks across each band descriptor.",
         },
+    reviews: t.reviews ?? [],
     photoSeed: t.slug,
   };
 }

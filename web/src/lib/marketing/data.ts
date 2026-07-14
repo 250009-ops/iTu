@@ -11,7 +11,7 @@ export const SITE = {
   tagline: "Real examiners. Real feedback. Real bands.",
   description:
     "Sit a realistic, IDP-style computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
-  fullMockPrice: 49,
+  fullMockPrice: 56_000,
   currency: "UZS",
 } as const;
 
@@ -120,17 +120,6 @@ export const STATS = [
   { id: "examiners", value: 320, suffix: "+", label: "Certified examiners" },
 ] as const;
 
-export const TRUST_LOGOS = [
-  "Imperial College London",
-  "McGill University",
-  "University of Edinburgh",
-  "Oxford University",
-  "University of Melbourne",
-  "University of Toronto",
-  "ETH Zürich",
-  "NUS Singapore",
-] as const;
-
 export const JOURNEY_STEPS = [
   { id: "book", label: "Book", caption: "Pick package & examiner", accent: "emerald" as AccentColor, icon: "book" },
   { id: "check-in", label: "Check-in", caption: "ID verify & system check", accent: "sky" as AccentColor, icon: "check" },
@@ -165,6 +154,13 @@ export const TOP_STUDENTS: TopStudent[] = [
 
 export type TeacherSpeciality = "Writing" | "Speaking" | "Writing & Speaking";
 
+export interface TeacherReview {
+  id: string;
+  name: string;
+  rating: number;
+  quote: string;
+}
+
 export interface TopTeacher {
   id: string;
   slug: string;
@@ -181,6 +177,7 @@ export interface TopTeacher {
   languages: string[];
   isTopRated: boolean;
   sampleFeedback: { label: string; quote: string };
+  reviews: TeacherReview[];
   photoSeed: string;
 }
 
@@ -206,6 +203,7 @@ export const TOP_TEACHERS: TopTeacher[] = [
       quote:
         "Your Task 2 argument is well-structured with a clear thesis, but the conclusion simply restates the introduction — it needs to synthesise rather than repeat. Aim to end with a broader implication or recommendation.",
     },
+    reviews: [],
     photoSeed: "daniel",
   },
   {
@@ -229,6 +227,7 @@ export const TOP_TEACHERS: TopTeacher[] = [
       quote:
         "Your overview in Task 1 lists data rather than synthesising the key trends. Group the most significant movements together and lead with them before detailing specific figures.",
     },
+    reviews: [],
     photoSeed: "sarah",
   },
   {
@@ -252,6 +251,7 @@ export const TOP_TEACHERS: TopTeacher[] = [
       quote:
         "Strong fluency and a wide range of cohesive devices. In Part 3, push for more complex conditional and passive structures to reach the top band for grammatical range.",
     },
+    reviews: [],
     photoSeed: "michael",
   },
   {
@@ -275,6 +275,7 @@ export const TOP_TEACHERS: TopTeacher[] = [
       quote:
         "Your ideas are sophisticated, but overused linking phrases ('Moreover', 'In addition') flatten the cohesion score. Vary your referencing and use more substitution.",
     },
+    reviews: [],
     photoSeed: "amara",
   },
 ];

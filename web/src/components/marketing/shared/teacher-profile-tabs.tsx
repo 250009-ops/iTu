@@ -7,20 +7,17 @@ import { ACCENT } from "@/components/marketing/ui/accents";
 import { Avatar } from "@/components/marketing/ui/primitives";
 import { cn } from "@/lib/utils";
 
-const REVIEWS = [
-  { name: "Hana T.", band: 7.5, quote: "Detailed, encouraging feedback. I knew exactly what to fix for my real test." },
-  { name: "Omar K.", band: 8, quote: "The criteria breakdown was the clearest I've ever received. Highly recommend." },
-  { name: "Lucia R.", band: 7, quote: "Made the speaking session feel like a real conversation. Calmed my nerves completely." },
-];
-
 export function TeacherProfileTabs({ teacher }: { teacher: TopTeacher }) {
+  const reviews = teacher.reviews ?? [];
+  const hasReviews = reviews.length > 0;
+  const tabs = hasReviews ? (["overview", "reviews"] as const) : (["overview"] as const);
   const [tab, setTab] = useState<"overview" | "reviews">("overview");
   const accent = ACCENT[teacher.accent];
 
   return (
     <div>
       <div className="flex gap-2">
-        {(["overview", "reviews"] as const).map((t) => (
+        {tabs.map((t) => (
           <button
             key={t}
             type="button"
@@ -86,25 +83,34 @@ export function TeacherProfileTabs({ teacher }: { teacher: TopTeacher }) {
         </div>
       ) : (
         <div className="mt-8 grid gap-6 md:grid-cols-3">
-          {REVIEWS.map((r) => (
-            <div key={r.name} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  ))}
+          {reviews.map((r) => {
+            const stars = Math.round(r.rating);
+            return (
+              <div key={r.id} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "h-4 w-4",
+                          i < stars ? "fill-amber-400 text-amber-400" : "text-slate-300",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                    {r.rating.toFixed(1)}
+                  </span>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                  Band {r.band}
-                </span>
+                <p className="mt-4 text-sm leading-relaxed text-foreground">&ldquo;{r.quote}&rdquo;</p>
+                <div className="mt-4 flex items-center gap-3">
+                  <Avatar initials={r.name.slice(0, 2).toUpperCase()} size="sm" />
+                  <span className="text-sm font-semibold text-foreground">{r.name}</span>
+                </div>
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-foreground">&ldquo;{r.quote}&rdquo;</p>
-              <div className="mt-4 flex items-center gap-3">
-                <Avatar initials={r.name.slice(0, 2).toUpperCase()} size="sm" />
-                <span className="text-sm font-semibold text-foreground">{r.name}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

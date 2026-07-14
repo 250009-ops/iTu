@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MessageSquare, Mail, Phone, Globe, Clock, ArrowRight } from "lucide-react";
+import { Mail, Globe, Clock, ArrowRight } from "lucide-react";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
@@ -10,15 +10,13 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "Contact — Support, Demos & Enquiries",
   description:
-    "Reach the IELTS Mock team for support, demo requests, institution pricing, or press enquiries. Live chat, email, and phone support available.",
+    "Reach the IELTS Mock team for support, demo requests, institution pricing, or press enquiries. Email support and self-service help available.",
   alternates: { canonical: "/contact" },
 };
 
 const METHODS = [
-  { icon: MessageSquare, title: "Live chat", body: "Chat with our team in-app. Available weekdays 9am–6pm UTC.", action: "Open chat", accent: "bg-sky-50 text-sky-600", btn: "bg-sky-50 text-sky-700" },
-  { icon: Mail, title: "Email support", body: "support@itestu.uz — we aim to reply within 4 hours.", action: "Send email", accent: "bg-violet-50 text-violet-600", btn: "bg-violet-50 text-violet-700" },
-  { icon: Phone, title: "Call us", body: "For enterprise enquiries: +44 20 1234 5678 (Mon–Fri 9am–5pm UTC).", action: "Call now", accent: "bg-emerald-50 text-emerald-600", btn: "bg-emerald-50 text-emerald-700" },
-  { icon: Globe, title: "Help centre", body: "Self-service documentation, video walkthroughs, and exam guides.", action: "Browse docs", accent: "bg-amber-50 text-amber-600", btn: "bg-amber-50 text-amber-700" },
+  { icon: Mail, title: "Email support", body: "support@itestu.uz — we aim to reply within 4 hours.", action: "Send email", href: "mailto:support@itestu.uz", accent: "bg-violet-50 text-violet-600", btn: "bg-violet-50 text-violet-700" },
+  { icon: Globe, title: "Help centre", body: "Self-service exam guides and answers to common questions.", action: "Browse FAQ", href: "/faq", accent: "bg-amber-50 text-amber-600", btn: "bg-amber-50 text-amber-700" },
 ];
 
 const RESPONSE = [
@@ -39,19 +37,32 @@ export default function ContactPage() {
       />
 
       <Section className="pt-12">
-        <Stagger className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {METHODS.map((m) => (
-            <StaggerItem key={m.title} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-              <span className={cn("flex h-11 w-11 items-center justify-center rounded-xl", m.accent)}>
-                <m.icon className="h-5 w-5" />
-              </span>
-              <h3 className="mt-4 font-bold text-navy">{m.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{m.body}</p>
-              <span className={cn("mt-4 inline-flex rounded-lg px-3 py-1.5 text-sm font-semibold", m.btn)}>
-                {m.action}
-              </span>
-            </StaggerItem>
-          ))}
+        <Stagger className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          {METHODS.map((m) => {
+            const isInternal = m.href.startsWith("/");
+            const actionClass = cn(
+              "mt-4 inline-flex rounded-lg px-3 py-1.5 text-sm font-semibold transition-opacity hover:opacity-80",
+              m.btn,
+            );
+            return (
+              <StaggerItem key={m.title} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <span className={cn("flex h-11 w-11 items-center justify-center rounded-xl", m.accent)}>
+                  <m.icon className="h-5 w-5" />
+                </span>
+                <h3 className="mt-4 font-bold text-navy">{m.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{m.body}</p>
+                {isInternal ? (
+                  <Link href={m.href} className={actionClass}>
+                    {m.action}
+                  </Link>
+                ) : (
+                  <a href={m.href} className={actionClass}>
+                    {m.action}
+                  </a>
+                )}
+              </StaggerItem>
+            );
+          })}
         </Stagger>
       </Section>
 

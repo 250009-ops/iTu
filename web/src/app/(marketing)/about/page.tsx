@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ShieldCheck, Award, TrendingUp, Globe, CheckCircle2 } from "lucide-react";
 import { PageHero } from "@/components/marketing/ui/page-hero";
-import { Section, SectionHeading, Avatar } from "@/components/marketing/ui/primitives";
+import { Section, SectionHeading } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { fetchHeroStats } from "@/lib/marketing/server-data";
 import { cn } from "@/lib/utils";
@@ -21,20 +21,10 @@ const VALUES = [
   { icon: Globe, title: "Accessible anywhere", body: "The best preparation shouldn't require you to be in a specific city or country. We're fully remote by design.", accent: "bg-rose-50 text-rose-600" },
 ];
 
-const TEAM = [
-  { initials: "OC", name: "Oliver Chen", role: "Co-founder & CEO", body: "Former Cambridge English product lead. Built the platform after failing to find a realistic mock exam for his own IELTS retake." },
-  { initials: "LH", name: "Layla Hassan", role: "Head of Examiner Quality", body: "IDP-certified IELTS examiner for 11 years. Runs calibration training and quality audits for every examiner on the platform." },
-  { initials: "JT", name: "James Thornton", role: "CTO", body: "Previously built server-authoritative exam infrastructure at Pearson. Responsible for the timer and integrity engine." },
-  { initials: "AO", name: "Amara Osei-Bonsu", role: "Head of Candidate Success", body: "CELTA instructor and Band 9 holder. Leads the support team and curates the improvement guidance engine in every results report." },
-];
-
 const CREDIBILITY = [
   ["IDP-Faithful Format", "CBT interface tested against real IDP exam conditions by former examiners."],
   ["Verified Examiners", "All credentials independently verified before onboarding. Ongoing calibration."],
-  ["SSL Secured Payments", "Stripe-encrypted checkout. PCI DSS compliant. No card data stored."],
-  ["GDPR Compliant", "Candidate data stored and processed under EU GDPR. Right to erasure supported."],
-  ["ISO 27001 Hosting", "Exam infrastructure hosted on ISO 27001 certified cloud infrastructure."],
-  ["WCAG 2.1 AA", "Platform tested for accessibility compliance. Screen reader compatible."],
+  ["Secure Payments", "Encrypted checkout handled by our payment provider. No card data stored on our servers."],
 ];
 
 export default async function AboutPage() {
@@ -44,8 +34,6 @@ export default async function AboutPage() {
     [stats.mocks, "Mocks delivered"],
     [stats.examiners, "Certified examiners"],
     [`${stats.rating}★`, "Avg. examiner rating"],
-    ["62", "Countries reached"],
-    ["48h", "Avg. results time"],
   ];
 
   return (
@@ -62,16 +50,14 @@ export default async function AboutPage() {
             <SectionHeading eyebrow="Our Story" title="Born from a frustrating experience" />
             <div className="mt-6 space-y-4 text-sm leading-relaxed text-muted">
               <p>
-                In 2020, our founder Oliver sat the IELTS Academic exam and scored 0.5 below his
-                target. He&apos;d done five mock tests — all from free online platforms — and felt
-                genuinely prepared. But none of those tests had replicated the real exam experience:
-                the server-controlled audio, the strict timer, the live Speaking session with a real
-                examiner.
+                Our team came together around a shared frustration: the free mock tests most
+                candidates rely on don&apos;t replicate the real exam experience — the
+                server-controlled audio, the strict timer, or the live Speaking session with a real
+                examiner. Feeling prepared and being prepared turned out to be very different things.
               </p>
               <p>
-                He retook the exam three months later after building his own practice environment and
-                working with a certified examiner. He scored Band 8.5. The difference wasn&apos;t his
-                language ability — it was preparation quality.
+                Realistic conditions and genuine examiner feedback are what actually move a band
+                score. The difference is rarely raw language ability — it&apos;s preparation quality.
               </p>
               <p>
                 IELTS Mock launched in 2022 with one goal: give every candidate access to the most
@@ -106,26 +92,6 @@ export default async function AboutPage() {
               </span>
               <h3 className="mt-4 font-bold text-navy">{v.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{v.body}</p>
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </Section>
-
-      <Section>
-        <Reveal>
-          <SectionHeading
-            eyebrow="The Team"
-            title="Built by exam professionals"
-            subtitle="Every person on this team has either sat the IELTS exam or worked in IELTS assessment."
-          />
-        </Reveal>
-        <Stagger className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {TEAM.map((m) => (
-            <StaggerItem key={m.name} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-              <Avatar initials={m.initials} size="lg" />
-              <h3 className="mt-4 font-bold text-navy">{m.name}</h3>
-              <p className="text-sm font-semibold text-brand-red">{m.role}</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{m.body}</p>
             </StaggerItem>
           ))}
         </Stagger>

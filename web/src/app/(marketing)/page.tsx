@@ -8,12 +8,13 @@ import {
   fetchLeaderboard,
   fetchTeachers,
   fetchTestimonials,
+  fetchCenters,
 } from "@/lib/marketing/server-data";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { HomeHero } from "@/components/marketing/home/home-hero";
 import { ExaminerBand } from "@/components/marketing/home/examiner-band";
-import { TrustMarquee } from "@/components/marketing/shared/trust-marquee";
+import { PartnerMarquee } from "@/components/marketing/shared/partner-marquee";
 import { StatsBand } from "@/components/marketing/shared/stats-band";
 import { SkillsGrid } from "@/components/marketing/shared/skills-grid";
 import { JourneyStepper } from "@/components/marketing/shared/journey-stepper";
@@ -64,12 +65,13 @@ const jsonLd = {
 };
 
 export default async function HomePage() {
-  const [stats, heroStats, leaderboard, teachers, testimonials] = await Promise.all([
+  const [stats, heroStats, leaderboard, teachers, testimonials, centers] = await Promise.all([
     fetchStats(),
     fetchHeroStats(),
     fetchLeaderboard(),
     fetchTeachers(),
     fetchTestimonials(),
+    fetchCenters(),
   ]);
   const topTeachers = teachers.slice(0, 4);
 
@@ -81,7 +83,7 @@ export default async function HomePage() {
       />
 
       <HomeHero stats={heroStats} />
-      <TrustMarquee />
+      <PartnerMarquee centers={centers} />
       <StatsBand stats={stats} />
 
       {/* Skills */}

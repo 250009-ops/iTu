@@ -38,28 +38,7 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col gap-6 border-t border-white/10 pt-8 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-white">Get exam prep tips</p>
-            <p className="text-sm text-slate-400">Band 7+ strategies, direct to your inbox.</p>
-          </div>
-          <form className="flex w-full max-w-sm gap-2">
-            <input
-              type="email"
-              required
-              placeholder="your@email.com"
-              className="h-11 flex-1 rounded-lg border border-white/15 bg-white/5 px-4 text-sm text-white placeholder:text-slate-500 focus:border-white/30 focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="h-11 rounded-lg bg-brand-red px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-red-hover"
-            >
-              Subscribe
-            </button>
-          </form>
-        </div>
-
-        <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} {SITE.name}. All rights reserved.</p>
           <div className="flex items-center gap-5">
             <span className="inline-flex items-center gap-1.5">

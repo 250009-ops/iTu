@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Award, Star, TrendingUp, Check, Minus } from "lucide-react";
-import { MARKETING_TESTIMONIALS } from "@/lib/marketing/data";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { TestimonialCard } from "@/components/marketing/shared/testimonial-card";
 import { StatsBand } from "@/components/marketing/shared/stats-band";
+import { fetchStats, fetchTestimonials } from "@/lib/marketing/server-data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -45,7 +45,8 @@ function Cmp({ v }: { v: boolean }) {
   );
 }
 
-export default function ForStudentsPage() {
+export default async function ForStudentsPage() {
+  const [testimonials, stats] = await Promise.all([fetchTestimonials(), fetchStats()]);
   return (
     <>
       <PageHero
@@ -131,20 +132,22 @@ export default function ForStudentsPage() {
         </Reveal>
       </Section>
 
-      <Section className="bg-white">
-        <Reveal>
-          <SectionHeading align="center" eyebrow="Candidate Stories" title="Results that speak for themselves" />
-        </Reveal>
-        <Stagger className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
-          {MARKETING_TESTIMONIALS.slice(0, 3).map((item) => (
-            <StaggerItem key={item.id}>
-              <TestimonialCard item={item} />
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </Section>
+      {testimonials.length > 0 && (
+        <Section className="bg-white">
+          <Reveal>
+            <SectionHeading align="center" eyebrow="Candidate Stories" title="Results that speak for themselves" />
+          </Reveal>
+          <Stagger className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {testimonials.slice(0, 3).map((item) => (
+              <StaggerItem key={item.id}>
+                <TestimonialCard item={item} />
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </Section>
+      )}
 
-      <StatsBand />
+      <StatsBand stats={stats} />
     </>
   );
 }

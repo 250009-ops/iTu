@@ -65,7 +65,7 @@ export function HomeHero({ stats = HERO_STATS_DEFAULT }: { stats?: HeroStats }) 
               href="/mock-exams"
               className="group inline-flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
             >
-              Book a Full Mock — ${SITE.fullMockPrice}
+              Book a Full Mock — {SITE.fullMockPrice.toLocaleString()} so&apos;m
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
