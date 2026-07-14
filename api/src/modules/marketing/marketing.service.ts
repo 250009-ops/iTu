@@ -278,7 +278,9 @@ export class MarketingService {
       orderBy: [{ isTopRated: 'desc' }, { rating: 'desc' }],
     });
 
-    return teachers.map((t) => this.toPublicTeacher(t));
+    return teachers
+      .map((t) => this.toPublicTeacher(t))
+      .filter((t) => t.bio.trim().length > 0);
   }
 
   async getTeacher(slug: string) {
@@ -320,6 +322,7 @@ export class MarketingService {
     reviewCount: number;
     isTopRated: boolean;
     totalSessions: number;
+    applicationData?: unknown;
   }) {
     const specialityLabel =
       t.speciality === 'BOTH'
@@ -327,6 +330,29 @@ export class MarketingService {
         : t.speciality === 'WRITING'
           ? 'Writing'
           : 'Speaking';
+
+    const app = (t.applicationData ?? null) as {
+      yearsExperience?: number;
+      ieltsWritingBand?: number;
+      ieltsSpeakingBand?: number;
+      certificateUrls?: string[];
+    } | null;
+
+    const bio =
+      t.bio?.trim() ||
+      (app?.yearsExperience
+        ? `Certified IELTS Writing & Speaking examiner with ${app.yearsExperience} years of experience. Band ${app.ieltsWritingBand ?? '—'} Writing · Band ${app.ieltsSpeakingBand ?? '—'} Speaking.`
+        : '');
+
+    const storedCredentials = Array.isArray(t.credentials)
+      ? (t.credentials as string[])
+      : [];
+    const credentials =
+      storedCredentials.length > 0
+        ? storedCredentials
+        : app?.certificateUrls?.length
+          ? ['Verified qualifications']
+          : [];
 
     return {
       id: t.id,
@@ -338,9 +364,9 @@ export class MarketingService {
       reviewCount: t.reviewCount,
       totalSessions: t.totalSessions,
       isTopRated: t.isTopRated,
-      bio: t.bio ?? '',
-      longBio: t.longBio ?? t.bio ?? '',
-      credentials: Array.isArray(t.credentials) ? (t.credentials as string[]) : [],
+      bio,
+      longBio: t.longBio?.trim() || bio,
+      credentials,
       languages: Array.isArray(t.languages) ? (t.languages as string[]) : ['English'],
     };
   }

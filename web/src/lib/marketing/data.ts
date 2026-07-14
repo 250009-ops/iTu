@@ -10,7 +10,7 @@ export const SITE = {
   domain: "https://itestu.uz",
   tagline: "Real examiners. Real feedback. Real bands.",
   description:
-    "Sit a realistic, IDP-style computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
+    "Sit a realistic, computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
   fullMockPrice: 56_000,
   currency: "UZS",
 } as const;
@@ -38,8 +38,7 @@ export const FOOTER_COLUMNS = [
     links: [
       { label: "Students", href: "/for-students" },
       { label: "Teachers", href: "/for-teachers" },
-      { label: "Institutions", href: "/for-institutions" },
-      { label: "Partner Centres", href: "/centers" },
+      { label: "Edu Centers", href: "/centers" },
     ],
   },
   {
@@ -93,7 +92,7 @@ export const SKILLS: Array<{
     accent: "emerald",
     grading: "Auto-scored",
     duration: "60 min",
-    claim: "Exact IDP CBT layout, 3 passages, 60-minute timer.",
+    claim: "Exact computer-delivered layout, 3 passages, 60-minute timer.",
   },
   {
     id: "writing",
@@ -192,10 +191,10 @@ export const TOP_TEACHERS: TopTeacher[] = [
     rating: 4.9,
     reviewCount: 1240,
     totalSessions: 1280,
-    bio: "Former IDP examiner with 12 years coaching Band 8+ writing and speaking. Delivers precise criteria-level feedback that transforms candidates.",
+    bio: "Former IELTS examiner with 12 years coaching Band 8+ writing and speaking. Delivers precise criteria-level feedback that transforms candidates.",
     longBio:
-      "Daniel spent 8 years as a practising IDP IELTS examiner before transitioning to specialist coaching. He holds an MA in Applied Linguistics from the University of Edinburgh and a CELTA qualification. His writing feedback is structured around the official IELTS marking criteria — Task Achievement, Coherence & Cohesion, Lexical Resource, and Grammatical Range & Accuracy — and his candidates consistently report score improvements of 1+ band within two attempts. He conducts Speaking sessions in a natural, low-pressure style that helps candidates perform at their best.",
-    credentials: ["CELTA", "Ex-IDP Examiner", "MA Applied Linguistics"],
+      "Daniel spent 8 years as a practising IELTS examiner before transitioning to specialist coaching. He holds an MA in Applied Linguistics from the University of Edinburgh and a CELTA qualification. His writing feedback is structured around the official IELTS marking criteria — Task Achievement, Coherence & Cohesion, Lexical Resource, and Grammatical Range & Accuracy — and his candidates consistently report score improvements of 1+ band within two attempts. He conducts Speaking sessions in a natural, low-pressure style that helps candidates perform at their best.",
+    credentials: ["CELTA", "Certified Examiner", "MA Applied Linguistics"],
     languages: ["English", "Arabic"],
     isTopRated: true,
     sampleFeedback: {
@@ -357,7 +356,7 @@ export interface Testimonial {
 }
 
 export const MARKETING_TESTIMONIALS: Testimonial[] = [
-  { id: "1", quote: "Felt exactly like the real IDP test. The examiner feedback on my writing was gold — I nailed it on the actual exam two weeks later.", name: "Maria S.", initials: "MS", country: "Brazil", band: 8 },
+  { id: "1", quote: "Felt exactly like the real computer-delivered test. The examiner feedback on my writing was gold — I nailed it on the actual exam two weeks later.", name: "Maria S.", initials: "MS", country: "Brazil", band: 8 },
   { id: "2", quote: "Same-day results was a game changer. Booked my real IELTS the next morning with total confidence.", name: "Tariq Al-Amin", initials: "TA", country: "Saudi Arabia", band: 7.5 },
   { id: "3", quote: "Smooth, realistic, professional. The listening audio was indistinguishable from the real test. Worth every penny.", name: "Jai Patel", initials: "JP", country: "India", band: 7 },
   { id: "4", quote: "I'd done 5 other mock exams but none came close to this level of realism. The speaking examiner was professional and thorough.", name: "Wei Zhang", initials: "WZ", country: "China", band: 7.5 },
@@ -373,14 +372,14 @@ export interface MarketingFaq {
 }
 
 export const MARKETING_FAQS: MarketingFaq[] = [
-  { id: "pause", category: "The Exam", question: "Can I pause or rewind during the test?", answer: "No. The exam is server-authoritative — audio plays once, timers run continuously, and there is no pause or rewind. This mirrors the exact IDP/BC computer-delivered IELTS format." },
+  { id: "pause", category: "The Exam", question: "Can I pause or rewind during the test?", answer: "No. The exam is server-authoritative — audio plays once, timers run continuously, and there is no pause or rewind. This mirrors the exact computer-delivered IELTS format used on test day." },
   { id: "results", category: "Results", question: "When do I get my results?", answer: "Listening and Reading are auto-scored instantly. Writing is typically graded within 12 hours. All four bands are released together once your Speaking examiner submits their grade — usually the same day." },
   { id: "examiner", category: "Examiners", question: "Can I choose my examiner?", answer: "Yes. When you book, you browse certified examiners by speciality, rating, and availability, then select who grades your Writing and conducts your Speaking session." },
   { id: "devices", category: "Technical", question: "What devices are supported?", answer: "Any modern desktop or laptop browser (Chrome, Edge, Safari, Firefox). A webcam and microphone are required for the Speaking session. Mobile and tablet are not supported for exam delivery." },
   { id: "refund", category: "Booking", question: "What is the refund policy?", answer: "Full refund if you cancel at least 24 hours before your mock date. Within 24 hours, you can reschedule once at no cost. Refunds are processed to your original payment method within 5 business days." },
   { id: "academic-gt", category: "The Exam", question: "Academic or General Training?", answer: "Academic is required for university admission, professional registration, and certain visas. General Training is for secondary education, work experience, and migration. Listening and Speaking are identical; Reading and Writing differ." },
   { id: "band", category: "Results", question: "How does the band scoring work?", answer: "Each skill is scored 0–9. Listening and Reading use official band conversion tables. Writing and Speaking are graded by examiners against the four official criteria. Your Overall Band is the mean of the four, rounded to the nearest 0.5." },
-  { id: "real-examiners", category: "Examiners", question: "Are examiners real IELTS-qualified professionals?", answer: "Yes. All examiners hold CELTA or higher, and most are current or former IDP/British Council certified examiners. Every examiner is verified and calibrated before going live." },
+  { id: "real-examiners", category: "Examiners", question: "Are examiners real IELTS-qualified professionals?", answer: "Yes. All examiners hold CELTA or higher, and most are current or former certified IELTS examiners. Every examiner is verified and calibrated before going live." },
   { id: "internet", category: "Technical", question: "What internet speed do I need?", answer: "A minimum of 5 Mbps, wired connection preferred. The Speaking session uses live video, so a stable connection is essential. We run a system check at check-in." },
   { id: "multiple", category: "Booking", question: "Can I book multiple mocks?", answer: "Yes — there is no limit. Every mock gives you fresh exam content and a new examiner selection. Your score history is tracked across all attempts so you can see your improvement over time." },
   { id: "drop", category: "Technical", question: "What happens if my internet drops during the exam?", answer: "Timers run server-side, so a brief disconnection does not pause or reset your time. Reconnect quickly and your autosaved answers will be restored. Prolonged disconnection may invalidate the session." },

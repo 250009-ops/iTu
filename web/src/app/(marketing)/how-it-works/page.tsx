@@ -56,7 +56,7 @@ const STEPS: Step[] = [
   {
     id: "reading", label: "Reading", badge: "60 min", badgeTone: "bg-emerald-50 text-emerald-700",
     icon: "reading", accent: "border-emerald-200 text-emerald-600",
-    desc: "3 passages of increasing difficulty. CBT interface matches the real IDP layout — highlight tool, annotation strip, question navigator.",
+    desc: "3 passages of increasing difficulty. CBT interface matches the real exam layout — highlight tool, annotation strip, question navigator.",
     items: ["Academic: 3 long-form academic passages (~2,500 words total)", "GT: 2 shorter sections + 1 longer passage", "40 questions across all types (MCQ, matching, T/F/NG, completion)", "Strict 60-minute server-authoritative timer", "Auto-scored immediately at submission"],
   },
   {
@@ -167,7 +167,7 @@ export default function HowItWorksPage() {
           <SectionHeading
             eyebrow="The Interface"
             title="Built to match the real exam"
-            subtitle="Every screen is modelled on the IDP computer-delivered IELTS environment."
+            subtitle="Every screen is modelled on the official computer-delivered IELTS environment."
           />
         </Reveal>
         <Stagger className="mt-12 grid gap-6 md:grid-cols-2">

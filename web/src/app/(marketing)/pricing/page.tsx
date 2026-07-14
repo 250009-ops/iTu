@@ -53,7 +53,7 @@ export default async function PricingPage() {
     { icon: Lock, title: "Secure payment", body: "Lemon Squeezy encrypted checkout" },
     { icon: ShieldCheck, title: "Certified examiners", body: "CELTA+ qualified, ID verified" },
     { icon: Star, title: `${stats.rating}★ rating`, body: `${stats.candidates} satisfied candidates` },
-    { icon: BadgeCheck, title: "IDP-faithful format", body: "Server-authoritative timers" },
+    { icon: BadgeCheck, title: "Official CBT format", body: "Server-authoritative timers" },
   ];
 
   return (

@@ -26,6 +26,7 @@ import { registerTeacher } from "@/lib/api/auth";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
   TEACHER_BAND_OPTIONS,
+  TEACHER_CREDENTIAL_OPTIONS,
   TEACHER_LANGUAGE_OPTIONS,
   isTeacherRegisterStepReady,
   teacherRegisterSchema,
@@ -91,6 +92,8 @@ export default function TeacherRegisterForm() {
       ieltsSpeakingBand: "7.5",
       yearsExperience: "",
       languages: ["English"],
+      bio: "",
+      credentials: [],
       acceptTerms: false,
     },
     mode: "onChange",
@@ -106,6 +109,7 @@ export default function TeacherRegisterForm() {
   } = form;
 
   const languages = watch("languages");
+  const credentials = watch("credentials");
   const values = watch();
 
   const canContinue = isTeacherRegisterStepReady(step, values, certificates.length);
@@ -113,7 +117,7 @@ export default function TeacherRegisterForm() {
   async function validateStep(targetStep: number) {
     const fieldsByStep: Record<number, (keyof TeacherRegisterFormValues)[]> = {
       1: ["fullName", "email", "password", "confirmPassword"],
-      2: ["ieltsWritingBand", "ieltsSpeakingBand", "yearsExperience", "languages"],
+      2: ["ieltsWritingBand", "ieltsSpeakingBand", "yearsExperience", "languages", "bio", "credentials"],
       3: ["acceptTerms"],
     };
 
@@ -143,6 +147,13 @@ export default function TeacherRegisterForm() {
       ? languages.filter((l) => l !== value)
       : [...languages, value];
     setValue("languages", next, { shouldValidate: true });
+  }
+
+  function toggleCredential(value: (typeof TEACHER_CREDENTIAL_OPTIONS)[number]) {
+    const next = credentials.includes(value)
+      ? credentials.filter((c) => c !== value)
+      : [...credentials, value];
+    setValue("credentials", next, { shouldValidate: true });
   }
 
   function onFilesSelected(files: FileList | null) {
@@ -224,8 +235,8 @@ export default function TeacherRegisterForm() {
           Teacher application
         </h1>
         <p className="text-sm text-muted">
-          Submit your IELTS scores and certificates. You can complete your profile after
-          approval.
+          Submit your IELTS scores, professional bio, and certificates. Your bio and qualifications
+          appear on your public examiner profile once approved.
         </p>
       </div>
 
@@ -345,6 +356,44 @@ export default function TeacherRegisterForm() {
                       )}
                     >
                       {lang}
+                    </button>
+                  );
+                })}
+              </div>
+            </FormField>
+            <FormField
+              label="Professional bio"
+              error={errors.bio?.message}
+              hint="Shown on your public examiner card — minimum 80 characters."
+            >
+              <textarea
+                {...register("bio")}
+                rows={4}
+                maxLength={500}
+                placeholder="Briefly describe your examining experience, specialities, and what candidates can expect from your feedback…"
+                className={cn(
+                  "w-full resize-none rounded-xl border border-border bg-white px-4 py-3 text-sm placeholder:text-slate-400 focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20",
+                  errors.bio && "border-red-300 focus:border-red-400 focus:ring-red-100",
+                )}
+              />
+            </FormField>
+            <FormField label="Qualifications" error={errors.credentials?.message}>
+              <div className="flex flex-wrap gap-2">
+                {TEACHER_CREDENTIAL_OPTIONS.map((cred) => {
+                  const selected = credentials.includes(cred);
+                  return (
+                    <button
+                      key={cred}
+                      type="button"
+                      onClick={() => toggleCredential(cred)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                        selected
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-border bg-white text-muted hover:border-slate-300",
+                      )}
+                    >
+                      {cred}
                     </button>
                   );
                 })}

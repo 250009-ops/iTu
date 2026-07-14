@@ -22,7 +22,7 @@ const VALUES = [
 ];
 
 const CREDIBILITY = [
-  ["IDP-Faithful Format", "CBT interface tested against real IDP exam conditions by former examiners."],
+  ["Official CBT Format", "Computer-delivered interface tested against real exam conditions by certified examiners."],
   ["Verified Examiners", "All credentials independently verified before onboarding. Ongoing calibration."],
   ["Secure Payments", "Encrypted checkout handled by our payment provider. No card data stored on our servers."],
 ];

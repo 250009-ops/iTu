@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import Lenis from "lenis";
 
-// Interpolated ("liquid") scroll engine. Eases the page toward the target
-// scroll position instead of jumping, producing the buttery-smooth feel.
-// Respects prefers-reduced-motion by skipping initialisation.
+type LenisInstance = Lenis | null;
+const LenisContext = createContext<LenisInstance>(null);
+
+export function useLenis() {
+  return useContext(LenisContext);
+}
+
+// Interpolated scroll engine. Forwards scroll events so header state and
+// Framer Motion whileInView stay aligned with the virtual scroll position.
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
+  const [lenis, setLenis] = useState<LenisInstance>(null);
+
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
@@ -15,25 +23,33 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const lenis = new Lenis({
-      duration: 1.1,
-      lerp: 0.09,
-      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    const instance = new Lenis({
+      duration: 1,
+      lerp: 0.12,
       smoothWheel: true,
+      wheelMultiplier: 0.9,
+      touchMultiplier: 1.2,
+    });
+
+    setLenis(instance);
+
+    instance.on("scroll", () => {
+      window.dispatchEvent(new Event("scroll"));
     });
 
     let frame = 0;
     function raf(time: number) {
-      lenis.raf(time);
+      instance.raf(time);
       frame = requestAnimationFrame(raf);
     }
     frame = requestAnimationFrame(raf);
 
     return () => {
       cancelAnimationFrame(frame);
-      lenis.destroy();
+      instance.destroy();
+      setLenis(null);
     };
   }, []);
 
-  return <>{children}</>;
+  return <LenisContext.Provider value={lenis}>{children}</LenisContext.Provider>;
 }

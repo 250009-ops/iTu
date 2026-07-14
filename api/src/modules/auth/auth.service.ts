@@ -265,6 +265,9 @@ export class AuthService {
         teacherProfile: {
           create: {
             slug,
+            bio: dto.bio.trim(),
+            longBio: dto.bio.trim(),
+            credentials: dto.credentials,
             languages: dto.languages,
             speciality: TeacherSpeciality.BOTH,
             status: 'PENDING',

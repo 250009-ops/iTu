@@ -68,6 +68,30 @@ export class RegisterTeacherDto {
   @IsIn(TEACHER_LANGUAGES, { each: true })
   languages: string[];
 
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(80)
+  @MaxLength(500)
+  bio: string;
+
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? parsed : [value];
+      } catch {
+        return value.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  @MaxLength(80, { each: true })
+  credentials: string[];
+
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   acceptTerms: boolean;

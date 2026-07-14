@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "For Students — Prepare for IELTS the Way Professionals Do",
   description:
-    "The only IELTS mock that runs on the same engine as the real IDP CBT, with real certified examiners grading your Writing and Speaking. Real conditions, real feedback, real bands.",
+    "The only IELTS mock that runs on the same engine as the real computer-delivered test, with real certified examiners grading your Writing and Speaking. Real conditions, real feedback, real bands.",
   alternates: { canonical: "/for-students" },
 };
 
@@ -22,7 +22,7 @@ const WHY = [
 ];
 
 const COMPARE: Array<[string, boolean, boolean, boolean]> = [
-  ["IDP CBT interface", true, false, false],
+  ["Official CBT interface", true, false, false],
   ["Server-authoritative timers", true, false, false],
   ["Certified examiner grading", true, false, true],
   ["Criteria-level feedback", true, false, true],
@@ -52,7 +52,7 @@ export default async function ForStudentsPage() {
       <PageHero
         eyebrow="For Students"
         title="Prepare the way professionals do"
-        subtitle="The only mock exam that runs on the same engine as the real IDP CBT — with real certified examiners grading your Writing and Speaking."
+        subtitle="The only mock exam that runs on the same engine as the real computer-delivered test — with real certified examiners grading your Writing and Speaking."
       >
         <CtaButton href="/mock-exams" variant="primary" size="lg" withArrow className="mt-4">
           Book a Full Mock

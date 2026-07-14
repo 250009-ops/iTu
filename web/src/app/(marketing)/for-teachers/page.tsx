@@ -31,7 +31,7 @@ const REQUIRED = [
 ];
 
 const PREFERRED = [
-  "Current or former IDP/British Council certified examiner",
+  "Current or former certified IELTS examiner",
   "MA TESOL or Applied Linguistics",
   "Examiner calibration training (we provide this)",
   "Experience with band descriptor application",

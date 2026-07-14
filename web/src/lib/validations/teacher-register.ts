@@ -4,6 +4,15 @@ export const TEACHER_BAND_OPTIONS = ["7.5", "8.0", "8.5", "9.0"] as const;
 
 export const TEACHER_LANGUAGE_OPTIONS = ["Uzbek", "English", "Russian"] as const;
 
+export const TEACHER_CREDENTIAL_OPTIONS = [
+  "CELTA",
+  "DELTA",
+  "IELTS Examiner Certification",
+  "TESOL",
+  "MA Applied Linguistics",
+  "Certified Examiner",
+] as const;
+
 const passwordSchema = z
   .string()
   .min(8, "Password must be at least 8 characters")
@@ -35,6 +44,14 @@ export const teacherRegisterSchema = z
     languages: z
       .array(z.enum(TEACHER_LANGUAGE_OPTIONS))
       .min(1, "Select at least one language"),
+    bio: z
+      .string()
+      .min(1, "Professional bio is required")
+      .min(80, "Bio must be at least 80 characters — this appears on your public examiner profile")
+      .max(500, "Bio must be 500 characters or fewer"),
+    credentials: z
+      .array(z.enum(TEACHER_CREDENTIAL_OPTIONS))
+      .min(1, "Select at least one qualification"),
     acceptTerms: z.boolean().refine((val) => val === true, {
       message: "You must accept the terms to continue",
     }),
@@ -70,6 +87,8 @@ const step2Schema = teacherRegisterSchema.pick({
   ieltsSpeakingBand: true,
   yearsExperience: true,
   languages: true,
+  bio: true,
+  credentials: true,
 });
 
 export function isTeacherRegisterStepReady(

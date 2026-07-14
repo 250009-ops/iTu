@@ -8,8 +8,9 @@ import {
   ClipboardCheck,
   GraduationCap,
 } from "lucide-react";
-import { Glow, Pill, Section } from "@/components/marketing/ui/primitives";
+import { Glow, Pill, Section, SectionHeading } from "@/components/marketing/ui/primitives";
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
+import { Reveal } from "@/components/marketing/motion/reveal";
 import { CenterLogo } from "@/components/marketing/shared/center-logo";
 import { CenterJoinForm } from "@/components/marketing/shared/center-join-form";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
@@ -26,10 +27,10 @@ export async function generateMetadata({
   const center = await fetchCenter(slug);
   if (!center) return {};
   return {
-    title: `${center.name} — iTestU Partner Centre`,
+    title: `${center.name} — iTestU Edu Center`,
     description:
       center.bio ??
-      `${center.name} is an official iTestU partner centre delivering real IELTS mocks with examiner feedback.`,
+      `${center.name} is an official iTestU Edu Center delivering real IELTS mocks with examiner feedback.`,
     alternates: { canonical: `/centers/${center.slug}` },
   };
 }
@@ -73,36 +74,28 @@ export default async function CenterDetailPage({
             href="/centers"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-300 transition-colors hover:text-white"
           >
-            <ChevronLeft className="h-4 w-4" /> All centres
+            <ChevronLeft className="h-4 w-4" /> All Edu Centers
           </Link>
 
-          <div className="mt-6 grid items-start gap-8 lg:grid-cols-[1fr_auto]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <CenterLogo
-                name={center.name}
-                logoUrl={center.logoUrl}
-                size="lg"
-                className="h-24 w-24 border-white/10 bg-white"
-              />
-              <div>
-                <Pill tone="onNavy">Official Partner · since {partnerSince}</Pill>
-                <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
-                  {center.name}
-                </h1>
-                {center.city || center.address ? (
-                  <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-300">
-                    <MapPin className="h-4 w-4" />
-                    {[center.address, center.city].filter(Boolean).join(", ")}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <CenterJoinForm
-              slug={center.slug}
-              centerName={center.name}
-              joinDeepLink={center.joinDeepLink}
+          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <CenterLogo
+              name={center.name}
+              logoUrl={center.logoUrl}
+              size="lg"
+              className="h-24 w-24 border-white/10 bg-white"
             />
+            <div>
+              <Pill tone="onNavy">Official Partner · since {partnerSince}</Pill>
+              <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
+                {center.name}
+              </h1>
+              {center.city || center.address ? (
+                <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-300">
+                  <MapPin className="h-4 w-4" />
+                  {[center.address, center.city].filter(Boolean).join(", ")}
+                </p>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-10 grid grid-cols-3 gap-3 sm:max-w-lg">
@@ -123,21 +116,33 @@ export default async function CenterDetailPage({
       </section>
 
       <Section className="pt-12">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-2xl font-bold text-navy">
-            About {center.name}
-          </h2>
-          <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-muted">
-            {center.bio?.trim() ||
-              `${center.name} is an official iTestU partner centre. Students prepare and sit real computer-delivered IELTS mocks here, graded by certified examiners with full criteria-level feedback.`}
-          </p>
+        <div className="grid items-start gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+          <Reveal direction="left">
+            <SectionHeading
+              eyebrow="About"
+              title={`About ${center.name}`}
+            />
+            <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-muted">
+              {center.bio?.trim() ||
+                `${center.name} is an official iTestU Edu Center. Students prepare and sit real computer-delivered IELTS mocks here, graded by certified examiners with full criteria-level feedback.`}
+            </p>
+          </Reveal>
+
+          <Reveal direction="right">
+            <CenterJoinForm
+              slug={center.slug}
+              centerName={center.name}
+              joinDeepLink={center.joinDeepLink}
+              variant="light"
+            />
+          </Reveal>
         </div>
       </Section>
 
       <FinalCta
         eyebrow="Ready to start?"
         title={`Prepare for IELTS with ${center.name}`}
-        subtitle="Join via Telegram to get your student account and book your first mock."
+        subtitle="Sign up above to get your student account, then book your first mock."
         primaryLabel="Explore mock exams"
         primaryHref="/mock-exams"
       />

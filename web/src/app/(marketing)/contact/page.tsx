@@ -92,7 +92,7 @@ export default function ContactPage() {
                 to help.
               </p>
               <Link
-                href="/for-institutions"
+                href="/centers#partner"
                 className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-red px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-red-hover"
               >
                 Institutional enquiry <ArrowRight className="h-4 w-4" />

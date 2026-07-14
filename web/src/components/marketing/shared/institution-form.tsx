@@ -55,9 +55,13 @@ export function InstitutionForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-border bg-white p-6 shadow-sm sm:p-8"
+      className="rounded-2xl border border-border bg-white p-6 shadow-lg sm:p-8"
     >
-      <div className="grid gap-5 sm:grid-cols-2">
+      <h3 className="text-lg font-bold text-navy">Partner application</h3>
+      <p className="mt-1 text-sm text-muted">
+        Tell us about your Edu Center. We respond within one business day.
+      </p>
+      <div className="mt-6 grid gap-5 sm:grid-cols-2">
         <Field
           label="Your name"
           placeholder="Dr. Jane Smith"

@@ -97,7 +97,7 @@ export default async function HomePage() {
                 <br className="hidden sm:block" /> We recreated it.
               </>
             }
-            subtitle="Every detail — from audio playback rules to timer behaviour — mirrors the real IDP computer-delivered exam."
+            subtitle="Every detail — from audio playback rules to timer behaviour — mirrors the real computer-delivered exam."
           />
         </Reveal>
         <div className="mt-12">

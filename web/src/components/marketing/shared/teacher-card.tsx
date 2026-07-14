@@ -53,18 +53,23 @@ export function TeacherCard({ teacher }: { teacher: TopTeacher }) {
         </span>
       </div>
 
-      <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">{teacher.bio}</p>
+      <p className="mt-3 line-clamp-4 min-h-[4.5rem] flex-1 text-sm leading-relaxed text-muted">
+        {teacher.bio ||
+          "Certified IELTS examiner — profile details are being finalised."}
+      </p>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {teacher.credentials.map((c) => (
-          <span
-            key={c}
-            className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600"
-          >
-            <ShieldCheck className="h-3 w-3 text-emerald-500" /> {c}
-          </span>
-        ))}
-      </div>
+      {teacher.credentials.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {teacher.credentials.map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600"
+            >
+              <ShieldCheck className="h-3 w-3 text-emerald-500" /> {c}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted">
         <Globe className="h-3.5 w-3.5" /> {teacher.languages.join(", ")}

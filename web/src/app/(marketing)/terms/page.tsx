@@ -122,7 +122,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           Band scores and examiner feedback are provided for practice and self-assessment only. Mock
           results are an indicative estimate and are not an official IELTS score and carry no official
-          standing with IDP, the British Council, or Cambridge.
+          standing with any official IELTS test provider, including British Council or Cambridge.
         </p>
         <p>
           We take care to calibrate our examiners, but actual results on a real IELTS exam may differ.

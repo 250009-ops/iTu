@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "IELTS Writing feedback",
     "IELTS Speaking mock",
     "IELTS band score",
-    "IDP IELTS practice",
+    "computer-delivered IELTS practice",
   ],
   openGraph: {
     type: "website",
