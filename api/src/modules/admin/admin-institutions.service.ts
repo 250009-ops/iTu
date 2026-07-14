@@ -17,6 +17,7 @@ import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
 import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { AdjustCreditsDto } from './dto/adjust-credits.dto';
 import { PatchInstitutionDto } from './dto/patch-institution.dto';
 
@@ -31,6 +32,7 @@ export class AdminInstitutionsService {
     private mail: MailService,
     private audit: AuditService,
     private config: ConfigService,
+    private telegram: TelegramService,
   ) {}
 
   private appUrl(): string {
@@ -149,6 +151,24 @@ export class AdminInstitutionsService {
         setupUrl,
       )
       .catch(() => undefined);
+
+    // Applicants who applied via the bot get an immediate Telegram nudge to
+    // check their email for the activation link. Marketing-site leads may not
+    // have a chat id — skip silently in that case.
+    if (institution.telegramChatId) {
+      void this.telegram
+        .notifyChat(
+          institution.telegramChatId,
+          `🎉 Great news! Your application for <b>${institution.name}</b> has been approved.\n\n` +
+            `Please check <b>${email}</b> for a link to set your password and open your institution panel.\n\n` +
+            `If you don’t see it, look in spam / promotions — the link is valid for 24 hours.`,
+        )
+        .catch((err) =>
+          this.logger.warn(
+            `Telegram approval notify failed: ${err instanceof Error ? err.message : err}`,
+          ),
+        );
+    }
 
     await this.audit.log({
       userId: actorId,

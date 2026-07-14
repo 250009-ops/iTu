@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Copy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Copy, Loader2, Upload } from "lucide-react";
 import {
   getInstitutionProfile,
   updateInstitutionProfile,
+  uploadInstitutionLogo,
 } from "@/lib/api/institution";
 import type { InstitutionProfile } from "@/lib/institution/types";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -34,6 +35,9 @@ export function InstitutionSettingsView() {
   const [tab, setTab] = useState<TabId>("profile");
   const [form, setForm] = useState<Partial<InstitutionProfile>>({});
   const [saving, setSaving] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (data) {
@@ -46,8 +50,29 @@ export function InstitutionSettingsView() {
         contactEmail: data.contactEmail,
         contactPhone: data.contactPhone ?? "",
       });
+      setLogoUrl(data.logoUrl ?? null);
     }
   }, [data]);
+
+  async function handleLogoUpload(file: File) {
+    setUploadingLogo(true);
+    try {
+      const updated = await uploadInstitutionLogo(file);
+      setLogoUrl(updated.logoUrl ?? null);
+      toast("Logo updated", {
+        description: "Your logo now appears on your public center page.",
+        variant: "success",
+      });
+      await refresh({ silent: true });
+    } catch (err) {
+      toast("Upload failed", {
+        description: getErrorMessage(err, "Could not upload logo."),
+        variant: "error",
+      });
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -100,6 +125,53 @@ export function InstitutionSettingsView() {
         </div>
       ) : tab === "profile" ? (
         <SectionCard title="Center profile">
+          <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-slate-50">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt="Center logo"
+                  className="h-full w-full object-contain p-1.5"
+                />
+              ) : (
+                <span className="text-2xl font-bold text-navy">
+                  {(form.name ?? "?").trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-navy">Center logo</p>
+              <p className="mb-2 text-xs text-muted">
+                Shown on your public page and the partners carousel. PNG, JPG,
+                WebP or SVG · up to 2&nbsp;MB.
+              </p>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleLogoUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={uploadingLogo}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {uploadingLogo ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {logoUrl ? "Replace logo" : "Upload logo"}
+              </Button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
             <Field label="Center name">
               <input

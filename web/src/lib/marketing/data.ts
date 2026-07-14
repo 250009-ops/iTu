@@ -39,6 +39,7 @@ export const FOOTER_COLUMNS = [
       { label: "Students", href: "/for-students" },
       { label: "Teachers", href: "/for-teachers" },
       { label: "Institutions", href: "/for-institutions" },
+      { label: "Partner Centres", href: "/centers" },
     ],
   },
   {

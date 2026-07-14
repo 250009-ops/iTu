@@ -250,6 +250,39 @@ type ApiTestimonial = {
   band: number | null;
 };
 
+// ─── Partner centres ─────────────────────────────────────────────────────────
+
+export type PartnerCenter = {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  logoUrl: string | null;
+  bio: string | null;
+  studentCount: number;
+  joinDeepLink: string | null;
+};
+
+export type PartnerCenterDetail = PartnerCenter & {
+  address: string | null;
+  partnerSince: string;
+  mocksDelivered: number;
+  examinerCount: number;
+};
+
+export async function fetchCenters(): Promise<PartnerCenter[]> {
+  const data = await get<PartnerCenter[]>("/marketing/centers");
+  return data ?? [];
+}
+
+export async function fetchCenter(
+  slug: string,
+): Promise<PartnerCenterDetail | null> {
+  return get<PartnerCenterDetail | null>(
+    `/marketing/centers/${encodeURIComponent(slug)}`,
+  );
+}
+
 export async function fetchTestimonials(): Promise<Testimonial[]> {
   const data = await get<ApiTestimonial[]>("/marketing/testimonials");
   if (!data || data.length === 0) return MARKETING_TESTIMONIALS;

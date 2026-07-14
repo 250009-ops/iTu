@@ -15,6 +15,7 @@ const ALLOWED_PREFIXES = [
   'recordings/',
   'results/',
   'teacher-applications/',
+  'institutions/',
 ];
 
 @Injectable()

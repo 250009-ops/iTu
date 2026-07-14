@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Users, BarChart3, Globe, ShieldCheck, FileText, Check } from "lucide-react";
+import Link from "next/link";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { InstitutionForm } from "@/components/marketing/shared/institution-form";
+import { PartnerMarquee } from "@/components/marketing/shared/partner-marquee";
+import { fetchCenters } from "@/lib/marketing/server-data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -30,7 +33,11 @@ const VOLUME: Array<[string, string, string, string]> = [
   ["500+", "Custom", "Custom", "Contact us"],
 ];
 
-export default function ForInstitutionsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ForInstitutionsPage() {
+  const centers = await fetchCenters();
+
   return (
     <>
       <PageHero
@@ -38,6 +45,20 @@ export default function ForInstitutionsPage() {
         title="Bulk IELTS mock exams for your students"
         subtitle="Universities, language schools, and test prep centres — streamline IELTS preparation with centrally managed mock exams."
       />
+
+      {centers.length > 0 ? (
+        <>
+          <PartnerMarquee centers={centers} />
+          <div className="bg-white pb-2 pt-6 text-center">
+            <Link
+              href="/centers"
+              className="text-sm font-semibold text-navy underline-offset-4 hover:text-brand-red hover:underline"
+            >
+              Browse all partner centres →
+            </Link>
+          </div>
+        </>
+      ) : null}
 
       <Section className="pt-16">
         <Reveal>

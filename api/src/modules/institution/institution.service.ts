@@ -31,6 +31,7 @@ import {
 } from '../../config/credit-packs';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
 import { MailService } from '../../common/mail/mail.service';
+import { StorageService } from '../../common/storage/storage.service';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingsService } from '../bookings/bookings.service';
@@ -87,6 +88,7 @@ export class InstitutionService {
     private audit: AuditService,
     private notifications: NotificationsService,
     private config: ConfigService,
+    private storage: StorageService,
   ) {}
 
   private appUrl(): string {
@@ -856,6 +858,49 @@ export class InstitutionService {
         contactPhone: dto.contactPhone ?? undefined,
         logoUrl: dto.logoUrl ?? undefined,
       },
+    });
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_PROFILE_UPDATE,
+      entity: 'institution',
+      entityId: institution.id,
+    });
+
+    return this.getProfile(user);
+  }
+
+  async uploadLogo(user: RequestUser, file?: Express.Multer.File) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('No file uploaded.');
+    }
+    const EXT_BY_MIME: Record<string, string> = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/webp': 'webp',
+      'image/svg+xml': 'svg',
+    };
+    const ext = EXT_BY_MIME[file.mimetype];
+    if (!ext) {
+      throw new BadRequestException(
+        'Logo must be a PNG, JPG, WebP or SVG image.',
+      );
+    }
+
+    const institution = await this.getInstitutionOrThrow(user);
+
+    // Remove the previous locally-stored logo so we don't orphan files.
+    if (institution.logoUrl) {
+      const prev = this.storage.relativePathFromPublicUrl(institution.logoUrl);
+      if (prev) await this.storage.deleteFile(prev);
+    }
+
+    const relativePath = `institutions/${institution.id}-${randomBytes(6).toString('hex')}.${ext}`;
+    const logoUrl = await this.storage.saveBuffer(relativePath, file.buffer);
+
+    await this.prisma.institution.update({
+      where: { id: institution.id },
+      data: { logoUrl },
     });
 
     await this.audit.log({

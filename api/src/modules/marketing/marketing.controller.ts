@@ -45,4 +45,16 @@ export class MarketingController {
   getTeacher(@Param('slug') slug: string) {
     return this.marketing.getTeacher(slug);
   }
+
+  @Public()
+  @Get('centers')
+  getCenters() {
+    return this.marketing.getCenters();
+  }
+
+  @Public()
+  @Get('centers/:slug')
+  getCenter(@Param('slug') slug: string) {
+    return this.marketing.getCenter(slug);
+  }
 }

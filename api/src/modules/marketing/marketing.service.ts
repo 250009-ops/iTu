@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InstitutionStatus } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { InstitutionStatus, InstitutionMemberStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
@@ -12,6 +13,7 @@ export class MarketingService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private config: ConfigService,
   ) {}
 
   /**
@@ -324,6 +326,103 @@ export class MarketingService {
       longBio: t.longBio ?? t.bio ?? '',
       credentials: Array.isArray(t.credentials) ? (t.credentials as string[]) : [],
       languages: Array.isArray(t.languages) ? (t.languages as string[]) : ['English'],
+    };
+  }
+
+  // ─── Partner centres (public) ────────────────────────────────────────────
+
+  /** Bare @username for the onboarding bot, tolerant of URL/@ formats. */
+  private botUsername(): string {
+    return this.config
+      .get<string>('TELEGRAM_BOT_USERNAME', '')
+      .trim()
+      .replace(/^https?:\/\/t\.me\//i, '')
+      .replace(/^t\.me\//i, '')
+      .replace(/^@/, '')
+      .replace(/\/+$/, '');
+  }
+
+  /** Telegram deep link a student taps to join a specific centre. */
+  private joinDeepLink(institutionId: string): string | null {
+    const bot = this.botUsername();
+    return bot ? `https://t.me/${bot}?start=inst_${institutionId}` : null;
+  }
+
+  /** Public list of active partner centres for the marketing site. */
+  async getCenters() {
+    const centers = await this.prisma.institution.findMany({
+      where: { status: InstitutionStatus.ACTIVE },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        city: true,
+        logoUrl: true,
+        bio: true,
+        _count: {
+          select: {
+            students: {
+              where: { institutionStatus: InstitutionMemberStatus.ACTIVE },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+
+    return centers
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        city: c.city,
+        logoUrl: c.logoUrl,
+        bio: c.bio,
+        studentCount: c._count.students,
+        joinDeepLink: this.joinDeepLink(c.id),
+      }))
+      .sort((a, b) => b.studentCount - a.studentCount);
+  }
+
+  /** Public profile for a single active partner centre. */
+  async getCenter(slug: string) {
+    const c = await this.prisma.institution.findFirst({
+      where: { slug, status: InstitutionStatus.ACTIVE },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        city: true,
+        address: true,
+        logoUrl: true,
+        bio: true,
+        createdAt: true,
+        _count: {
+          select: {
+            students: {
+              where: { institutionStatus: InstitutionMemberStatus.ACTIVE },
+            },
+            enrollments: { where: { status: 'COMPLETED' } },
+            teachers: { where: { status: 'APPROVED' } },
+          },
+        },
+      },
+    });
+    if (!c) return null;
+
+    return {
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      city: c.city,
+      address: c.address,
+      logoUrl: c.logoUrl,
+      bio: c.bio,
+      partnerSince: c.createdAt,
+      studentCount: c._count.students,
+      mocksDelivered: c._count.enrollments,
+      examinerCount: c._count.teachers,
+      joinDeepLink: this.joinDeepLink(c.id),
     };
   }
 }

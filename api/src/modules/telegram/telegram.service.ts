@@ -156,6 +156,18 @@ export class TelegramService {
     return null;
   }
 
+  /** Public sender for other modules (e.g. admin approval notify). */
+  async notifyChat(
+    chatId: string | number,
+    text: string,
+    replyMarkup?: unknown,
+  ): Promise<boolean> {
+    const id = typeof chatId === 'string' ? Number(chatId) : chatId;
+    if (!Number.isFinite(id)) return false;
+    const messageId = await this.send(id, text, replyMarkup);
+    return messageId != null;
+  }
+
   /** Show the native "typing…" indicator so the user knows we received them. */
   private async sendTyping(chatId: number): Promise<void> {
     await this.telegramCall('sendChatAction', {

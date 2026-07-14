@@ -104,6 +104,37 @@ export function updateInstitutionProfile(body: Partial<InstitutionProfile>) {
   });
 }
 
+export async function uploadInstitutionLogo(
+  file: File,
+): Promise<InstitutionProfile> {
+  const form = new FormData();
+  form.append("file", file);
+  const { getAccessToken } = await import("@/lib/auth/session");
+  const { API_BASE_URL } = await import("./config");
+  const { ApiError } = await import("./errors");
+  const token = getAccessToken();
+
+  const response = await fetch(`${API_BASE_URL}/institution/profile/logo`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+
+  const text = await response.text();
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    const message =
+      (data as { message?: string } | null)?.message ?? "Logo upload failed.";
+    throw new ApiError(message, response.status, data);
+  }
+  return data as InstitutionProfile;
+}
+
 // ─── Catalog helpers reused for the enroll wizard ──────────────────────────
 
 export interface CatalogPackageOption {
