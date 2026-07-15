@@ -36,6 +36,19 @@ export function getResult(enrollmentId: string) {
     package?: string;
     overallBand?: number | null;
     pdfUrl?: string | null;
+    candidateName?: string | null;
+    candidateEmail?: string | null;
+    country?: string | null;
+    candidateExamType?: string | null;
+    dateOfBirth?: string | null;
+    sex?: string | null;
+    firstLanguage?: string | null;
+    centre?: {
+      name: string;
+      logoUrl: string | null;
+      city: string | null;
+    } | null;
+    issueDate?: string | null;
     skills?: {
       skill: string;
       band: number | null;

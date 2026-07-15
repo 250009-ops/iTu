@@ -773,6 +773,25 @@ export type StudentResultsData = {
     label: string;
     overallBand: number | null;
   }[];
+  certificate: CertificateData;
+};
+
+export type CertificateData = {
+  candidateName: string;
+  candidateEmail: string | null;
+  country: string | null;
+  dateOfBirth: string | null;
+  sex: string | null;
+  firstLanguage: string | null;
+  /** "Academic" | "General Training" module label. */
+  moduleLabel: string;
+  /** The partner centre that conducted the exam, or null for direct iTestU. */
+  centre: {
+    name: string;
+    logoUrl: string | null;
+    city: string | null;
+  } | null;
+  issueDateLabel: string;
 };
 
 function skillBand(
@@ -1111,6 +1130,19 @@ export function mapPendingStudentResults(
     packageSkills,
     selectedEnrollmentCode: pending.enrollmentCode,
     availableAttempts: [],
+    certificate: {
+      candidateName: "Candidate",
+      candidateEmail: null,
+      country: null,
+      dateOfBirth: null,
+      sex: null,
+      firstLanguage: null,
+      moduleLabel: examTypeLabel.includes("General")
+        ? "General Training"
+        : "Academic",
+      centre: null,
+      issueDateLabel: formatLongDate(pending.mockDate),
+    },
   };
 }
 
@@ -1293,6 +1325,25 @@ export function mapStudentResults(
         coerceBand(detailByCode[item.enrollmentCode]?.overallBand) ??
         null,
     })),
+    certificate: {
+      candidateName: detail.candidateName ?? "Candidate",
+      candidateEmail: detail.candidateEmail ?? null,
+      country: detail.country ?? null,
+      dateOfBirth: detail.dateOfBirth
+        ? formatLongDate(detail.dateOfBirth)
+        : null,
+      sex: detail.sex ?? null,
+      firstLanguage: detail.firstLanguage ?? null,
+      moduleLabel: (detail.candidateExamType ?? "")
+        .toUpperCase()
+        .includes("GENERAL")
+        ? "General Training"
+        : "Academic",
+      centre: detail.centre ?? null,
+      issueDateLabel: formatLongDate(
+        detail.issueDate ?? detail.mockDate ?? latest.mockDate,
+      ),
+    },
   };
 }
 
@@ -1304,6 +1355,9 @@ export type StudentProfileUi = {
   examType: "academic" | "general_training";
   country: string | null;
   phone: string | null;
+  dateOfBirthRaw: string | null;
+  sex: string | null;
+  firstLanguage: string | null;
   notificationPrefs: Record<string, boolean> | null;
   contact: {
     email: string;
@@ -1315,6 +1369,8 @@ export type StudentProfileUi = {
     email: string;
     phone: string;
     dateOfBirth: string;
+    sex: string;
+    firstLanguage: string;
     nationality: string;
     cityCountry: string;
   };
@@ -1418,6 +1474,9 @@ export function mapStudentProfile(
       api?.examType === "general_training" ? "general_training" : "academic",
     country: api?.country ?? null,
     phone: api?.phone ?? null,
+    dateOfBirthRaw: api?.dateOfBirth ?? null,
+    sex: api?.sex ?? null,
+    firstLanguage: api?.firstLanguage ?? null,
     notificationPrefs: api?.notificationPrefs ?? null,
     contact: {
       email: api?.email ?? "",
@@ -1428,7 +1487,9 @@ export function mapStudentProfile(
       fullName: displayName,
       email: api?.email ?? "",
       phone: api?.phone ?? "—",
-      dateOfBirth: "—",
+      dateOfBirth: api?.dateOfBirth ? formatLongDate(api.dateOfBirth) : "—",
+      sex: api?.sex ?? "—",
+      firstLanguage: api?.firstLanguage ?? "—",
       nationality: api?.country ?? "—",
       cityCountry: api?.country ?? "—",
     },

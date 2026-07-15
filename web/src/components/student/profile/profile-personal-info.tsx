@@ -40,6 +40,9 @@ export function ProfilePersonalInfo() {
   const [examType, setExamType] = useState<"academic" | "general_training">(
     "academic",
   );
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [sex, setSex] = useState<"" | "M" | "F" | "X">("");
+  const [firstLanguage, setFirstLanguage] = useState("");
 
   if (!profile || !personal) return null;
 
@@ -55,6 +58,11 @@ export function ProfilePersonalInfo() {
     setDraft(personalValues);
     setTargetBand(profile.targetBand != null ? String(profile.targetBand) : "");
     setExamType(profile.examType);
+    setDateOfBirth(
+      profile.dateOfBirthRaw ? profile.dateOfBirthRaw.slice(0, 10) : "",
+    );
+    setSex((profile.sex as "" | "M" | "F" | "X") ?? "");
+    setFirstLanguage(profile.firstLanguage ?? "");
     setEditing(true);
   }
   function cancel() {
@@ -68,7 +76,10 @@ export function ProfilePersonalInfo() {
         phone: draft.phone.trim(),
         country: draft.cityCountry.trim(),
         examType,
+        firstLanguage: firstLanguage.trim(),
         ...(targetBand ? { targetBand: Number(targetBand) } : {}),
+        ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth).toISOString() } : {}),
+        ...(sex ? { sex } : {}),
       });
       setEditing(false);
       toast("Personal information updated", { variant: "success" });
@@ -202,6 +213,68 @@ export function ProfilePersonalInfo() {
               {profile.examType === "general_training"
                 ? "General Training"
                 : "Academic"}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-gray-100 p-4">
+          <div className="mb-1.5 flex items-center gap-1.5 uppercase tracking-wide text-gray-400" style={{ fontSize: "10px" }}>
+            Date of Birth
+          </div>
+          {editing ? (
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              className="w-full rounded-md border border-gray-200 px-2 py-1 font-semibold text-gray-900 outline-none focus:border-[#1B2A4A]"
+              style={{ fontSize: "14px" }}
+            />
+          ) : (
+            <p className="font-semibold text-gray-900" style={{ fontSize: "14px" }}>
+              {personal.dateOfBirth}
+            </p>
+          )}
+        </div>
+        <div className="rounded-xl border border-gray-100 p-4">
+          <div className="mb-1.5 flex items-center gap-1.5 uppercase tracking-wide text-gray-400" style={{ fontSize: "10px" }}>
+            Sex
+          </div>
+          {editing ? (
+            <select
+              value={sex}
+              onChange={(e) => setSex(e.target.value as "" | "M" | "F" | "X")}
+              className="w-full rounded-md border border-gray-200 px-2 py-1 font-semibold text-gray-900 outline-none focus:border-[#1B2A4A]"
+              style={{ fontSize: "14px" }}
+            >
+              <option value="">Prefer not to say</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+              <option value="X">Other</option>
+            </select>
+          ) : (
+            <p className="font-semibold text-gray-900" style={{ fontSize: "14px" }}>
+              {personal.sex}
+            </p>
+          )}
+        </div>
+        <div className="rounded-xl border border-gray-100 p-4">
+          <div className="mb-1.5 flex items-center gap-1.5 uppercase tracking-wide text-gray-400" style={{ fontSize: "10px" }}>
+            First Language
+          </div>
+          {editing ? (
+            <input
+              type="text"
+              value={firstLanguage}
+              onChange={(e) => setFirstLanguage(e.target.value)}
+              placeholder="e.g. Uzbek"
+              className="w-full rounded-md border border-gray-200 px-2 py-1 font-semibold text-gray-900 outline-none focus:border-[#1B2A4A]"
+              style={{ fontSize: "14px" }}
+            />
+          ) : (
+            <p className="font-semibold text-gray-900" style={{ fontSize: "14px" }}>
+              {personal.firstLanguage}
             </p>
           )}
         </div>

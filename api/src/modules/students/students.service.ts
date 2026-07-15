@@ -481,6 +481,9 @@ export class StudentsService {
       targetBand: profile.targetBand,
       examType: profile.examType.toLowerCase(),
       country: profile.country,
+      dateOfBirth: profile.dateOfBirth,
+      sex: profile.sex,
+      firstLanguage: profile.firstLanguage,
       memberSince: profile.user.createdAt,
       publishToLeaderboard: profile.publishToLeaderboard,
       notificationPrefs: profile.notificationPrefs as
@@ -536,11 +539,23 @@ export class StudentsService {
         country?: string;
         targetBand?: number;
         examType?: 'ACADEMIC' | 'GENERAL_TRAINING';
+        dateOfBirth?: Date | null;
+        sex?: string | null;
+        firstLanguage?: string | null;
         notificationPrefs?: Prisma.InputJsonValue;
       } = {};
       if (dto.phone !== undefined) profileData.phone = dto.phone.trim();
       if (dto.country !== undefined) profileData.country = dto.country.trim();
       if (dto.targetBand !== undefined) profileData.targetBand = dto.targetBand;
+      if (dto.dateOfBirth !== undefined) {
+        profileData.dateOfBirth = dto.dateOfBirth
+          ? new Date(dto.dateOfBirth)
+          : null;
+      }
+      if (dto.sex !== undefined) profileData.sex = dto.sex || null;
+      if (dto.firstLanguage !== undefined) {
+        profileData.firstLanguage = dto.firstLanguage.trim() || null;
+      }
       if (dto.examType !== undefined) {
         profileData.examType =
           dto.examType === 'general_training' ? 'GENERAL_TRAINING' : 'ACADEMIC';

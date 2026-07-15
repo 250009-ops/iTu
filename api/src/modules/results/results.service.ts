@@ -40,6 +40,22 @@ export class ResultsService {
     return {
       ...payload,
       pdfUrl: enrollment.resultPdfUrl,
+      candidateName: enrollment.student.user.name,
+      candidateEmail: enrollment.student.user.email,
+      country: enrollment.student.country ?? null,
+      candidateExamType: enrollment.student.examType,
+      dateOfBirth: enrollment.student.dateOfBirth ?? null,
+      sex: enrollment.student.sex ?? null,
+      firstLanguage: enrollment.student.firstLanguage ?? null,
+      // Partner centre that conducted this exam. Null for direct iTestU bookings.
+      centre: enrollment.institution
+        ? {
+            name: enrollment.institution.name,
+            logoUrl: enrollment.institution.logoUrl ?? null,
+            city: enrollment.institution.city ?? null,
+          }
+        : null,
+      issueDate: enrollment.updatedAt,
     };
   }
 
@@ -153,6 +169,7 @@ export class ResultsService {
       include: {
         student: { include: { user: true } },
         package: true,
+        institution: true,
         examSession: {
           include: {
             sectionAttempts: {
@@ -193,9 +210,24 @@ export class ResultsService {
     return resolveAttemptBand(this.prisma, attempt);
   }
 
+  private deriveCentreNumber(institutionId: string | null): string {
+    if (!institutionId) return 'ITU-001';
+    const slug = institutionId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    return `ITU-${slug.slice(-4).padStart(4, '0')}`;
+  }
+
   private async buildReleasedPayload(enrollment: {
     enrollmentCode: string;
     mockDate: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
+    institutionId?: string | null;
+    student?: {
+      country?: string | null;
+      examType?: string | null;
+      user?: { name?: string | null } | null;
+    } | null;
+    institution?: { name?: string | null; logoUrl?: string | null } | null;
     package: { title: string; skills: unknown };
     examSession?: {
       sectionAttempts: {

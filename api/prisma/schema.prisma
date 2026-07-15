@@ -243,6 +243,9 @@ model StudentProfile {
   examType             ExamType                 @default(ACADEMIC) @map("exam_type")
   country              String?
   phone                String?
+  dateOfBirth          DateTime?                @map("date_of_birth")
+  sex                  String?
+  firstLanguage        String?                  @map("first_language")
   publishToLeaderboard Boolean                  @default(false) @map("publish_to_leaderboard")
   notificationPrefs    Json?                    @map("notification_prefs")
   institutionId        String?                  @map("institution_id")

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Download, Zap } from "lucide-react";
+import { Award, ChevronDown, Download, Zap } from "lucide-react";
 import { ResultsShellHeader } from "@/components/student/results/results-shell-header";
+import { CertificateDialog } from "@/components/student/results/certificate/certificate-dialog";
 import { useToast } from "@/components/ui/toast";
 import { useStudentResultsData } from "@/contexts/student-results-context";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -15,6 +16,7 @@ export function ResultsHeader() {
   const { toast } = useToast();
   const { data, selectAttempt } = useStudentResultsData();
   const [downloading, setDownloading] = useState(false);
+  const [certOpen, setCertOpen] = useState(false);
 
   if (!data) return null;
 
@@ -62,7 +64,8 @@ export function ResultsHeader() {
     ) : null;
 
   return (
-    <ResultsShellHeader
+    <>
+      <ResultsShellHeader
       title={data.title}
       subtitle={data.subtitle}
       actions={
@@ -70,6 +73,15 @@ export function ResultsHeader() {
           {attemptPicker}
           {data.released && (
             <>
+              <button
+                type="button"
+                onClick={() => setCertOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-brand-red/30 bg-brand-red/5 px-4 py-2.5 font-semibold text-brand-red transition-colors hover:bg-brand-red/10"
+                style={{ fontSize: "14px" }}
+              >
+                <Award size={16} />
+                View Certificate
+              </button>
               <button
                 type="button"
                 onClick={() => void handleDownloadPdf()}
@@ -96,6 +108,14 @@ export function ResultsHeader() {
           </button>
         </div>
       }
-    />
+      />
+      {data.released && (
+        <CertificateDialog
+          open={certOpen}
+          onClose={() => setCertOpen(false)}
+          data={data}
+        />
+      )}
+    </>
   );
 }

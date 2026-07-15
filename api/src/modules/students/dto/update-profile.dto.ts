@@ -1,5 +1,6 @@
 import {
   IsIn,
+  IsISO8601,
   IsNumber,
   IsObject,
   IsOptional,
@@ -24,6 +25,19 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(120)
   country?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  dateOfBirth?: string;
+
+  @IsOptional()
+  @IsIn(['M', 'F', 'X'])
+  sex?: 'M' | 'F' | 'X';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  firstLanguage?: string;
 
   @IsOptional()
   @IsNumber()

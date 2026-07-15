@@ -36,6 +36,7 @@
     "packages:sync-prices": "npx tsx scripts/sync-catalog-prices.ts",
     "enrollments:backfill-cutoff": "npx tsx scripts/backfill-mock-day-cutoff.ts",
     "settings:migrate-day-cutoff": "npx tsx scripts/migrate-day-cutoff-setting.ts",
+    "cert:sample": "npx tsx scripts/generate-sample-certificate.ts",
     "mail:test": "npx tsx scripts/test-smtp.ts",
     "load:test": "npx tsx scripts/load-test.ts",
     "verify:production": "npx tsx scripts/verify-production.ts",

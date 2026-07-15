@@ -83,6 +83,9 @@ export type StudentProfileResponse = {
   targetBand: number | null;
   examType: string;
   country: string | null;
+  dateOfBirth: string | null;
+  sex: string | null;
+  firstLanguage: string | null;
   memberSince?: string;
   publishToLeaderboard: boolean;
   notificationPrefs: Record<string, boolean> | null;
@@ -110,6 +113,9 @@ export type UpdateProfileBody = {
   country?: string;
   targetBand?: number;
   examType?: "academic" | "general_training";
+  dateOfBirth?: string;
+  sex?: "M" | "F" | "X";
+  firstLanguage?: string;
   notificationPrefs?: Record<string, boolean>;
 };
 
