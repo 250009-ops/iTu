@@ -41,7 +41,7 @@ test.describe("Student portal (scenarios 1–13)", () => {
     ).toBeVisible();
   });
 
-  test("3. Booking wizard (4 steps)", async () => {
+  test("3. Booking wizard (5 steps)", async () => {
     test.setTimeout(180_000);
     await page.goto("/student/browse");
     await page.getByRole("button", { name: "Book Full Mock Exam" }).first().click();
@@ -58,6 +58,14 @@ test.describe("Student portal (scenarios 1–13)", () => {
       .first();
     await expect(writingExaminer).toBeVisible({ timeout: 20_000 });
     await writingExaminer.click();
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    const speakingExaminer = page
+      .getByRole("button")
+      .filter({ hasText: /open slot/i })
+      .first();
+    await expect(speakingExaminer).toBeVisible({ timeout: 20_000 });
+    await speakingExaminer.click();
     await page.getByRole("button", { name: "Continue" }).click();
 
     const speakingSlot = page

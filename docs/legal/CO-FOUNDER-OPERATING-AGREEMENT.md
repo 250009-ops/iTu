@@ -8,41 +8,44 @@
 
 ## Parties
 
-- **Party A (Founder Side):** Sarvarbek Erkinov  
-- **Party B (Co-Founder Side):** Ozodbek To'lqinov
+| Role | Name | Title |
+|------|------|-------|
+| **Party A** | Sarvarbek Erkinov | Bosh Director (CTO / Founder Side) |
+| **Party B** | Ozodbek To'lqinov | CEO (Co-Founder Side) |
 
 ---
 
 ## 1. Purpose
 
-This agreement sets practical rules for:
-- control and responsibility,
-- profit sharing,
-- equity growth,
-- pricing responsibility,
+This agreement is an **operating agreement** — not a financial services contract. It sets practical rules for:
+
+- roles, control, and responsibility,
+- profit sharing and equity growth,
+- operational commitments,
+- confidentiality and protection of project secrets,
 - penalties for underperformance.
 
 ---
 
 ## 2. Responsibility and Control
 
-### 2.1 Founder Side (Party A)
+### 2.1 Bosh Director — Party A (Sarvarbek Erkinov)
 
-Founder side is responsible for:
-- technical stack,
-- architecture,
+The Bosh Director is responsible for:
+
+- technical stack and architecture,
 - infrastructure and security,
-- technical-risk decisions.
+- technical-risk decisions,
+- final veto only where technical or platform risk exists.
 
-Founder side keeps final veto only where technical/platform risk exists.
+### 2.2 CEO — Party B (Ozodbek To'lqinov)
 
-### 2.2 Co-Founder Side (Party B)
+The CEO has full operational admin control and must run all business implementations.
 
-Co-founder side has full operational admin control and must run all business implementations.
+CEO responsibilities include:
 
-Co-founder responsibilities include:
 - pricing strategy and updates,
-- sales/operations execution,
+- sales and operations execution,
 - operational policy rollout,
 - growth and process management,
 - business model improvements (including subscription ideas),
@@ -50,9 +53,10 @@ Co-founder responsibilities include:
 
 ---
 
-## 3. Admin Capabilities Co-Founder Must Manage
+## 3. Admin Capabilities the CEO Must Manage
 
 Party B must be aware of and manage all business-side admin capabilities, including:
+
 - package and pricing operations,
 - order and payment operations,
 - customer handling and dispute operations,
@@ -63,77 +67,33 @@ Party B must be aware of and manage all business-side admin capabilities, includ
 
 ---
 
-## 4. Net Profit Definition and Calculation
+## 4. Profit Share Rule
 
-Net profit is calculated from collected amount after:
-- tax,
-- platform fee,
-- payment processing deductions,
-- approved operational costs,
-- approved technical costs.
+### 4.1 Base Split
 
-### 4.1 Lemon Squeezy Fee Awareness
+- Bosh Director (Founder side): **75%** of net profit
+- CEO (Co-founder side): **25%** of net profit
 
-For pricing decisions, Party B must always calculate from net amount after deductions, not gross charged amount.
+### 4.2 Activation
 
-Use this order:
-1. product price,
-2. tax,
-3. total charged,
-4. platform fee,
-5. net amount.
+Base co-founder profit share starts once the first milestone is passed.
 
-Example reminder from current case: **from 12,000 UZS, net result noted was $0.47** after deduction flow in early payment conditions.
-
----
-
-## 5. Cost Baseline Party B Must Consider
-
-Party B must include these costs in pricing and business planning:
-- VPS 3: **200,000 UZS**
-- Mail service: **84,000 UZS**
-- Domain yearly: **29,000 UZS**
-- AI services initial: about **$10/month**
-- LiveKit: free usage first, then around **$50** once paid plan is needed
-
-Technical operations may create extra costs and should be expected as normal business operations.
-
-There is also **$100 technical debt reserve** for urgent technical account setup and early technical purchases.  
-This can be recovered later as approved tech fee.
-
-> **NOTICE — Tech Fee Notification Rule**  
-> Whenever technical fees or new technical costs arise (infrastructure, tooling, security, scaling, or urgent technical purchases), the **CTO Founder (Party A)** must notify the **CEO Co-founder (Party B)** in writing without delay.  
-> The **CEO Co-founder** must then apply the necessary financial considerations in pricing, budgeting, and profit planning based on that notification.
-
----
-
-## 6. Profit Share Rule
-
-### 6.1 Base Split
-
-- Founder side: **75%** of net profit
-- Co-founder side: **25%** of net profit
-
-### 6.2 Activation
-
-Base co-founder profit share starts once:
-- technical fees are covered, and
-- first milestone is passed.
-
-### 6.3 First Milestone
+### 4.3 First Milestone
 
 First milestone is fixed at **$50 cumulative net profit**.
 
 At first milestone:
+
 - co-founder equity rises to **5%**,
 - co-founder profit share becomes **30%** (**25% + 5%**),
 - founder side adjusts to **70%**.
 
-### 6.4 Ongoing Adjustment Rule
+### 4.4 Ongoing Adjustment Rule
 
 Each equity rise adds the same percentage to co-founder profit share.
 
-So co-founder progression can move:
+Co-founder progression can move:
+
 - from 25%,
 - up to maximum **45%** profit share,
 - while equity rises up to maximum **20%**.
@@ -148,22 +108,67 @@ Founder profit share adjusts inversely.
 
 ---
 
-## 7. Equity Rule
+## 5. Equity Rule
 
 - Founder starts with **100%** equity.
 - Co-founder starts with **0%** equity.
 - Co-founder can rise to **20% max**.
 
 First milestone and future awards are governed by Exhibit B:
+
 - first milestone threshold is fixed,
 - next milestone thresholds are set later in writing after first milestone review,
 - next award values remain visible in the award table.
 
 ---
 
+## 6. Confidentiality and Project Secrets
+
+Both parties agree that the project, company, and all related materials are confidential. This obligation is critical and survives termination of this agreement.
+
+### 6.1 What Must Stay Secret
+
+Without written approval from the Bosh Director, neither party may disclose:
+
+- source code, architecture, databases, and technical designs,
+- customer data, user records, and payment information,
+- business strategy, pricing logic, and growth plans,
+- internal processes, admin workflows, and operational policies,
+- financial performance data and profit-sharing terms,
+- credentials, API keys, server access, and security configurations,
+- any other non-public information related to iTestU / the project.
+
+### 6.2 Non-Disclosure Duties
+
+- No sharing with third parties (investors, partners, employees, contractors, or competitors) without written consent from the Bosh Director.
+- No public posting, demo, or portfolio use of confidential materials without approval.
+- Access credentials must be kept secure and never shared outside the project scope.
+- Any person given access must be bound by equivalent confidentiality obligations.
+
+### 6.3 Use Restrictions
+
+- Confidential information may be used **only** for project operations under this agreement.
+- Neither party may use project secrets for a competing product or separate commercial venture.
+- On termination or request, each party must stop using and return or destroy confidential materials.
+
+### 6.4 Breach
+
+Unauthorized disclosure or misuse of project secrets is a material breach. The Bosh Director may suspend benefits, freeze equity progression, and pursue termination and legal remedies.
+
+---
+
+## 7. IP Ownership
+
+- Core project IP remains under the Bosh Director / assigned legal entity.
+- Operational work product created for the project is assigned to the project entity.
+- Confidentiality obligations in Section 6 apply to all IP and project materials.
+
+---
+
 ## 8. Penalty and Enforcement
 
 If Party B fails expected operational delivery:
+
 1. suspend variable release,
 2. freeze equity progression,
 3. require correction plan,
@@ -174,15 +179,7 @@ All penalty actions must be documented in writing.
 
 ---
 
-## 9. IP and Confidentiality
-
-- Core project IP remains under founder side / assigned legal entity.
-- Operational work product created for the project is assigned to the project entity.
-- Both parties must keep project and financial data confidential.
-
----
-
-## 10. Amendment and Legal Route
+## 9. Amendment and Legal Route
 
 - Any conflicting prior verbal arrangement is waived by this signed contract.
 - Changes are valid only if written and signed.
@@ -190,14 +187,14 @@ All penalty actions must be documented in writing.
 
 ---
 
-## 11. Signatures and Stamps
+## 10. Signatures and Stamps
 
-**Party A (Founder Side)**  
+**Party A — Bosh Director (Sarvarbek Erkinov)**  
 Signature: __________________________  
 SE Stamp: ___________________________  
 Date: _______________________________
 
-**Party B (Co-Founder Side)**  
+**Party B — CEO (Ozodbek To'lqinov)**  
 Signature: __________________________  
 OT Stamp: ___________________________  
 Date: _______________________________

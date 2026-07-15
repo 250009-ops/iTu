@@ -16,9 +16,10 @@ export function EarningsHeader() {
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const { earnings, refresh } = useTeacherEarnings();
-  const { billingCycle, nextPayout, transactions, canRequestPayout, hasBankDetails } =
+  const { billingCycle, nextPayout, transactions, canRequestPayout, hasBankDetails, summary } =
     earnings;
   const currency = earnings.summary.currency;
+  const lockedBalance = summary.lockedBalance ?? 0;
 
   async function handleRequestPayout() {
     setPayoutOpen(false);
@@ -85,6 +86,13 @@ export function EarningsHeader() {
       {!hasBankDetails && (
         <p className="text-xs text-amber-700">
           Add payout bank details below before you can request a transfer.
+        </p>
+      )}
+
+      {lockedBalance > 0 && nextPayout.unlockDate && (
+        <p className="text-xs text-muted">
+          {formatPrice(lockedBalance, currency)} earned this period — available to request after{" "}
+          {nextPayout.unlockDate}.
         </p>
       )}
 

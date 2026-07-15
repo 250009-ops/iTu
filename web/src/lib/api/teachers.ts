@@ -66,6 +66,7 @@ export function getTeacherAvailability(weekStart?: string) {
       endsAt: string;
       status: string;
       studentName: string | null;
+      speakingSessionId: string | null;
     }[];
     upcoming: {
       id: string;
@@ -112,7 +113,16 @@ export function getTeacherEarnings() {
     writingGross?: number;
     platformSharePercent?: number;
     pendingBalance: number;
+    lockedBalance?: number;
+    availableBalance?: number;
+    processingBalance?: number;
     payoutSchedule: string;
+    currentPeriod?: {
+      start: string;
+      end: string;
+      label: string;
+    };
+    nextUnlockAt?: string | null;
     payoutDetails: {
       bankName?: string;
       accountName?: string;
@@ -131,6 +141,7 @@ export function getTeacherEarnings() {
       periodStart: string;
       periodEnd: string;
       paidAt: string | null;
+      requestable?: boolean;
     }[];
   }>("/teachers/earnings");
 }

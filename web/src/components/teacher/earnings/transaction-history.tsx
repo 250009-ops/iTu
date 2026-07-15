@@ -18,6 +18,16 @@ const typeConfig = {
 } as const;
 
 const statusConfig = {
+  locked: {
+    label: "Locked",
+    className: "bg-amber-50 text-amber-700",
+    icon: CheckCircle2,
+  },
+  available: {
+    label: "Available",
+    className: "bg-emerald-50 text-emerald-700",
+    icon: CheckCircle2,
+  },
   pending: {
     label: "Pending",
     className: "bg-amber-50 text-amber-700",
@@ -62,11 +72,15 @@ export function TransactionHistory() {
         <div className="flex items-center gap-4 text-xs text-muted">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-amber-500" />
-            Pending
+            Locked
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Completed
+            Available
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-sky-500" />
+            Processing
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-slate-400" />

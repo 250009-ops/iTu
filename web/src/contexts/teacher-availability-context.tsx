@@ -22,7 +22,7 @@ type TeacherAvailabilityValue = {
   availability: ReturnType<typeof mapTeacherAvailability>;
   weekOffset: number;
   setWeekOffset: (offset: number | ((prev: number) => number)) => void;
-  refresh: () => Promise<void>;
+  refresh: (opts?: { silent?: boolean }) => Promise<void>;
 };
 
 const emptyAvailability = mapTeacherAvailability({

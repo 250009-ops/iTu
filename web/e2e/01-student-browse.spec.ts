@@ -319,7 +319,7 @@ test.describe("Student Browse Mocks (detailed)", () => {
       page.getByRole("heading", { name: /Book General Training Mock/i }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Date & time")).toBeVisible();
-    await expect(page.getByText("Step 1 of 4")).toBeVisible();
+    await expect(page.getByText("Step 1 of 5")).toBeVisible();
 
     await page.getByRole("button", { name: "Close" }).click();
   });
@@ -333,9 +333,11 @@ test.describe("Student Browse Mocks (detailed)", () => {
       .getByRole("button", { name: PACKAGES.speakingOnly.bookCta })
       .click();
 
-    await expect(page.getByText("Step 1 of 3")).toBeVisible();
+    await expect(page.getByText("Step 1 of 4")).toBeVisible();
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByText("Step 2 of 3 · Speaking slot")).toBeVisible();
+    await expect(
+      page.getByText("Step 2 of 4 · Speaking examiner"),
+    ).toBeVisible();
     await expect(page.getByText("Writing examiner")).not.toBeVisible();
 
     await page.getByRole("button", { name: "Close" }).click();

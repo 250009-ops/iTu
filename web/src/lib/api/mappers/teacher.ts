@@ -91,6 +91,7 @@ export type ScheduleBlock = {
   slotIds: string[];
   studentName: string | null;
   studentInitials: string | null;
+  speakingSessionId: string | null;
 };
 
 export type AvailabilityDay = {
@@ -478,8 +479,24 @@ export function mapTeacherEarnings(data: Earnings) {
     );
   });
   const thisMonth = thisMonthPayouts.reduce((sum, p) => sum + p.amount, 0);
-  const availableBalance = data.pendingBalance ?? 0;
+  const availableBalance =
+    data.availableBalance ?? data.pendingBalance ?? 0;
+  const lockedBalance = data.lockedBalance ?? 0;
+  const processingBalance = data.processingBalance ?? 0;
   const currency = DEFAULT_CURRENCY;
+
+  const formatUnlockDate = (iso: string | Date) =>
+    new Date(iso).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+  const nextUnlockLabel = data.nextUnlockAt
+    ? formatUnlockDate(data.nextUnlockAt)
+    : data.currentPeriod?.end
+      ? formatUnlockDate(data.currentPeriod.end)
+      : null;
 
   const monthlyMap = new Map<string, number>();
   for (const payout of [...data.payouts].reverse()) {
@@ -506,8 +523,8 @@ export function mapTeacherEarnings(data: Earnings) {
   const hasMonthlyEarnings = monthlyEarnings.length > 0;
 
   const pendingPayouts = data.payouts.filter((p) => p.status === "pending");
-  const nextPending =
-    pendingPayouts[0] ?? data.payouts.find((p) => p.status !== "paid");
+  const lockedPayouts = pendingPayouts.filter((p) => !p.requestable);
+  const currentPeriodLocked = lockedPayouts.reduce((sum, p) => sum + p.amount, 0);
 
   const payoutDetails = data.payoutDetails;
   const hasBankDetails = Boolean(payoutDetails?.accountLast4?.trim());
@@ -519,38 +536,37 @@ export function mapTeacherEarnings(data: Earnings) {
   const methodLabel =
     payoutDetails?.method ?? "Bank transfer (2–3 business days)";
 
-  const nextPayout = nextPending
-    ? {
-        date: new Date(nextPending.periodEnd).toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        }),
-        bank: bankLabel,
-        method: methodLabel,
-        projectedAmount: nextPending.amount,
-        daysRemaining: Math.max(
+  const currentPeriodLabel =
+    data.currentPeriod?.label ??
+    (data.currentPeriod
+      ? `${formatUnlockDate(data.currentPeriod.start)} – ${formatUnlockDate(data.currentPeriod.end)}`
+      : "Current period");
+
+  const nextPayout = {
+    date: currentPeriodLabel,
+    bank: bankLabel,
+    method: methodLabel,
+    projectedAmount: availableBalance,
+    lockedAmount: lockedBalance > 0 ? lockedBalance : currentPeriodLocked,
+    processingAmount: processingBalance,
+    unlockDate: nextUnlockLabel,
+    daysRemaining: data.nextUnlockAt
+      ? Math.max(
           0,
           Math.ceil(
-            (new Date(nextPending.periodEnd).getTime() - now.getTime()) /
+            (new Date(data.nextUnlockAt).getTime() - now.getTime()) /
               86_400_000,
           ),
-        ),
-        hasBankDetails,
-      }
-    : {
-        date: availableBalance > 0 ? "Awaiting your request" : "No payout scheduled",
-        bank: bankLabel,
-        method: methodLabel,
-        projectedAmount: availableBalance,
-        daysRemaining: 0,
-        hasBankDetails,
-      };
+        )
+      : 0,
+    hasBankDetails,
+  };
 
-  const txStatus = (status: string) => {
-    if (status === "paid") return "withdrawn" as const;
-    if (status === "processing") return "processing" as const;
-    return "pending" as const;
+  const txStatus = (payout: (typeof data.payouts)[number]) => {
+    if (payout.status === "paid") return "withdrawn" as const;
+    if (payout.status === "processing") return "processing" as const;
+    if (payout.requestable) return "available" as const;
+    return "locked" as const;
   };
 
   const transactions = data.payouts.map((payout) => ({
@@ -567,10 +583,17 @@ export function mapTeacherEarnings(data: Earnings) {
         })
       : "—",
     type: "payout" as const,
-    label: payout.status === "paid" ? "Bank Payout" : "Pending Payout",
+    label:
+      payout.status === "paid"
+        ? "Bank Payout"
+        : payout.status === "processing"
+          ? "Payout Requested"
+          : payout.requestable
+            ? "Available Payout"
+            : "Period Earnings",
     detail: `${new Date(payout.periodStart).toLocaleDateString()} – ${new Date(payout.periodEnd).toLocaleDateString()}`,
     reference: payout.id.slice(0, 8).toUpperCase(),
-    status: txStatus(payout.status),
+    status: txStatus(payout),
     amount: payout.status === "paid" ? -payout.amount : payout.amount,
   }));
 
@@ -589,12 +612,16 @@ export function mapTeacherEarnings(data: Earnings) {
     summary: {
       currency,
       availableBalance,
+      lockedBalance,
+      processingBalance,
       availableHint:
         availableBalance > 0
-          ? "Available to request payout"
-          : hasBankDetails
-            ? "No pending balance right now"
-            : "Add bank details to request payouts",
+          ? "Ready to request"
+          : lockedBalance > 0 && nextUnlockLabel
+            ? `Earned this period — available to request after ${nextUnlockLabel}`
+            : hasBankDetails
+              ? "No completed earnings to request yet"
+              : "Add bank details to request payouts",
       thisMonth,
       thisMonthTrend: "—",
       thisMonthLabel: billingCycle,
@@ -732,9 +759,12 @@ function mergeDaySlots(
     if (
       !current ||
       current.status !== status ||
+      status === "available" ||
+      current.status === "available" ||
       startMinutes > current.endMinutes + 1 ||
       (status === "booked" &&
-        current.studentName !== (slot.studentName ?? null))
+        (current.studentName !== (slot.studentName ?? null) ||
+          current.speakingSessionId !== (slot.speakingSessionId ?? null)))
     ) {
       if (current) blocks.push(current);
       current = {
@@ -749,6 +779,7 @@ function mergeDaySlots(
         studentInitials: slot.studentName
           ? initialsFromName(slot.studentName)
           : null,
+        speakingSessionId: slot.speakingSessionId ?? null,
       };
     } else {
       current.endMinutes = endMinutes;

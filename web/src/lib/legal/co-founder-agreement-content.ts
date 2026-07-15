@@ -1,17 +1,19 @@
 export const AGREEMENT_META = {
   title: "Co-Founder Operating Agreement",
-  subtitle: "iTestU",
+  subtitle: "iTestU — IELTS Mock Exam ERP",
   place: "Tashkent, Republic of Uzbekistan",
   partyA: {
     name: "Sarvarbek Erkinov",
-    role: "Founder Side (Tech Owner)",
+    role: "Bosh Director",
+    subtitle: "CTO / Founder Side",
   },
   partyB: {
     name: "Ozodbek To'lqinov",
-    role: "Co-Founder Side (Operations Manager)",
+    role: "CEO",
+    subtitle: "Co-Founder Side",
   },
   disclaimer:
-    "Business contract draft for review before legal finalization.",
+    "Operating agreement draft for review before legal finalization. Not a financial services contract.",
 };
 
 export type ContractBlock =
@@ -28,50 +30,77 @@ export type ContractSection = {
 
 export const MAIN_SECTIONS: ContractSection[] = [
   {
-    id: "responsibility",
-    title: "Control and Responsibility",
+    id: "purpose",
+    title: "1. Purpose",
     blocks: [
+      {
+        type: "paragraph",
+        text: "This agreement is an operating agreement — not a financial services contract. It defines how both parties run the project together: roles, responsibilities, profit sharing, equity growth, and protection of project secrets.",
+      },
+    ],
+  },
+  {
+    id: "responsibility",
+    title: "2. Responsibility and Control",
+    blocks: [
+      {
+        type: "paragraph",
+        text: "Bosh Director — Sarvarbek Erkinov (Party A)",
+      },
       {
         type: "list",
         items: [
-          "Founder side manages technical stack, architecture, infrastructure, security, and technical-risk approvals.",
-          "Co-founder side has full operational admin control and must execute all business implementations.",
-          "Founder side keeps final veto only for technical-risk matters.",
+          "Manages technical stack, architecture, infrastructure, and security.",
+          "Owns technical-risk decisions.",
+          "Keeps final veto only for technical or platform-risk matters.",
+        ],
+      },
+      {
+        type: "paragraph",
+        text: "CEO — Ozodbek To'lqinov (Party B)",
+      },
+      {
+        type: "list",
+        items: [
+          "Has full operational admin control and must execute all business implementations.",
+          "Owns pricing strategy, sales, operations, and growth execution.",
+          "Manages admin workflows, policy rollout, and business model improvements.",
         ],
       },
     ],
   },
   {
     id: "admin",
-    title: "Manager Admin Capabilities",
+    title: "3. CEO Admin Capabilities",
     blocks: [
       {
         type: "list",
         items: [
-          "Pricing and package decisions",
-          "Operational workflow control",
-          "Sales and process implementation",
-          "Business model improvements such as subscriptions",
-          "Execution and milestone accountability",
+          "Package and pricing operations",
+          "Order and payment operations",
+          "Customer handling and dispute operations",
+          "Teacher operations and assignment control",
+          "Performance and reporting oversight",
+          "Operational policy updates and milestone delivery",
         ],
       },
     ],
   },
   {
     id: "profit",
-    title: "Profit and Milestone Rule",
+    title: "4. Profit Share and Equity",
     blocks: [
       {
         type: "paragraph",
-        text: "Net profit split starts at Founder 75% and Co-founder 25% after technical fees are covered and first milestone is passed.",
+        text: "Net profit split starts at Bosh Director 75% and CEO 25% once the first milestone is passed.",
       },
       {
         type: "paragraph",
-        text: "First milestone is fixed at $50 cumulative net profit. At this milestone, equity rises to 5% and co-founder profit share becomes 30%.",
+        text: "First milestone is fixed at $50 cumulative net profit. At this milestone, equity rises to 5% and CEO profit share becomes 30%.",
       },
       {
         type: "table",
-        headers: ["Stage", "Co-Founder Equity", "Co-Founder Profit Share", "Founder Profit Share"],
+        headers: ["Stage", "CEO Equity", "CEO Profit Share", "Bosh Director Share"],
         rows: [
           ["Initial stage", "0%", "25%", "75%"],
           ["First milestone ($50 net profit)", "5%", "30%", "70%"],
@@ -88,7 +117,7 @@ export const MAIN_SECTIONS: ContractSection[] = [
         type: "notice",
         title: "NOTICE — 20% Equity Cap and Next Decision Process",
         items: [
-          "When co-founder equity reaches 20% (maximum under this agreement), co-founder profit share is already at its maximum stage of 45%.",
+          "When CEO equity reaches 20% (maximum under this agreement), CEO profit share is already at its maximum stage of 45%.",
           "At that stage, both parties enter a formal decision-making process to review whether the equity limit should be increased through the next milestone cycle.",
           "Any new equity limit must be set in writing and signed by both parties.",
           "Profit share does not increase beyond 45%, even if the equity limit is raised later.",
@@ -97,46 +126,54 @@ export const MAIN_SECTIONS: ContractSection[] = [
     ],
   },
   {
-    id: "cost",
-    title: "Lemon Fee and Cost Awareness",
+    id: "confidentiality",
+    title: "5. Confidentiality and Project Secrets",
+    blocks: [
+      {
+        type: "paragraph",
+        text: "Both parties agree that the project, company, and all related materials are confidential. This obligation survives termination.",
+      },
+      {
+        type: "list",
+        items: [
+          "Source code, architecture, databases, and technical designs must not be disclosed.",
+          "Customer data, user records, and payment information must remain protected.",
+          "Business strategy, pricing logic, growth plans, and internal processes are confidential.",
+          "Credentials, API keys, server access, and security configurations must be kept secure.",
+          "No sharing with third parties without written approval from the Bosh Director.",
+          "No public posting, demo, or portfolio use of confidential materials without approval.",
+          "Confidential information may be used only for project operations under this agreement.",
+          "Neither party may use project secrets for a competing product or separate commercial venture.",
+          "On termination, each party must stop using and return or destroy confidential materials.",
+        ],
+      },
+      {
+        type: "notice",
+        title: "NOTICE — Breach of Confidentiality",
+        items: [
+          "Unauthorized disclosure or misuse of project secrets is a material breach.",
+          "The Bosh Director may suspend benefits, freeze equity progression, and pursue termination and legal remedies.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "ip",
+    title: "6. IP Ownership",
     blocks: [
       {
         type: "list",
         items: [
-          "Pricing must be based on net amount after tax and platform fee, not gross amount.",
-          "Lemon flow: product price -> tax -> total charged -> platform fee -> net amount.",
-          "From your early payment case: from 12,000 UZS, net result noted was $0.47 in the deduction context.",
-        ],
-      },
-      {
-        type: "table",
-        headers: ["Cost Item", "Value"],
-        rows: [
-          ["VPS 3", "200,000 UZS"],
-          ["Mail service", "84,000 UZS"],
-          ["Domain (yearly)", "29,000 UZS"],
-          ["AI service (initial)", "about $10/month"],
-          ["LiveKit paid usage", "about $50 when needed"],
-          ["Technical debt reserve", "$100"],
-        ],
-      },
-      {
-        type: "paragraph",
-        text: "Technical operations can create extra costs. These costs are valid technical business costs.",
-      },
-      {
-        type: "notice",
-        title: "NOTICE — Tech Fee Notification Rule",
-        items: [
-          "Whenever technical fees or new technical costs arise (infrastructure, tooling, security, scaling, or urgent technical purchases), the CTO Founder (Party A) must notify the CEO Co-founder (Party B) in writing without delay.",
-          "The CEO Co-founder must then apply the necessary financial considerations in pricing, budgeting, and profit planning based on that notification.",
+          "Core project IP remains under the Bosh Director / assigned legal entity.",
+          "Operational work product created for the project is assigned to the project entity.",
+          "Confidentiality obligations apply to all IP and project materials.",
         ],
       },
     ],
   },
   {
     id: "penalty",
-    title: "Penalty and Enforcement",
+    title: "7. Penalty and Enforcement",
     blocks: [
       {
         type: "list",
@@ -159,7 +196,7 @@ export const EXHIBIT_A_SECTIONS: ContractSection[] = [
     blocks: [
       {
         type: "paragraph",
-        text: "Co-founder performance is measured by implementation outcomes, admin execution quality, and business delivery.",
+        text: "CEO performance is measured by implementation outcomes, admin execution quality, and business delivery.",
       },
       {
         type: "paragraph",
@@ -189,7 +226,7 @@ export const EXHIBIT_B_SECTIONS: ContractSection[] = [
         type: "notice",
         title: "NOTICE — After 20% Equity Is Reached",
         items: [
-          "At 20% equity, co-founder profit share is already at maximum (45%).",
+          "At 20% equity, CEO profit share is already at maximum (45%).",
           "After this stage, both parties must run a formal decision process to decide whether the equity limit should be increased through a new milestone cycle.",
           "Any increase to the equity limit requires written and signed approval. Profit share remains capped at 45%.",
         ],

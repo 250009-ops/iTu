@@ -127,7 +127,13 @@ export function CommissionPanel() {
 
       <div className="mt-8">
         <p className="text-xs font-bold uppercase tracking-wide text-muted">
-          Payout Schedule
+          Payout eligibility schedule
+        </p>
+        <p className="mt-1 max-w-2xl text-sm text-muted">
+          Groups examiner earnings into periods. After a period ends, those earnings become
+          available for the examiner to request. This does not auto-pay — admin still marks
+          payouts as paid. Bi-weekly uses calendar halves (1st–15th and 16th–end), not every 14
+          days.
         </p>
         <div className="mt-3 flex flex-wrap gap-3">
           {payoutOptions.map((opt) => (

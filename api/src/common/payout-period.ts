@@ -67,3 +67,42 @@ export function normalizePayoutSchedule(value?: string): PayoutSchedule {
   }
   return 'weekly';
 }
+
+/** True when the earnings period has ended and the balance may be requested. */
+export function isPayoutPeriodEligible(
+  periodEnd: Date,
+  now = new Date(),
+): boolean {
+  return periodEnd.getTime() <= now.getTime();
+}
+
+export function getCurrentPayoutPeriod(
+  schedule: PayoutSchedule,
+  now = new Date(),
+): { periodStart: Date; periodEnd: Date } {
+  return getPayoutPeriod(schedule, now);
+}
+
+export function formatPayoutPeriodLabel(
+  schedule: PayoutSchedule,
+  periodStart: Date,
+  periodEnd: Date,
+): string {
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+  if (schedule === 'monthly') {
+    return `${periodStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+  }
+
+  if (schedule === 'weekly') {
+    return `${fmt(periodStart)} – ${fmt(periodEnd)}`;
+  }
+
+  // biweekly: 1st–15th or 16th–end
+  return `${fmt(periodStart)} – ${fmt(periodEnd)}`;
+}

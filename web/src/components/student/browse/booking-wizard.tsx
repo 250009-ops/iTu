@@ -47,12 +47,18 @@ type Slot = {
   status: string;
 };
 
-type WizardStepId = "date" | "writing" | "speaking" | "payment";
+type WizardStepId =
+  | "date"
+  | "writing"
+  | "speakingExaminer"
+  | "speakingSlot"
+  | "payment";
 
 const STEP_LABELS: Record<WizardStepId, string> = {
   date: "Date & time",
   writing: "Writing examiner",
-  speaking: "Speaking slot",
+  speakingExaminer: "Speaking examiner",
+  speakingSlot: "Speaking time",
   payment: "Payment",
 };
 
@@ -73,9 +79,16 @@ function formatSlotTime(iso: string) {
 function buildWizardSteps(product: BrowseProduct): WizardStepId[] {
   const steps: WizardStepId[] = ["date"];
   if (product.needsWriting) steps.push("writing");
-  if (product.needsSpeaking) steps.push("speaking");
+  if (product.needsSpeaking) {
+    steps.push("speakingExaminer");
+    steps.push("speakingSlot");
+  }
   steps.push("payment");
   return steps;
+}
+
+function needsExamStartTime(product: BrowseProduct) {
+  return product.needsWriting || product.skillIds.length >= 4;
 }
 
 function dateStepHint(product: BrowseProduct) {
@@ -110,6 +123,10 @@ export function BookingWizard({
 
   const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
   const [writingTeacherId, setWritingTeacherId] = useState<string | null>(null);
+  const [speakingTeachers, setSpeakingTeachers] = useState<Teacher[]>([]);
+  const [speakingTeacherId, setSpeakingTeacherId] = useState<string | null>(
+    null,
+  );
   const [teachersLoading, setTeachersLoading] = useState(false);
 
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -135,8 +152,12 @@ export function BookingWizard({
   const selectedWritingTeacher = writingTeachers.find(
     (teacher) => teacher.id === writingTeacherId,
   );
+  const selectedSpeakingTeacher = speakingTeachers.find(
+    (teacher) => teacher.id === speakingTeacherId,
+  );
+  const showExamStartTime = needsExamStartTime(product);
 
-  const loadTeachers = useCallback(async () => {
+  const loadWritingTeachers = useCallback(async () => {
     setTeachersLoading(true);
     try {
       const list = await listTeachers("writing");
@@ -148,18 +169,43 @@ export function BookingWizard({
     }
   }, []);
 
-  const loadSlots = useCallback(async () => {
+  const loadSpeakingTeachers = useCallback(async () => {
+    setTeachersLoading(true);
+    try {
+      const list = await listTeachers("speaking");
+      setSpeakingTeachers(list);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not load examiners"));
+    } finally {
+      setTeachersLoading(false);
+    }
+  }, []);
+
+  const loadSpeakingExaminerAvailability = useCallback(async () => {
+    setSlotsLoading(true);
+    try {
+      const list = await getAvailability(mockDate);
+      setSlots(list);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not load speaking availability"));
+    } finally {
+      setSlotsLoading(false);
+    }
+  }, [mockDate]);
+
+  const loadSpeakingSlots = useCallback(async () => {
+    if (!speakingTeacherId) return;
     setSlotsLoading(true);
     setSelectedSlot(null);
     try {
-      const list = await getAvailability(mockDate);
+      const list = await getAvailability(mockDate, speakingTeacherId);
       setSlots(list);
     } catch (err) {
       setError(getErrorMessage(err, "Could not load speaking slots"));
     } finally {
       setSlotsLoading(false);
     }
-  }, [mockDate]);
+  }, [mockDate, speakingTeacherId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,31 +228,49 @@ export function BookingWizard({
 
   useEffect(() => {
     if (currentStep === "writing" && writingTeachers.length === 0) {
-      void loadTeachers();
+      void loadWritingTeachers();
     }
-    if (currentStep === "speaking") {
-      void loadSlots();
+    if (currentStep === "speakingExaminer") {
+      if (speakingTeachers.length === 0) void loadSpeakingTeachers();
+      void loadSpeakingExaminerAvailability();
     }
-  }, [currentStep, writingTeachers.length, loadTeachers, loadSlots]);
+    if (currentStep === "speakingSlot") {
+      void loadSpeakingSlots();
+    }
+  }, [
+    currentStep,
+    writingTeachers.length,
+    speakingTeachers.length,
+    loadWritingTeachers,
+    loadSpeakingTeachers,
+    loadSpeakingExaminerAvailability,
+    loadSpeakingSlots,
+  ]);
 
-  const slotsByTeacher = useMemo(() => {
-    const groups = new Map<string, { name: string; slots: Slot[] }>();
+  useEffect(() => {
+    setSpeakingTeacherId(null);
+    setSelectedSlot(null);
+    setSlots([]);
+  }, [mockDate]);
+
+  const slotCountByTeacher = useMemo(() => {
+    const counts = new Map<string, number>();
     for (const slot of slots) {
-      const entry = groups.get(slot.teacherId) ?? {
-        name: slot.teacherName,
-        slots: [],
-      };
-      entry.slots.push(slot);
-      groups.set(slot.teacherId, entry);
+      counts.set(slot.teacherId, (counts.get(slot.teacherId) ?? 0) + 1);
     }
-    return [...groups.values()];
+    return counts;
   }, [slots]);
 
   const canContinue = useMemo(() => {
     if (purchaseBlocked) return false;
-    if (currentStep === "date") return Boolean(mockDate && mockTime);
+    if (currentStep === "date") {
+      return showExamStartTime
+        ? Boolean(mockDate && mockTime)
+        : Boolean(mockDate);
+    }
     if (currentStep === "writing") return Boolean(writingTeacherId);
-    if (currentStep === "speaking") return Boolean(selectedSlot);
+    if (currentStep === "speakingExaminer") return Boolean(speakingTeacherId);
+    if (currentStep === "speakingSlot") return Boolean(selectedSlot);
     if (currentStep === "payment") {
       if (paymentsEnabled) return true;
       return Boolean(cardName && cardNumber && cardExpiry && cardCvc);
@@ -216,7 +280,9 @@ export function BookingWizard({
     currentStep,
     mockDate,
     mockTime,
+    showExamStartTime,
     writingTeacherId,
+    speakingTeacherId,
     selectedSlot,
     cardName,
     cardNumber,
@@ -239,21 +305,22 @@ export function BookingWizard({
   async function handleConfirm() {
     if (purchaseBlocked) return;
     if (product.needsWriting && !writingTeacherId) return;
-    if (product.needsSpeaking && !selectedSlot) return;
+    if (product.needsSpeaking && (!speakingTeacherId || !selectedSlot)) return;
 
     setSubmitting(true);
     setError(null);
     try {
+      const bookingMockTime = showExamStartTime ? mockTime : EXAM_START_TIMES[0]!;
       const result = await createBooking({
         packageId: product.id,
-        mockDate: new Date(`${mockDate}T${mockTime}:00`).toISOString(),
-        mockTime,
+        mockDate: new Date(`${mockDate}T${bookingMockTime}:00`).toISOString(),
+        mockTime: bookingMockTime,
         ...(product.needsWriting && writingTeacherId
           ? { writingTeacherId }
           : {}),
-        ...(product.needsSpeaking && selectedSlot
+        ...(product.needsSpeaking && selectedSlot && speakingTeacherId
           ? {
-              speakingTeacherId: selectedSlot.teacherId,
+              speakingTeacherId,
               speakingSlotId: selectedSlot.id,
             }
           : {}),
@@ -357,31 +424,33 @@ export function BookingWizard({
                 />
                 <p className="mt-1 text-xs text-muted">{dateStepHint(product)}</p>
               </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-navy">
-                  Exam start time
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {EXAM_START_TIMES.map((time) => (
-                    <button
-                      key={time}
-                      type="button"
-                      onClick={() => setMockTime(time)}
-                      className={cn(
-                        "rounded-lg border px-4 py-2 text-sm font-semibold",
-                        mockTime === time
-                          ? "border-navy bg-navy text-white"
-                          : "border-border bg-white text-foreground hover:bg-slate-50",
-                      )}
-                    >
-                      {time}
-                    </button>
-                  ))}
+              {showExamStartTime && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-navy">
+                    Exam start time
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {EXAM_START_TIMES.map((time) => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => setMockTime(time)}
+                        className={cn(
+                          "rounded-lg border px-4 py-2 text-sm font-semibold",
+                          mockTime === time
+                            ? "border-navy bg-navy text-white"
+                            : "border-border bg-white text-foreground hover:bg-slate-50",
+                        )}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    Check-in opens 15 minutes before your start time.
+                  </p>
                 </div>
-                <p className="mt-1 text-xs text-muted">
-                  Check-in opens 15 minutes before your start time.
-                </p>
-              </div>
+              )}
             </div>
           )}
 
@@ -443,10 +512,10 @@ export function BookingWizard({
             </div>
           )}
 
-          {currentStep === "speaking" && (
+          {currentStep === "speakingExaminer" && (
             <div className="space-y-3">
               <p className="text-sm text-muted">
-                Pick an available Speaking slot for{" "}
+                Choose your Speaking examiner for{" "}
                 <span className="font-semibold text-foreground">
                   {new Date(`${mockDate}T00:00`).toLocaleDateString("en-US", {
                     weekday: "long",
@@ -454,48 +523,120 @@ export function BookingWizard({
                     day: "numeric",
                   })}
                 </span>
-                . The slot also assigns your Speaking examiner.
+                . You&apos;ll pick a time slot next.
+              </p>
+              {teachersLoading && speakingTeachers.length === 0 ? (
+                <div className="flex items-center justify-center py-10 text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : speakingTeachers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted">
+                  No Speaking examiners are available right now.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {speakingTeachers.map((teacher) => {
+                    const availableSlots = slotCountByTeacher.get(teacher.id) ?? 0;
+                    const disabled = !slotsLoading && availableSlots === 0;
+                    return (
+                      <button
+                        key={teacher.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          setSpeakingTeacherId(teacher.id);
+                          setSelectedSlot(null);
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-xl border p-4 text-left transition-colors",
+                          disabled && "cursor-not-allowed opacity-50",
+                          speakingTeacherId === teacher.id
+                            ? "border-rose-500 bg-rose-50"
+                            : "border-border bg-white hover:bg-slate-50",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                            <Mic size={18} />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">
+                              {teacher.name}
+                            </p>
+                            <p className="text-xs text-muted">
+                              Speaking examiner · IELTS certified
+                              {slotsLoading
+                                ? " · checking availability…"
+                                : availableSlots > 0
+                                  ? ` · ${availableSlots} open slot${availableSlots === 1 ? "" : "s"}`
+                                  : " · no slots on this date"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {teacher.rating != null && (
+                            <span className="flex items-center gap-1 text-sm text-amber-500">
+                              <Star size={14} className="fill-current" />
+                              {teacher.rating.toFixed(1)}
+                            </span>
+                          )}
+                          {speakingTeacherId === teacher.id && (
+                            <Check size={18} className="text-rose-600" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentStep === "speakingSlot" && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted">
+                Pick a time with{" "}
+                <span className="font-semibold text-foreground">
+                  {selectedSpeakingTeacher?.name ?? "your examiner"}
+                </span>{" "}
+                on{" "}
+                <span className="font-semibold text-foreground">
+                  {new Date(`${mockDate}T00:00`).toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+                .
               </p>
               {slotsLoading ? (
                 <div className="flex items-center justify-center py-10 text-slate-400">
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
-              ) : slotsByTeacher.length === 0 ? (
+              ) : slots.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted">
-                  No Speaking slots available on this date. Try another date in
-                  step 1.
+                  No open slots for this examiner on this date. Go back and pick
+                  another examiner or change the date.
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {slotsByTeacher.map((group) => (
-                    <div key={group.name}>
-                      <div className="mb-2 flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600">
-                          <Mic size={15} />
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">
-                          {group.name}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {group.slots.map((slot) => (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            onClick={() => setSelectedSlot(slot)}
-                            className={cn(
-                              "rounded-lg border px-3 py-2 text-sm font-semibold",
-                              selectedSlot?.id === slot.id
-                                ? "border-rose-500 bg-rose-500 text-white"
-                                : "border-border bg-white text-foreground hover:bg-slate-50",
-                            )}
-                          >
-                            {formatSlotTime(slot.startsAt)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                <div className="max-h-[40vh] overflow-y-auto rounded-xl border border-border bg-slate-50/50 p-3">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {slots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setSelectedSlot(slot)}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-sm font-semibold",
+                          selectedSlot?.id === slot.id
+                            ? "border-rose-500 bg-rose-500 text-white"
+                            : "border-border bg-white text-foreground hover:bg-slate-50",
+                        )}
+                      >
+                        {formatSlotTime(slot.startsAt)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -518,8 +659,8 @@ export function BookingWizard({
                       {new Date(`${mockDate}T00:00`).toLocaleDateString(
                         "en-US",
                         { month: "short", day: "numeric", year: "numeric" },
-                      )}{" "}
-                      · {mockTime}
+                      )}
+                      {showExamStartTime ? ` · ${mockTime}` : ""}
                     </dd>
                   </div>
                   {product.needsWriting && (
@@ -531,14 +672,22 @@ export function BookingWizard({
                     </div>
                   )}
                   {product.needsSpeaking && (
-                    <div className="flex justify-between">
-                      <dt className="text-muted">Speaking slot</dt>
-                      <dd className="font-medium text-foreground">
-                        {selectedSlot
-                          ? `${formatSlotTime(selectedSlot.startsAt)} · ${selectedSlot.teacherName}`
-                          : "—"}
-                      </dd>
-                    </div>
+                    <>
+                      <div className="flex justify-between">
+                        <dt className="text-muted">Speaking examiner</dt>
+                        <dd className="font-medium text-foreground">
+                          {selectedSpeakingTeacher?.name ?? "—"}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-muted">Speaking time</dt>
+                        <dd className="font-medium text-foreground">
+                          {selectedSlot
+                            ? formatSlotTime(selectedSlot.startsAt)
+                            : "—"}
+                        </dd>
+                      </div>
+                    </>
                   )}
                   <div className="mt-2 flex justify-between border-t border-border pt-2">
                     <dt className="font-semibold text-navy">Total</dt>

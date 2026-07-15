@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Ban, ChevronLeft, ChevronRight, Loader2, Unlock } from "lucide-react";
+import { useState, useRef, type ReactNode } from "react";
+import Link from "next/link";
+import { Ban, ChevronLeft, ChevronRight, ExternalLink, Loader2, Unlock } from "lucide-react";
 import { useTeacherAvailability } from "@/contexts/teacher-availability-context";
 import { useToast } from "@/components/ui/toast";
 import { blockTeacherSlot, unblockTeacherSlot } from "@/lib/api/teachers";
@@ -25,6 +26,44 @@ const blockStyles: Record<SlotStatus, string> = {
   blocked: "border border-slate-300 bg-slate-100 hover:border-slate-400 hover:bg-slate-200/80 cursor-pointer",
 };
 
+function BookedSlotTooltip({
+  block,
+  children,
+}: {
+  block: ScheduleBlock;
+  children: ReactNode;
+}) {
+  const label = block.studentName ?? "Booked student";
+
+  return (
+    <div className="group/booked relative flex h-full w-full items-start justify-center">
+      {children}
+      <div
+        role="tooltip"
+        className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 z-50 w-max max-w-[220px] -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover/booked:opacity-100 group-focus-within/booked:opacity-100"
+      >
+        <div className="rounded-lg border border-sky-200 bg-white px-3 py-2 shadow-lg">
+          <p className="truncate text-xs font-semibold text-navy">{label}</p>
+          <p className="mt-0.5 text-[11px] text-muted">
+            {block.startLabel}–{block.endLabel}
+          </p>
+          {block.speakingSessionId ? (
+            <Link
+              href={`/teacher/speaking?session=${block.speakingSessionId}`}
+              className="pointer-events-auto mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-600 hover:text-sky-800 hover:underline"
+            >
+              Open speaking session
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          ) : (
+            <p className="mt-1 text-[10px] text-muted">Speaking session pending</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScheduleBlockCell({
   block,
   pending,
@@ -39,7 +78,7 @@ function ScheduleBlockCell({
   const top =
     ((block.startMinutes - GRID_START * 60) / 60) * HOUR_HEIGHT;
   const height = Math.max(
-    24,
+    block.status === "booked" ? 28 : 24,
     ((block.endMinutes - block.startMinutes) / 60) * HOUR_HEIGHT - 2,
   );
   const colors = block.studentName
@@ -47,35 +86,26 @@ function ScheduleBlockCell({
     : null;
 
   const interactive = onBlock ?? onUnblock;
+  const isBooked = block.status === "booked";
 
-  return (
-    <button
-      type="button"
-      disabled={!interactive || pending}
-      onClick={interactive ?? undefined}
-      title={
-        block.status === "available"
-          ? `${block.startLabel}–${block.endLabel} · Click to block`
-          : block.status === "blocked"
-            ? `${block.startLabel}–${block.endLabel} · Click to unblock`
-            : block.status === "booked" && block.studentName
-              ? `${block.studentName} · ${block.startLabel}–${block.endLabel}`
-              : `${block.startLabel}–${block.endLabel}`
-      }
-      style={{ top: `${top}px`, height: `${height}px` }}
-      className={cn(
-        "absolute inset-x-1 z-10 flex items-start justify-center rounded-md px-1 py-1 text-left transition-colors",
-        blockStyles[block.status],
-        (block.status === "available" || block.status === "blocked") && "group",
-      )}
-    >
-      {pending ? (
-        <Loader2 className="mx-auto h-4 w-4 animate-spin text-slate-400" />
-      ) : block.status === "booked" && block.studentInitials && colors ? (
+  const cellClassName = cn(
+    "absolute inset-x-1 z-10 flex items-start justify-center rounded-md px-1 py-0.5 text-left transition-colors",
+    blockStyles[block.status],
+    (block.status === "available" || block.status === "blocked") && "group",
+    isBooked && "cursor-default hover:border-sky-300 hover:bg-sky-50",
+  );
+
+  const cellStyle = { top: `${top}px`, height: `${height}px` };
+
+  const cellContent =
+    pending ? (
+      <Loader2 className="mx-auto h-4 w-4 animate-spin text-slate-400" />
+    ) : isBooked && block.studentInitials && colors ? (
+      <BookedSlotTooltip block={block}>
         <div className="relative">
           <div
             className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold",
+              "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold",
               colors.bg,
               colors.text,
             )}
@@ -89,11 +119,42 @@ function ScheduleBlockCell({
             )}
           />
         </div>
-      ) : block.status === "available" ? (
-        <Ban className="h-3 w-3 text-rose-400 opacity-0 transition-opacity group-hover:opacity-100" />
-      ) : block.status === "blocked" ? (
-        <Unlock className="h-3 w-3 text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100" />
-      ) : null}
+      </BookedSlotTooltip>
+    ) : block.status === "available" ? (
+      <Ban className="h-3 w-3 text-rose-400 opacity-0 transition-opacity group-hover:opacity-100" />
+    ) : block.status === "blocked" ? (
+      <Unlock className="h-3 w-3 text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100" />
+    ) : null;
+
+  if (isBooked) {
+    return (
+      <div
+        style={cellStyle}
+        className={cellClassName}
+        tabIndex={0}
+        aria-label={`${block.studentName ?? "Student"} · ${block.startLabel}–${block.endLabel}`}
+      >
+        {cellContent}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={!interactive || pending}
+      onClick={interactive ?? undefined}
+      title={
+        block.status === "available"
+          ? `${block.startLabel}–${block.endLabel} · Click to block`
+          : block.status === "blocked"
+            ? `${block.startLabel}–${block.endLabel} · Click to unblock`
+            : `${block.startLabel}–${block.endLabel}`
+      }
+      style={cellStyle}
+      className={cellClassName}
+    >
+      {cellContent}
     </button>
   );
 }
@@ -104,11 +165,23 @@ export function SchedulePreviewGrid() {
   const { days, stats, label, isCurrentWeek } = availability;
   const { toast } = useToast();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const hours = Array.from(
     { length: GRID_END - GRID_START + 1 },
     (_, i) => GRID_START + i,
   );
+
+  async function refreshPreservingScroll() {
+    const scrollTop = scrollRef.current?.scrollTop ?? 0;
+    const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
+    await refresh({ silent: true });
+    requestAnimationFrame(() => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollTop = scrollTop;
+      scrollRef.current.scrollLeft = scrollLeft;
+    });
+  }
 
   async function handleBlock(slotId: string) {
     setPendingId(slotId);
@@ -118,7 +191,7 @@ export function SchedulePreviewGrid() {
         description: "This time is no longer available for booking.",
         variant: "success",
       });
-      await refresh();
+      await refreshPreservingScroll();
     } catch (err) {
       toast("Could not block slot", {
         description: getErrorMessage(err, "Please try again."),
@@ -137,7 +210,7 @@ export function SchedulePreviewGrid() {
         description: "This time is available for booking again.",
         variant: "success",
       });
-      await refresh();
+      await refreshPreservingScroll();
     } catch (err) {
       toast("Could not unblock slot", {
         description: getErrorMessage(err, "Please try again."),
@@ -215,7 +288,10 @@ export function SchedulePreviewGrid() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-x-auto overflow-y-auto"
+      >
         <div className="min-w-[640px]">
           <div className="grid grid-cols-[3.5rem_repeat(7,1fr)] border-b border-border bg-slate-50/80">
             <div />
@@ -261,7 +337,7 @@ export function SchedulePreviewGrid() {
               <div
                 key={day.key}
                 className={cn(
-                  "relative border-l border-border",
+                  "relative overflow-visible border-l border-border",
                   day.isOff && "day-off-pattern",
                 )}
                 style={{ height: hours.length * HOUR_HEIGHT }}

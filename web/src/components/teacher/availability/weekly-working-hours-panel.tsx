@@ -154,7 +154,7 @@ export function WeeklyWorkingHoursPanel() {
             : "Your weekly schedule has been updated.",
         variant: "success",
       });
-      await refresh();
+      await refresh({ silent: true });
     } catch (err) {
       setError(getErrorMessage(err, "Could not save working hours."));
     } finally {

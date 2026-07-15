@@ -65,10 +65,21 @@ export function NextPayoutCard() {
             <CreditCard className="h-5 w-5" strokeWidth={1.75} />
           </div>
           <div>
-            <h2 className="font-semibold text-navy">Next Scheduled Payout</h2>
+            <h2 className="font-semibold text-navy">Current earnings period</h2>
             <p className="mt-0.5 text-sm text-muted">
               {nextPayout.date} · {nextPayout.bank} · {nextPayout.method}
             </p>
+            {nextPayout.lockedAmount > 0 && nextPayout.unlockDate && (
+              <p className="mt-1 text-xs text-muted">
+                {formatPrice(nextPayout.lockedAmount, currency)} earned this period — available to
+                request on {nextPayout.unlockDate}
+              </p>
+            )}
+            {nextPayout.processingAmount > 0 && (
+              <p className="mt-1 text-xs text-sky-700">
+                {formatPrice(nextPayout.processingAmount, currency)} already requested and processing
+              </p>
+            )}
             {!nextPayout.hasBankDetails && (
               <p className="mt-1 text-xs font-medium text-amber-700">
                 Add bank details before requesting a payout.
@@ -79,15 +90,17 @@ export function NextPayoutCard() {
 
         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <div className="text-right">
-            <p className="text-xs text-muted">Projected amount</p>
+            <p className="text-xs text-muted">
+              {nextPayout.projectedAmount > 0 ? "Available to request" : "Available amount"}
+            </p>
             <p className="text-2xl font-bold text-navy">
               {formatPrice(nextPayout.projectedAmount, currency)}
             </p>
           </div>
-          {nextPayout.daysRemaining > 0 && (
+          {nextPayout.lockedAmount > 0 && nextPayout.daysRemaining > 0 && (
             <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
               <Clock className="h-3.5 w-3.5" />
-              {nextPayout.daysRemaining} days remaining
+              Unlocks in {nextPayout.daysRemaining} days
             </span>
           )}
           <button

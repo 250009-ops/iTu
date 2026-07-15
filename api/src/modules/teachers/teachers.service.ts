@@ -16,6 +16,10 @@ import {
 import { RequestUser } from '../../common/types/request-user';
 import { formatMoney } from '../../common/format-money';
 import {
+  isPayoutRowRequestable,
+  summarizeTeacherPayouts,
+} from '../../common/payout-balances';
+import {
   addCalendarDaysIso,
   calendarDateIsoInTimeZone,
   weekdayIndexInTimeZone,
@@ -272,6 +276,14 @@ export class TeachersService {
             take: 1,
             include: {
               student: { include: { user: true } },
+              examSession: {
+                include: {
+                  sectionAttempts: {
+                    where: { skill: ExamSkill.SPEAKING },
+                    include: { speakingSession: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -316,13 +328,18 @@ export class TeachersService {
         slotDuration: a.slotDuration,
       })),
       slots: weekSlots.map((s) => {
-        const studentName = s.enrollments[0]?.student.user.name ?? null;
+        const enrollment = s.enrollments[0];
+        const studentName = enrollment?.student.user.name ?? null;
+        const speakingSessionId =
+          enrollment?.examSession?.sectionAttempts[0]?.speakingSession?.id ??
+          null;
         return {
           id: s.id,
           startsAt: s.startsAt,
           endsAt: s.endsAt,
           status: s.status.toLowerCase(),
           studentName,
+          speakingSessionId,
         };
       }),
       upcoming: upcomingSlots.map((s) => {
@@ -522,9 +539,18 @@ export class TeachersService {
       take: 50,
     });
 
-    const pendingBalance = payouts
-      .filter((p) => p.status === 'PENDING')
-      .reduce((sum, p) => sum + p.amount, 0);
+    const now = new Date();
+    const summary = summarizeTeacherPayouts(
+      payouts.map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        status: p.status,
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
+      })),
+      commission.payoutSchedule,
+      now,
+    );
 
     const weeklyRevenue = await this.buildWeeklyRevenue(
       teacher.id,
@@ -540,8 +566,17 @@ export class TeachersService {
       speakingGross: rates.speakingGross,
       writingGross: rates.writingGross,
       platformSharePercent: rates.platformSharePercent,
-      pendingBalance,
+      lockedBalance: summary.lockedBalance,
+      availableBalance: summary.availableBalance,
+      processingBalance: summary.processingBalance,
+      pendingBalance: summary.availableBalance,
       payoutSchedule: commission.payoutSchedule,
+      currentPeriod: {
+        start: summary.currentPeriod.start,
+        end: summary.currentPeriod.end,
+        label: summary.currentPeriod.label,
+      },
+      nextUnlockAt: summary.nextUnlockAt,
       payoutDetails: (teacher.payoutDetails as PayoutDetails | null) ?? null,
       weeklyRevenue,
       payouts: payouts.map((p) => ({
@@ -552,6 +587,7 @@ export class TeachersService {
         periodStart: p.periodStart,
         periodEnd: p.periodEnd,
         paidAt: p.paidAt,
+        requestable: isPayoutRowRequestable(p.status, p.periodEnd, now),
       })),
     };
   }
@@ -566,18 +602,26 @@ export class TeachersService {
       );
     }
 
+    const now = new Date();
     const pending = await this.prisma.payout.findMany({
-      where: { teacherId: teacher.id, status: PayoutStatus.PENDING },
+      where: {
+        teacherId: teacher.id,
+        status: PayoutStatus.PENDING,
+        periodEnd: { lte: now },
+      },
     });
 
     if (pending.length === 0) {
-      throw new BadRequestException('No pending balance available to request');
+      throw new BadRequestException(
+        'No completed earnings available to request yet',
+      );
     }
 
     const amount = pending.reduce((sum, p) => sum + p.amount, 0);
+    const eligibleIds = pending.map((p) => p.id);
 
     await this.prisma.payout.updateMany({
-      where: { teacherId: teacher.id, status: PayoutStatus.PENDING },
+      where: { id: { in: eligibleIds } },
       data: { status: PayoutStatus.PROCESSING },
     });
 

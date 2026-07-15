@@ -24,8 +24,10 @@ function TrendBadge({ value }: { value: string }) {
 export function EarningsSummaryCards() {
   const { earnings } = useTeacherEarnings();
   const { summary } = earnings;
-  const { availableBalance, thisMonth, allTimeEarned, avgPerSession, currency } = summary;
+  const { availableBalance, lockedBalance, thisMonth, allTimeEarned, avgPerSession, currency } =
+    summary;
   const hasBalance = availableBalance > 0;
+  const hasLocked = (lockedBalance ?? 0) > 0;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -44,6 +46,11 @@ export function EarningsSummaryCards() {
           {formatPrice(availableBalance, currency)}
         </p>
         <p className="mt-1 text-sm font-medium text-white/80">Available Balance</p>
+        {hasLocked ? (
+          <p className="mt-1 text-xs text-white/60">
+            {formatPrice(lockedBalance ?? 0, currency)} locked this period
+          </p>
+        ) : null}
         <p
           className={`mt-2 flex items-center gap-1.5 text-xs ${
             hasBalance ? "text-emerald-300" : "text-white/60"
