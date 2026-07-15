@@ -273,6 +273,11 @@ model TeacherProfile {
   credentials       Json?
   languages         Json              @default("[]")
   commissionRate    Float             @default(0.25) @map("commission_rate")
+  requestedWritingRate  Float?        @map("requested_writing_rate")
+  requestedSpeakingRate Float?        @map("requested_speaking_rate")
+  approvedWritingRate   Float?        @map("approved_writing_rate")
+  approvedSpeakingRate  Float?        @map("approved_speaking_rate")
+  platformSharePercent  Float?        @map("platform_share_percent")
   status            TeacherStatus     @default(PENDING)
   speciality        TeacherSpeciality @default(BOTH)
   rating            Float?

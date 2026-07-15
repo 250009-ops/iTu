@@ -105,6 +105,8 @@ export function registerTeacher(
   form.append("languages", JSON.stringify(data.languages));
   form.append("bio", data.bio);
   form.append("credentials", JSON.stringify(data.credentials));
+  form.append("requestedWritingRate", data.requestedWritingRate);
+  form.append("requestedSpeakingRate", data.requestedSpeakingRate);
   form.append("acceptTerms", String(data.acceptTerms));
   for (const file of certificates) {
     form.append("certificates", file);

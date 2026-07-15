@@ -3,6 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { ExamSkill } from '@prisma/client';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import {
+  BandTiers,
+  computeTeacherNetPayout,
+  ExaminerSkill,
+  mergeBandTiers,
+  tierDefaultsForBands,
+} from '../../common/examiner-rate-tiers';
 import { DEFAULT_MOCK_DAY_CUTOFF } from '../../common/mock-day-policy';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -32,11 +39,10 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     maxWarningsBeforeFlag: 1,
   },
   commission: {
-    platformCommission: 25,
-    speakingRate: 25,
-    writingRate: 35,
-    disputeRefundCap: 100,
     payoutSchedule: 'weekly',
+    speakingRate: 20_000,
+    writingRate: 20_000,
+    bandTiers: mergeBandTiers(null),
   },
   band_table: {
     note: 'Managed via band_conversion_tables',
@@ -44,17 +50,11 @@ const DEFAULT_SETTINGS: Record<string, object> = {
   notifications: {
     booking: true,
     reminder24: true,
-    reminder1: true,
     results: true,
-    dispute: false,
     assigned: true,
-    cancelled: true,
     payout: true,
-    disputeRaised: true,
     newDispute: true,
     slaBreach: true,
-    digest: false,
-    fraud: true,
   },
   integrations: {
     stripeConfigured: false,
@@ -168,9 +168,108 @@ export class SettingsService {
       payoutSchedule?: string;
     };
     return {
-      writingRate: commission.writingRate ?? 35,
-      speakingRate: commission.speakingRate ?? 25,
+      writingRate: commission.writingRate ?? 20_000,
+      speakingRate: commission.speakingRate ?? 20_000,
       payoutSchedule: commission.payoutSchedule ?? 'weekly',
+    };
+  }
+
+  async getBandTiers(): Promise<BandTiers> {
+    const commission = (await this.getSection('commission')) as {
+      bandTiers?: Partial<BandTiers>;
+    };
+    return mergeBandTiers(commission.bandTiers);
+  }
+
+  getExaminerRateTiersPublic() {
+    return this.getBandTiers();
+  }
+
+  async resolveTeacherNetPayout(
+    teacherId: string,
+    skill: ExaminerSkill,
+  ): Promise<number> {
+    const [teacher, tiers, legacy] = await Promise.all([
+      this.prisma.teacherProfile.findUnique({
+        where: { id: teacherId },
+        select: {
+          approvedWritingRate: true,
+          approvedSpeakingRate: true,
+          requestedWritingRate: true,
+          requestedSpeakingRate: true,
+          platformSharePercent: true,
+          applicationData: true,
+        },
+      }),
+      this.getBandTiers(),
+      this.getCommissionRates(),
+    ]);
+
+    if (!teacher) {
+      return skill === 'writing' ? legacy.writingRate : legacy.speakingRate;
+    }
+
+    return computeTeacherNetPayout(teacher, skill, tiers, legacy);
+  }
+
+  async resolveTeacherGrossRates(teacherId: string): Promise<{
+    writingGross: number;
+    speakingGross: number;
+    platformSharePercent: number;
+    writingNet: number;
+    speakingNet: number;
+  }> {
+    const teacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: teacherId },
+      select: {
+        approvedWritingRate: true,
+        approvedSpeakingRate: true,
+        requestedWritingRate: true,
+        requestedSpeakingRate: true,
+        platformSharePercent: true,
+        applicationData: true,
+      },
+    });
+
+    const tiers = await this.getBandTiers();
+    const legacy = await this.getCommissionRates();
+    const app = teacher?.applicationData as {
+      ieltsWritingBand?: number;
+      ieltsSpeakingBand?: number;
+    } | null;
+    const defaults = tierDefaultsForBands(
+      tiers,
+      app?.ieltsWritingBand ?? 7.5,
+      app?.ieltsSpeakingBand ?? 7.5,
+    );
+
+    const writingGross =
+      teacher?.approvedWritingRate ??
+      teacher?.requestedWritingRate ??
+      defaults.writing.defaultRate;
+    const speakingGross =
+      teacher?.approvedSpeakingRate ??
+      teacher?.requestedSpeakingRate ??
+      defaults.speaking.defaultRate;
+    const platformSharePercent =
+      teacher?.platformSharePercent ?? defaults.writing.platformPercent;
+
+    return {
+      writingGross,
+      speakingGross,
+      platformSharePercent,
+      writingNet: computeTeacherNetPayout(
+        teacher ?? {},
+        'writing',
+        tiers,
+        legacy,
+      ),
+      speakingNet: computeTeacherNetPayout(
+        teacher ?? {},
+        'speaking',
+        tiers,
+        legacy,
+      ),
     };
   }
 

@@ -74,7 +74,7 @@ export function ExamTimersPanel() {
       </div>
 
       <div className="mt-6 space-y-3">
-        {defaultExamTimers.map((timer) => {
+        {defaultExamTimers.filter((t) => t.id !== "break").map((timer) => {
           const Icon = timerIcons[timer.icon];
           return (
             <div

@@ -106,9 +106,11 @@ export function getTeacherEarnings() {
   return apiFetch<{
     totalEarned: number;
     totalSessions: number;
-    commissionRate: number;
     speakingRate: number;
     writingRate: number;
+    speakingGross?: number;
+    writingGross?: number;
+    platformSharePercent?: number;
     pendingBalance: number;
     payoutSchedule: string;
     payoutDetails: {

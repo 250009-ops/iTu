@@ -272,6 +272,8 @@ export class AuthService {
             speciality: TeacherSpeciality.BOTH,
             status: 'PENDING',
             applicationData,
+            requestedWritingRate: dto.requestedWritingRate,
+            requestedSpeakingRate: dto.requestedSpeakingRate,
           },
         },
       },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Award,
   ExternalLink,
@@ -12,8 +12,18 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getAdminTeacher } from "@/lib/api/admin";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+import { getAdminTeacher, updateTeacherRates } from "@/lib/api/admin";
+import { getExaminerRateTiers } from "@/lib/api/settings";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  DEFAULT_BAND_TIERS,
+  mergeBandTiers,
+  netExaminerPayout,
+  tierDefaultsForBands,
+  type BandTiers,
+} from "@/lib/examiner-rate-tiers";
 import type { Examiner, TeacherSpeciality, TeacherStatus } from "@/lib/admin/types";
 import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
@@ -39,11 +49,23 @@ type Props = {
 };
 
 export function TeacherDetailDrawer({ teacher, onClose }: Props) {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getAdminTeacher>> | null>(
     null,
   );
+  const [rateTiers, setRateTiers] = useState<BandTiers>(DEFAULT_BAND_TIERS);
+  const [approvedWritingRate, setApprovedWritingRate] = useState("");
+  const [approvedSpeakingRate, setApprovedSpeakingRate] = useState("");
+  const [platformSharePercent, setPlatformSharePercent] = useState("");
+
+  useEffect(() => {
+    getExaminerRateTiers()
+      .then((tiers) => setRateTiers(mergeBandTiers(tiers)))
+      .catch(() => setRateTiers(DEFAULT_BAND_TIERS));
+  }, []);
 
   useEffect(() => {
     if (!teacher) {
@@ -57,7 +79,32 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
 
     getAdminTeacher(teacher.id)
       .then((data) => {
-        if (!cancelled) setDetail(data);
+        if (!cancelled) {
+          setDetail(data);
+          const app = data.application;
+          const defaults = tierDefaultsForBands(
+            rateTiers,
+            app?.ieltsWritingBand ?? 7.5,
+            app?.ieltsSpeakingBand ?? 7.5,
+          );
+          setApprovedWritingRate(
+            String(
+              data.approvedWritingRate ??
+                data.requestedWritingRate ??
+                defaults.writing.defaultRate,
+            ),
+          );
+          setApprovedSpeakingRate(
+            String(
+              data.approvedSpeakingRate ??
+                data.requestedSpeakingRate ??
+                defaults.speaking.defaultRate,
+            ),
+          );
+          setPlatformSharePercent(
+            String(data.platformSharePercent ?? defaults.writing.platformPercent),
+          );
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(getErrorMessage(err, "Failed to load teacher details"));
@@ -69,7 +116,52 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [teacher]);
+  }, [teacher, rateTiers]);
+
+  const tierDefaults = useMemo(() => {
+    const app = detail?.application;
+    return tierDefaultsForBands(
+      rateTiers,
+      app?.ieltsWritingBand ?? 7.5,
+      app?.ieltsSpeakingBand ?? 7.5,
+    );
+  }, [detail?.application, rateTiers]);
+
+  const writingNet = netExaminerPayout(
+    Number(approvedWritingRate) || 0,
+    Number(platformSharePercent) || 0,
+  );
+  const speakingNet = netExaminerPayout(
+    Number(approvedSpeakingRate) || 0,
+    Number(platformSharePercent) || 0,
+  );
+
+  async function handleSaveRates(approve: boolean) {
+    if (!teacher) return;
+    setSaving(true);
+    try {
+      await updateTeacherRates(teacher.id, {
+        approvedWritingRate: Number(approvedWritingRate),
+        approvedSpeakingRate: Number(approvedSpeakingRate),
+        platformSharePercent: Number(platformSharePercent),
+        ...(approve ? { status: "approved" as const } : {}),
+      });
+      toast(approve ? "Examiner approved" : "Rates saved", {
+        description: approve
+          ? "Approved rates are now active for future grading payouts."
+          : "Examiner payout rates have been updated.",
+        variant: "success",
+      });
+      onClose();
+    } catch (err) {
+      toast("Failed to save rates", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (!teacher) return null;
 
@@ -242,6 +334,90 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
                 </section>
               )}
 
+              <section className="rounded-xl border border-border p-4">
+                <h3 className="text-sm font-semibold text-navy">Payout rates</h3>
+                <p className="mt-1 text-xs text-muted">
+                  Set how much this examiner earns per graded session. Student booking
+                  price does not change.
+                </p>
+                {(detail.requestedWritingRate != null ||
+                  detail.requestedSpeakingRate != null) && (
+                  <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    {detail.requestedWritingRate != null && (
+                      <div>
+                        <dt className="text-xs text-muted">Requested writing</dt>
+                        <dd className="font-semibold text-navy">
+                          {formatPrice(detail.requestedWritingRate)}
+                        </dd>
+                      </div>
+                    )}
+                    {detail.requestedSpeakingRate != null && (
+                      <div>
+                        <dt className="text-xs text-muted">Requested speaking</dt>
+                        <dd className="font-semibold text-navy">
+                          {formatPrice(detail.requestedSpeakingRate)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-muted">
+                      Approved writing (so&apos;m)
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={approvedWritingRate}
+                      onChange={(e) => setApprovedWritingRate(e.target.value)}
+                      className="mt-1 h-9"
+                    />
+                    <p className="mt-1 text-xs text-muted">
+                      Tier default: {formatPrice(tierDefaults.writing.defaultRate)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted">
+                      Approved speaking (so&apos;m)
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={approvedSpeakingRate}
+                      onChange={(e) => setApprovedSpeakingRate(e.target.value)}
+                      className="mt-1 h-9"
+                    />
+                    <p className="mt-1 text-xs text-muted">
+                      Tier default: {formatPrice(tierDefaults.speaking.defaultRate)}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-muted">
+                      Platform share (%)
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={platformSharePercent}
+                      onChange={(e) => setPlatformSharePercent(e.target.value)}
+                      className="mt-1 h-9 w-28"
+                    />
+                  </div>
+                </div>
+                <dl className="mt-4 grid gap-2 rounded-lg bg-emerald-50 px-3 py-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs text-emerald-800">Writing net pay</dt>
+                    <dd className="font-bold text-emerald-900">{formatPrice(writingNet)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-emerald-800">Speaking net pay</dt>
+                    <dd className="font-bold text-emerald-900">{formatPrice(speakingNet)}</dd>
+                  </div>
+                </dl>
+              </section>
+
               {detail.bio && (
                 <section>
                   <h3 className="text-sm font-semibold text-navy">Bio</h3>
@@ -286,9 +462,29 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
         </div>
 
         <div className="border-t border-border px-5 py-4 sm:px-6">
-          <Button variant="secondary" className="w-full" onClick={onClose}>
-            Close
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {teacher.status === "pending" && (
+              <Button
+                variant="primary"
+                className="flex-1"
+                loading={saving}
+                onClick={() => void handleSaveRates(true)}
+              >
+                Approve with rates
+              </Button>
+            )}
+            <Button
+              variant={teacher.status === "pending" ? "secondary" : "primary"}
+              className="flex-1"
+              loading={saving}
+              onClick={() => void handleSaveRates(false)}
+            >
+              Save rates
+            </Button>
+            <Button variant="secondary" className="flex-1" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
       </aside>
     </>

@@ -112,6 +112,7 @@ npm run content:repair-mocks
 npm run content:migrate-names
 npm run enrollments:backfill-cutoff
 npm run settings:migrate-day-cutoff
+cd /var/www/itestu/app/api && npx tsx scripts/migrate-teacher-rates.ts || true
 if [ "${freshPackages}" = "1" ]; then
   npm run packages:clear -- --confirm
 fi

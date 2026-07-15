@@ -92,6 +92,18 @@ export class RegisterTeacherDto {
   @MaxLength(80, { each: true })
   credentials: string[];
 
+  @Transform(({ value }) => parseFloat(String(value)))
+  @IsNumber()
+  @Min(1)
+  @Max(100_000)
+  requestedWritingRate: number;
+
+  @Transform(({ value }) => parseFloat(String(value)))
+  @IsNumber()
+  @Min(1)
+  @Max(100_000)
+  requestedSpeakingRate: number;
+
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   acceptTerms: boolean;

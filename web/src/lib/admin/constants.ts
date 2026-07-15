@@ -18,13 +18,7 @@ export const settingsTabs: {
   { id: "commission", label: "Commission", description: "Rates & payout rules" },
   { id: "band_table", label: "Band Table", description: "Raw score conversion" },
   { id: "notifications", label: "Notifications", description: "Alerts & email triggers" },
-  { id: "integrations", label: "Integrations", description: "API keys & webhooks" },
-];
-
-export const systemHealth = [
-  { service: "API", status: "operational" as const },
-  { service: "Payments", status: "operational" as const },
-  { service: "Email", status: "degraded" as const },
+  { id: "integrations", label: "Integrations", description: "Connected services status" },
 ];
 
 export const allModules: ModuleKey[] = [
@@ -149,33 +143,6 @@ export const questionTypes = [
   "Map Labelling",
 ] as const;
 
-export const defaultExamPolicies = [
-  {
-    id: "autoRelease",
-    label: "Auto-release results after speaking grade",
-    hint: "Students see scores as soon as all modules are graded — no manual publish required.",
-    defaultOn: true,
-  },
-  {
-    id: "retake72h",
-    label: "Allow retake within 72 hours",
-    hint: "Students can rebook without waiting 3 days; use with caution.",
-    defaultOn: false,
-  },
-  {
-    id: "photoId",
-    label: "Require photo ID verification at check-in",
-    hint: "Examiner must confirm student identity before session starts.",
-    defaultOn: true,
-  },
-  {
-    id: "lateJoin",
-    label: "Enforce late-join cutoff (15 min)",
-    hint: "Students who connect more than 15 min late are marked absent.",
-    defaultOn: true,
-  },
-];
-
 export const defaultExamTimers = [
   {
     id: "listening",
@@ -210,14 +177,6 @@ export const defaultExamTimers = [
     icon: "mic" as const,
   },
   {
-    id: "break",
-    label: "Break Duration",
-    hint: "After Reading, before Writing",
-    minutes: 10,
-    color: "bg-amber-400",
-    icon: "clock" as const,
-  },
-  {
     id: "checkIn",
     label: "Check-in Window",
     hint: "Opens N minutes before exam start",
@@ -234,23 +193,6 @@ export const defaultExamTimers = [
     icon: "alert" as const,
   },
 ];
-
-export const mockDayWindowSettings = [
-  {
-    id: "dayCutoffTime",
-    label: "Mock day cutoff",
-    hint: "Latest time a student may start on mock day (HH:mm)",
-    defaultValue: "23:59",
-    icon: "clock" as const,
-  },
-  {
-    id: "speakingEarlyJoinMin",
-    label: "Speaking early join",
-    hint: "Minutes before slot when Join Session activates",
-    minutes: 5,
-    icon: "mic" as const,
-  },
-] as const;
 
 export const defaultBandConversionTable = [
   { band: "9.0", listening: "39–40", reading: "40", weight: 100 },
@@ -273,9 +215,7 @@ export const defaultNotificationGroups = [
     items: [
       { id: "booking", label: "Booking confirmation email", hint: "Sent immediately after payment completes.", defaultOn: true },
       { id: "reminder24", label: "Exam reminder (24 hrs before)", hint: "Includes session link and ID check reminder.", defaultOn: true },
-      { id: "reminder1", label: "Exam reminder (1 hr before)", hint: "Final reminder with direct join link.", defaultOn: true },
       { id: "results", label: "Results published notification", hint: "Email + in-app when all modules are graded.", defaultOn: true },
-      { id: "dispute", label: "Dispute status updates", hint: "Updates when ticket status changes.", defaultOn: false },
     ],
   },
   {
@@ -284,9 +224,7 @@ export const defaultNotificationGroups = [
     tone: "emerald" as const,
     items: [
       { id: "assigned", label: "New session assigned", hint: "Sent when admin assigns a student session.", defaultOn: true },
-      { id: "cancelled", label: "Session cancelled by student", hint: "With reason and cancellation timestamp.", defaultOn: true },
       { id: "payout", label: "Payout processed", hint: "Weekly payout confirmation with breakdown.", defaultOn: true },
-      { id: "disputeRaised", label: "Dispute raised against session", hint: "When a student files a dispute for their session.", defaultOn: true },
     ],
   },
   {
@@ -294,47 +232,9 @@ export const defaultNotificationGroups = [
     label: "Admin Alerts",
     tone: "rose" as const,
     items: [
-      { id: "newDispute", label: "New dispute opened", hint: "Immediate Slack + email alert to admin team.", defaultOn: true },
-      { id: "slaBreach", label: "SLA breach warning (24 hrs)", hint: "Ticket approaching SLA deadline.", defaultOn: true },
-      { id: "digest", label: "Daily operations digest", hint: "Summary of enrollments, completions, and revenue at 08:00.", defaultOn: false },
-      { id: "fraud", label: "Fraud or chargeback detected", hint: "Payment processor webhook alert.", defaultOn: true },
+      { id: "newDispute", label: "New dispute opened", hint: "Email alert when a dispute or support ticket is opened.", defaultOn: true },
+      { id: "slaBreach", label: "SLA breach warning (24 hrs)", hint: "In-app alert when a ticket approaches SLA deadline.", defaultOn: true },
     ],
-  },
-];
-
-export const defaultApiKeys = [
-  {
-    id: "1",
-    name: "Production API Key",
-    key: "sk_live_...4f2a",
-    tags: ["read", "write"],
-    status: "active" as const,
-    created: "Jan 15, 2026",
-  },
-];
-
-export const defaultConnectedServices = [
-  { name: "Stripe", description: "Payment processing & subscriptions", status: "connected" as const },
-  { name: "SendGrid", description: "Transactional email delivery", status: "degraded" as const },
-  { name: "LiveKit", description: "Speaking exam live video & recording", status: "connected" as const },
-  { name: "Slack", description: "Admin alert notifications", status: "connected" as const },
-  { name: "VPS Media", description: "Exam audio & recordings on server disk", status: "disconnected" as const },
-];
-
-export const defaultDangerZoneActions = [
-  {
-    id: "purge",
-    label: "Purge All Test Data",
-    hint: "Removes all mock/demo enrollments and orders created in test mode. Irreversible.",
-    action: "Purge Test Data",
-    icon: "trash" as const,
-  },
-  {
-    id: "reset",
-    label: "Reset Band Table to Defaults",
-    hint: "Reverts to official IELTS conversion tables. Any custom thresholds will be lost.",
-    action: "Reset Table",
-    icon: "refresh" as const,
   },
 ];
 

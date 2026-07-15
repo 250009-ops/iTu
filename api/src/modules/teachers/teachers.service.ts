@@ -514,6 +514,7 @@ export class TeachersService {
   async getEarnings(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
     const commission = await this.settings.getCommissionRates();
+    const rates = await this.settings.resolveTeacherGrossRates(teacher.id);
 
     const payouts = await this.prisma.payout.findMany({
       where: { teacherId: teacher.id },
@@ -527,16 +528,18 @@ export class TeachersService {
 
     const weeklyRevenue = await this.buildWeeklyRevenue(
       teacher.id,
-      commission.speakingRate,
-      commission.writingRate,
+      rates.speakingNet,
+      rates.writingNet,
     );
 
     return {
       totalEarned: teacher.totalEarned,
       totalSessions: teacher.totalSessions,
-      commissionRate: teacher.commissionRate,
-      speakingRate: commission.speakingRate,
-      writingRate: commission.writingRate,
+      speakingRate: rates.speakingNet,
+      writingRate: rates.writingNet,
+      speakingGross: rates.speakingGross,
+      writingGross: rates.writingGross,
+      platformSharePercent: rates.platformSharePercent,
       pendingBalance,
       payoutSchedule: commission.payoutSchedule,
       payoutDetails: (teacher.payoutDetails as PayoutDetails | null) ?? null,

@@ -9,31 +9,21 @@ const services = [
     name: "Lemon Squeezy",
     description: "Student checkout — cards, PayPal, Apple Pay (international cards supported)",
     key: "lemonSqueezyConfigured" as const,
-    envManaged: true,
-  },
-  {
-    name: "Stripe",
-    description: "Legacy placeholder — not used for student checkout",
-    key: "stripeConfigured" as const,
-    envManaged: false,
   },
   {
     name: "Eskiz SMTP",
     description: "Transactional email — password reset, bookings, results",
     key: "smtpConfigured" as const,
-    envManaged: true,
   },
   {
     name: "LiveKit",
     description: "Speaking exam live video & server-side recording",
     key: "livekitConfigured" as const,
-    envManaged: true,
   },
   {
     name: "VPS Media Storage",
     description: "Listening audio & speaking recordings on Eskiz server disk",
     key: "mediaStorageConfigured" as const,
-    envManaged: true,
   },
 ];
 
@@ -43,7 +33,7 @@ const serviceStatusStyles = {
 };
 
 export function IntegrationsPanel() {
-  const { integrations, setField } = useAdminSettings();
+  const { integrations } = useAdminSettings();
   const flags = integrations as Record<string, boolean>;
 
   return (
@@ -51,8 +41,8 @@ export function IntegrationsPanel() {
       <div>
         <h2 className="font-semibold text-navy">Integrations</h2>
         <p className="mt-0.5 text-sm text-muted">
-          Toggle which third-party services are enabled. Save changes from the
-          footer when done.
+          Status of connected third-party services. Configuration is managed on
+          the server — contact your technical team to change connections.
         </p>
       </div>
 
@@ -85,21 +75,7 @@ export function IntegrationsPanel() {
                     <span className={cn("h-2 w-2 rounded-full", status.dot)} />
                     {status.label}
                   </span>
-                  {!service.envManaged ? (
-                    <label className="relative inline-flex cursor-pointer items-center">
-                      <input
-                        type="checkbox"
-                        className="peer sr-only"
-                        checked={connected}
-                        onChange={(e) =>
-                          setField("integrations", service.key, e.target.checked)
-                        }
-                      />
-                      <span className="h-6 w-11 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500 peer-focus-visible:ring-2 peer-focus-visible:ring-sky-300 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5" />
-                    </label>
-                  ) : (
-                    <span className="text-xs text-muted">via api/.env</span>
-                  )}
+                  <span className="text-xs text-muted">via api/.env</span>
                 </div>
               </div>
             );

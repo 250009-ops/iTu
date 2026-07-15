@@ -327,6 +327,13 @@ export class GradingService {
 
     const isFirstGrade = !submission.grade;
     const commission = await this.settings.getCommissionRates();
+    const netPayout =
+      isFirstGrade && user.teacherProfileId
+        ? await this.settings.resolveTeacherNetPayout(
+            user.teacherProfileId,
+            'writing',
+          )
+        : 0;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.grade.upsert({
@@ -360,7 +367,7 @@ export class GradingService {
         await accrueTeacherGradingEarning(
           tx,
           user.teacherProfileId,
-          'writing',
+          netPayout,
           commission,
         );
       }
@@ -466,6 +473,13 @@ export class GradingService {
 
     const isFirstGrade = !session.grade;
     const commission = await this.settings.getCommissionRates();
+    const netPayout =
+      isFirstGrade && user.teacherProfileId
+        ? await this.settings.resolveTeacherNetPayout(
+            user.teacherProfileId,
+            'speaking',
+          )
+        : 0;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.grade.upsert({
@@ -507,7 +521,7 @@ export class GradingService {
         await accrueTeacherGradingEarning(
           tx,
           user.teacherProfileId,
-          'speaking',
+          netPayout,
           commission,
         );
       }

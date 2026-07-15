@@ -30,6 +30,7 @@ import {
   resolveAttemptBand,
 } from '../../common/band-resolution';
 import { CATALOG_CURRENCY } from '../../common/catalog-pricing';
+import { tierDefaultsForBands } from '../../common/examiner-rate-tiers';
 import { formatMoney } from '../../common/format-money';
 import { MailService } from '../../common/mail/mail.service';
 import { BookingsService } from '../bookings/bookings.service';
@@ -54,6 +55,7 @@ import { UpdateGrantEnrollmentDto } from './dto/update-grant-enrollment.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
 import { UpdatePayoutDto } from './dto/update-payout.dto';
+import { UpdateTeacherRatesDto } from './dto/update-teacher-rates.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import {
   derivePackageKind,
@@ -1264,10 +1266,41 @@ export class AdminService {
     const previousStatus = existing.status;
     const nextStatus = status.toUpperCase() as 'APPROVED' | 'PENDING' | 'SUSPENDED';
 
+    let rateData: {
+      approvedWritingRate?: number;
+      approvedSpeakingRate?: number;
+      platformSharePercent?: number;
+    } = {};
+
+    if (nextStatus === 'APPROVED') {
+      const tiers = await this.settings.getBandTiers();
+      const app = existing.applicationData as {
+        ieltsWritingBand?: number;
+        ieltsSpeakingBand?: number;
+      } | null;
+      const defaults = tierDefaultsForBands(
+        tiers,
+        app?.ieltsWritingBand ?? 7.5,
+        app?.ieltsSpeakingBand ?? 7.5,
+      );
+      rateData = {
+        approvedWritingRate:
+          existing.approvedWritingRate ??
+          existing.requestedWritingRate ??
+          defaults.writing.defaultRate,
+        approvedSpeakingRate:
+          existing.approvedSpeakingRate ??
+          existing.requestedSpeakingRate ??
+          defaults.speaking.defaultRate,
+        platformSharePercent:
+          existing.platformSharePercent ?? defaults.writing.platformPercent,
+      };
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const teacher = await tx.teacherProfile.update({
         where: { id: teacherId },
-        data: { status: nextStatus },
+        data: { status: nextStatus, ...rateData },
         include: { user: true },
       });
 
@@ -1302,6 +1335,103 @@ export class AdminService {
     ).catch(() => undefined);
 
     return this.mapTeacherListItem(updated);
+  }
+
+  async updateTeacherRates(
+    teacherId: string,
+    dto: UpdateTeacherRatesDto,
+    actorId: string,
+  ) {
+    const existing = await this.prisma.teacherProfile.findUnique({
+      where: { id: teacherId },
+      include: { user: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Teacher not found');
+    }
+
+    const tiers = await this.settings.getBandTiers();
+    const app = existing.applicationData as {
+      ieltsWritingBand?: number;
+      ieltsSpeakingBand?: number;
+    } | null;
+    const defaults = tierDefaultsForBands(
+      tiers,
+      app?.ieltsWritingBand ?? 7.5,
+      app?.ieltsSpeakingBand ?? 7.5,
+    );
+
+    const approvedWritingRate =
+      dto.approvedWritingRate ??
+      existing.approvedWritingRate ??
+      existing.requestedWritingRate ??
+      defaults.writing.defaultRate;
+    const approvedSpeakingRate =
+      dto.approvedSpeakingRate ??
+      existing.approvedSpeakingRate ??
+      existing.requestedSpeakingRate ??
+      defaults.speaking.defaultRate;
+    const platformSharePercent =
+      dto.platformSharePercent ??
+      existing.platformSharePercent ??
+      defaults.writing.platformPercent;
+
+    const previousStatus = existing.status;
+    const nextStatus = dto.status
+      ? (dto.status.toUpperCase() as 'APPROVED' | 'PENDING' | 'SUSPENDED')
+      : existing.status;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const teacher = await tx.teacherProfile.update({
+        where: { id: teacherId },
+        data: {
+          approvedWritingRate,
+          approvedSpeakingRate,
+          platformSharePercent,
+          ...(dto.status ? { status: nextStatus } : {}),
+        },
+        include: { user: true },
+      });
+
+      if (nextStatus === 'APPROVED' && !teacher.user.emailVerifiedAt) {
+        await tx.user.update({
+          where: { id: teacher.userId },
+          data: {
+            emailVerifiedAt: new Date(),
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+          },
+        });
+        teacher.user.emailVerifiedAt = new Date();
+      }
+
+      return teacher;
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_TEACHER_STATUS,
+      entity: 'teacher_profile',
+      entityId: teacherId,
+      metadata: {
+        approvedWritingRate,
+        approvedSpeakingRate,
+        platformSharePercent,
+        status: dto.status ?? previousStatus.toLowerCase(),
+      },
+    });
+
+    if (dto.status && nextStatus !== previousStatus) {
+      void this.notifyTeacherStatusChange(
+        updated.user.email,
+        updated.user.name,
+        previousStatus,
+        updated.status,
+      ).catch(() => undefined);
+    }
+
+    return this.mapTeacherDetail(updated);
   }
 
   private mapTeacherListItem(teacher: {
@@ -1339,6 +1469,11 @@ export class AdminService {
     languages: unknown;
     credentials: unknown;
     applicationData: unknown;
+    requestedWritingRate: number | null;
+    requestedSpeakingRate: number | null;
+    approvedWritingRate: number | null;
+    approvedSpeakingRate: number | null;
+    platformSharePercent: number | null;
     user: { name: string; email: string };
   }) {
     return {
@@ -1347,6 +1482,11 @@ export class AdminService {
       languages: teacher.languages,
       credentials: teacher.credentials,
       application: teacher.applicationData,
+      requestedWritingRate: teacher.requestedWritingRate,
+      requestedSpeakingRate: teacher.requestedSpeakingRate,
+      approvedWritingRate: teacher.approvedWritingRate,
+      approvedSpeakingRate: teacher.approvedSpeakingRate,
+      platformSharePercent: teacher.platformSharePercent,
     };
   }
 

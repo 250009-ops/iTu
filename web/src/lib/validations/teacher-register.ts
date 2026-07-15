@@ -52,6 +52,20 @@ const teacherRegisterBaseSchema = z.object({
   credentials: z
     .array(z.enum(TEACHER_CREDENTIAL_OPTIONS))
     .min(1, "Select at least one qualification"),
+  requestedWritingRate: z
+    .string()
+    .min(1, "Enter your requested writing rate")
+    .refine((v) => {
+      const n = parseInt(v, 10);
+      return !Number.isNaN(n) && n >= 1 && n <= 100_000;
+    }, "Enter a rate between 1 and 100,000 so'm"),
+  requestedSpeakingRate: z
+    .string()
+    .min(1, "Enter your requested speaking rate")
+    .refine((v) => {
+      const n = parseInt(v, 10);
+      return !Number.isNaN(n) && n >= 1 && n <= 100_000;
+    }, "Enter a rate between 1 and 100,000 so'm"),
   acceptTerms: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms to continue",
   }),
@@ -93,6 +107,8 @@ const step2Schema = teacherRegisterBaseSchema.pick({
   languages: true,
   bio: true,
   credentials: true,
+  requestedWritingRate: true,
+  requestedSpeakingRate: true,
 });
 
 export function isTeacherRegisterStepReady(

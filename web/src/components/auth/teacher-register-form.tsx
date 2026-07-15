@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -23,7 +23,15 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Select } from "@/components/ui/select";
 import { registerTeacher } from "@/lib/api/auth";
+import { getExaminerRateTiers } from "@/lib/api/settings";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  DEFAULT_BAND_TIERS,
+  mergeBandTiers,
+  tierDefaultsForBands,
+  type BandTiers,
+} from "@/lib/examiner-rate-tiers";
+import { formatPrice } from "@/lib/format-price";
 import {
   TEACHER_BAND_OPTIONS,
   TEACHER_CREDENTIAL_OPTIONS,
@@ -84,6 +92,13 @@ export default function TeacherRegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [certificates, setCertificates] = useState<File[]>([]);
   const [submitted, setSubmitted] = useState<{ email: string } | null>(null);
+  const [rateTiers, setRateTiers] = useState<BandTiers>(DEFAULT_BAND_TIERS);
+
+  useEffect(() => {
+    getExaminerRateTiers()
+      .then((tiers) => setRateTiers(mergeBandTiers(tiers)))
+      .catch(() => setRateTiers(DEFAULT_BAND_TIERS));
+  }, []);
 
   const form = useForm<TeacherRegisterFormValues>({
     resolver: zodResolver(teacherRegisterSchema),
@@ -91,6 +106,8 @@ export default function TeacherRegisterForm() {
       ieltsWritingBand: "7.5",
       ieltsSpeakingBand: "7.5",
       yearsExperience: "",
+      requestedWritingRate: String(DEFAULT_BAND_TIERS["7.5"].writing.defaultRate),
+      requestedSpeakingRate: String(DEFAULT_BAND_TIERS["7.5"].speaking.defaultRate),
       languages: ["English"],
       bio: "",
       credentials: [],
@@ -111,13 +128,23 @@ export default function TeacherRegisterForm() {
   const languages = watch("languages");
   const credentials = watch("credentials");
   const values = watch();
+  const writingBand = watch("ieltsWritingBand");
+  const speakingBand = watch("ieltsSpeakingBand");
+
+  useEffect(() => {
+    const defaults = tierDefaultsForBands(rateTiers, writingBand, speakingBand);
+    setValue("requestedWritingRate", String(defaults.writing.defaultRate));
+    setValue("requestedSpeakingRate", String(defaults.speaking.defaultRate));
+  }, [writingBand, speakingBand, rateTiers, setValue]);
+
+  const tierHints = tierDefaultsForBands(rateTiers, writingBand, speakingBand);
 
   const canContinue = isTeacherRegisterStepReady(step, values, certificates.length);
 
   async function validateStep(targetStep: number) {
     const fieldsByStep: Record<number, (keyof TeacherRegisterFormValues)[]> = {
       1: ["fullName", "email", "password", "confirmPassword"],
-      2: ["ieltsWritingBand", "ieltsSpeakingBand", "yearsExperience", "languages", "bio", "credentials"],
+      2: ["ieltsWritingBand", "ieltsSpeakingBand", "yearsExperience", "languages", "bio", "credentials", "requestedWritingRate", "requestedSpeakingRate"],
       3: ["acceptTerms"],
     };
 
@@ -326,6 +353,36 @@ export default function TeacherRegisterForm() {
                 </Select>
               </FormField>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                label="Your writing rate (so'm per graded script)"
+                error={errors.requestedWritingRate?.message}
+                hint={`Suggested for Band ${writingBand}: ${formatPrice(tierHints.writing.defaultRate)}`}
+              >
+                <Input
+                  {...register("requestedWritingRate")}
+                  type="number"
+                  min={1}
+                  max={100000}
+                  placeholder="e.g. 20000"
+                  error={!!errors.requestedWritingRate}
+                />
+              </FormField>
+              <FormField
+                label="Your speaking rate (so'm per session)"
+                error={errors.requestedSpeakingRate?.message}
+                hint={`Suggested for Band ${speakingBand}: ${formatPrice(tierHints.speaking.defaultRate)}`}
+              >
+                <Input
+                  {...register("requestedSpeakingRate")}
+                  type="number"
+                  min={1}
+                  max={100000}
+                  placeholder="e.g. 20000"
+                  error={!!errors.requestedSpeakingRate}
+                />
+              </FormField>
+            </div>
             <FormField
               label="Years of IELTS teaching / examining experience"
               error={errors.yearsExperience?.message}
@@ -498,6 +555,18 @@ export default function TeacherRegisterForm() {
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted">Speaking</dt>
                 <dd className="mt-0.5 font-medium text-navy">Band {values.ieltsSpeakingBand}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Writing rate</dt>
+                <dd className="mt-0.5 font-medium text-navy">
+                  {formatPrice(Number(values.requestedWritingRate))} / script
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Speaking rate</dt>
+                <dd className="mt-0.5 font-medium text-navy">
+                  {formatPrice(Number(values.requestedSpeakingRate))} / session
+                </dd>
               </div>
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted">Experience</dt>

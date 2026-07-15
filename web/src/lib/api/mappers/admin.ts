@@ -1,4 +1,5 @@
 import { paymentLabel, normalizePaymentMethod } from "@/lib/admin/constants";
+import { mergeBandTiers, type BandTiers } from "@/lib/examiner-rate-tiers";
 import type {
   ContentModule,
   ContentTest,
@@ -765,21 +766,14 @@ const defaultExamTimerValues: Record<string, number> = {
 const defaultNotificationValues: Record<string, boolean> = {
   booking: true,
   reminder24: true,
-  reminder1: true,
   results: true,
-  dispute: false,
   assigned: true,
-  cancelled: true,
   payout: true,
-  disputeRaised: true,
   newDispute: true,
   slaBreach: true,
-  digest: false,
-  fraud: true,
 };
 
 const defaultIntegrationValues: Record<string, boolean> = {
-  stripeConfigured: false,
   lemonSqueezyConfigured: false,
   smtpConfigured: false,
   sendgridConfigured: false,
@@ -831,20 +825,13 @@ export function mapAdminSettings(raw: Record<string, unknown>) {
       supportEmail: String(general.supportEmail ?? "support@itestu.uz"),
       adminContact: String(general.adminContact ?? "admin@itestu.uz"),
       platformUrl: String(general.platformUrl ?? "https://itestu.uz"),
-      timezone: String(general.timezone ?? "UTC+0 (London)"),
+      timezone: String(general.timezone ?? "Asia/Tashkent"),
       defaultLanguage: String(general.defaultLanguage ?? "English (en-GB)"),
     },
     commissionSettings: {
-      platformCommission: Number(
-        commission.platformCommission ?? commission.platformRate ?? 25,
+      bandTiers: mergeBandTiers(
+        (commission.bandTiers as Partial<BandTiers> | undefined) ?? null,
       ),
-      speakingRate: Number(
-        commission.speakingRate ?? commission.speakingFee ?? 25,
-      ),
-      writingRate: Number(
-        commission.writingRate ?? commission.writingFee ?? 35,
-      ),
-      disputeRefundCap: Number(commission.disputeRefundCap ?? 100),
       payoutSchedule: String(commission.payoutSchedule ?? "weekly") as
         | "weekly"
         | "biweekly"

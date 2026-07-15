@@ -7,24 +7,17 @@ import {
 } from './payout-period';
 
 type CommissionSettings = {
-  writingRate?: number;
-  speakingRate?: number;
   payoutSchedule?: string;
 };
 
 export async function accrueTeacherGradingEarning(
   tx: Prisma.TransactionClient,
   teacherId: string,
-  skill: 'writing' | 'speaking',
+  netAmount: number,
   commission: CommissionSettings,
 ) {
-  const amount =
-    skill === 'writing'
-      ? (commission.writingRate ?? 35)
-      : (commission.speakingRate ?? 25);
+  const amount = Math.max(0, Math.round(netAmount));
 
-  // Institution-scoped examiners are paid by their center off-platform, so they
-  // accrue session counts but never platform earnings or payout rows.
   const teacher = await tx.teacherProfile.findUnique({
     where: { id: teacherId },
     select: { institutionId: true },
@@ -47,7 +40,6 @@ export async function accrueTeacherGradingEarning(
 
   const schedule = normalizePayoutSchedule(commission.payoutSchedule);
   const { periodStart, periodEnd } = getPayoutPeriod(schedule);
-  const now = new Date();
 
   const existing = await tx.payout.findFirst({
     where: {

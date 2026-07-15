@@ -27,6 +27,7 @@ import { UpdateBandTableDto } from './dto/band-table.dto';
 import { CreatePackageDto, UpdatePackageDto } from './dto/package.dto';
 import { RefundOrderDto } from './dto/refund-order.dto';
 import { UpdatePayoutDto } from './dto/update-payout.dto';
+import { UpdateTeacherRatesDto } from './dto/update-teacher-rates.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 
 @ApiTags('admin')
@@ -117,6 +118,15 @@ export class AdminController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.admin.updateTeacherStatus(id, body.status, user.id);
+  }
+
+  @Patch('teachers/:id/rates')
+  updateTeacherRates(
+    @Param('id') id: string,
+    @Body() body: UpdateTeacherRatesDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.updateTeacherRates(id, body, user.id);
   }
 
   @Get('orders')

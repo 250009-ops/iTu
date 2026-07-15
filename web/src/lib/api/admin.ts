@@ -441,7 +441,27 @@ export function getAdminTeacher(id: string) {
       phone?: string | null;
       submittedAt?: string;
     } | null;
+    requestedWritingRate?: number | null;
+    requestedSpeakingRate?: number | null;
+    approvedWritingRate?: number | null;
+    approvedSpeakingRate?: number | null;
+    platformSharePercent?: number | null;
   }>(`/admin/teachers/${id}`);
+}
+
+export function updateTeacherRates(
+  id: string,
+  body: {
+    approvedWritingRate?: number;
+    approvedSpeakingRate?: number;
+    platformSharePercent?: number;
+    status?: "approved" | "pending" | "suspended";
+  },
+) {
+  return apiFetch(`/admin/teachers/${id}/rates`, {
+    method: "PATCH",
+    body,
+  });
 }
 
 export function updateTeacherStatus(
