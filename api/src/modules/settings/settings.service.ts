@@ -13,9 +13,11 @@ import {
 import { DEFAULT_MOCK_DAY_CUTOFF } from '../../common/mock-day-policy';
 import { PrismaService } from '../../prisma/prisma.service';
 
+const PLATFORM_NAME = 'iTestU';
+
 const DEFAULT_SETTINGS: Record<string, object> = {
   general: {
-    platformName: 'iTestU',
+    platformName: PLATFORM_NAME,
     supportEmail: 'support@itestu.uz',
     timezone: 'Asia/Tashkent',
     defaultLanguage: 'en',
@@ -84,6 +86,7 @@ export class SettingsService {
       settings[row.section] = row.settings as object;
     }
 
+    settings.general = this.withFixedPlatformName(settings.general);
     settings.integrations = this.mergeIntegrations(settings.integrations);
     return settings;
   }
@@ -93,6 +96,9 @@ export class SettingsService {
       where: { section },
     });
     const base = (row?.settings ?? DEFAULT_SETTINGS[section] ?? {}) as object;
+    if (section === 'general') {
+      return this.withFixedPlatformName(base);
+    }
     if (section === 'integrations') {
       return this.mergeIntegrations(base);
     }
@@ -103,7 +109,9 @@ export class SettingsService {
     const payload =
       section === 'integrations'
         ? this.stripEnvManagedIntegrations(settings)
-        : settings;
+        : section === 'general'
+          ? this.withFixedPlatformName(settings)
+          : settings;
 
     const updated = await this.prisma.platformSettings.upsert({
       where: { section },
@@ -120,6 +128,13 @@ export class SettingsService {
     });
 
     return updated;
+  }
+
+  private withFixedPlatformName(settings: object): object {
+    return {
+      ...(settings as Record<string, unknown>),
+      platformName: PLATFORM_NAME,
+    };
   }
 
   async getSectionDurationsSec(): Promise<Record<ExamSkill, number>> {

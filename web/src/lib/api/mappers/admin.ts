@@ -822,7 +822,7 @@ export function mapAdminSettings(raw: Record<string, unknown>) {
 
   return {
     generalSettings: {
-      platformName: String(general.platformName ?? "IELTS Mock Platform"),
+      platformName: "iTestU",
       supportEmail: String(general.supportEmail ?? "support@itestu.uz"),
       adminContact: String(general.adminContact ?? "admin@itestu.uz"),
       platformUrl: String(general.platformUrl ?? "https://itestu.uz"),

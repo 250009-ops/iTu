@@ -49,11 +49,10 @@ export function GeneralSettingsPanel() {
       </div>
 
       <div className="mt-6 space-y-5">
-        <Field label="Platform Name" hint="Shown in emails and the student portal header">
-          <Input
-            value={generalSettings.platformName}
-            onChange={(e) => setField("general", "platformName", e.target.value)}
-          />
+        <Field label="Platform Name" hint="The iTestU brand name is fixed across the platform">
+          <div className="flex h-10 items-center rounded-lg border border-border bg-slate-50 px-3 text-sm font-medium text-navy">
+            iTestU
+          </div>
         </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
