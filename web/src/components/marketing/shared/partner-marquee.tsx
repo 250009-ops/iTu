@@ -53,8 +53,10 @@ export function PartnerMarquee({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const el = containerRef.current;
     if (!el) return;
 
@@ -70,10 +72,12 @@ export function PartnerMarquee({
     };
   }, []);
 
-  const { items, animate } = useMemo(
-    () => buildRow(centers, containerWidth || (typeof window !== "undefined" ? window.innerWidth : 1200)),
-    [centers, containerWidth],
-  );
+  const { items, animate } = useMemo(() => {
+    if (!mounted || containerWidth === 0) {
+      return { items: centers, animate: false };
+    }
+    return buildRow(centers, containerWidth);
+  }, [centers, containerWidth, mounted]);
 
   if (centers.length === 0) return null;
 

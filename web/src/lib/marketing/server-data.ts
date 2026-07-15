@@ -86,7 +86,10 @@ export async function fetchHeroStats(): Promise<HeroStats> {
   return {
     candidates: formatSocialCount(s.candidates),
     mocks: formatSocialCount(s.mocksDelivered),
-    rating: s.examinerRating != null ? s.examinerRating.toFixed(1) : null,
+    rating:
+      s.examinerRating != null && s.certifiedExaminers >= SOCIAL_PROOF_MIN
+        ? s.examinerRating.toFixed(1)
+        : null,
     examiners: formatSocialCount(s.certifiedExaminers),
     candidatesRaw: s.candidates,
     examinersRaw: s.certifiedExaminers,
@@ -109,7 +112,7 @@ export async function fetchStats(): Promise<MarketingStat[]> {
       label: "Mocks delivered",
     });
   }
-  if (s.avgBandImprovement != null) {
+  if (s.avgBandImprovement != null && s.mocksDelivered >= SOCIAL_PROOF_MIN) {
     stats.push({
       id: "improvement",
       prefix: "+",
@@ -118,7 +121,10 @@ export async function fetchStats(): Promise<MarketingStat[]> {
       label: "Avg. band improvement",
     });
   }
-  if (s.examinerRating != null) {
+  if (
+    s.examinerRating != null &&
+    s.certifiedExaminers >= SOCIAL_PROOF_MIN
+  ) {
     stats.push({
       id: "rating",
       value: s.examinerRating,

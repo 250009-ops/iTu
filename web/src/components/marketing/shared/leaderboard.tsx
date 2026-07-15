@@ -13,14 +13,27 @@ const SKILL_LETTERS: Array<[keyof TopStudent["skillBands"], string, string]> = [
   ["speaking", "S", "text-rose-600"],
 ];
 
-function SkillBands({ bands }: { bands: TopStudent["skillBands"] }) {
+function SkillBands({
+  bands,
+  align = "center",
+}: {
+  bands: TopStudent["skillBands"];
+  align?: "left" | "center";
+}) {
   return (
-    <div className="flex items-center justify-center gap-2 text-[11px]">
+    <div
+      className={cn(
+        "grid w-[7.5rem] grid-cols-4 gap-0.5 text-[11px] tabular-nums",
+        align === "center" && "mx-auto",
+      )}
+    >
       {SKILL_LETTERS.map(([key, letter, color]) => (
-        <span key={key} className="flex flex-col items-center">
-          <span className={cn("font-bold", color)}>{letter}</span>
-          <span className="font-semibold text-foreground">{bands[key]}</span>
-        </span>
+        <div key={key} className="flex flex-col items-center">
+          <span className={cn("font-bold leading-none", color)}>{letter}</span>
+          <span className="mt-0.5 font-semibold leading-none text-foreground">
+            {bands[key]}
+          </span>
+        </div>
       ))}
     </div>
   );
@@ -98,12 +111,18 @@ export function Leaderboard({ students = [] }: { students?: TopStudent[] }) {
                   {student.name}{" "}
                   <span className="font-normal text-muted">{student.country}</span>
                 </p>
-                <SkillBands bands={student.skillBands} />
+                <SkillBands bands={student.skillBands} align="left" />
               </div>
               <div className="text-right">
                 <p className="text-xl font-extrabold text-emerald-600">{student.overallBand}</p>
                 <p className="inline-flex items-center gap-0.5 text-[11px] font-medium text-emerald-600">
-                  <TrendingUp className="h-3 w-3" /> +{student.improvementDelta}
+                  {student.improvementDelta > 0 ? (
+                    <>
+                      <TrendingUp className="h-3 w-3" /> +{student.improvementDelta}
+                    </>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
                 </p>
               </div>
             </StaggerItem>
