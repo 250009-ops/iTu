@@ -36,11 +36,11 @@ function BookedSlotTooltip({
   const label = block.studentName ?? "Booked student";
 
   return (
-    <div className="group/booked relative flex h-full w-full items-start justify-center">
+    <div className="relative flex h-full w-full items-start justify-center">
       {children}
       <div
         role="tooltip"
-        className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 z-50 w-max max-w-[220px] -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover/booked:opacity-100 group-focus-within/booked:opacity-100"
+        className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-[100] w-max max-w-[220px] -translate-x-1/2 opacity-0 transition-opacity duration-150 group-hover/booked:opacity-100 group-focus-within/booked:opacity-100"
       >
         <div className="rounded-lg border border-sky-200 bg-white px-3 py-2 shadow-lg">
           <p className="truncate text-xs font-semibold text-navy">{label}</p>
@@ -89,10 +89,12 @@ function ScheduleBlockCell({
   const isBooked = block.status === "booked";
 
   const cellClassName = cn(
-    "absolute inset-x-1 z-10 flex items-start justify-center rounded-md px-1 py-0.5 text-left transition-colors",
+    "absolute inset-x-1 flex items-start justify-center rounded-md px-1 py-0.5 text-left transition-colors",
     blockStyles[block.status],
+    isBooked
+      ? "group/booked z-20 cursor-default hover:z-[100] focus-within:z-[100] hover:border-sky-300 hover:bg-sky-50"
+      : "z-10",
     (block.status === "available" || block.status === "blocked") && "group",
-    isBooked && "cursor-default hover:border-sky-300 hover:bg-sky-50",
   );
 
   const cellStyle = { top: `${top}px`, height: `${height}px` };
