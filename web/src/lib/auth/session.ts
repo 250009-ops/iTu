@@ -23,8 +23,9 @@ export const DASHBOARD_PATHS: Record<UserRole, string> = {
 
 function readRawSession(): string | null {
   if (typeof window === "undefined") return null;
+  // localStorage is shared across tabs; sessionStorage is a same-tab fallback.
   return (
-    sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY)
+    localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY)
   );
 }
 
@@ -84,12 +85,14 @@ export function setSession(
   sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_KEY);
 
+  // Always mirror to localStorage so marketing + portal tabs stay in sync.
+  localStorage.setItem(SESSION_KEY, raw);
+  sessionStorage.setItem(SESSION_KEY, raw);
+
   if (rememberMe) {
     localStorage.setItem(REMEMBER_KEY, "1");
-    localStorage.setItem(SESSION_KEY, raw);
   } else {
     localStorage.removeItem(REMEMBER_KEY);
-    sessionStorage.setItem(SESSION_KEY, raw);
   }
 
   cachedRaw = raw;

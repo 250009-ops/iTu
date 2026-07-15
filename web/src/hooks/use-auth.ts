@@ -16,9 +16,19 @@ export function useAuth() {
     setIsHydrated(true);
     setSession(getSession());
 
-    return subscribeSession(() => {
-      setSession(getSession());
-    });
+    const sync = () => setSession(getSession());
+
+    const unsubscribe = subscribeSession(sync);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   function signOut() {
