@@ -1,16 +1,14 @@
 "use client";
 
-import { ArrowRight, Star, TrendingUp } from "lucide-react";
+import { ArrowRight, Star, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { specialityPillStyles } from "@/lib/admin/constants";
 import { useAdminReports } from "@/contexts/admin-reports-context";
-import { useToast } from "@/components/ui/toast";
 import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
 export function TeacherLeaderboardTable() {
   const { teacherLeaderboard } = useAdminReports();
-  const { toast } = useToast();
 
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
@@ -20,18 +18,14 @@ export function TeacherLeaderboardTable() {
             Teacher Performance Leaderboard
           </h2>
           <p className="mt-0.5 text-sm text-muted">
-            Sessions delivered, ratings, and earnings
+            Sessions delivered, ratings, and earnings in selected period
           </p>
         </div>
         <button
           type="button"
-          onClick={() =>
-            toast("Full performance report", {
-              description: "The full teacher analytics report is coming soon.",
-              variant: "info",
-            })
-          }
-          className="flex items-center gap-1 text-sm font-semibold text-navy hover:underline"
+          disabled
+          aria-disabled="true"
+          className="flex cursor-not-allowed items-center gap-1 text-sm font-semibold text-muted"
         >
           Full Report
           <ArrowRight className="h-4 w-4" />
@@ -56,7 +50,7 @@ export function TeacherLeaderboardTable() {
             {teacherLeaderboard.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-5 py-8 text-center text-muted sm:px-6">
-                  No leaderboard data yet.
+                  No leaderboard data for this period yet.
                 </td>
               </tr>
             ) : (
@@ -114,9 +108,20 @@ export function TeacherLeaderboardTable() {
                     {formatPrice(teacher.totalEarned)}
                   </td>
                   <td className="px-5 py-4 sm:px-6">
-                    {teacher.mom > 0 ? (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-600">
-                        <TrendingUp className="h-3 w-3" />+{teacher.mom}%
+                    {teacher.mom !== 0 ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-0.5 text-xs font-semibold",
+                          teacher.mom > 0 ? "text-emerald-600" : "text-rose-600",
+                        )}
+                      >
+                        {teacher.mom > 0 ? (
+                          <TrendingUp className="h-3 w-3" />
+                        ) : (
+                          <TrendingDown className="h-3 w-3" />
+                        )}
+                        {teacher.mom > 0 ? "+" : ""}
+                        {teacher.mom}%
                       </span>
                     ) : (
                       <span className="text-xs text-muted">—</span>
@@ -127,12 +132,8 @@ export function TeacherLeaderboardTable() {
                       variant="secondary"
                       size="sm"
                       className="h-8 px-3"
-                      onClick={() =>
-                        toast(`${teacher.name}`, {
-                          description: `${teacher.speciality} · ${teacher.sessions.toLocaleString()} sessions`,
-                          variant: "info",
-                        })
-                      }
+                      disabled
+                      aria-disabled="true"
                     >
                       Profile
                     </Button>

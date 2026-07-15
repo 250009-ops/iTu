@@ -132,6 +132,109 @@ function formatRevenueTrend(monthly: { amount: number }[]): string {
   return `${pct > 0 ? '+' : ''}${pct}%`;
 }
 
+type ReportTimeframe = 'jun' | 'q2' | 'ytd';
+
+const REPORT_BAND_BUCKETS = [5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9] as const;
+const PASS_BAND_THRESHOLD = 6;
+
+const REPORT_ENROLLMENT_INCLUDE = {
+  examSession: {
+    select: {
+      sectionAttempts: {
+        select: {
+          skill: true,
+          band: true,
+          submittedAt: true,
+          writingSubmission: { select: { grade: { select: { overallBand: true } } } },
+          speakingSession: { select: { grade: { select: { overallBand: true } } } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.EnrollmentInclude;
+
+type ReportEnrollment = Prisma.EnrollmentGetPayload<{
+  include: typeof REPORT_ENROLLMENT_INCLUDE;
+}>;
+
+function normalizeReportTimeframe(value?: string): ReportTimeframe {
+  const v = (value ?? 'jun').toLowerCase();
+  if (v === 'q2' || v === 'ytd') return v;
+  return 'jun';
+}
+
+function resolveReportPeriod(timeframe: ReportTimeframe, anchor: Date) {
+  const year = anchor.getFullYear();
+  if (timeframe === 'jun') {
+    const start = new Date(year, 5, 1);
+    const end = monthEnd(new Date(year, 5, 1));
+    return {
+      start,
+      end,
+      label: `June ${year}`,
+      revenueLabel: 'June revenue',
+      examsPeriod: 'Completed mocks in June',
+    };
+  }
+  if (timeframe === 'q2') {
+    const start = new Date(year, 3, 1);
+    const end = monthEnd(new Date(year, 5, 1));
+    return {
+      start,
+      end,
+      label: `Q2 ${year}`,
+      revenueLabel: 'Q2 revenue',
+      examsPeriod: 'Completed mocks in Q2',
+    };
+  }
+  const start = new Date(year, 0, 1);
+  const end = monthEnd(anchor);
+  return {
+    start,
+    end,
+    label: 'Year to date',
+    revenueLabel: 'YTD revenue',
+    examsPeriod: 'Completed mocks YTD',
+  };
+}
+
+function previousReportPeriod(start: Date, end: Date) {
+  const durationMs = end.getTime() - start.getTime();
+  return {
+    start: new Date(start.getTime() - durationMs),
+    end: new Date(start.getTime()),
+  };
+}
+
+function pctChangeLabel(current: number, previous: number): string {
+  if (previous === 0 && current === 0) return '—';
+  if (previous === 0) return '+100%';
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return '0%';
+  return `${pct > 0 ? '+' : ''}${pct}%`;
+}
+
+function reportAttemptBand(attempt: {
+  skill: ExamSkill;
+  band: number | null;
+  writingSubmission: { grade: { overallBand: number } | null } | null;
+  speakingSession: { grade: { overallBand: number } | null } | null;
+}): number | null {
+  if (attempt.skill === ExamSkill.WRITING) {
+    return attempt.writingSubmission?.grade?.overallBand ?? attempt.band;
+  }
+  if (attempt.skill === ExamSkill.SPEAKING) {
+    return attempt.speakingSession?.grade?.overallBand ?? attempt.band;
+  }
+  return attempt.band;
+}
+
+function reportEnrollmentOverallBand(enrollment: ReportEnrollment): number | null {
+  const attempts = enrollment.examSession?.sectionAttempts ?? [];
+  const bands = attempts.map((attempt) => reportAttemptBand(attempt));
+  return overallBandFromSkillBands(bands);
+}
+
 /** Seed demo teacher emails / amounts from prisma/seed.ts — never real earnings. */
 const SEED_DEMO_TEACHER_EMAILS = [
   'teacher@example.com',
@@ -280,6 +383,85 @@ export class AdminService {
       month,
       amount: Math.round(amount * 100) / 100,
       orderCount,
+    }));
+  }
+
+  private buildMonthlyRevenueForRange(
+    orders: { amount: number; createdAt: Date }[],
+    start: Date,
+    end: Date,
+  ) {
+    const buckets: {
+      key: string;
+      month: string;
+      amount: number;
+      orderCount: number;
+    }[] = [];
+
+    let cursor = monthStart(start);
+    while (cursor < end) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+      buckets.push({ key, month: formatMonthShort(cursor), amount: 0, orderCount: 0 });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    const bucketMap = new Map(buckets.map((b) => [b.key, b]));
+    for (const order of orders) {
+      if (order.createdAt < start || order.createdAt >= end) continue;
+      const key = `${order.createdAt.getFullYear()}-${String(order.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = bucketMap.get(key);
+      if (bucket) {
+        bucket.amount += order.amount;
+        bucket.orderCount += 1;
+      }
+    }
+
+    return buckets.map(({ month, amount, orderCount }) => ({
+      month,
+      amount: Math.round(amount * 100) / 100,
+      orderCount,
+    }));
+  }
+
+  private buildEnrollmentFunnelForRange(
+    enrollments: { createdAt: Date; updatedAt: Date; status: EnrollmentStatus }[],
+    start: Date,
+    end: Date,
+  ) {
+    const buckets: {
+      key: string;
+      month: string;
+      enrolled: number;
+      completed: number;
+    }[] = [];
+
+    let cursor = monthStart(start);
+    while (cursor < end) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+      buckets.push({ key, month: formatMonthShort(cursor), enrolled: 0, completed: 0 });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    const bucketMap = new Map(buckets.map((b) => [b.key, b]));
+    for (const enrollment of enrollments) {
+      if (enrollment.createdAt >= start && enrollment.createdAt < end) {
+        const key = `${enrollment.createdAt.getFullYear()}-${String(enrollment.createdAt.getMonth() + 1).padStart(2, '0')}`;
+        bucketMap.get(key)!.enrolled += 1;
+      }
+      if (
+        enrollment.status === EnrollmentStatus.COMPLETED &&
+        enrollment.updatedAt >= start &&
+        enrollment.updatedAt < end
+      ) {
+        const key = `${enrollment.updatedAt.getFullYear()}-${String(enrollment.updatedAt.getMonth() + 1).padStart(2, '0')}`;
+        bucketMap.get(key)!.completed += 1;
+      }
+    }
+
+    return buckets.map(({ month, enrolled, completed }) => ({
+      month,
+      enrolled,
+      completed,
     }));
   }
 
@@ -1411,60 +1593,334 @@ export class AdminService {
     };
   }
 
-  async getReports() {
+  async getReports(timeframeInput?: string) {
     const syncedAt = new Date();
-    const revenueWindowStart = new Date(
-      syncedAt.getFullYear(),
-      syncedAt.getMonth() - 5,
-      1,
-    );
+    const timeframe = normalizeReportTimeframe(timeframeInput);
+    const period = resolveReportPeriod(timeframe, syncedAt);
+    const prevPeriod = previousReportPeriod(period.start, period.end);
 
-    const [enrollments, orders, teachers, monthlyOrders] = await Promise.all([
-      this.prisma.enrollment.groupBy({
-        by: ['status'],
-        _count: true,
-      }),
-      this.prisma.order.aggregate({
-        where: {
-          status: 'PAID',
-          paymentMethod: { not: 'COMPLIMENTARY' },
-        },
-        _sum: { amount: true },
-        _count: true,
-      }),
-      this.prisma.teacherProfile.findMany({
-        orderBy: { totalSessions: 'desc' },
-        take: 5,
-        include: { user: true },
-      }),
+    const paidOrderFilter = {
+      status: 'PAID' as const,
+      paymentMethod: { not: 'COMPLIMENTARY' as const },
+    };
+
+    const [
+      periodOrders,
+      prevPeriodOrders,
+      funnelEnrollments,
+      resultEnrollments,
+      prevResultEnrollments,
+      reviews,
+      prevReviews,
+      periodGrades,
+      prevPeriodGrades,
+      periodPayouts,
+      prevPeriodPayouts,
+      teachers,
+    ] = await Promise.all([
       this.prisma.order.findMany({
         where: {
-          status: 'PAID',
-          paymentMethod: { not: 'COMPLIMENTARY' },
-          createdAt: { gte: revenueWindowStart },
+          ...paidOrderFilter,
+          createdAt: { gte: period.start, lt: period.end },
         },
         select: { amount: true, createdAt: true },
       }),
+      this.prisma.order.findMany({
+        where: {
+          ...paidOrderFilter,
+          createdAt: { gte: prevPeriod.start, lt: prevPeriod.end },
+        },
+        select: { amount: true },
+      }),
+      this.prisma.enrollment.findMany({
+        where: {
+          OR: [
+            { createdAt: { gte: period.start, lt: period.end } },
+            {
+              status: EnrollmentStatus.COMPLETED,
+              updatedAt: { gte: period.start, lt: period.end },
+            },
+          ],
+        },
+        select: { createdAt: true, updatedAt: true, status: true },
+      }),
+      this.prisma.enrollment.findMany({
+        where: {
+          resultsStatus: ResultsStatus.RELEASED,
+          updatedAt: { gte: period.start, lt: period.end },
+        },
+        include: REPORT_ENROLLMENT_INCLUDE,
+      }),
+      this.prisma.enrollment.findMany({
+        where: {
+          resultsStatus: ResultsStatus.RELEASED,
+          updatedAt: { gte: prevPeriod.start, lt: prevPeriod.end },
+        },
+        include: REPORT_ENROLLMENT_INCLUDE,
+      }),
+      this.prisma.review.findMany({
+        where: { createdAt: { gte: period.start, lt: period.end } },
+        select: { rating: true },
+      }),
+      this.prisma.review.findMany({
+        where: { createdAt: { gte: prevPeriod.start, lt: prevPeriod.end } },
+        select: { rating: true },
+      }),
+      this.prisma.grade.findMany({
+        where: { gradedAt: { gte: period.start, lt: period.end } },
+        select: { gradedById: true },
+      }),
+      this.prisma.grade.findMany({
+        where: { gradedAt: { gte: prevPeriod.start, lt: prevPeriod.end } },
+        select: { gradedById: true },
+      }),
+      this.prisma.payout.findMany({
+        where: {
+          status: 'PAID',
+          paidAt: { gte: period.start, lt: period.end },
+        },
+        select: { teacherId: true, amount: true },
+      }),
+      this.prisma.payout.findMany({
+        where: {
+          status: 'PAID',
+          paidAt: { gte: prevPeriod.start, lt: prevPeriod.end },
+        },
+        select: { teacherId: true, amount: true },
+      }),
+      this.prisma.teacherProfile.findMany({
+        where: { status: { not: 'SUSPENDED' } },
+        include: { user: true },
+      }),
     ]);
 
-    const monthlyRevenue = this.buildMonthlyRevenue(monthlyOrders, syncedAt);
+    const monthlyRevenue = this.buildMonthlyRevenueForRange(
+      periodOrders,
+      period.start,
+      period.end,
+    );
+    const periodRevenueTotal = periodOrders.reduce((sum, o) => sum + o.amount, 0);
+    const prevPeriodRevenueTotal = prevPeriodOrders.reduce((sum, o) => sum + o.amount, 0);
+
+    const examsDelivered = funnelEnrollments.filter(
+      (e) =>
+        e.status === EnrollmentStatus.COMPLETED &&
+        e.updatedAt >= period.start &&
+        e.updatedAt < period.end,
+    ).length;
+    const prevExamsDelivered = await this.prisma.enrollment.count({
+      where: {
+        status: EnrollmentStatus.COMPLETED,
+        updatedAt: { gte: prevPeriod.start, lt: prevPeriod.end },
+      },
+    });
+
+    const overallBands: number[] = [];
+    const distribution = new Map<number, number>();
+    const moduleStats: Record<
+      ExamSkill,
+      { exams: number; bandSum: number; passCount: number }
+    > = {
+      [ExamSkill.LISTENING]: { exams: 0, bandSum: 0, passCount: 0 },
+      [ExamSkill.READING]: { exams: 0, bandSum: 0, passCount: 0 },
+      [ExamSkill.WRITING]: { exams: 0, bandSum: 0, passCount: 0 },
+      [ExamSkill.SPEAKING]: { exams: 0, bandSum: 0, passCount: 0 },
+    };
+
+    for (const enrollment of resultEnrollments) {
+      const overall = reportEnrollmentOverallBand(enrollment);
+      if (overall != null) {
+        overallBands.push(overall);
+        const bucket = Math.round(overall * 2) / 2;
+        distribution.set(bucket, (distribution.get(bucket) ?? 0) + 1);
+      }
+
+      for (const attempt of enrollment.examSession?.sectionAttempts ?? []) {
+        if (!attempt.submittedAt) continue;
+        if (attempt.submittedAt < period.start || attempt.submittedAt >= period.end) {
+          continue;
+        }
+        const band = reportAttemptBand(attempt);
+        if (band == null) continue;
+        const stats = moduleStats[attempt.skill];
+        stats.exams += 1;
+        stats.bandSum += band;
+        if (band >= PASS_BAND_THRESHOLD) stats.passCount += 1;
+      }
+    }
+
+    const prevOverallBands = prevResultEnrollments
+      .map((enrollment) => reportEnrollmentOverallBand(enrollment))
+      .filter((band): band is number => band != null);
+
+    const prevModuleStats: Record<ExamSkill, { exams: number; bandSum: number; passCount: number }> =
+      {
+        [ExamSkill.LISTENING]: { exams: 0, bandSum: 0, passCount: 0 },
+        [ExamSkill.READING]: { exams: 0, bandSum: 0, passCount: 0 },
+        [ExamSkill.WRITING]: { exams: 0, bandSum: 0, passCount: 0 },
+        [ExamSkill.SPEAKING]: { exams: 0, bandSum: 0, passCount: 0 },
+      };
+
+    for (const enrollment of prevResultEnrollments) {
+      for (const attempt of enrollment.examSession?.sectionAttempts ?? []) {
+        if (!attempt.submittedAt) continue;
+        if (attempt.submittedAt < prevPeriod.start || attempt.submittedAt >= prevPeriod.end) {
+          continue;
+        }
+        const band = reportAttemptBand(attempt);
+        if (band == null) continue;
+        const stats = prevModuleStats[attempt.skill];
+        stats.exams += 1;
+        stats.bandSum += band;
+        if (band >= PASS_BAND_THRESHOLD) stats.passCount += 1;
+      }
+    }
+
+    const avgOverall =
+      overallBands.length > 0
+        ? Math.round(
+            (overallBands.reduce((a, b) => a + b, 0) / overallBands.length) * 10,
+          ) / 10
+        : null;
+    const prevAvgOverall =
+      prevOverallBands.length > 0
+        ? prevOverallBands.reduce((a, b) => a + b, 0) / prevOverallBands.length
+        : null;
+
+    const satisfactionPct =
+      reviews.length > 0
+        ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length / 5) * 100)
+        : null;
+    const prevSatisfactionPct =
+      prevReviews.length > 0
+        ? Math.round(
+            (prevReviews.reduce((s, r) => s + r.rating, 0) / prevReviews.length / 5) * 100,
+          )
+        : null;
+
+    const bandDistribution = REPORT_BAND_BUCKETS.map((band) => ({
+      band,
+      count: distribution.get(band) ?? 0,
+    }));
+    const peakBandCount = Math.max(...bandDistribution.map((row) => row.count), 0);
+
+    const modulePerformance = DASHBOARD_SKILLS.map(({ skill, label }) => {
+      const stats = moduleStats[skill];
+      const prevStats = prevModuleStats[skill];
+      const avgBand = stats.exams > 0 ? Math.round((stats.bandSum / stats.exams) * 10) / 10 : 0;
+      const passRate =
+        stats.exams > 0 ? Math.round((stats.passCount / stats.exams) * 100) : 0;
+      const prevPassRate =
+        prevStats.exams > 0
+          ? Math.round((prevStats.passCount / prevStats.exams) * 100)
+          : 0;
+      const mom = passRate - prevPassRate;
+      return {
+        module: skill.toLowerCase(),
+        label,
+        exams: stats.exams,
+        avgBand,
+        passRate,
+        mom,
+      };
+    });
+
+    const sessionsByTeacher = new Map<string, number>();
+    for (const grade of periodGrades) {
+      sessionsByTeacher.set(
+        grade.gradedById,
+        (sessionsByTeacher.get(grade.gradedById) ?? 0) + 1,
+      );
+    }
+    const prevSessionsByTeacher = new Map<string, number>();
+    for (const grade of prevPeriodGrades) {
+      prevSessionsByTeacher.set(
+        grade.gradedById,
+        (prevSessionsByTeacher.get(grade.gradedById) ?? 0) + 1,
+      );
+    }
+    const earnedByTeacher = new Map<string, number>();
+    for (const payout of periodPayouts) {
+      earnedByTeacher.set(
+        payout.teacherId,
+        (earnedByTeacher.get(payout.teacherId) ?? 0) + payout.amount,
+      );
+    }
+
+    const teacherLeaderboard = teachers
+      .map((teacher) => {
+        const sessions = sessionsByTeacher.get(teacher.id) ?? 0;
+        const prevSessions = prevSessionsByTeacher.get(teacher.id) ?? 0;
+        const earned = earnedByTeacher.get(teacher.id) ?? 0;
+        const mom =
+          prevSessions > 0
+            ? Math.round(((sessions - prevSessions) / prevSessions) * 100)
+            : sessions > 0
+              ? 100
+              : 0;
+        return {
+          id: teacher.id,
+          name: teacher.user.name,
+          status: teacher.status.toLowerCase(),
+          speciality: teacher.speciality.toLowerCase(),
+          sessions,
+          rating: teacher.rating,
+          earned,
+          mom,
+        };
+      })
+      .filter((row) => row.sessions > 0 || row.earned > 0)
+      .sort((a, b) => b.sessions - a.sessions || b.earned - a.earned)
+      .slice(0, 5);
+
+    const enrollmentFunnel = this.buildEnrollmentFunnelForRange(
+      funnelEnrollments,
+      period.start,
+      period.end,
+    );
 
     return {
-      funnel: enrollments.map((e) => ({
-        status: e.status.toLowerCase(),
-        count: e._count,
-      })),
-      revenue: {
-        total: orders._sum.amount ?? 0,
-        orderCount: orders._count,
-        trend: formatRevenueTrend(monthlyRevenue),
+      timeframe,
+      period: {
+        label: period.label,
+        revenueLabel: period.revenueLabel,
+        examsPeriod: period.examsPeriod,
       },
-      teacherLeaderboard: teachers.map((t) => ({
-        name: t.user.name,
-        sessions: t.totalSessions,
-        rating: t.rating,
-        earned: t.totalEarned,
+      summary: {
+        revenueTotal: Math.round(periodRevenueTotal * 100) / 100,
+        revenueTrend: pctChangeLabel(periodRevenueTotal, prevPeriodRevenueTotal),
+        revenueTrendSub: 'vs previous period',
+        examsDelivered,
+        examsTrend: pctChangeLabel(examsDelivered, prevExamsDelivered),
+        avgBandScore: avgOverall,
+        avgBandTrend:
+          avgOverall != null && prevAvgOverall != null
+            ? pctChangeLabel(avgOverall, prevAvgOverall)
+            : '—',
+        satisfaction: satisfactionPct,
+        satisfactionSub:
+          reviews.length > 0 ? `${reviews.length} reviews in period` : 'No reviews in period',
+        satisfactionTrend:
+          satisfactionPct != null && prevSatisfactionPct != null
+            ? pctChangeLabel(satisfactionPct, prevSatisfactionPct)
+            : '—',
+      },
+      monthlyRevenue: monthlyRevenue.map(({ month, amount }) => {
+        const funnelMonth = enrollmentFunnel.find((row) => row.month === month);
+        return {
+          month,
+          revenue: amount,
+          exams: funnelMonth?.completed ?? 0,
+        };
+      }),
+      enrollmentFunnel,
+      bandDistribution: bandDistribution.map((row) => ({
+        score: row.band.toFixed(1),
+        count: row.count,
+        highlight: row.count > 0 && row.count === peakBandCount,
       })),
+      modulePerformance,
+      teacherLeaderboard,
     };
   }
 

@@ -585,66 +585,80 @@ export function mapDisputes(disputes: Disputes) {
   return { tickets, summary, ticketsByType };
 }
 
+function teacherStatusLabel(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "approved") return "Active examiner";
+  if (s === "pending") return "Pending approval";
+  if (s === "suspended") return "Suspended";
+  return status;
+}
+
+function teacherSpecialityLabel(speciality: string): string {
+  const s = speciality.toLowerCase();
+  if (s === "writing") return "Writing";
+  if (s === "speaking") return "Speaking";
+  if (s === "both") return "Both";
+  return speciality;
+}
+
+function teacherSpecialityTone(
+  speciality: string,
+): "rose" | "violet" | "sky" {
+  const s = speciality.toLowerCase();
+  if (s === "writing") return "violet";
+  if (s === "speaking") return "rose";
+  return "sky";
+}
+
 export function mapReports(data: Reports) {
   const summary = {
-    revenueMtd: data.revenue.total,
-    revenueTrend: data.revenue.trend ?? "—",
-    examsDelivered: data.revenue.orderCount,
-    examsPeriod: new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-    examsTrend: "—",
-    avgBandScore: 0,
-    avgBandSub: "Not available yet",
-    avgBandTrend: "—",
-    satisfaction: 0,
-    satisfactionSub: "No ratings yet",
-    satisfactionTrend: "—",
+    revenueLabel: data.period.revenueLabel,
+    revenueMtd: data.summary.revenueTotal,
+    revenueTrend: data.summary.revenueTrend,
+    revenueTrendSub: data.summary.revenueTrendSub,
+    examsDelivered: data.summary.examsDelivered,
+    examsPeriod: data.period.examsPeriod,
+    examsTrend: data.summary.examsTrend,
+    avgBandScore: data.summary.avgBandScore ?? 0,
+    avgBandSub:
+      data.summary.avgBandScore != null
+        ? `Released results in ${data.period.label}`
+        : "No released results in period",
+    avgBandTrend: data.summary.avgBandTrend,
+    satisfaction: data.summary.satisfaction ?? 0,
+    satisfactionSub: data.summary.satisfactionSub,
+    satisfactionTrend: data.summary.satisfactionTrend,
   };
-
-  const enrollmentFunnel = data.funnel.map((f) => ({
-    month: f.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    enrolled: f.count,
-    completed:
-      f.status.toLowerCase().includes("complete") ? f.count : 0,
-  }));
 
   const teacherLeaderboard = data.teacherLeaderboard.map((t, i) => ({
     rank: i + 1,
+    id: t.id,
     name: t.name,
     initials: initials(t.name),
-    status: "Active examiner",
-    speciality: "Examiner",
-    specialityTone: (i % 2 === 0 ? "rose" : "violet") as "rose" | "violet",
+    status: teacherStatusLabel(t.status),
+    speciality: teacherSpecialityLabel(t.speciality),
+    specialityTone: teacherSpecialityTone(t.speciality),
     sessions: t.sessions,
     rating: t.rating ?? 0,
     totalEarned: t.earned,
-    mom: 0,
+    mom: t.mom,
   }));
 
-  const revenueExamVolume =
-    data.revenue.total > 0
-      ? [
-          {
-            month: new Date().toLocaleDateString("en-US", { month: "short" }),
-            revenue: data.revenue.total,
-            exams: data.revenue.orderCount,
-          },
-        ]
-      : [];
-
   return {
+    periodLabel: data.period.label,
     summary,
-    enrollmentFunnel,
+    enrollmentFunnel: data.enrollmentFunnel,
     teacherLeaderboard,
-    revenueExamVolume,
-    bandScoreDistribution: [] as { score: string; count: number; highlight: boolean }[],
-    modulePerformance: [] as {
-      module: ModuleKey;
-      label: string;
-      exams: number;
-      avgBand: number;
-      passRate: number;
-      mom: number;
-    }[],
+    revenueExamVolume: data.monthlyRevenue,
+    bandScoreDistribution: data.bandDistribution,
+    modulePerformance: data.modulePerformance.map((row) => ({
+      module: normalizeModule(row.module),
+      label: row.label,
+      exams: row.exams,
+      avgBand: row.avgBand,
+      passRate: row.passRate,
+      mom: row.mom,
+    })),
   };
 }
 

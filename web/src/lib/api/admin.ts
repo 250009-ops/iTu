@@ -3,6 +3,7 @@ import type {
   AdminContentTestOption,
   AdminPackage,
   ExamTypeValue,
+  ReportTimeframe,
 } from "@/lib/admin/types";
 
 export type AdminPackagePayload = {
@@ -600,17 +601,48 @@ export function reassignWritingTeacher(
   );
 }
 
-export function getAdminReports() {
+export function getAdminReports(timeframe: ReportTimeframe = "jun") {
   return apiFetch<{
-    funnel: { status: string; count: number }[];
-    revenue: { total: number; orderCount: number; trend?: string };
+    timeframe: ReportTimeframe;
+    period: {
+      label: string;
+      revenueLabel: string;
+      examsPeriod: string;
+    };
+    summary: {
+      revenueTotal: number;
+      revenueTrend: string;
+      revenueTrendSub: string;
+      examsDelivered: number;
+      examsTrend: string;
+      avgBandScore: number | null;
+      avgBandTrend: string;
+      satisfaction: number | null;
+      satisfactionSub: string;
+      satisfactionTrend: string;
+    };
+    monthlyRevenue: { month: string; revenue: number; exams: number }[];
+    enrollmentFunnel: { month: string; enrolled: number; completed: number }[];
+    bandDistribution: { score: string; count: number; highlight: boolean }[];
+    modulePerformance: {
+      module: string;
+      label: string;
+      exams: number;
+      avgBand: number;
+      passRate: number;
+      mom: number;
+    }[];
     teacherLeaderboard: {
+      id: string;
       name: string;
+      status: string;
+      speciality: string;
       sessions: number;
       rating: number | null;
       earned: number;
+      mom: number;
     }[];
-  }>("/admin/reports/summary");
+  }>(`/admin/reports/summary?timeframe=${timeframe}`);
 }
 
 export function getLiveSessions() {

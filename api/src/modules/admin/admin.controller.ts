@@ -335,8 +335,8 @@ export class AdminController {
   }
 
   @Get('reports/summary')
-  getReports() {
-    return this.admin.getReports();
+  getReports(@Query('timeframe') timeframe?: string) {
+    return this.admin.getReports(timeframe);
   }
 
   @Get('sessions/live')

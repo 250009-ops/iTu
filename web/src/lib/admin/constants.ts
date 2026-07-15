@@ -129,6 +129,7 @@ export const moduleBadgeStyles: Record<ModuleKey, string> = {
 export const specialityPillStyles = {
   rose: "bg-rose-50 text-rose-700",
   violet: "bg-violet-50 text-violet-700",
+  sky: "bg-sky-50 text-sky-700",
 };
 
 export const contentModuleLabels: Record<ContentModule, string> = {

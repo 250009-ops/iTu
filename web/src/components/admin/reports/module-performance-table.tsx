@@ -1,6 +1,5 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
 import { moduleBadgeStyles } from "@/lib/admin/constants";
 import { useAdminReports } from "@/contexts/admin-reports-context";
 import { cn } from "@/lib/utils";
@@ -78,9 +77,15 @@ export function ModulePerformanceTable() {
                     </div>
                   </td>
                   <td className="py-3.5">
-                    {row.mom > 0 ? (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-600">
-                        <TrendingUp className="h-3 w-3" />+{row.mom}%
+                    {row.mom !== 0 ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-0.5 text-xs font-semibold",
+                          row.mom > 0 ? "text-emerald-600" : "text-rose-600",
+                        )}
+                      >
+                        {row.mom > 0 ? "+" : ""}
+                        {row.mom}%
                       </span>
                     ) : (
                       <span className="text-xs text-muted">—</span>

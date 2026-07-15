@@ -24,7 +24,7 @@ export function BandScoreDistributionChart() {
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
       <div>
         <h2 className="font-semibold text-navy">Band Score Distribution</h2>
-        <p className="mt-0.5 text-sm text-muted">All modules</p>
+          <p className="mt-0.5 text-sm text-muted">Released results in selected period</p>
       </div>
 
       <div className="mt-4">

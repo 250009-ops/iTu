@@ -15,23 +15,25 @@ import {
   CHART_AXIS_TICK,
   CHART_GRID_STROKE,
   ChartTooltip,
+  formatChartAxisNumber,
   formatCurrency,
 } from "@/components/ui/chart-tooltip";
 
 export function RevenueExamVolumeChart() {
-  const { revenueExamVolume } = useAdminReports();
+  const { revenueExamVolume, periodLabel } = useAdminReports();
 
   return (
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-navy">Revenue &amp; Exam Volume</h2>
-          <p className="mt-0.5 text-sm text-muted">Current period</p>
+          <p className="mt-0.5 text-sm text-muted">{periodLabel}</p>
         </div>
         <div className="flex items-center gap-4 text-xs text-muted">
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-navy" />
             Revenue
+            <span className="font-medium text-slate-500">(so&apos;m)</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-0.5 w-4 border-t-2 border-dashed border-sky-400" />
@@ -65,7 +67,7 @@ export function RevenueExamVolumeChart() {
                 axisLine={false}
                 tickLine={false}
                 width={44}
-                tickFormatter={(v) => formatCurrency(v)}
+                tickFormatter={(v) => formatChartAxisNumber(v)}
               />
               <YAxis
                 yAxisId="exams"

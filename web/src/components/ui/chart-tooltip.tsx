@@ -55,6 +55,7 @@ export const CHART_GRID_STROKE = "#e2e8f0";
 
 export {
   formatCurrencyCompact as formatCurrency,
+  formatChartAxisNumber,
   formatPrice,
   DEFAULT_CURRENCY,
 } from "@/lib/format-price";

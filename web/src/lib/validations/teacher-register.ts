@@ -19,49 +19,53 @@ const passwordSchema = z
   .regex(/[A-Z]/, "Include at least one uppercase letter")
   .regex(/[0-9]/, "Include at least one number");
 
-export const teacherRegisterSchema = z
-  .object({
-    fullName: z
-      .string()
-      .min(1, "Full name is required")
-      .min(2, "Name must be at least 2 characters"),
-    email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-    password: passwordSchema,
-    confirmPassword: z.string().min(1, "Confirm your password"),
-    ieltsWritingBand: z.enum(TEACHER_BAND_OPTIONS, {
-      message: "Select your IELTS Writing band",
-    }),
-    ieltsSpeakingBand: z.enum(TEACHER_BAND_OPTIONS, {
-      message: "Select your IELTS Speaking band",
-    }),
-    yearsExperience: z
-      .string()
-      .min(1, "Enter years of experience")
-      .refine((v) => {
-        const n = parseInt(v, 10);
-        return !Number.isNaN(n) && n >= 1 && n <= 50;
-      }, "Enter a value between 1 and 50"),
-    languages: z
-      .array(z.enum(TEACHER_LANGUAGE_OPTIONS))
-      .min(1, "Select at least one language"),
-    bio: z
-      .string()
-      .min(1, "Professional bio is required")
-      .min(80, "Bio must be at least 80 characters — this appears on your public examiner profile")
-      .max(500, "Bio must be 500 characters or fewer"),
-    credentials: z
-      .array(z.enum(TEACHER_CREDENTIAL_OPTIONS))
-      .min(1, "Select at least one qualification"),
-    acceptTerms: z.boolean().refine((val) => val === true, {
-      message: "You must accept the terms to continue",
-    }),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
+/** Base fields — kept as a plain object schema so step validators can reuse shapes safely. */
+const teacherRegisterBaseSchema = z.object({
+  fullName: z
+    .string()
+    .min(1, "Full name is required")
+    .min(2, "Name must be at least 2 characters"),
+  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+  password: passwordSchema,
+  confirmPassword: z.string().min(1, "Confirm your password"),
+  ieltsWritingBand: z.enum(TEACHER_BAND_OPTIONS, {
+    message: "Select your IELTS Writing band",
+  }),
+  ieltsSpeakingBand: z.enum(TEACHER_BAND_OPTIONS, {
+    message: "Select your IELTS Speaking band",
+  }),
+  yearsExperience: z
+    .string()
+    .min(1, "Enter years of experience")
+    .refine((v) => {
+      const n = parseInt(v, 10);
+      return !Number.isNaN(n) && n >= 1 && n <= 50;
+    }, "Enter a value between 1 and 50"),
+  languages: z
+    .array(z.enum(TEACHER_LANGUAGE_OPTIONS))
+    .min(1, "Select at least one language"),
+  bio: z
+    .string()
+    .min(1, "Professional bio is required")
+    .min(80, "Bio must be at least 80 characters — this appears on your public examiner profile")
+    .max(500, "Bio must be 500 characters or fewer"),
+  credentials: z
+    .array(z.enum(TEACHER_CREDENTIAL_OPTIONS))
+    .min(1, "Select at least one qualification"),
+  acceptTerms: z.boolean().refine((val) => val === true, {
+    message: "You must accept the terms to continue",
+  }),
+});
+
+export const teacherRegisterSchema = teacherRegisterBaseSchema.refine(
+  (data) => data.password === data.confirmPassword,
+  {
     message: "Passwords don't match",
     path: ["confirmPassword"],
-  });
+  },
+);
 
-export type TeacherRegisterFormValues = z.infer<typeof teacherRegisterSchema>;
+export type TeacherRegisterFormValues = z.infer<typeof teacherRegisterBaseSchema>;
 
 export const teacherRegisterSteps = [
   { id: 1, label: "Account" },
@@ -70,19 +74,19 @@ export const teacherRegisterSteps = [
   { id: 4, label: "Review" },
 ] as const;
 
-const step1Schema = z
-  .object({
-    fullName: teacherRegisterSchema.shape.fullName,
-    email: teacherRegisterSchema.shape.email,
-    password: teacherRegisterSchema.shape.password,
-    confirmPassword: teacherRegisterSchema.shape.confirmPassword,
+const step1Schema = teacherRegisterBaseSchema
+  .pick({
+    fullName: true,
+    email: true,
+    password: true,
+    confirmPassword: true,
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
   });
 
-const step2Schema = teacherRegisterSchema.pick({
+const step2Schema = teacherRegisterBaseSchema.pick({
   ieltsWritingBand: true,
   ieltsSpeakingBand: true,
   yearsExperience: true,

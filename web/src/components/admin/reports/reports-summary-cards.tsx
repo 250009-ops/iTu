@@ -16,9 +16,9 @@ export function ReportsSummaryCards() {
 
   const cards = [
     {
-      label: "Revenue MTD",
+      label: summary.revenueLabel,
       value: formatPrice(summary.revenueMtd),
-      sub: `${summary.revenueTrend} vs last month`,
+      sub: `${summary.revenueTrend} ${summary.revenueTrendSub}`,
       icon: DollarSign,
       card: "bg-navy text-white border-navy",
       subClass: "text-emerald-300",

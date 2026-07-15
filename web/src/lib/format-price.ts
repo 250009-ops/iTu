@@ -55,3 +55,15 @@ export function formatCurrencyCompact(
   if (code === "UZS") return `${compact} so'm`;
   return `${compact} ${code}`;
 }
+
+/** Y-axis tick labels — numbers only; put the currency unit in the chart legend. */
+export function formatChartAxisNumber(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  }
+  if (abs >= 1_000) {
+    return `${Math.round(abs / 1_000)}k`;
+  }
+  return NUMBER_FORMAT.format(abs);
+}

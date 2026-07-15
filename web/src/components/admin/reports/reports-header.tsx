@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ReportTimeframe } from "@/lib/admin/types";
@@ -16,10 +15,15 @@ const timeframes: { value: ReportTimeframe; label: string }[] = [
 ];
 
 export function ReportsHeader() {
-  const [timeframe, setTimeframe] = useState<ReportTimeframe>("jun");
   const { toast } = useToast();
-  const { teacherLeaderboard, enrollmentFunnel, revenueExamVolume } =
-    useAdminReports();
+  const {
+    timeframe,
+    setTimeframe,
+    periodLabel,
+    teacherLeaderboard,
+    enrollmentFunnel,
+    revenueExamVolume,
+  } = useAdminReports();
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -60,7 +64,7 @@ export function ReportsHeader() {
               revenueExamVolume,
             });
             toast("Export ready", {
-              description: `Report data (${timeframe.toUpperCase()}) downloaded.`,
+              description: `Report data (${periodLabel}) downloaded.`,
             });
           }}
         >

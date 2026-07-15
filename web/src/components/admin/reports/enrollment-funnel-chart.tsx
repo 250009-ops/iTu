@@ -24,7 +24,7 @@ export function EnrollmentFunnelChart() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-navy">Enrollment Funnel</h2>
-          <p className="mt-0.5 text-sm text-muted">Lifecycle stages from API</p>
+          <p className="mt-0.5 text-sm text-muted">New enrollments vs completed mocks</p>
         </div>
         <div className="flex items-center gap-4 text-xs text-muted">
           <span className="flex items-center gap-1.5">
