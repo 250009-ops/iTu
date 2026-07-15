@@ -108,6 +108,7 @@ export type Examiner = {
   initials: string;
   email: string;
   status: TeacherStatus;
+  applicationRejected?: boolean;
   rating: number | null;
   sessions: number;
   totalEarned: number;

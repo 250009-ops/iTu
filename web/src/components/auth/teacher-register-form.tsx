@@ -36,6 +36,7 @@ import {
   TEACHER_BAND_OPTIONS,
   TEACHER_CREDENTIAL_OPTIONS,
   TEACHER_LANGUAGE_OPTIONS,
+  TEACHER_MIN_BAND,
   isTeacherRegisterStepReady,
   teacherRegisterSchema,
   teacherRegisterSteps,
@@ -103,11 +104,11 @@ export default function TeacherRegisterForm() {
   const form = useForm<TeacherRegisterFormValues>({
     resolver: zodResolver(teacherRegisterSchema),
     defaultValues: {
-      ieltsWritingBand: "7.5",
-      ieltsSpeakingBand: "7.5",
+      ieltsWritingBand: "6.5",
+      ieltsSpeakingBand: "6.5",
       yearsExperience: "",
-      requestedWritingRate: String(DEFAULT_BAND_TIERS["7.5"].writing.defaultRate),
-      requestedSpeakingRate: String(DEFAULT_BAND_TIERS["7.5"].speaking.defaultRate),
+      requestedWritingRate: String(DEFAULT_BAND_TIERS["6.5"].writing.defaultRate),
+      requestedSpeakingRate: String(DEFAULT_BAND_TIERS["6.5"].speaking.defaultRate),
       languages: ["English"],
       bio: "",
       credentials: [],
@@ -330,7 +331,7 @@ export default function TeacherRegisterForm() {
               IELTS scores & experience
             </div>
             <p className="text-xs text-muted">
-              Minimum band <strong className="text-navy">7.5</strong> in both Writing and
+              Minimum band <strong className="text-navy">{TEACHER_MIN_BAND}</strong> in both Writing and
               Speaking is required. All teachers grade Writing and conduct Speaking.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">

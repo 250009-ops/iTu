@@ -35,13 +35,13 @@ export class RegisterTeacherDto {
 
   @Transform(({ value }) => parseFloat(String(value)))
   @IsNumber()
-  @Min(7.5)
+  @Min(6.5)
   @Max(9)
   ieltsWritingBand: number;
 
   @Transform(({ value }) => parseFloat(String(value)))
   @IsNumber()
-  @Min(7.5)
+  @Min(6.5)
   @Max(9)
   ieltsSpeakingBand: number;
 

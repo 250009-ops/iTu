@@ -354,6 +354,7 @@ export function mapTeachers(teachers: Teachers) {
     initials: initials(t.name),
     email: t.email,
     status: normalizeTeacherStatus(t.status),
+    applicationRejected: t.applicationRejected,
     rating: t.rating,
     sessions: t.sessions,
     totalEarned: t.totalEarned,

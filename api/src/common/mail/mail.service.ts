@@ -8,6 +8,7 @@ import {
   emailVerificationEmail,
   passwordResetEmail,
   teacherApplicationReceivedEmail,
+  teacherApplicationRejectedEmail,
   teacherApprovedEmail,
   teacherReinstatedEmail,
   teacherSuspendedEmail,
@@ -161,6 +162,21 @@ export class MailService {
     const sent = await this.send({ to, subject, text, html });
     if (sent) {
       this.logger.log(`Teacher application confirmation sent to ${to}`);
+    }
+  }
+
+  async sendTeacherApplicationRejected(
+    to: string,
+    name: string,
+    supportEmail = 'support@itestu.uz',
+  ): Promise<void> {
+    const { subject, text, html } = teacherApplicationRejectedEmail(
+      name,
+      supportEmail,
+    );
+    const sent = await this.send({ to, subject, text, html });
+    if (sent) {
+      this.logger.log(`Teacher application rejected email sent to ${to}`);
     }
   }
 

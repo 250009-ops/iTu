@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, Search, Star } from "lucide-react";
+import { ClipboardCheck, Eye, Search, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
@@ -34,6 +34,17 @@ const statusStyles: Record<
   },
 };
 
+function getStatusDisplay(teacher: Examiner) {
+  if (teacher.status === "suspended" && teacher.applicationRejected) {
+    return {
+      label: "Rejected",
+      dot: "bg-slate-400",
+      pill: "bg-slate-100 text-slate-700",
+    };
+  }
+  return statusStyles[teacher.status];
+}
+
 const specialityStyles: Record<TeacherSpeciality, string> = {
   writing: "bg-violet-50 text-violet-700",
   speaking: "bg-rose-50 text-rose-700",
@@ -48,9 +59,11 @@ const specialityLabels: Record<TeacherSpeciality, string> = {
 
 function ActionButton({
   teacher,
+  onReview,
   onAction,
 }: {
   teacher: Examiner;
+  onReview: (teacher: Examiner) => void;
   onAction: (teacher: Examiner) => void;
 }) {
   if (teacher.status === "pending") {
@@ -58,14 +71,18 @@ function ActionButton({
       <Button
         variant="primary"
         size="sm"
-        className="bg-emerald-600 hover:bg-emerald-700"
-        onClick={() => onAction(teacher)}
+        className="bg-amber-600 hover:bg-amber-700"
+        onClick={() => onReview(teacher)}
       >
-        Approve
+        <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" />
+        Review
       </Button>
     );
   }
   if (teacher.status === "suspended") {
+    if (teacher.applicationRejected) {
+      return null;
+    }
     return (
       <Button
         variant="secondary"
@@ -97,20 +114,18 @@ export function ExaminersTable() {
   const [viewTeacher, setViewTeacher] = useState<Examiner | null>(null);
   const { toast } = useToast();
 
-  const nextStatus: Record<TeacherStatus, TeacherStatus> = {
-    pending: "approved",
+  const nextStatus: Record<Exclude<TeacherStatus, "pending">, TeacherStatus> = {
     suspended: "approved",
     approved: "suspended",
   };
 
-  const actionVerb: Record<TeacherStatus, string> = {
-    pending: "Approve",
+  const actionVerb: Record<Exclude<TeacherStatus, "pending">, string> = {
     suspended: "Reinstate",
     approved: "Suspend",
   };
 
   async function applyAction() {
-    if (!pending) return;
+    if (!pending || pending.status === "pending") return;
     const target = nextStatus[pending.status];
     const verb = actionVerb[pending.status];
     try {
@@ -190,7 +205,7 @@ export function ExaminersTable() {
               </tr>
             ) : (
               filtered.map((teacher) => {
-                const status = statusStyles[teacher.status];
+                const status = getStatusDisplay(teacher);
                 return (
                   <tr key={teacher.id} className="hover:bg-slate-50/80">
                     <td className="px-5 py-4 sm:px-6">
@@ -244,7 +259,11 @@ export function ExaminersTable() {
                     </td>
                     <td className="px-5 py-4 sm:px-6">
                       <div className="flex items-center justify-end gap-2">
-                        <ActionButton teacher={teacher} onAction={setPending} />
+                        <ActionButton
+                          teacher={teacher}
+                          onReview={setViewTeacher}
+                          onAction={setPending}
+                        />
                         <button
                           type="button"
                           onClick={() => setViewTeacher(teacher)}
@@ -264,16 +283,22 @@ export function ExaminersTable() {
       </div>
 
       <ConfirmDialog
-        open={pending !== null}
-        title={pending ? `${actionVerb[pending.status]} ${pending.name}?` : ""}
+        open={pending !== null && pending.status !== "pending"}
+        title={
+          pending && pending.status !== "pending"
+            ? `${actionVerb[pending.status]} ${pending.name}?`
+            : ""
+        }
         message={
           pending?.status === "approved"
             ? "Suspending will immediately remove this examiner from upcoming sessions. They will receive an email notification."
-            : pending?.status === "pending"
-              ? "Approving will allow this examiner to sign in and deliver sessions. They will receive login instructions by email."
-              : "This examiner will be able to deliver and grade sessions again."
+            : "This examiner will be able to deliver and grade sessions again."
         }
-        confirmLabel={pending ? actionVerb[pending.status] : "Confirm"}
+        confirmLabel={
+          pending && pending.status !== "pending"
+            ? actionVerb[pending.status]
+            : "Confirm"
+        }
         tone={pending?.status === "approved" ? "danger" : "default"}
         onConfirm={applyAction}
         onCancel={() => setPending(null)}

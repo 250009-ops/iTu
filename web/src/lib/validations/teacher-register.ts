@@ -1,13 +1,22 @@
 import { z } from "zod";
 
-export const TEACHER_BAND_OPTIONS = ["7.5", "8.0", "8.5", "9.0"] as const;
+export const TEACHER_MIN_BAND = 6.5;
+
+export const TEACHER_BAND_OPTIONS = [
+  "6.5",
+  "7.0",
+  "7.5",
+  "8.0",
+  "8.5",
+  "9.0",
+] as const;
 
 export const TEACHER_LANGUAGE_OPTIONS = ["Uzbek", "English", "Russian"] as const;
 
 export const TEACHER_CREDENTIAL_OPTIONS = [
   "CELTA",
   "DELTA",
-  "IELTS Examiner Certification",
+  "IELTS",
   "TESOL",
   "MA Applied Linguistics",
   "Certified Examiner",

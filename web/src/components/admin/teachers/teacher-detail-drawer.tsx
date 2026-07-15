@@ -7,11 +7,11 @@ import {
   FileText,
   Loader2,
   Mail,
-  Phone,
   Star,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { getAdminTeacher, updateTeacherRates } from "@/lib/api/admin";
@@ -25,6 +25,7 @@ import {
   type BandTiers,
 } from "@/lib/examiner-rate-tiers";
 import type { Examiner, TeacherSpeciality, TeacherStatus } from "@/lib/admin/types";
+import { useAdminTeachers } from "@/contexts/admin-teachers-context";
 import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
@@ -50,9 +51,12 @@ type Props = {
 
 export function TeacherDetailDrawer({ teacher, onClose }: Props) {
   const { toast } = useToast();
+  const { updateStatus, refresh } = useAdminTeachers();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [certificatesReviewed, setCertificatesReviewed] = useState(false);
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getAdminTeacher>> | null>(
     null,
   );
@@ -70,12 +74,14 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
   useEffect(() => {
     if (!teacher) {
       setDetail(null);
+      setCertificatesReviewed(false);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setCertificatesReviewed(false);
 
     getAdminTeacher(teacher.id)
       .then((data) => {
@@ -136,8 +142,22 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
     Number(platformSharePercent) || 0,
   );
 
+  const hasCertificates = (detail?.application?.certificateUrls?.length ?? 0) > 0;
+
+  async function handleUpdated() {
+    await refresh();
+    onClose();
+  }
+
   async function handleSaveRates(approve: boolean) {
     if (!teacher) return;
+    if (approve && hasCertificates && !certificatesReviewed) {
+      toast("Review required", {
+        description: "Confirm you have reviewed certificates before approving.",
+        variant: "warning",
+      });
+      return;
+    }
     setSaving(true);
     try {
       await updateTeacherRates(teacher.id, {
@@ -152,7 +172,7 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
           : "Examiner payout rates have been updated.",
         variant: "success",
       });
-      onClose();
+      await handleUpdated();
     } catch (err) {
       toast("Failed to save rates", {
         description: getErrorMessage(err, "Please try again."),
@@ -163,12 +183,41 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
     }
   }
 
+  async function handleReject() {
+    if (!teacher) return;
+    setSaving(true);
+    try {
+      await updateStatus(teacher.id, "suspended");
+      toast("Application rejected", {
+        description: `${teacher.name} has been notified by email.`,
+        variant: "warning",
+      });
+      setRejectOpen(false);
+      await handleUpdated();
+    } catch (err) {
+      toast("Failed to reject application", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!teacher) return null;
 
-  const status = statusStyles[teacher.status];
   const app = detail?.application;
+  const status = statusStyles[teacher.status];
+  const isRejected = teacher.status === "suspended" && Boolean(app?.rejectedAt);
+  const displayStatus = isRejected
+    ? { label: "Rejected", pill: "bg-slate-100 text-slate-700" }
+    : status;
+  const isPending = teacher.status === "pending";
   const languages = Array.isArray(detail?.languages)
     ? (detail.languages as string[])
+    : [];
+  const credentials = Array.isArray(detail?.credentials)
+    ? (detail.credentials as string[])
     : [];
 
   return (
@@ -225,10 +274,10 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
                 <span
                   className={cn(
                     "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                    status.pill,
+                    displayStatus.pill,
                   )}
                 >
-                  {status.label}
+                  {displayStatus.label}
                 </span>
                 <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
                   {specialityLabels[teacher.speciality]}
@@ -260,11 +309,21 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
                 </div>
               </div>
 
-              {teacher.status === "pending" && app && (
-                <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+              {app && (
+                <section
+                  className={cn(
+                    "rounded-xl border p-4",
+                    isPending
+                      ? "border-amber-200 bg-amber-50/50"
+                      : "border-border bg-slate-50/50",
+                  )}
+                >
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-navy">
                     <Award className="h-4 w-4 text-amber-600" />
                     Application details
+                    {!isPending && (
+                      <span className="text-xs font-normal text-muted">(on file)</span>
+                    )}
                   </h3>
                   <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
                     <div>
@@ -285,31 +344,27 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
                         {app.yearsExperience ?? "—"} years
                       </dd>
                     </div>
-                    {app.phone && (
-                      <div>
-                        <dt className="text-xs text-muted">Phone</dt>
-                        <dd className="flex items-center gap-1 font-semibold text-navy">
-                          <Phone className="h-3.5 w-3.5" />
-                          {app.phone}
-                        </dd>
-                      </div>
-                    )}
                   </dl>
-                  {app.qualifications?.length ? (
+                  {credentials.length > 0 && (
                     <div className="mt-3">
-                      <p className="text-xs text-muted">Qualifications</p>
+                      <p className="text-xs text-muted">Credentials</p>
                       <div className="mt-1 flex flex-wrap gap-1.5">
-                        {app.qualifications.map((q) => (
+                        {credentials.map((credential) => (
                           <span
-                            key={q}
-                            className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-navy ring-1 ring-amber-200"
+                            key={credential}
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-xs font-medium text-navy ring-1",
+                              isPending
+                                ? "bg-white ring-amber-200"
+                                : "bg-white ring-border",
+                            )}
                           >
-                            {q}
+                            {credential}
                           </span>
                         ))}
                       </div>
                     </div>
-                  ) : null}
+                  )}
                   {app.certificateUrls?.length ? (
                     <div className="mt-4">
                       <p className="text-xs font-medium text-muted">Certificates</p>
@@ -320,6 +375,7 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
+                              onClick={() => setCertificatesReviewed(true)}
                               className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-navy hover:bg-slate-50"
                             >
                               <FileText className="h-4 w-4 text-violet-600" />
@@ -332,6 +388,25 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
                     </div>
                   ) : null}
                 </section>
+              )}
+
+              {isPending && hasCertificates && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/30 p-4 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={certificatesReviewed}
+                    onChange={(e) => setCertificatesReviewed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-navy focus:ring-navy/30"
+                  />
+                  <span>
+                    <span className="font-semibold text-navy">
+                      I have reviewed the certificates and application details
+                    </span>
+                    <span className="mt-1 block text-xs text-muted">
+                      Open each certificate above to verify qualifications before approving.
+                    </span>
+                  </span>
+                </label>
               )}
 
               <section className="rounded-xl border border-border p-4">
@@ -462,31 +537,64 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
         </div>
 
         <div className="border-t border-border px-5 py-4 sm:px-6">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {teacher.status === "pending" && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {isPending && (
+              <>
+                <Button
+                  variant="primary"
+                  className="flex-1 sm:min-w-[140px]"
+                  loading={saving}
+                  disabled={hasCertificates && !certificatesReviewed}
+                  onClick={() => void handleSaveRates(true)}
+                >
+                  Approve with rates
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1 border-rose-200 text-brand-red hover:bg-rose-50 sm:min-w-[100px]"
+                  loading={saving}
+                  onClick={() => setRejectOpen(true)}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+            {!isPending && (
               <Button
                 variant="primary"
-                className="flex-1"
+                className="flex-1 sm:min-w-[120px]"
                 loading={saving}
-                onClick={() => void handleSaveRates(true)}
+                onClick={() => void handleSaveRates(false)}
               >
-                Approve with rates
+                Save rates
               </Button>
             )}
-            <Button
-              variant={teacher.status === "pending" ? "secondary" : "primary"}
-              className="flex-1"
-              loading={saving}
-              onClick={() => void handleSaveRates(false)}
-            >
-              Save rates
-            </Button>
-            <Button variant="secondary" className="flex-1" onClick={onClose}>
+            {isPending && (
+              <Button
+                variant="secondary"
+                className="flex-1 sm:min-w-[120px]"
+                loading={saving}
+                onClick={() => void handleSaveRates(false)}
+              >
+                Save rates only
+              </Button>
+            )}
+            <Button variant="secondary" className="flex-1 sm:min-w-[80px]" onClick={onClose}>
               Close
             </Button>
           </div>
         </div>
       </aside>
+
+      <ConfirmDialog
+        open={rejectOpen}
+        title={`Reject ${teacher.name}'s application?`}
+        message="The applicant will receive an email notification. They will not be able to sign in as an examiner."
+        confirmLabel="Reject application"
+        tone="danger"
+        onConfirm={() => void handleReject()}
+        onCancel={() => setRejectOpen(false)}
+      />
     </>
   );
 }

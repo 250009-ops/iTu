@@ -1,4 +1,4 @@
-export const EXAMINER_BANDS = ['7.5', '8.0', '8.5', '9.0'] as const;
+export const EXAMINER_BANDS = ['6.5', '7.0', '7.5', '8.0', '8.5', '9.0'] as const;
 
 export type ExaminerBand = (typeof EXAMINER_BANDS)[number];
 export type ExaminerSkill = 'writing' | 'speaking';
@@ -14,6 +14,14 @@ export type BandTiers = Record<
 >;
 
 export const DEFAULT_BAND_TIERS: BandTiers = {
+  '6.5': {
+    writing: { defaultRate: 12_000, platformPercent: 32 },
+    speaking: { defaultRate: 12_000, platformPercent: 32 },
+  },
+  '7.0': {
+    writing: { defaultRate: 13_500, platformPercent: 31 },
+    speaking: { defaultRate: 13_500, platformPercent: 31 },
+  },
   '7.5': {
     writing: { defaultRate: 15_000, platformPercent: 30 },
     speaking: { defaultRate: 15_000, platformPercent: 30 },

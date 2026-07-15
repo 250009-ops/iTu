@@ -223,6 +223,32 @@ export function teacherApplicationReceivedEmail(name: string) {
   return { subject: title, text, html };
 }
 
+export function teacherApplicationRejectedEmail(
+  name: string,
+  supportEmail: string,
+) {
+  const title = 'Update on your teacher application';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Thank you for your interest in becoming an iTestU examiner.',
+    'After reviewing your application, we are unable to approve it at this time.',
+    `If you believe this was a mistake or would like more information, contact ${supportEmail}.`,
+  ].join('\n');
+
+  const html = buildEmailHtml({
+    preheader: 'An update on your teacher application.',
+    title,
+    bodyHtml: `
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Thank you for applying to become an <strong>iTestU examiner</strong>. After reviewing your credentials and application details, we are unable to approve your application at this time.</p>
+      <p style="margin-top:16px;font-size:13px;color:#64748b;">If you believe this was a mistake or would like more information, contact <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a>.</p>
+    `,
+  });
+
+  return { subject: title, text, html };
+}
+
 export function teacherApprovedEmail(name: string, email: string, loginUrl: string) {
   const title = 'Welcome to iTestU — your teacher account is approved';
   const text = [

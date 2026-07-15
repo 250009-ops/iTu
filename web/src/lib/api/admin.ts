@@ -409,6 +409,7 @@ export function getAdminTeachers() {
       name: string;
       email: string;
       status: string;
+      applicationRejected?: boolean;
       rating: number | null;
       sessions: number;
       totalEarned: number;
@@ -436,10 +437,9 @@ export function getAdminTeacher(id: string) {
       ieltsWritingBand?: number;
       ieltsSpeakingBand?: number;
       yearsExperience?: number;
-      qualifications?: string[];
       certificateUrls?: string[];
-      phone?: string | null;
       submittedAt?: string;
+      rejectedAt?: string;
     } | null;
     requestedWritingRate?: number | null;
     requestedSpeakingRate?: number | null;

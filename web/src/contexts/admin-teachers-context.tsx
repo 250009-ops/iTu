@@ -12,6 +12,7 @@ type TeachersValue = {
   examiners: Examiner[];
   summary: ReturnType<typeof mapTeachers>["summary"];
   updateStatus: (id: string, status: TeacherStatus) => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const AdminTeachersContext = createContext<TeachersValue | null>(null);
@@ -48,8 +49,9 @@ export function AdminTeachersProvider({ children }: { children: ReactNode }) {
         suspended: 0,
       },
       updateStatus,
+      refresh,
     }),
-    [loading, error, examiners, mapped?.summary, updateStatus],
+    [loading, error, examiners, mapped?.summary, updateStatus, refresh],
   );
 
   return (

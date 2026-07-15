@@ -101,7 +101,7 @@ async function main() {
           bio: 'Cambridge-certified IELTS specialist with a PhD in Applied English. Expert in Task 1 data interpretation and Task 2 argument construction.',
           longBio:
             'Dr. Sarah Chen brings a research-led approach to IELTS Writing and Speaking assessment. With a PhD in Applied English and over a decade of teaching at university level, she specialises in the analytical rigour required for Band 8+ responses. Her feedback pinpoints exactly where lexical and grammatical range can be elevated.',
-          credentials: ['CELTA', 'DELTA', 'IELTS Examiner Certification'],
+          credentials: ['CELTA', 'DELTA', 'IELTS'],
           languages: ['English', 'Mandarin'],
           status: TeacherStatus.APPROVED,
           speciality: TeacherSpeciality.BOTH,

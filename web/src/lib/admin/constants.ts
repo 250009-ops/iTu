@@ -56,6 +56,7 @@ export const teacherStatusFilterOptions: {
   { value: "all", label: "All Status" },
   { value: "approved", label: "Approved" },
   { value: "pending", label: "Pending" },
+  { value: "suspended", label: "Suspended" },
 ];
 
 export const orderStatusFilterOptions = [

@@ -1228,7 +1228,6 @@ export class AdminService {
 
   async getTeachers() {
     const teachers = await this.prisma.teacherProfile.findMany({
-      where: { status: { not: 'SUSPENDED' } },
       include: { user: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -1266,6 +1265,12 @@ export class AdminService {
     const previousStatus = existing.status;
     const nextStatus = status.toUpperCase() as 'APPROVED' | 'PENDING' | 'SUSPENDED';
 
+    if (previousStatus === 'PENDING' && nextStatus === 'APPROVED') {
+      throw new BadRequestException(
+        'Pending applications must be approved after reviewing certificates and setting payout rates.',
+      );
+    }
+
     let rateData: {
       approvedWritingRate?: number;
       approvedSpeakingRate?: number;
@@ -1298,9 +1303,20 @@ export class AdminService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const rejectionData =
+        previousStatus === 'PENDING' && nextStatus === 'SUSPENDED'
+          ? {
+              applicationData: {
+                ...((existing.applicationData as Record<string, unknown> | null) ??
+                  {}),
+                rejectedAt: new Date().toISOString(),
+              },
+            }
+          : {};
+
       const teacher = await tx.teacherProfile.update({
         where: { id: teacherId },
-        data: { status: nextStatus, ...rateData },
+        data: { status: nextStatus, ...rateData, ...rejectionData },
         include: { user: true },
       });
 
@@ -1442,13 +1458,16 @@ export class AdminService {
     totalEarned: number;
     speciality: string;
     createdAt: Date;
+    applicationData?: unknown;
     user: { name: string; email: string };
   }) {
+    const app = teacher.applicationData as { rejectedAt?: string } | null;
     return {
       id: teacher.id,
       name: teacher.user.name,
       email: teacher.user.email,
       status: teacher.status.toLowerCase(),
+      applicationRejected: Boolean(app?.rejectedAt),
       rating: teacher.rating,
       sessions: teacher.totalSessions,
       totalEarned: teacher.totalEarned,
@@ -1508,6 +1527,11 @@ export class AdminService {
 
     if (nextStatus === 'APPROVED' && previousStatus !== 'APPROVED') {
       await this.mail.sendTeacherApproved(email, name);
+      return;
+    }
+
+    if (nextStatus === 'SUSPENDED' && previousStatus === 'PENDING') {
+      await this.mail.sendTeacherApplicationRejected(email, name, supportEmail);
       return;
     }
 
