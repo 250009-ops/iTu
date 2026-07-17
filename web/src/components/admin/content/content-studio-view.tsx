@@ -62,6 +62,13 @@ function ContentStudioContent() {
   const selectedTest = tests.find((t) => t.id === selectedTestId);
 
   useEffect(() => {
+    if (loading || !selectedTestId) return;
+    if (!tests.some((t) => t.id === selectedTestId)) {
+      setSelectedTestId(null);
+    }
+  }, [loading, selectedTestId, tests, setSelectedTestId]);
+
+  useEffect(() => {
     if (!selectedTestId) return;
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [selectedTestId]);

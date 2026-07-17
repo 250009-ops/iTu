@@ -24,7 +24,7 @@ import { normalizeContent } from "@/lib/admin/content/normalize";
 import type { ContentModule } from "@/lib/admin/types";
 import { useAdminContent } from "@/contexts/admin-content-context";
 import { getContentTest } from "@/lib/api/admin";
-import { getErrorMessage } from "@/lib/api/errors";
+import { ApiError, getErrorMessage } from "@/lib/api/errors";
 import type {
   ListeningContent,
   ReadingContent,
@@ -68,6 +68,7 @@ export function ContentTestEditor({
     deleteTest,
     retireAndDuplicate,
     tests,
+    setSelectedTestId,
   } = useAdminContent();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -87,6 +88,23 @@ export function ContentTestEditor({
   const [loadedTestId, setLoadedTestId] = useState<string | null>(null);
 
   const showAnswerKey = moduleUsesAnswerKey(module);
+
+  function handleMissingTest(action: string) {
+    setSelectedTestId(null);
+    toast(`${action} failed`, {
+      description:
+        "This test no longer exists on the server. Create a new draft or pick another test from the list.",
+      variant: "error",
+    });
+  }
+
+  function handleContentError(err: unknown, action: string): boolean {
+    if (err instanceof ApiError && err.status === 404) {
+      handleMissingTest(action);
+      return true;
+    }
+    return false;
+  }
 
   useEffect(() => {
     setTab(initialTab);
@@ -133,6 +151,7 @@ export function ContentTestEditor({
       .catch((err) => {
         if (!active) return;
         setLoadedTestId(null);
+        if (handleContentError(err, "Load")) return;
         toast("Failed to load test", {
           description: getErrorMessage(err, "Failed to load test"),
           variant: "error",
@@ -232,6 +251,7 @@ export function ContentTestEditor({
       toast("Draft saved", { variant: "success" });
       return true;
     } catch (err) {
+      if (handleContentError(err, "Save")) return false;
       toast("Save failed", {
         description: getErrorMessage(err, "Save failed"),
         variant: "error",
@@ -262,6 +282,7 @@ export function ContentTestEditor({
         variant: "success",
       });
     } catch (err) {
+      if (handleContentError(err, "Publish")) return;
       toast("Publish failed", {
         description: getErrorMessage(err, "Publish failed"),
         variant: "error",
@@ -281,6 +302,7 @@ export function ContentTestEditor({
       setStatus("under_review");
       toast("Submitted for review", { variant: "success" });
     } catch (err) {
+      if (handleContentError(err, "Submit")) return;
       toast("Submit failed", {
         description: getErrorMessage(err, "Submit failed"),
         variant: "error",
@@ -298,6 +320,7 @@ export function ContentTestEditor({
       setStatus("draft");
       toast("Reverted to draft", { variant: "success" });
     } catch (err) {
+      if (handleContentError(err, "Revert")) return;
       toast("Revert failed", {
         description: getErrorMessage(err, "Revert failed"),
         variant: "error",

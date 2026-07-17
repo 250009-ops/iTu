@@ -3,8 +3,8 @@
  * - Updates seed tests by code (LIS-MOCK-A001, etc.) without touching other published tests
  * - Links package content FKs only when a skill link is still missing
  * - Syncs package_content_tests pool rows from FKs
- * - Removes orphan draft tests left from Content Studio experiments
  *
+ * Does not delete Content Studio drafts — those are admin-owned working copies.
  * Usage: npx tsx scripts/patch-content-tests.ts
  */
 import {
@@ -187,11 +187,6 @@ async function main() {
 
   await linkPackages({ listeningId, readingId, writingId, speakingId });
   await syncAllPackagePools();
-
-  const removed = await prisma.contentTest.deleteMany({
-    where: { status: ContentTestStatus.DRAFT },
-  });
-  console.log(`Removed ${removed.count} draft test(s).`);
 
   console.log('Content patch complete.');
 }
