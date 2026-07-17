@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Suspense } from "react";
+import { ArrowLeft } from "lucide-react";
 import { ContentStudioHeader } from "@/components/admin/content/content-studio-header";
 import { ContentSummaryCards } from "@/components/admin/content/content-summary-cards";
 import { ContentDeepLink } from "@/components/admin/content/content-deep-link";
@@ -12,11 +13,13 @@ import { WritingEditor } from "@/components/admin/content/writing-editor";
 import { ModuleTabs } from "@/components/admin/content/module-tabs";
 import { TestsTable } from "@/components/admin/content/tests-table";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { Button } from "@/components/ui/button";
 import {
   AdminContentProvider,
   useAdminContent,
 } from "@/contexts/admin-content-context";
 import type { ContentModule } from "@/lib/admin/types";
+import { cn } from "@/lib/utils";
 
 type EditorTab = "visual" | "preview";
 
@@ -50,6 +53,14 @@ function ContentStudioContent() {
     }
   }, [activeModule, selectedTestId, tests, setSelectedTestId]);
 
+  const isEditing = Boolean(selectedTestId);
+  const selectedTest = tests.find((t) => t.id === selectedTestId);
+
+  useEffect(() => {
+    if (!selectedTestId) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [selectedTestId]);
+
   return (
     <ApiDataShell loading={loading} error={error}>
       <ContentDeepLink
@@ -57,17 +68,53 @@ function ContentStudioContent() {
         onModuleChange={setActiveModule}
         onPreviewTab={openPreviewTab}
       />
-      <div className="min-h-0 pb-10 pt-4 lg:pt-6">
-        <div className="mx-auto max-w-7xl space-y-6 px-4 lg:px-6 xl:px-8">
+      <div
+        className={cn(
+          "min-h-0 pt-4 lg:pt-6",
+          isEditing ? "flex flex-col pb-6" : "pb-10",
+        )}
+      >
+        <div
+          className={cn(
+            "mx-auto flex w-full max-w-7xl flex-col px-4 lg:px-6 xl:px-8",
+            isEditing ? "min-h-[calc(100dvh-4.5rem)] flex-1 gap-4" : "space-y-6",
+          )}
+        >
           <ContentStudioHeader activeModule={activeModule} />
-          <ContentSummaryCards />
-          <ModuleTabs active={activeModule} onChange={setActiveModule} />
-          <TestsTable
-            module={activeModule}
-            onPreviewTest={openPreviewTab}
-            onEditTest={() => setEditorTab("visual")}
-          />
-          <Editor initialTab={editorTab} />
+
+          {isEditing ? (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSelectedTestId(null)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to tests
+                </Button>
+                {selectedTest && (
+                  <p className="text-sm text-muted">
+                    Editing{" "}
+                    <span className="font-semibold text-navy">{selectedTest.name}</span>
+                  </p>
+                )}
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <Editor initialTab={editorTab} focused />
+              </div>
+            </>
+          ) : (
+            <>
+              <ContentSummaryCards />
+              <ModuleTabs active={activeModule} onChange={setActiveModule} />
+              <TestsTable
+                module={activeModule}
+                onPreviewTest={openPreviewTab}
+                onEditTest={() => setEditorTab("visual")}
+              />
+            </>
+          )}
         </div>
       </div>
     </ApiDataShell>

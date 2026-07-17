@@ -50,9 +50,16 @@ type Props = {
   module: ContentModule;
   testId: string | null;
   initialTab?: EditorTab;
+  /** Fills the Content Studio edit workspace instead of sitting below the tests table. */
+  focused?: boolean;
 };
 
-export function ContentTestEditor({ module, testId, initialTab = "visual" }: Props) {
+export function ContentTestEditor({
+  module,
+  testId,
+  initialTab = "visual",
+  focused = false,
+}: Props) {
   const {
     updateTest,
     publishTest,
@@ -352,7 +359,12 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
   ];
 
   return (
-    <div className="flex max-h-[calc(100dvh-9rem)] flex-col overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border border-border bg-white shadow-sm",
+        focused ? "min-h-0 flex-1" : "max-h-[calc(100dvh-9rem)]",
+      )}
+    >
       <div className="flex shrink-0 flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div>
           <h2 className="font-semibold capitalize text-navy">{module} editor</h2>
