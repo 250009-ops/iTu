@@ -37,6 +37,10 @@ function InstStudentGate({ children }: { children: React.ReactNode }) {
     return <FullScreenSpinner />;
   }
 
+  if (!info) {
+    return <FullScreenSpinner />;
+  }
+
   if (info.status !== "active") {
     return <WaitingApprovalView centerName={info.center?.name ?? "your center"} />;
   }
