@@ -25,19 +25,33 @@ const dotTexture = {
   backgroundSize: "28px 28px",
 };
 
-const tabs: { id: ProfileTab; label: string; icon: typeof User }[] = [
+const marketplaceTabs: { id: ProfileTab; label: string; icon: typeof User }[] = [
   { id: "overview", label: "Overview", icon: User },
   { id: "plan", label: "IELTS Plan", icon: Target },
   { id: "security", label: "Security", icon: Shield },
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
 
+const institutionTabs: { id: ProfileTab; label: string; icon: typeof User }[] = [
+  { id: "overview", label: "Account", icon: User },
+  { id: "plan", label: "IELTS Goal", icon: Target },
+  { id: "security", label: "Security", icon: Shield },
+];
+
 type ProfileHeroProps = {
   activeTab: ProfileTab;
   onTabChange: (tab: ProfileTab) => void;
+  portal?: "marketplace" | "institution";
+  /** Shown in the hero subtitle for centre students (e.g. centre name). */
+  institutionLabel?: string;
 };
 
-export function ProfileHero({ activeTab, onTabChange }: ProfileHeroProps) {
+export function ProfileHero({
+  activeTab,
+  onTabChange,
+  portal = "marketplace",
+  institutionLabel,
+}: ProfileHeroProps) {
   const { session } = useAuth();
   const { toast } = useToast();
   const { profile } = useStudentProfileData();
@@ -45,6 +59,12 @@ export function ProfileHero({ activeTab, onTabChange }: ProfileHeroProps) {
   const name = session?.name ?? profile.name;
   const { candidateType, memberSince, heroStats, contact } = profile;
   const country = profile.country?.trim();
+  const tabs = portal === "institution" ? institutionTabs : marketplaceTabs;
+  const subtitle =
+    portal === "institution" && institutionLabel
+      ? `${institutionLabel} · Member since ${memberSince}`
+      : `${candidateType} · Member since ${memberSince}`;
+  const statusLabel = portal === "institution" ? "Centre student" : "Active";
 
   return (
     <div className="relative text-white" style={{ background: navyGradient }}>
@@ -86,11 +106,11 @@ export function ProfileHero({ activeTab, onTabChange }: ProfileHeroProps) {
                 </h2>
                 <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-0.5 font-semibold text-emerald-300" style={{ fontSize: "11px" }}>
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                  Active
+                  {statusLabel}
                 </span>
               </div>
               <p className="mt-1 text-blue-200" style={{ fontSize: "14px" }}>
-                {candidateType} · Member since {memberSince}
+                {subtitle}
               </p>
               <div className="mt-2 flex flex-wrap gap-4 text-blue-300" style={{ fontSize: "13px" }}>
                 {contact.email ? (

@@ -5,9 +5,15 @@ import { useState } from "react";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useStudentProfileData } from "@/contexts/student-profile-context";
 
-export function ProfileHeader() {
+type ProfileHeaderProps = {
+  portal?: "marketplace" | "institution";
+};
+
+export function ProfileHeader({ portal = "marketplace" }: ProfileHeaderProps) {
   const { refresh } = useStudentProfileData();
   const [refreshing, setRefreshing] = useState(false);
+  const dashboardHref =
+    portal === "institution" ? "/inst-student" : "/student";
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -23,7 +29,7 @@ export function ProfileHeader() {
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <div>
           <div className="flex items-center gap-1.5 text-gray-400" style={{ fontSize: "12px" }}>
-            <Link href="/student" className="font-medium hover:text-gray-600">
+            <Link href={dashboardHref} className="font-medium hover:text-gray-600">
               Dashboard
             </Link>
             <ChevronRight size={12} className="text-gray-300" />

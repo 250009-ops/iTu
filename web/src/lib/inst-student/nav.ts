@@ -1,7 +1,8 @@
 export type InstStudentNavIcon =
   | "layout-dashboard"
   | "monitor-play"
-  | "line-chart";
+  | "line-chart"
+  | "user";
 
 export type InstStudentNavItem = {
   label: string;
@@ -29,6 +30,11 @@ export const instStudentNav: InstStudentNavItem[] = [
     label: "Results",
     href: "/inst-student/results",
     icon: "line-chart",
+  },
+  {
+    label: "Profile",
+    href: "/inst-student/profile",
+    icon: "user",
   },
 ];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -207,7 +207,18 @@ export function InstStudentDashboardView() {
         <StatCard
           value={target != null ? target.toFixed(1) : "—"}
           label="Target Band"
-          hint={toGo != null ? `${toGo} to go` : "Set a goal"}
+          hint={
+            toGo != null ? (
+              `${toGo} to go`
+            ) : (
+              <Link
+                href="/inst-student/profile?tab=plan#goal"
+                className="text-sky-600 hover:text-sky-700 hover:underline"
+              >
+                Set a goal
+              </Link>
+            )
+          }
         />
         <StatCard
           value={String(stats?.mocksCompleted ?? 0)}
@@ -505,7 +516,7 @@ function StatCard({
 }: {
   value: string;
   label: string;
-  hint?: string;
+  hint?: ReactNode;
   hintTone?: "up" | "muted";
 }) {
   return (

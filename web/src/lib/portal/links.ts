@@ -46,7 +46,10 @@ export function helpPath(role: Role, pathname?: string): string {
  * Admins have a dedicated platform-settings console; students and teachers
  * manage account settings from their profile page.
  */
-export function settingsPath(role: Role): string {
+export function settingsPath(role: Role, pathname?: string): string {
+  if (pathname?.startsWith("/inst-student")) {
+    return "/inst-student/profile";
+  }
   switch (role) {
     case "admin":
       return "/admin/settings";
