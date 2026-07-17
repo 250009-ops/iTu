@@ -6,7 +6,7 @@ export type InstitutionNavIcon =
   | "calendar"
   | "bar-chart"
   | "settings"
-  | "life-buoy";
+  | "message-square";
 
 export type InstitutionNavItem = {
   label: string;
@@ -49,7 +49,11 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
     label: "Insights",
     items: [
       { label: "Reports", href: "/institution/reports", icon: "bar-chart" },
-      { label: "Help", href: "/institution/help", icon: "life-buoy" },
+      {
+        label: "Centre requests",
+        href: "/institution/requests",
+        icon: "message-square",
+      },
       { label: "Settings", href: "/institution/settings", icon: "settings" },
     ],
   },

@@ -1,13 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  CheckCircle2,
-  ChevronDown,
-  Loader2,
-  MessageSquare,
-} from "lucide-react";
-import { HelpSupportView } from "@/components/portal/help-support-view";
+import { CheckCircle2, Loader2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -18,6 +12,7 @@ import {
 } from "@/lib/api/support";
 import { ticketTypeLabel } from "@/lib/portal/help-config";
 import { cn } from "@/lib/utils";
+import { LoadingRow, PageHeader, SectionCard } from "@/components/institution/ui";
 
 function formatDate(iso: string) {
   try {
@@ -48,9 +43,8 @@ function statusClass(status: string) {
   return "bg-amber-50 text-amber-800";
 }
 
-function CentreRequestsPanel() {
+export function CentreRequestsView() {
   const { toast } = useToast();
-  const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [requests, setRequests] = useState<InstitutionSupportRequest[]>([]);
@@ -94,44 +88,35 @@ function CentreRequestsPanel() {
   ).length;
 
   return (
-    <section className="rounded-2xl border border-border bg-white shadow-sm">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 border-b border-border px-5 py-4 text-left sm:px-6"
-      >
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
-            <MessageSquare className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div>
-            <h2 className="font-semibold text-navy">Centre requests</h2>
-            <p className="text-sm text-muted">
-              From your students and examiners · {openCount} open
-            </p>
-          </div>
-        </div>
-        <ChevronDown
-          className={cn(
-            "h-5 w-5 text-muted transition-transform",
-            open && "rotate-180",
-          )}
-        />
-      </button>
+    <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-6">
+      <PageHeader
+        breadcrumb="Institution &gt; Centre requests"
+        title="Centre requests"
+        description="Requests from your students and examiners. Resolve them here — platform billing and portal issues go through Help & Support in the profile menu."
+      />
 
-      {open && (
-        <div className="divide-y divide-border">
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 px-5 py-10 text-sm text-muted">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading requests…
-            </div>
-          ) : requests.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-muted sm:px-6">
-              No requests from centre members yet.
-            </p>
-          ) : (
-            requests.map((req) => {
+      <SectionCard
+        title={
+          <span className="inline-flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-violet-600" />
+            Inbox
+            {openCount > 0 ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                {openCount} open
+              </span>
+            ) : null}
+          </span>
+        }
+      >
+        {loading ? (
+          <LoadingRow />
+        ) : requests.length === 0 ? (
+          <p className="px-5 py-12 text-center text-sm text-muted">
+            No requests from centre members yet.
+          </p>
+        ) : (
+          <div className="divide-y divide-border">
+            {requests.map((req) => {
               const closed = ["resolved", "closed"].includes(
                 req.status.toLowerCase(),
               );
@@ -188,19 +173,10 @@ function CentreRequestsPanel() {
                   </p>
                 </div>
               );
-            })
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-export function InstitutionHelpView() {
-  return (
-    <div className="space-y-8">
-      <CentreRequestsPanel />
-      <HelpSupportView role="institution" />
+            })}
+          </div>
+        )}
+      </SectionCard>
     </div>
   );
 }

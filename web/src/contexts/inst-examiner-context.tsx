@@ -10,6 +10,12 @@ import {
 import { getMe } from "@/lib/api/auth";
 import { getWritingGradingHub } from "@/lib/api/grading";
 import { getTeacherSpeakingSessions } from "@/lib/api/teachers";
+import {
+  canAccessSpeaking,
+  canAccessWriting,
+  normalizeExaminerSpeciality,
+  type ExaminerSpeciality,
+} from "@/lib/inst-examiner/speciality";
 
 export interface InstExaminerInfo {
   name: string;
@@ -22,6 +28,7 @@ interface InstExaminerContextValue {
   /** True once we've confirmed the user is a center-scoped examiner. */
   isInstitutionExaminer: boolean;
   info: InstExaminerInfo | null;
+  speciality: ExaminerSpeciality;
   badges: { speaking: number; writing: number };
 }
 
@@ -33,6 +40,7 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [info, setInfo] = useState<InstExaminerInfo | null>(null);
   const [isInstitutionExaminer, setIsInstitutionExaminer] = useState(false);
+  const [speciality, setSpeciality] = useState<ExaminerSpeciality>("both");
   const [badges, setBadges] = useState({ speaking: 0, writing: 0 });
 
   useEffect(() => {
@@ -42,7 +50,11 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
       .then(async (user) => {
         if (cancelled) return;
         const linked = user.role === "teacher" && user.institution != null;
+        const examinerSpeciality = normalizeExaminerSpeciality(
+          user.teacherProfile?.speciality,
+        );
         setIsInstitutionExaminer(linked);
+        setSpeciality(examinerSpeciality);
         setInfo({
           name: user.name,
           email: user.email,
@@ -52,21 +64,34 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
         });
 
         if (linked) {
-          const [speaking, writing] = await Promise.allSettled([
-            getTeacherSpeakingSessions(),
-            getWritingGradingHub(),
-          ]);
+          const badgeRequests: Promise<{ area: "speaking" | "writing"; count: number }>[] =
+            [];
+          if (canAccessSpeaking(examinerSpeciality)) {
+            badgeRequests.push(
+              getTeacherSpeakingSessions().then((res) => ({
+                area: "speaking" as const,
+                count: res.counts.upcoming,
+              })),
+            );
+          }
+          if (canAccessWriting(examinerSpeciality)) {
+            badgeRequests.push(
+              getWritingGradingHub().then((res) => ({
+                area: "writing" as const,
+                count: res.counts.pending,
+              })),
+            );
+          }
+
+          const results = await Promise.allSettled(badgeRequests);
           if (!cancelled) {
-            setBadges({
-              speaking:
-                speaking.status === "fulfilled"
-                  ? speaking.value.counts.upcoming
-                  : 0,
-              writing:
-                writing.status === "fulfilled"
-                  ? writing.value.counts.pending
-                  : 0,
-            });
+            const next = { speaking: 0, writing: 0 };
+            for (const result of results) {
+              if (result.status === "fulfilled") {
+                next[result.value.area] = result.value.count;
+              }
+            }
+            setBadges(next);
           }
         }
       })
@@ -87,7 +112,7 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
 
   return (
     <InstExaminerContext.Provider
-      value={{ loading, isInstitutionExaminer, info, badges }}
+      value={{ loading, isInstitutionExaminer, info, speciality, badges }}
     >
       {children}
     </InstExaminerContext.Provider>

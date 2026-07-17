@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { ShieldCheck, Star } from "lucide-react";
 import { useInstExaminer } from "@/contexts/inst-examiner-context";
 import {
+  examinerSpecialityLabel,
+  normalizeExaminerSpeciality,
+} from "@/lib/inst-examiner/speciality";
+import {
   getTeacherProfile,
   updateTeacherProfile,
   type TeacherProfileResponse,
@@ -36,7 +40,7 @@ function memberSinceLabel(iso: string): string {
 }
 
 export function InstExaminerProfileView() {
-  const { info } = useInstExaminer();
+  const { info, speciality: assignedSpeciality } = useInstExaminer();
   const centerName = info?.center?.name ?? "your center";
 
   const [profile, setProfile] = useState<TeacherProfileResponse | null>(null);
@@ -45,8 +49,6 @@ export function InstExaminerProfileView() {
 
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
-  const [speciality, setSpeciality] =
-    useState<"writing" | "speaking" | "both">("both");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -59,13 +61,6 @@ export function InstExaminerProfileView() {
         setProfile(res);
         setName(res.name);
         setBio(res.bio ?? "");
-        if (
-          res.speciality === "writing" ||
-          res.speciality === "speaking" ||
-          res.speciality === "both"
-        ) {
-          setSpeciality(res.speciality);
-        }
       })
       .catch((err) => {
         if (!cancelled)
@@ -84,7 +79,7 @@ export function InstExaminerProfileView() {
     setSaved(false);
     setError(null);
     try {
-      const updated = await updateTeacherProfile({ name, bio, speciality });
+      const updated = await updateTeacherProfile({ name, bio });
       setProfile(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -228,23 +223,19 @@ export function InstExaminerProfileView() {
             />
           </div>
           <div>
-            <label className={labelClass} htmlFor="ie-speciality">
-              Speciality
-            </label>
-            <select
-              id="ie-speciality"
-              className={inputClass}
-              value={speciality}
-              onChange={(e) =>
-                setSpeciality(
-                  e.target.value as "writing" | "speaking" | "both",
-                )
-              }
-            >
-              <option value="both">Writing &amp; Speaking</option>
-              <option value="writing">Writing</option>
-              <option value="speaking">Speaking</option>
-            </select>
+            <label className={labelClass}>Speciality</label>
+            <input
+              className={readonlyClass}
+              value={examinerSpecialityLabel(
+                normalizeExaminerSpeciality(
+                  profile.speciality ?? assignedSpeciality,
+                ),
+              )}
+              readOnly
+            />
+            <p className="mt-1 text-xs text-muted">
+              Assigned by {centerName}. Contact your centre to change this.
+            </p>
           </div>
           <div>
             <label className={labelClass}>Languages Spoken</label>

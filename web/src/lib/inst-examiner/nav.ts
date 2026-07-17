@@ -15,6 +15,12 @@ export type InstExaminerNavItem = {
 
 export const INST_EXAMINER_BASE = "/inst-examiner";
 
+import {
+  canAccessSpeaking,
+  canAccessWriting,
+  type ExaminerSpeciality,
+} from "./speciality";
+
 export const instExaminerNav: InstExaminerNavItem[] = [
   { label: "Dashboard", href: "/inst-examiner", icon: "layout-dashboard" },
   {
@@ -31,6 +37,20 @@ export const instExaminerNav: InstExaminerNavItem[] = [
   },
   { label: "Profile", href: "/inst-examiner/profile", icon: "user" },
 ];
+
+export function instExaminerNavForSpeciality(
+  speciality: ExaminerSpeciality,
+): InstExaminerNavItem[] {
+  return instExaminerNav.filter((item) => {
+    if (item.href === "/inst-examiner/speaking") {
+      return canAccessSpeaking(speciality);
+    }
+    if (item.href === "/inst-examiner/grading") {
+      return canAccessWriting(speciality);
+    }
+    return true;
+  });
+}
 
 export function isInstExaminerNavActive(
   pathname: string,

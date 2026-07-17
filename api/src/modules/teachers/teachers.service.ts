@@ -13,6 +13,11 @@ import {
   NotificationType,
   ExamSkill,
 } from '@prisma/client';
+import {
+  assertTeacherSkillAccess,
+  teacherCanAccessSpeaking,
+  teacherCanAccessWriting,
+} from '../../common/teacher-speciality';
 import { RequestUser } from '../../common/types/request-user';
 import { formatMoney } from '../../common/format-money';
 import {
@@ -113,19 +118,24 @@ export class TeachersService {
 
   async getNavBadgeCounts(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
-    const writing = await this.countVisibleWritingQueue(teacher.id);
-    const speaking = await this.prisma.speakingSession.count({
-      where: {
-        teacherId: teacher.id,
-        status: 'COMPLETED',
-        grade: null,
-      },
-    });
+    const writing = teacherCanAccessWriting(teacher.speciality)
+      ? await this.countVisibleWritingQueue(teacher.id)
+      : 0;
+    const speaking = teacherCanAccessSpeaking(teacher.speciality)
+      ? await this.prisma.speakingSession.count({
+          where: {
+            teacherId: teacher.id,
+            status: 'COMPLETED',
+            grade: null,
+          },
+        })
+      : 0;
     return { speaking, writing };
   }
 
   async getSpeakingSessions(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
+    assertTeacherSkillAccess(teacher.speciality, 'speaking');
     const now = new Date();
     const today = new Date(now);
     today.setHours(0, 0, 0, 0);
@@ -769,6 +779,11 @@ export class TeachersService {
       } = {};
       if (dto.bio !== undefined) teacherData.bio = dto.bio;
       if (dto.speciality !== undefined) {
+        if (teacher.institutionId) {
+          throw new ForbiddenException(
+            'Speciality is managed by your centre',
+          );
+        }
         teacherData.speciality =
           dto.speciality.toUpperCase() as TeacherSpeciality;
       }

@@ -12,6 +12,7 @@ import {
 } from './writing-band-validation';
 import { WritingAiEvaluationService } from './writing-ai-evaluation.service';
 import { RequestUser } from '../../common/types/request-user';
+import { assertTeacherSkillAccess } from '../../common/teacher-speciality';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ResultsReleaseService } from '../results/results-release.service';
@@ -38,6 +39,7 @@ export class GradingService {
     if (!user.teacherProfileId) {
       throw new ForbiddenException('Teacher profile required');
     }
+    await this.requireTeacherSkill(user, 'writing');
 
     const submissions = await this.prisma.writingSubmission.findMany({
       where: { teacherId: user.teacherProfileId },
@@ -139,6 +141,7 @@ export class GradingService {
     if (!user.teacherProfileId) {
       throw new ForbiddenException('Teacher profile required');
     }
+    await this.requireTeacherSkill(user, 'speaking');
 
     const sessions = await this.prisma.speakingSession.findMany({
       where: {
@@ -173,6 +176,8 @@ export class GradingService {
   }
 
   async getWritingSubmission(id: string, user: RequestUser) {
+    await this.requireTeacherSkill(user, 'writing');
+
     const submission = await this.prisma.writingSubmission.findUnique({
       where: { id },
       include: {
@@ -261,6 +266,8 @@ export class GradingService {
   }
 
   async triggerWritingAiEvaluation(id: string, user: RequestUser) {
+    await this.requireTeacherSkill(user, 'writing');
+
     const submission = await this.prisma.writingSubmission.findUnique({
       where: { id },
       select: { teacherId: true },
@@ -290,6 +297,7 @@ export class GradingService {
     if (!user.teacherProfileId) {
       throw new ForbiddenException('Teacher profile required');
     }
+    await this.requireTeacherSkill(user, 'writing');
 
     const validatedScores = validateWritingCriteriaScores(
       body.criteriaScores as unknown as Record<string, unknown>,
@@ -393,6 +401,8 @@ export class GradingService {
   }
 
   async getSpeakingSession(id: string, user: RequestUser) {
+    await this.requireTeacherSkill(user, 'speaking');
+
     const session = await this.prisma.speakingSession.findUnique({
       where: { id },
       include: {
@@ -449,6 +459,7 @@ export class GradingService {
     if (!user.teacherProfileId) {
       throw new ForbiddenException('Teacher profile required');
     }
+    await this.requireTeacherSkill(user, 'speaking');
 
     validateBandScores('speaking', body.criteriaScores, body.overallBand);
 
@@ -543,5 +554,21 @@ export class GradingService {
       this.realtime.notifyTeacherBadges(user.teacherProfileId);
     }
     return { graded: true, overallBand: body.overallBand };
+  }
+
+  private async requireTeacherSkill(
+    user: RequestUser,
+    skill: 'speaking' | 'writing',
+  ): Promise<void> {
+    if (user.role === 'ADMIN') return;
+    if (!user.teacherProfileId) {
+      throw new ForbiddenException('Teacher profile required');
+    }
+    const teacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: user.teacherProfileId },
+      select: { speciality: true },
+    });
+    if (!teacher) throw new NotFoundException('Teacher not found');
+    assertTeacherSkillAccess(teacher.speciality, skill);
   }
 }

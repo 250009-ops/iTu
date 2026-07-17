@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Mic, PenLine, User } from "lucide-react";
 import { useInstExaminer } from "@/contexts/inst-examiner-context";
 import {
-  instExaminerNav,
+  instExaminerNavForSpeciality,
   isInstExaminerNavActive,
 } from "@/lib/inst-examiner/nav";
 import { cn } from "@/lib/utils";
@@ -19,11 +19,12 @@ const iconMap = {
 
 export function InstExaminerMobileNav() {
   const pathname = usePathname();
-  const { badges } = useInstExaminer();
+  const { badges, speciality } = useInstExaminer();
+  const navItems = instExaminerNavForSpeciality(speciality);
 
   return (
     <nav className="flex gap-1 overflow-x-auto border-b border-border bg-white px-2 py-2 md:hidden">
-      {instExaminerNav.map((item) => {
+      {navItems.map((item) => {
         const Icon = iconMap[item.icon];
         const active = isInstExaminerNavActive(pathname, item.href);
         const badge = item.badgeKey != null ? badges[item.badgeKey] : 0;

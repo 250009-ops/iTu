@@ -8,7 +8,7 @@ import {
   Coins,
   GraduationCap,
   LayoutDashboard,
-  LifeBuoy,
+  MessageSquare,
   Settings,
   UserCheck,
 } from "lucide-react";
@@ -24,7 +24,7 @@ const iconMap = {
   calendar: Calendar,
   "bar-chart": BarChart3,
   settings: Settings,
-  "life-buoy": LifeBuoy,
+  "message-square": MessageSquare,
 } as const;
 
 export function InstitutionMobileNav() {

@@ -6,7 +6,7 @@ import { LayoutDashboard, Mic, PenLine, User } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
 import { useInstExaminer } from "@/contexts/inst-examiner-context";
 import {
-  instExaminerNav,
+  instExaminerNavForSpeciality,
   isInstExaminerNavActive,
 } from "@/lib/inst-examiner/nav";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,8 @@ const iconMap = {
 export function InstExaminerSidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
-  const { badges } = useInstExaminer();
+  const { badges, speciality } = useInstExaminer();
+  const navItems = instExaminerNavForSpeciality(speciality);
 
   return (
     <aside
@@ -31,7 +32,7 @@ export function InstExaminerSidebar() {
       )}
     >
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {instExaminerNav.map((item) => {
+        {navItems.map((item) => {
           const Icon = iconMap[item.icon];
           const active = isInstExaminerNavActive(pathname, item.href);
           const badge =

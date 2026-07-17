@@ -241,7 +241,7 @@ export const ADMIN_HELP_FAQS: HelpFaq[] = [
 export const INSTITUTION_HELP_FAQS: HelpFaq[] = [
   {
     q: "Where do requests from my students and examiners appear?",
-    a: "Centre member requests appear in the Centre requests section on this page. Platform issues you submit go to iTestU Admin → Disputes.",
+    a: "Open Centre requests in the sidebar. That inbox is separate from this page, which is for contacting iTestU platform support.",
   },
   {
     q: "How do credit packs work?",
@@ -380,7 +380,7 @@ export function helpDescriptionForRole(role: HelpRole): string {
     case "admin":
       return "Internal tickets and billing follow-ups. Student and teacher requests already appear on Disputes — use this only when you need a tracked note.";
     case "institution":
-      return "Contact iTestU platform support for credits, enrollment tools, and portal issues. Requests from your students and examiners appear in Centre requests below.";
+      return "Contact iTestU platform support for credits, enrollment tools, and portal issues. Use Centre requests in the sidebar for messages from your students and examiners.";
     case "inst_student":
       return "Send requests to your edu centre first — approval, scheduling, results, and exam-day issues. Your centre coordinator receives and responds to each ticket.";
     case "inst_examiner":

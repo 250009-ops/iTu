@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { RequestUser } from '../../common/types/request-user';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
+import {
+  teacherCanAccessSpeaking,
+  teacherCanAccessWriting,
+} from '../../common/teacher-speciality';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const ACTIVE_STATUSES = ['ENROLLED', 'IN_PROGRESS', 'AWAITING_RESULTS'] as const;
@@ -75,30 +79,43 @@ export class InstExaminerService {
       },
     } as const;
 
+    const canSpeak = teacherCanAccessSpeaking(teacher.speciality);
+    const canWrite = teacherCanAccessWriting(teacher.speciality);
+
     // Today's speaking sessions for this examiner.
-    const speakingToday = await this.prisma.speakingSession.findMany({
-      where: {
-        teacherId: teacher.id,
-        scheduledAt: { gte: today, lt: tomorrow },
-      },
-      include: { grade: true, ...studentInclude },
-      orderBy: { scheduledAt: 'asc' },
-    });
+    const speakingToday = canSpeak
+      ? await this.prisma.speakingSession.findMany({
+          where: {
+            teacherId: teacher.id,
+            scheduledAt: { gte: today, lt: tomorrow },
+          },
+          include: { grade: true, ...studentInclude },
+          orderBy: { scheduledAt: 'asc' },
+        })
+      : [];
 
     // Pending writing submissions assigned to this examiner.
-    const writingPending = await this.prisma.writingSubmission.findMany({
-      where: { teacherId: teacher.id, status: 'PENDING' },
-      include: {
-        grade: true,
-        aiEvaluation: true,
-        ...studentInclude,
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+    const writingPending = canWrite
+      ? await this.prisma.writingSubmission.findMany({
+          where: { teacherId: teacher.id, status: 'PENDING' },
+          include: {
+            grade: true,
+            aiEvaluation: true,
+            ...studentInclude,
+          },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
 
-    // Recent grades authored by this examiner (writing + speaking).
     const recentGrades = await this.prisma.grade.findMany({
-      where: { gradedById: teacher.id },
+      where: {
+        gradedById: teacher.id,
+        ...(canSpeak && canWrite
+          ? {}
+          : canSpeak
+            ? { speakingSessionId: { not: null } }
+            : { writingSubmissionId: { not: null } }),
+      },
       orderBy: { gradedAt: 'desc' },
       take: 6,
       include: {
@@ -133,14 +150,22 @@ export class InstExaminerService {
         ? round1(avgThisMonth._avg.overallBand - avgPrevMonth._avg.overallBand)
         : null;
 
-    // Students assigned to this examiner within the center.
+    const assignmentFilter =
+      canSpeak && canWrite
+        ? {
+            OR: [
+              { writingTeacherId: teacher.id },
+              { speakingTeacherId: teacher.id },
+            ],
+          }
+        : canWrite
+          ? { writingTeacherId: teacher.id }
+          : { speakingTeacherId: teacher.id };
+
     const assignedEnrollments = await this.prisma.enrollment.findMany({
       where: {
         institutionId,
-        OR: [
-          { writingTeacherId: teacher.id },
-          { speakingTeacherId: teacher.id },
-        ],
+        ...assignmentFilter,
       },
       include: {
         student: { include: { user: true } },
@@ -242,6 +267,7 @@ export class InstExaminerService {
         name: user.name,
         rating: teacher.rating,
         totalSessions: teacher.totalSessions,
+        speciality: teacher.speciality.toLowerCase(),
       },
       stats: {
         sessionsToday: speakingToday.length,

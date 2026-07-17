@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import { useInstExaminer } from "@/contexts/inst-examiner-context";
 import {
+  canAccessSpeaking,
+  canAccessWriting,
+} from "@/lib/inst-examiner/speciality";
+import {
   getInstExaminerOverview,
   type InstExaminerOverview,
 } from "@/lib/api/inst-examiner";
@@ -109,7 +113,7 @@ function BandChip({ band, delta }: { band: number | null; delta?: number | null 
 }
 
 export function InstExaminerDashboardView() {
-  const { info } = useInstExaminer();
+  const { info, speciality } = useInstExaminer();
   const [data, setData] = useState<InstExaminerOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +159,25 @@ export function InstExaminerDashboardView() {
   }
 
   const { stats, todaySpeaking, writingQueue, recentlyGraded, students } = data;
+  const showSpeaking = canAccessSpeaking(speciality);
+  const showWriting = canAccessWriting(speciality);
+  const visibleRecentlyGraded = recentlyGraded.filter((g) =>
+    g.type === "speaking" ? showSpeaking : showWriting,
+  );
+
+  const workloadParts: string[] = [];
+  if (showSpeaking) {
+    workloadParts.push(
+      `${stats.sessionsToday} speaking session${stats.sessionsToday === 1 ? "" : "s"} scheduled`,
+    );
+  }
+  if (showWriting) {
+    workloadParts.push(
+      `${stats.writingQueue} writing submission${stats.writingQueue === 1 ? "" : "s"} to grade`,
+    );
+  }
+  const workloadSummary =
+    workloadParts.length > 0 ? workloadParts.join(" · ") : "No pending work today";
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
@@ -173,12 +196,7 @@ export function InstExaminerDashboardView() {
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
               {greeting()}, {firstName(name)}
             </h1>
-            <p className="mt-1 text-sm text-slate-300">
-              {stats.sessionsToday} speaking session
-              {stats.sessionsToday === 1 ? "" : "s"} scheduled ·{" "}
-              {stats.writingQueue} writing submission
-              {stats.writingQueue === 1 ? "" : "s"} to grade
-            </p>
+            <p className="mt-1 text-sm text-slate-300">{workloadSummary}</p>
           </div>
           <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 ring-1 ring-inset ring-white/15">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-xs font-bold">
@@ -196,18 +214,29 @@ export function InstExaminerDashboardView() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Today's Sessions"
-          value={stats.sessionsToday}
-          hint={`${stats.sessionsCompletedToday} completed`}
-        />
-        <StatCard
-          label="Writing Queue"
-          value={stats.writingQueue}
-          hint="need grading"
-          accent="red"
-        />
+      <div
+        className={cn(
+          "grid gap-4",
+          showSpeaking && showWriting
+            ? "grid-cols-2 lg:grid-cols-4"
+            : "grid-cols-2 lg:grid-cols-3",
+        )}
+      >
+        {showSpeaking && (
+          <StatCard
+            label="Today's Sessions"
+            value={stats.sessionsToday}
+            hint={`${stats.sessionsCompletedToday} completed`}
+          />
+        )}
+        {showWriting && (
+          <StatCard
+            label="Writing Queue"
+            value={stats.writingQueue}
+            hint="need grading"
+            accent="red"
+          />
+        )}
         <StatCard
           label="Centre Students"
           value={stats.centreStudents}
@@ -256,98 +285,108 @@ export function InstExaminerDashboardView() {
         </div>
       </div>
 
-      {/* Today's Speaking + Writing Queue */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard
-          title="Today's Speaking"
-          action={
-            <Link
-              href="/inst-examiner/speaking"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-brand-red hover:underline"
-            >
-              Open queue <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          }
+      {(showSpeaking || showWriting) && (
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-6",
+            showSpeaking && showWriting && "lg:grid-cols-2",
+          )}
         >
-          {todaySpeaking.length === 0 ? (
-            <EmptyState message="No speaking sessions scheduled today." />
-          ) : (
-            <ul className="divide-y divide-border">
-              {todaySpeaking.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-center gap-3 px-5 py-3.5"
+          {showSpeaking && (
+            <SectionCard
+              title="Today's Speaking"
+              action={
+                <Link
+                  href="/inst-examiner/speaking"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand-red hover:underline"
                 >
-                  <Avatar name={s.studentName} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-navy">
-                      {s.studentName}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {formatTime(s.scheduledAt)}
-                      {s.enrollmentCode ? ` · ${s.enrollmentCode}` : ""}
-                    </p>
-                  </div>
-                  {s.graded && s.band != null ? (
-                    <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                      {s.band.toFixed(1)}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-                      Upcoming
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-
-        <SectionCard
-          title="Writing Queue"
-          action={
-            <Link
-              href="/inst-examiner/grading"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-brand-red hover:underline"
+                  Open queue <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              }
             >
-              Grade all <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          }
-        >
-          {writingQueue.length === 0 ? (
-            <EmptyState message="No writing submissions waiting." />
-          ) : (
-            <ul className="divide-y divide-border">
-              {writingQueue.map((w) => (
-                <li key={w.id} className="flex items-center gap-3 px-5 py-3.5">
-                  <Avatar name={w.studentName} tint="violet" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-navy">
-                      {w.studentName}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {w.examType} {w.taskLabel} · {relativeTime(w.submittedAt)}
-                      {w.aiEstimate != null
-                        ? ` · AI est. ${w.aiEstimate.toFixed(1)}`
-                        : ""}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset",
-                      w.priority === "urgent"
-                        ? "bg-rose-50 text-rose-600 ring-rose-200"
-                        : "bg-slate-100 text-slate-500 ring-slate-200",
-                    )}
-                  >
-                    {w.priority}
-                  </span>
-                </li>
-              ))}
-            </ul>
+              {todaySpeaking.length === 0 ? (
+                <EmptyState message="No speaking sessions scheduled today." />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {todaySpeaking.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex items-center gap-3 px-5 py-3.5"
+                    >
+                      <Avatar name={s.studentName} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-navy">
+                          {s.studentName}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {formatTime(s.scheduledAt)}
+                          {s.enrollmentCode ? ` · ${s.enrollmentCode}` : ""}
+                        </p>
+                      </div>
+                      {s.graded && s.band != null ? (
+                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                          {s.band.toFixed(1)}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+                          Upcoming
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
           )}
-        </SectionCard>
-      </div>
+
+          {showWriting && (
+            <SectionCard
+              title="Writing Queue"
+              action={
+                <Link
+                  href="/inst-examiner/grading"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand-red hover:underline"
+                >
+                  Grade all <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              }
+            >
+              {writingQueue.length === 0 ? (
+                <EmptyState message="No writing submissions waiting." />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {writingQueue.map((w) => (
+                    <li key={w.id} className="flex items-center gap-3 px-5 py-3.5">
+                      <Avatar name={w.studentName} tint="violet" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-navy">
+                          {w.studentName}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {w.examType} {w.taskLabel} · {relativeTime(w.submittedAt)}
+                          {w.aiEstimate != null
+                            ? ` · AI est. ${w.aiEstimate.toFixed(1)}`
+                            : ""}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset",
+                          w.priority === "urgent"
+                            ? "bg-rose-50 text-rose-600 ring-rose-200"
+                            : "bg-slate-100 text-slate-500 ring-slate-200",
+                        )}
+                      >
+                        {w.priority}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          )}
+        </div>
+      )}
 
       {/* Recently Graded + Your Students */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -359,11 +398,11 @@ export function InstExaminerDashboardView() {
             </span>
           }
         >
-          {recentlyGraded.length === 0 ? (
+          {visibleRecentlyGraded.length === 0 ? (
             <EmptyState message="Nothing graded yet." />
           ) : (
             <ul className="divide-y divide-border">
-              {recentlyGraded.map((g) => (
+              {visibleRecentlyGraded.map((g) => (
                 <li key={g.id} className="flex items-center gap-3 px-5 py-3.5">
                   <Avatar name={g.studentName} tint="sky" />
                   <div className="min-w-0 flex-1">

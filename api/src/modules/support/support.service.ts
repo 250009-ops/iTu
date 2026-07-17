@@ -332,7 +332,7 @@ export class SupportService {
           'New centre request',
           `${ticketCode}: ${body}`,
           NotificationType.SYSTEM,
-          '/institution/help',
+          '/institution/requests',
         ),
       ),
     );
