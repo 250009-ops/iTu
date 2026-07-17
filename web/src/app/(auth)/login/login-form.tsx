@@ -78,7 +78,12 @@ export default function LoginForm() {
       { rememberMe },
     );
 
-    router.push(response.dashboardPath ?? getDashboardPath(role));
+    router.push(
+      response.dashboardPath ??
+        (verified.role === "student" && verified.institution != null
+          ? "/inst-student"
+          : getDashboardPath(role)),
+    );
   }
 
   async function onSubmit(data: LoginFormValues) {

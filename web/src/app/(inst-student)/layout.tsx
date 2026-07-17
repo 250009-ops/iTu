@@ -29,7 +29,7 @@ function InstStudentGate({ children }: { children: React.ReactNode }) {
     }
   }, [loading, isInstitutionStudent, router]);
 
-  if (loading) {
+  if (loading || (isInstitutionStudent && !info)) {
     return <FullScreenSpinner />;
   }
 
@@ -37,7 +37,7 @@ function InstStudentGate({ children }: { children: React.ReactNode }) {
     return <FullScreenSpinner />;
   }
 
-  if (info && info.status !== "active") {
+  if (info.status !== "active") {
     return <WaitingApprovalView centerName={info.center?.name ?? "your center"} />;
   }
 

@@ -11,21 +11,22 @@ import { StudentViewRouter } from "@/components/student/student-view-router";
 export default function StudentLayout() {
   return (
     <AuthGuard allowedRoles={["student"]}>
-      <InstitutionStudentRedirect />
-      <SidebarProvider>
-        <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
-          <StudentTopBar />
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <StudentSidebar />
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-              <StudentMobileNav />
-              <main className="flex-1 overflow-y-auto">
-                <StudentViewRouter />
-              </main>
+      <InstitutionStudentRedirect>
+        <SidebarProvider>
+          <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
+            <StudentTopBar />
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <StudentSidebar />
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                <StudentMobileNav />
+                <main className="flex-1 overflow-y-auto">
+                  <StudentViewRouter />
+                </main>
+              </div>
             </div>
           </div>
-        </div>
-      </SidebarProvider>
+        </SidebarProvider>
+      </InstitutionStudentRedirect>
     </AuthGuard>
   );
 }
