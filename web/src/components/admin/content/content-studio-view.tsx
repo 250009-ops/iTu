@@ -23,9 +23,14 @@ import { cn } from "@/lib/utils";
 
 type EditorTab = "visual" | "preview";
 
+type ModuleEditorProps = {
+  initialTab?: EditorTab;
+  focused?: boolean;
+};
+
 const moduleEditors: Record<
   ContentModule,
-  React.ComponentType<{ initialTab?: EditorTab }>
+  React.ComponentType<ModuleEditorProps>
 > = {
   listening: ListeningEditor,
   reading: ReadingEditor,
