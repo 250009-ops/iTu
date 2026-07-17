@@ -352,8 +352,8 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm">
-      <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+    <div className="flex max-h-[calc(100dvh-9rem)] flex-col overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+      <div className="flex shrink-0 flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div>
           <h2 className="font-semibold capitalize text-navy">{module} editor</h2>
           <p className="mt-0.5 font-mono text-xs text-muted">{code}</p>
@@ -421,7 +421,8 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
         </div>
       </div>
 
-      <div className="space-y-5 p-5 pb-8 sm:p-6 sm:pb-10">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 space-y-5 p-5 pb-4 sm:p-6 sm:pb-4">
           {isLocked && (
             <div
               className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
@@ -484,22 +485,25 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
               </button>
             ))}
           </div>
+        </div>
 
+        <div className="min-h-0 flex-1 overflow-hidden px-5 pb-6 sm:px-6 sm:pb-8">
           {tab === "visual" && (
             <div
-              className={cn("min-h-0 pb-2", isLocked && "pointer-events-none opacity-75")}
+              className={cn(
+                "flex h-full min-h-0 flex-col",
+                isLocked && "pointer-events-none opacity-75",
+              )}
               aria-disabled={isLocked || undefined}
             >
               {module === "reading" && (
-                <div className="space-y-5 pt-1">
-                  <ReadingVisualEditor
+                <ReadingVisualEditor
                   testId={testId}
                   content={content as ReadingContent}
                   answerKey={answerKey}
                   onContentChange={(c) => handleContentChange(c)}
                   onAnswerKeyChange={handleAnswerKeyChange}
                 />
-                </div>
               )}
               {module === "listening" && (
                 <ListeningVisualEditor
@@ -520,24 +524,25 @@ export function ContentTestEditor({ module, testId, initialTab = "visual" }: Pro
                 />
               )}
               {module === "speaking" && (
-                <div className="space-y-5 pt-1">
-                  <SpeakingVisualEditor
+                <SpeakingVisualEditor
                   content={content as SpeakingContent}
                   onContentChange={(c) => handleContentChange(c)}
                 />
-                </div>
               )}
             </div>
           )}
 
           {tab === "preview" && (
-            <ContentPreviewPanel
-              module={module}
-              content={content}
-              mediaAssets={mediaAssets}
-            />
+            <div className="h-full min-h-0 overflow-y-auto">
+              <ContentPreviewPanel
+                module={module}
+                content={content}
+                mediaAssets={mediaAssets}
+              />
+            </div>
           )}
         </div>
+      </div>
     </div>
   );
 }

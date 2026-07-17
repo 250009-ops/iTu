@@ -48,8 +48,8 @@ export function WritingVisualEditor({
   }
 
   return (
-    <div className="min-h-0">
-      <div className="sticky top-0 z-10 -mx-5 border-b border-border bg-white px-5 pb-4 pt-1 shadow-[0_1px_0_rgba(0,0,0,0.04)] sm:-mx-6 sm:px-6">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 border-b border-border bg-white pb-4 pt-1">
         <div className="flex flex-wrap gap-2">
           {tasks.map((t, idx) => (
             <button
@@ -69,7 +69,7 @@ export function WritingVisualEditor({
         </div>
       </div>
 
-      <div className="space-y-5 pt-5">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label>Minutes</Label>

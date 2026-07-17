@@ -111,48 +111,51 @@ export function ReadingVisualEditor({
   const allPartitionStatuses = partitionStatusesForModule("reading", content, answerKey);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap gap-2">
-        {passages.map((p, idx) => {
-          const tabStatus = allPartitionStatuses.find((s) => s.part === p.part);
-          const tabCount = tabStatus?.count ?? 0;
-          const expected = tabStatus?.range.expectedCount ?? 13;
-          return (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => setActiveIdx(idx)}
-            className={cn(
-              "rounded-full px-4 py-2 text-sm font-semibold transition",
-              activeIdx === idx
-                ? "bg-emerald-600 text-white"
-                : "border border-border bg-white text-muted hover:text-navy",
-            )}
-          >
-            Passage {p.part}
-            <span className="ml-1.5 text-xs font-normal opacity-80">
-              ({tabCount}/{expected})
-            </span>
-          </button>
-          );
-        })}
-        {passages.length < 3 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const part = passages.length + 1;
-              const nextPassages = [...passages, emptyReadingPassage(part)];
-              const next = { ...content, passages: nextPassages };
-              onContentChange(next);
-              setActiveIdx(nextPassages.length - 1);
-            }}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add passage
-          </Button>
-        )}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 space-y-4 border-b border-border bg-white pb-4 pt-1">
+        <div className="flex flex-wrap gap-2">
+          {passages.map((p, idx) => {
+            const tabStatus = allPartitionStatuses.find((s) => s.part === p.part);
+            const tabCount = tabStatus?.count ?? 0;
+            const expected = tabStatus?.range.expectedCount ?? 13;
+            return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setActiveIdx(idx)}
+              className={cn(
+                "rounded-full px-4 py-2 text-sm font-semibold transition",
+                activeIdx === idx
+                  ? "bg-emerald-600 text-white"
+                  : "border border-border bg-white text-muted hover:text-navy",
+              )}
+            >
+              Passage {p.part}
+              <span className="ml-1.5 text-xs font-normal opacity-80">
+                ({tabCount}/{expected})
+              </span>
+            </button>
+            );
+          })}
+          {passages.length < 3 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const part = passages.length + 1;
+                const nextPassages = [...passages, emptyReadingPassage(part)];
+                const next = { ...content, passages: nextPassages };
+                onContentChange(next);
+                setActiveIdx(nextPassages.length - 1);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add passage
+            </Button>
+          )}
+        </div>
       </div>
 
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
         <Button variant="secondary" size="sm" onClick={renumberAll}>
@@ -279,6 +282,7 @@ export function ReadingVisualEditor({
         onGroupsChange={updateGroups}
         onAnswerKeyChange={onAnswerKeyChange}
       />
+      </div>
     </div>
   );
 }

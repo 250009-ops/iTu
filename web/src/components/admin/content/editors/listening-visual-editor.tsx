@@ -94,8 +94,8 @@ export function ListeningVisualEditor({
   const allPartitionStatuses = partitionStatusesForModule("listening", content, answerKey);
 
   return (
-    <div className="min-h-0">
-      <div className="sticky top-0 z-10 -mx-5 space-y-4 border-b border-border bg-white px-5 pb-4 pt-1 shadow-[0_1px_0_rgba(0,0,0,0.04)] sm:-mx-6 sm:px-6">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 space-y-4 border-b border-border bg-white pb-4 pt-1">
         {testId && (
           <ListeningAudioUpload testId={testId} onMediaUpdated={onMediaUpdated} />
         )}
@@ -127,7 +127,7 @@ export function ListeningVisualEditor({
         </div>
       </div>
 
-      <div className="space-y-5 pt-5">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
           <Button variant="secondary" size="sm" onClick={renumberAll}>

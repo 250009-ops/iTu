@@ -223,7 +223,7 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-navy">Speaking parts (student sees titles only)</h3>
         {parts.map((part, idx) => (
