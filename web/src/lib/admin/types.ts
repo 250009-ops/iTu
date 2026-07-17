@@ -66,7 +66,7 @@ export type TicketStatus = "open" | "in_progress" | "resolved";
 
 export type SlaState = "active" | "overdue" | "resolved";
 
-export type TicketReporterRole = "student" | "teacher" | "admin" | "unknown";
+export type TicketReporterRole = "student" | "teacher" | "admin" | "institution" | "unknown";
 
 export type ReportTimeframe = "jun" | "q2" | "ytd";
 

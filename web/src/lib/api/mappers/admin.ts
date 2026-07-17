@@ -490,7 +490,10 @@ function mapSla(sla: { state: string; progress: number }) {
 function mapDisputeRecord(d: Disputes[number], indexFallback: string): Ticket {
   const roleRaw = d.reporter?.role?.toLowerCase() ?? "";
   const reporterRole: Ticket["reporterRole"] =
-    roleRaw === "student" || roleRaw === "teacher" || roleRaw === "admin"
+    roleRaw === "student" ||
+    roleRaw === "teacher" ||
+    roleRaw === "admin" ||
+    roleRaw === "institution"
       ? roleRaw
       : "unknown";
   const reporterName = d.reporter?.name?.trim() || "Unknown reporter";
