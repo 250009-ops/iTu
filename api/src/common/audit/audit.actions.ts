@@ -64,6 +64,7 @@ export const AuditAction = {
   INSTITUTION_STUDENT_REJECT: 'institution.student.reject',
   INSTITUTION_EXAMINER_INVITE: 'institution.examiner.invite',
   INSTITUTION_PROFILE_UPDATE: 'institution.profile.update',
+  INSTITUTION_SUPPORT_TICKET_UPDATE: 'institution.support_ticket.update',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];

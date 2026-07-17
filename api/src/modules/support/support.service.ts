@@ -6,6 +6,10 @@ import {
   UserRole,
 } from '@prisma/client';
 import { MailService } from '../../common/mail/mail.service';
+import {
+  helpPathForReporter,
+  resolveCentreTicketInstitutionId,
+} from '../../common/support/support-routing';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
@@ -111,6 +115,11 @@ export class SupportService {
       ? `Related: ${dto.relatedRef.trim()}\n\n${dto.message.trim()}`
       : dto.message.trim();
 
+    const centreInstitutionId = await resolveCentreTicketInstitutionId(
+      this.prisma,
+      user,
+    );
+
     const ticket = await this.prisma.supportTicket.create({
       data: {
         ticketCode,
@@ -119,31 +128,38 @@ export class SupportService {
         type: ticketType,
         priority: DEFAULT_PRIORITY[ticketType],
         userId: user.id,
+        institutionId: centreInstitutionId ?? undefined,
         enrollmentId,
         slaProgress: 0,
         slaState: 'ON_TRACK',
       },
     });
 
-    const helpPath =
-      user.role === UserRole.STUDENT
-        ? '/student/help'
-        : user.role === UserRole.TEACHER
-          ? '/teacher/help'
-          : '/admin/help';
+    const centreMember = centreInstitutionId != null;
+    const helpPath = helpPathForReporter(user.role, centreMember);
 
     await this.notifications.create(
       user.id,
-      'Support request received',
-      `We received your request (${ticket.ticketCode}). Our team will respond shortly.`,
+      centreMember ? 'Request sent to your centre' : 'Support request received',
+      centreMember
+        ? `Your centre received your request (${ticket.ticketCode}). They will follow up with you.`
+        : `We received your request (${ticket.ticketCode}). Our team will respond shortly.`,
       NotificationType.INFO,
       helpPath,
     );
 
-    await this.notifyAdminsOfTicket(
-      ticket.ticketCode,
-      `${user.name} (${user.role.toLowerCase()}): ${dto.subject}`,
-    );
+    if (centreInstitutionId) {
+      await this.notifyInstitutionAdminsOfTicket(
+        centreInstitutionId,
+        ticket.ticketCode,
+        `${user.name} (${user.role.toLowerCase()}): ${dto.subject}`,
+      );
+    } else {
+      await this.notifyPlatformAdminsOfTicket(
+        ticket.ticketCode,
+        `${user.name} (${user.role.toLowerCase()}): ${dto.subject}`,
+      );
+    }
 
     return {
       id: ticket.id,
@@ -181,6 +197,40 @@ export class SupportService {
       createdAt: t.createdAt,
       resolvedAt: t.resolvedAt,
     }));
+  }
+
+  async getCentreContact(user: RequestUser) {
+    const institutionId = await resolveCentreTicketInstitutionId(
+      this.prisma,
+      user,
+    );
+    if (!institutionId) {
+      throw new NotFoundException('No linked centre found');
+    }
+
+    const centre = await this.prisma.institution.findUnique({
+      where: { id: institutionId },
+      select: {
+        id: true,
+        name: true,
+        contactName: true,
+        contactEmail: true,
+        contactPhone: true,
+        city: true,
+      },
+    });
+    if (!centre) {
+      throw new NotFoundException('Centre not found');
+    }
+
+    return {
+      id: centre.id,
+      name: centre.name,
+      contactName: centre.contactName,
+      contactEmail: centre.contactEmail,
+      contactPhone: centre.contactPhone,
+      city: centre.city,
+    };
   }
 
   async submitContactInquiry(dto: ContactInquiryDto) {
@@ -236,7 +286,7 @@ export class SupportService {
       );
     }
 
-    await this.notifyAdminsOfTicket(
+    await this.notifyPlatformAdminsOfTicket(
       ticket.ticketCode,
       `${name} (contact form · ${dto.topic}): ${message.slice(0, 120)}`,
     );
@@ -248,7 +298,7 @@ export class SupportService {
     };
   }
 
-  private async notifyAdminsOfTicket(ticketCode: string, body: string) {
+  private async notifyPlatformAdminsOfTicket(ticketCode: string, body: string) {
     const admins = await this.prisma.user.findMany({
       where: { role: UserRole.ADMIN },
       select: { id: true },
@@ -261,6 +311,28 @@ export class SupportService {
           `${ticketCode}: ${body}`,
           NotificationType.SYSTEM,
           '/admin/disputes',
+        ),
+      ),
+    );
+  }
+
+  private async notifyInstitutionAdminsOfTicket(
+    institutionId: string,
+    ticketCode: string,
+    body: string,
+  ) {
+    const admins = await this.prisma.user.findMany({
+      where: { institutionId, role: UserRole.INSTITUTION },
+      select: { id: true },
+    });
+    await Promise.all(
+      admins.map((admin) =>
+        this.notifications.create(
+          admin.id,
+          'New centre request',
+          `${ticketCode}: ${body}`,
+          NotificationType.SYSTEM,
+          '/institution/help',
         ),
       ),
     );

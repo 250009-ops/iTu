@@ -4,5 +4,5 @@ import { HelpSupportView } from "@/components/portal/help-support-view";
 export const metadata: Metadata = { title: "Help & Support | Centre Student" };
 
 export default function InstStudentHelpPage() {
-  return <HelpSupportView role="student" />;
+  return <HelpSupportView role="inst_student" />;
 }

@@ -19,6 +19,12 @@ export class SupportController {
   }
 
   @ApiBearerAuth()
+  @Get('centre-contact')
+  getCentreContact(@CurrentUser() user: RequestUser) {
+    return this.support.getCentreContact(user);
+  }
+
+  @ApiBearerAuth()
   @Get('tickets/mine')
   listMyTickets(@CurrentUser() user: RequestUser) {
     return this.support.listMyTickets(user);

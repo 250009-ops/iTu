@@ -28,6 +28,9 @@ export function helpPath(role: Role, pathname?: string): string {
   if (pathname?.startsWith("/inst-examiner")) {
     return "/inst-examiner/help";
   }
+  if (pathname?.startsWith("/institution") || role === "institution") {
+    return "/institution/help";
+  }
   switch (role) {
     case "teacher":
       return "/teacher/help";

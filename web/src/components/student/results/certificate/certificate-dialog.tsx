@@ -7,6 +7,8 @@ import type { StudentResultsData } from "@/lib/api/mappers/student";
 import { MockCertificate } from "./mock-certificate";
 import {
   deriveIdentifiers,
+  displayOrDash,
+  formatTrfDate,
   initials,
   splitName,
   type CertificateViewModel,
@@ -17,7 +19,11 @@ const CERT_WIDTH = 794;
 function buildViewModel(data: StudentResultsData): CertificateViewModel {
   const cert = data.certificate;
   const centreName = cert.centre?.name ?? null;
-  const ids = deriveIdentifiers(data.enrollmentCode, centreName);
+  const ids = deriveIdentifiers(
+    data.enrollmentCode,
+    centreName,
+    cert.centre?.code ?? null,
+  );
   const { family, first } = splitName(cert.candidateName);
 
   return {
@@ -30,12 +36,13 @@ function buildViewModel(data: StudentResultsData): CertificateViewModel {
     family,
     first,
     initials: initials(cert.candidateName),
-    country: cert.country ?? "",
-    dateOfBirth: cert.dateOfBirth ?? "—",
-    sex: cert.sex ?? "—",
-    firstLanguage: cert.firstLanguage ?? "—",
-    testDateLabel: data.dateLabel,
-    issueDateLabel: cert.issueDateLabel,
+    country: displayOrDash(cert.country),
+    dateOfBirth: formatTrfDate(cert.dateOfBirth),
+    sex: displayOrDash(cert.sex),
+    firstLanguage: displayOrDash(cert.firstLanguage),
+    schemeCode: cert.schemeCode,
+    testDateLabel: formatTrfDate(cert.mockDate),
+    issueDateLabel: formatTrfDate(cert.issueDate),
     overallBand: data.overallBand,
     skills: data.skills.map((s) => ({ id: s.id, name: s.name, band: s.band })),
     centre: cert.centre,

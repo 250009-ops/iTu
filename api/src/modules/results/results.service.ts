@@ -53,9 +53,17 @@ export class ResultsService {
             name: enrollment.institution.name,
             logoUrl: enrollment.institution.logoUrl ?? null,
             city: enrollment.institution.city ?? null,
+            code: enrollment.institution.slug
+              .replace(/-/g, '')
+              .slice(0, 8)
+              .toUpperCase(),
           }
         : null,
+      mockDate: enrollment.mockDate,
       issueDate: enrollment.updatedAt,
+      schemeCode: enrollment.institution
+        ? 'Partner Candidate'
+        : 'Mock Candidate',
     };
   }
 

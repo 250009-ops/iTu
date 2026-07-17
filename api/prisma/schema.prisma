@@ -566,12 +566,13 @@ model Institution {
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 
-  admins      User[]                 @relation("InstitutionAdmins")
-  students    StudentProfile[]
-  teachers    TeacherProfile[]
-  enrollments Enrollment[]
-  orders      Order[]
-  creditTxns  InstitutionCreditTxn[]
+  admins         User[]           @relation("InstitutionAdmins")
+  students       StudentProfile[]
+  teachers       TeacherProfile[]
+  enrollments    Enrollment[]
+  orders         Order[]
+  creditTxns     InstitutionCreditTxn[]
+  supportTickets SupportTicket[]
 
   @@map("institutions")
 }
@@ -775,26 +776,29 @@ model Notification {
 }
 
 model SupportTicket {
-  id           String         @id @default(cuid())
-  ticketCode   String         @unique @map("ticket_code")
-  userId       String?        @map("user_id")
-  enrollmentId String?        @map("enrollment_id")
-  type         TicketType
-  priority     TicketPriority @default(MEDIUM)
-  status       TicketStatus   @default(OPEN)
-  subject      String
-  description  String
-  slaState     SlaState       @default(ON_TRACK) @map("sla_state")
-  slaProgress  Int            @default(100) @map("sla_progress")
-  assigneeId   String?        @map("assignee_id")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-  resolvedAt   DateTime?      @map("resolved_at")
+  id            String         @id @default(cuid())
+  ticketCode    String         @unique @map("ticket_code")
+  userId        String?        @map("user_id")
+  institutionId String?        @map("institution_id")
+  enrollmentId  String?        @map("enrollment_id")
+  type          TicketType
+  priority      TicketPriority @default(MEDIUM)
+  status        TicketStatus   @default(OPEN)
+  subject       String
+  description   String
+  slaState      SlaState       @default(ON_TRACK) @map("sla_state")
+  slaProgress   Int            @default(100) @map("sla_progress")
+  assigneeId    String?        @map("assignee_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  resolvedAt    DateTime?      @map("resolved_at")
 
-  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id])
-  user       User?       @relation("TicketReporter", fields: [userId], references: [id])
-  assignee   User?       @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  enrollment  Enrollment?  @relation(fields: [enrollmentId], references: [id])
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  user        User?        @relation("TicketReporter", fields: [userId], references: [id])
+  assignee    User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
 
+  @@index([institutionId])
   @@map("support_tickets")
 }
 

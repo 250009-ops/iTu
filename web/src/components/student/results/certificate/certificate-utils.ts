@@ -2,6 +2,36 @@ import type { CertificateData, SkillId } from "@/lib/api/mappers/student";
 
 export type CefrLevel = "A2" | "B1" | "B2" | "C1" | "C2";
 
+const TRF_MONTHS = [
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DEC",
+] as const;
+
+/** TRF-style date: 30/SEP/2024 */
+export function formatTrfDate(value: string | Date | null | undefined): string {
+  if (value == null || value === "") return "—";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = TRF_MONTHS[d.getMonth()] ?? "JAN";
+  return `${day}/${month}/${d.getFullYear()}`;
+}
+
+export function displayOrDash(value: string | null | undefined): string {
+  const text = value?.trim();
+  return text ? text : "—";
+}
+
 /** Map an IELTS band to its CEFR equivalent (official IELTS → CEFR alignment). */
 export function bandToCefr(band: number | null): CefrLevel | "—" {
   if (band == null) return "—";
@@ -66,10 +96,12 @@ export function initials(fullName: string): string {
 export function deriveIdentifiers(
   enrollmentCode: string,
   centreName: string | null,
+  centreCode?: string | null,
 ) {
   const base = hashString(enrollmentCode);
-  const centreDigits = (hashString(centreName ?? "ITESTU") % 900) + 100;
-  const centreNumber = `IT${String(centreDigits).padStart(3, "0")}`;
+  const centreNumber =
+    centreCode?.trim().toUpperCase().slice(0, 8) ||
+    `IT${String((hashString(centreName ?? "ITESTU") % 900) + 100).padStart(3, "0")}`;
   const candidateNumber = String(base % 1000000).padStart(6, "0");
   const candidateId = String(base % 1000000000).padStart(9, "0");
   const referenceNumber = `ITU/${enrollmentCode.toUpperCase()}/${centreNumber}`;
@@ -104,6 +136,7 @@ export type CertificateViewModel = {
   dateOfBirth: string;
   sex: string;
   firstLanguage: string;
+  schemeCode: string;
   testDateLabel: string;
   issueDateLabel: string;
   overallBand: number | null;

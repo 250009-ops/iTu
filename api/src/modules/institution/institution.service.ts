@@ -30,6 +30,7 @@ import {
   findCreditPack,
 } from '../../config/credit-packs';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
+import { helpPathForReporter } from '../../common/support/support-routing';
 import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { RequestUser } from '../../common/types/request-user';
@@ -41,6 +42,7 @@ import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
+import { UpdateInstitutionSupportTicketDto } from './dto/update-institution-support-ticket.dto';
 
 const SETUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -911,5 +913,113 @@ export class InstitutionService {
     });
 
     return this.getProfile(user);
+  }
+
+  // ─── Centre support requests (from students & examiners) ─────────────────
+
+  async listSupportRequests(user: RequestUser) {
+    const institutionId = requireInstitutionId(user);
+    const tickets = await this.prisma.supportTicket.findMany({
+      where: { institutionId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: { select: { id: true, name: true, role: true } },
+        enrollment: {
+          select: {
+            enrollmentCode: true,
+            package: { select: { title: true } },
+          },
+        },
+      },
+    });
+
+    return tickets.map((t) => ({
+      id: t.id,
+      ticketId: t.ticketCode,
+      subject: t.subject,
+      message: t.description.startsWith('Related:')
+        ? t.description.split('\n\n').slice(1).join('\n\n').trim()
+        : t.description.trim(),
+      type: t.type.toLowerCase(),
+      priority: t.priority.toLowerCase(),
+      status: t.status.toLowerCase(),
+      reporter: t.user
+        ? {
+            name: t.user.name,
+            role: t.user.role.toLowerCase(),
+          }
+        : null,
+      relatedRef: t.description.startsWith('Related:')
+        ? t.description.split('\n')[0]?.replace(/^Related:\s*/i, '').trim() ??
+          null
+        : t.enrollment
+          ? `${t.enrollment.enrollmentCode} · ${t.enrollment.package.title}`
+          : null,
+      createdAt: t.createdAt,
+      resolvedAt: t.resolvedAt,
+    }));
+  }
+
+  async updateSupportRequest(
+    user: RequestUser,
+    ticketId: string,
+    dto: UpdateInstitutionSupportTicketDto,
+  ) {
+    const institutionId = requireInstitutionId(user);
+    const ticket = await this.prisma.supportTicket.findFirst({
+      where: { id: ticketId, institutionId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            role: true,
+            studentProfile: { select: { institutionId: true } },
+            teacherProfile: { select: { institutionId: true } },
+          },
+        },
+      },
+    });
+    if (!ticket) {
+      throw new NotFoundException('Request not found');
+    }
+
+    const resolving =
+      dto.status === 'RESOLVED' || dto.status === 'CLOSED';
+    const updated = await this.prisma.supportTicket.update({
+      where: { id: ticket.id },
+      data: {
+        status: dto.status,
+        resolvedAt: resolving ? new Date() : null,
+        slaState: resolving ? 'ON_TRACK' : undefined,
+        slaProgress: resolving ? 100 : undefined,
+      },
+    });
+
+    if (resolving && ticket.user) {
+      const centreMember = true;
+      const helpPath = helpPathForReporter(ticket.user.role, centreMember);
+      await this.notifications.create(
+        ticket.user.id,
+        'Centre request resolved',
+        `${ticket.ticketCode} (“${ticket.subject}”) has been resolved by your centre.`,
+        NotificationType.INFO,
+        helpPath,
+      );
+    }
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_SUPPORT_TICKET_UPDATE,
+      entity: 'support_ticket',
+      entityId: ticket.id,
+      metadata: { status: dto.status },
+    });
+
+    return {
+      id: updated.id,
+      ticketId: updated.ticketCode,
+      status: updated.status.toLowerCase(),
+    };
   }
 }

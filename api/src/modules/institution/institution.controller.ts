@@ -20,6 +20,7 @@ import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
+import { UpdateInstitutionSupportTicketDto } from './dto/update-institution-support-ticket.dto';
 import { InstitutionService } from './institution.service';
 
 @ApiTags('institution')
@@ -136,5 +137,19 @@ export class InstitutionController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.institution.uploadLogo(user, file);
+  }
+
+  @Get('support/requests')
+  listSupportRequests(@CurrentUser() user: RequestUser) {
+    return this.institution.listSupportRequests(user);
+  }
+
+  @Patch('support/requests/:id')
+  updateSupportRequest(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateInstitutionSupportTicketDto,
+  ) {
+    return this.institution.updateSupportRequest(user, id, dto);
   }
 }

@@ -5,7 +5,8 @@ export type InstitutionNavIcon =
   | "user-check"
   | "calendar"
   | "bar-chart"
-  | "settings";
+  | "settings"
+  | "life-buoy";
 
 export type InstitutionNavItem = {
   label: string;
@@ -48,6 +49,7 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
     label: "Insights",
     items: [
       { label: "Reports", href: "/institution/reports", icon: "bar-chart" },
+      { label: "Help", href: "/institution/help", icon: "life-buoy" },
       { label: "Settings", href: "/institution/settings", icon: "settings" },
     ],
   },

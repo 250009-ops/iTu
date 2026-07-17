@@ -24,6 +24,7 @@ import { purgeEnrollments } from './enrollment-cleanup';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { helpPathForReporter } from '../../common/support/support-routing';
 import {
   lookupBandFromRawScore,
   overallBandFromSkillBands,
@@ -280,7 +281,10 @@ export class AdminService {
         where: { state: { in: [...ACTIVE_EXAM_STATES] } },
       }),
       this.prisma.supportTicket.count({
-        where: { status: { in: ['OPEN', 'IN_PROGRESS'] } },
+        where: {
+          institutionId: null,
+          status: { in: ['OPEN', 'IN_PROGRESS'] },
+        },
       }),
     ]);
 
@@ -312,7 +316,10 @@ export class AdminService {
         _sum: { amount: true },
       }),
       this.prisma.supportTicket.count({
-        where: { status: { in: ['OPEN', 'IN_PROGRESS'] } },
+        where: {
+          institutionId: null,
+          status: { in: ['OPEN', 'IN_PROGRESS'] },
+        },
       }),
       this.getLiveSessions(),
       this.prisma.order.findMany({
@@ -1618,6 +1625,7 @@ export class AdminService {
 
   async getDisputes() {
     const tickets = await this.prisma.supportTicket.findMany({
+      where: { institutionId: null },
       include: this.disputeTicketInclude(),
       orderBy: { createdAt: 'desc' },
     });
@@ -2902,15 +2910,20 @@ export class AdminService {
     const updated = await this.prisma.supportTicket.update({ where: { id }, data });
 
     if (resolving && ticket.userId) {
-      const helpPath =
-        (
-          await this.prisma.user.findUnique({
-            where: { id: ticket.userId },
-            select: { role: true },
-          })
-        )?.role === UserRole.TEACHER
-          ? '/teacher/help'
-          : '/student/help';
+      const reporter = await this.prisma.user.findUnique({
+        where: { id: ticket.userId },
+        select: {
+          role: true,
+          studentProfile: { select: { institutionId: true } },
+          teacherProfile: { select: { institutionId: true } },
+        },
+      });
+      const centreMember =
+        reporter?.studentProfile?.institutionId != null ||
+        reporter?.teacherProfile?.institutionId != null;
+      const helpPath = reporter
+        ? helpPathForReporter(reporter.role, centreMember)
+        : '/student/help';
       await this.notifications.create(
         ticket.userId,
         'Support ticket resolved',

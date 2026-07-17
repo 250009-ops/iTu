@@ -14,7 +14,9 @@ import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
   createSupportTicket,
+  getCentreContact,
   getMySupportTickets,
+  type CentreContact,
   type MySupportTicket,
   type SupportTicketType,
 } from "@/lib/api/support";
@@ -23,6 +25,8 @@ import { getTeacherSpeakingSessions } from "@/lib/api/teachers";
 import {
   categoriesForRole,
   faqsForRole,
+  helpDescriptionForRole,
+  portalLabelForRole,
   ticketTypeLabel,
   type HelpRole,
 } from "@/lib/portal/help-config";
@@ -62,6 +66,7 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
 
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [type, setType] = useState<SupportTicketType>(categories[0].value);
+  const [categoryLabel, setCategoryLabel] = useState(categories[0].label);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [relatedValue, setRelatedValue] = useState("");
@@ -70,18 +75,28 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
   const [submitting, setSubmitting] = useState(false);
   const [tickets, setTickets] = useState<MySupportTicket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
-
-  const selectedCategory = useMemo(
-    () => categories.find((c) => c.value === type) ?? categories[0],
-    [categories, type],
+  const [centreContact, setCentreContact] = useState<CentreContact | null>(
+    null,
   );
 
-  const portalLabel =
-    role === "teacher"
-      ? "Teacher Portal"
-      : role === "admin"
-        ? "Admin"
-        : "Student Portal";
+  const isCentreMember =
+    role === "inst_student" || role === "inst_examiner";
+  const portalLabel = portalLabelForRole(role);
+
+  const selectedCategory = useMemo(
+    () =>
+      categories.find((c) => c.label === categoryLabel) ??
+      categories.find((c) => c.value === type) ??
+      categories[0],
+    [categories, categoryLabel, type],
+  );
+
+  useEffect(() => {
+    if (!isCentreMember) return;
+    void getCentreContact()
+      .then(setCentreContact)
+      .catch(() => setCentreContact(null));
+  }, [isCentreMember]);
 
   async function loadTickets() {
     setLoadingTickets(true);
@@ -109,7 +124,7 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
       }
       setLoadingRelated(true);
       try {
-        if (role === "student") {
+        if (role === "student" || role === "inst_student") {
           const [reviewables, mockDay] = await Promise.all([
             getReviewables().catch(() => []),
             getMockDayHub().catch(() => null),
@@ -131,7 +146,7 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
             });
           }
           if (!cancelled) setRelatedOptions(opts);
-        } else {
+        } else if (role === "teacher" || role === "inst_examiner") {
           const sessions = await getTeacherSpeakingSessions().catch(() => null);
           const opts: RelatedOption[] = [];
           const buckets = [
@@ -151,6 +166,8 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
             });
           }
           if (!cancelled) setRelatedOptions(opts);
+        } else {
+          if (!cancelled) setRelatedOptions([]);
         }
       } finally {
         if (!cancelled) setLoadingRelated(false);
@@ -200,7 +217,11 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
       setMessage("");
       setRelatedValue("");
       toast("Request submitted", {
-        description: `Ticket ${ticket.ticketId} is with Admin · priority set automatically.`,
+        description: isCentreMember
+          ? `Ticket ${ticket.ticketId} was sent to ${centreContact?.name ?? "your centre"}.`
+          : role === "institution"
+            ? `Ticket ${ticket.ticketId} is with iTestU platform support.`
+            : `Ticket ${ticket.ticketId} is with Admin · priority set automatically.`,
         variant: "success",
       });
       await loadTickets();
@@ -239,13 +260,27 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                 </h1>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-muted">
-                {role === "teacher"
-                  ? "Report session issues, student conduct, or payout questions. Every request lands in the Admin Disputes queue with the right category and priority."
-                  : role === "admin"
-                    ? "Internal tickets and billing follow-ups. Student and teacher requests already appear on Disputes — use this only when you need a tracked note."
-                    : "Ask about results, examiners, payments, or exam-day tech. Pick a category so Admin sees the right ticket type — not a generic catch-all."}
+                {helpDescriptionForRole(role)}
               </p>
             </div>
+            {isCentreMember && centreContact ? (
+              <div className="inline-flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50/60 px-4 py-3 text-sm">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
+                  <Mail className="h-4 w-4" strokeWidth={1.75} />
+                </span>
+                <span>
+                  <span className="block font-semibold text-navy">
+                    {centreContact.name}
+                  </span>
+                  <span className="text-muted">
+                    {centreContact.contactName} · {centreContact.contactEmail}
+                    {centreContact.contactPhone
+                      ? ` · ${centreContact.contactPhone}`
+                      : ""}
+                  </span>
+                </span>
+              </div>
+            ) : role !== "institution" ? (
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
               className="inline-flex items-center gap-3 rounded-xl border border-border bg-white/80 px-4 py-3 text-sm shadow-sm transition-colors hover:border-navy/20 hover:bg-slate-50"
@@ -258,6 +293,20 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                 <span className="text-muted">{SUPPORT_EMAIL}</span>
               </span>
             </a>
+            ) : (
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="inline-flex items-center gap-3 rounded-xl border border-border bg-white/80 px-4 py-3 text-sm shadow-sm transition-colors hover:border-navy/20 hover:bg-slate-50"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-navy">
+                  <Mail className="h-4 w-4" strokeWidth={1.75} />
+                </span>
+                <span>
+                  <span className="block font-semibold text-navy">Platform email</span>
+                  <span className="text-muted">{SUPPORT_EMAIL}</span>
+                </span>
+              </a>
+            )}
           </div>
         </header>
 
@@ -268,11 +317,13 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                 <h2 className="font-semibold text-navy">Common questions</h2>
                 <p className="mt-0.5 text-sm text-muted">
                   Quick answers for{" "}
-                  {role === "teacher"
-                    ? "examiners"
-                    : role === "admin"
-                      ? "ops"
-                      : "candidates"}
+                  {role === "institution"
+                    ? "centre admins"
+                    : role === "inst_examiner" || role === "teacher"
+                      ? "examiners"
+                      : role === "admin"
+                        ? "ops"
+                        : "candidates"}
                   .
                 </p>
               </div>
@@ -317,7 +368,11 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
               <div className="border-b border-border px-5 py-4 sm:px-6">
                 <h2 className="font-semibold text-navy">Submit a request</h2>
                 <p className="mt-0.5 text-sm text-muted">
-                  Category sets ticket type and SLA priority for Admin.
+                  {isCentreMember
+                    ? "Your request goes to your edu centre — not iTestU platform support."
+                    : role === "institution"
+                      ? "Platform support for credits, tools, and portal issues."
+                      : "Category sets ticket type and SLA priority for Admin."}
                 </p>
               </div>
 
@@ -328,12 +383,15 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {categories.map((cat) => {
-                      const active = type === cat.value;
+                      const active = categoryLabel === cat.label;
                       return (
                         <button
-                          key={cat.value}
+                          key={cat.label}
                           type="button"
-                          onClick={() => setType(cat.value)}
+                          onClick={() => {
+                            setType(cat.value);
+                            setCategoryLabel(cat.label);
+                          }}
                           className={cn(
                             "rounded-xl border px-3.5 py-3 text-left transition-colors",
                             active
@@ -366,7 +424,7 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                 {selectedCategory.requiresRelated && (
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted">
-                      {role === "teacher"
+                      {role === "teacher" || role === "inst_examiner"
                         ? "Related session / student *"
                         : "Related mock *"}
                     </label>
@@ -401,9 +459,11 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder={
-                      role === "teacher"
+                      role === "teacher" || role === "inst_examiner"
                         ? "e.g. Student disrupted Speaking Part 2"
-                        : "e.g. Writing Task 2 band feels too low"
+                        : role === "inst_student"
+                          ? "e.g. Need to reschedule my centre mock"
+                          : "e.g. Writing Task 2 band feels too low"
                     }
                     className="h-11 w-full rounded-lg border border-border bg-slate-50 px-3 text-sm placeholder:text-slate-400 focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
                   />
@@ -417,7 +477,11 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}
-                    placeholder="What happened, when, and what you need from Admin…"
+                    placeholder={
+                      isCentreMember
+                        ? "Explain what you need from your centre coordinator…"
+                        : "What happened, when, and what you need from Admin…"
+                    }
                     className="w-full resize-none rounded-lg border border-border bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy/10"
                   />
                 </div>
@@ -437,7 +501,11 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
               <div className="border-b border-border px-5 py-4 sm:px-6">
                 <h2 className="font-semibold text-navy">Your requests</h2>
                 <p className="mt-0.5 text-sm text-muted">
-                  Status updates when Admin resolves a ticket.
+                  {isCentreMember
+                    ? "Status updates when your centre resolves a request."
+                    : role === "institution"
+                      ? "Your platform support tickets appear here."
+                      : "Status updates when Admin resolves a ticket."}
                 </p>
               </div>
               <div className="divide-y divide-border">
@@ -450,7 +518,11 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                     <Clock3 className="h-8 w-8 text-slate-300" />
                     <p className="text-sm font-medium text-navy">No requests yet</p>
                     <p className="max-w-sm text-xs text-muted">
-                      Submitted tickets appear here and in the Admin Disputes queue.
+                      {isCentreMember
+                        ? "Submitted requests are sent to your edu centre."
+                        : role === "institution"
+                          ? "Platform support tickets appear here and in Admin Disputes."
+                          : "Submitted tickets appear here and in the Admin Disputes queue."}
                     </p>
                   </div>
                 ) : (

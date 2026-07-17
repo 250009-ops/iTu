@@ -780,18 +780,24 @@ export type CertificateData = {
   candidateName: string;
   candidateEmail: string | null;
   country: string | null;
+  /** ISO date string from profile. */
   dateOfBirth: string | null;
   sex: string | null;
   firstLanguage: string | null;
+  schemeCode: string;
   /** "Academic" | "General Training" module label. */
   moduleLabel: string;
+  /** ISO mock exam date. */
+  mockDate: string | null;
+  /** ISO results issue date. */
+  issueDate: string | null;
   /** The partner centre that conducted the exam, or null for direct iTestU. */
   centre: {
     name: string;
     logoUrl: string | null;
     city: string | null;
+    code?: string | null;
   } | null;
-  issueDateLabel: string;
 };
 
 function skillBand(
@@ -1137,11 +1143,13 @@ export function mapPendingStudentResults(
       dateOfBirth: null,
       sex: null,
       firstLanguage: null,
+      schemeCode: "Mock Candidate",
       moduleLabel: examTypeLabel.includes("General")
         ? "General Training"
         : "Academic",
+      mockDate: pending.mockDate,
+      issueDate: null,
       centre: null,
-      issueDateLabel: formatLongDate(pending.mockDate),
     },
   };
 }
@@ -1329,20 +1337,18 @@ export function mapStudentResults(
       candidateName: detail.candidateName ?? "Candidate",
       candidateEmail: detail.candidateEmail ?? null,
       country: detail.country ?? null,
-      dateOfBirth: detail.dateOfBirth
-        ? formatLongDate(detail.dateOfBirth)
-        : null,
+      dateOfBirth: detail.dateOfBirth ?? null,
       sex: detail.sex ?? null,
       firstLanguage: detail.firstLanguage ?? null,
+      schemeCode: detail.schemeCode ?? (detail.centre ? "Partner Candidate" : "Mock Candidate"),
       moduleLabel: (detail.candidateExamType ?? "")
         .toUpperCase()
         .includes("GENERAL")
         ? "General Training"
         : "Academic",
+      mockDate: detail.mockDate ?? latest.mockDate ?? null,
+      issueDate: detail.issueDate ?? detail.mockDate ?? latest.mockDate ?? null,
       centre: detail.centre ?? null,
-      issueDateLabel: formatLongDate(
-        detail.issueDate ?? detail.mockDate ?? latest.mockDate,
-      ),
     },
   };
 }

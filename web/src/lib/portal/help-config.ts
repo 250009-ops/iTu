@@ -1,6 +1,12 @@
 import type { SupportTicketType } from "@/lib/api/support";
 
-export type HelpRole = "student" | "teacher" | "admin";
+export type HelpRole =
+  | "student"
+  | "teacher"
+  | "admin"
+  | "institution"
+  | "inst_student"
+  | "inst_examiner";
 
 export type HelpCategory = {
   value: SupportTicketType;
@@ -80,6 +86,97 @@ export const ADMIN_HELP_CATEGORIES: HelpCategory[] = [
   },
 ];
 
+export const INSTITUTION_HELP_CATEGORIES: HelpCategory[] = [
+  {
+    value: "payment_dispute",
+    label: "Credits & billing",
+    hint: "Credit packs, checkout, or wholesale pricing",
+  },
+  {
+    value: "technical_issue",
+    label: "Student enrollment",
+    hint: "Enroll wizard, credit consumption, or student access",
+  },
+  {
+    value: "technical_issue",
+    label: "Examiner management",
+    hint: "Invites, access, or centre examiner setup",
+  },
+  {
+    value: "technical_issue",
+    label: "Centre account",
+    hint: "Profile, public page, or centre status",
+  },
+  {
+    value: "technical_issue",
+    label: "Platform technical issue",
+    hint: "Portal bugs, reports, or system errors",
+  },
+];
+
+export const INST_STUDENT_HELP_CATEGORIES: HelpCategory[] = [
+  {
+    value: "technical_issue",
+    label: "Centre access & approval",
+    hint: "Pending approval or cannot access your mock",
+  },
+  {
+    value: "technical_issue",
+    label: "Mock scheduling",
+    hint: "Dates, times, or rescheduling with your centre",
+    requiresRelated: true,
+  },
+  {
+    value: "regrade_request",
+    label: "Results & regrade",
+    hint: "Question about bands or request a review",
+    requiresRelated: true,
+  },
+  {
+    value: "teacher_no_show",
+    label: "Examiner no-show",
+    hint: "Speaking examiner missed your slot",
+    requiresRelated: true,
+  },
+  {
+    value: "technical_issue",
+    label: "Technical issue",
+    hint: "Exam app, audio, camera, or login problems",
+    requiresRelated: true,
+  },
+];
+
+export const INST_EXAMINER_HELP_CATEGORIES: HelpCategory[] = [
+  {
+    value: "student_conduct",
+    label: "Student conduct",
+    hint: "Misbehavior, integrity, or session disruption",
+    requiresRelated: true,
+  },
+  {
+    value: "teacher_no_show",
+    label: "Scheduling & attendance",
+    hint: "Student no-show, slot changes, or timing",
+    requiresRelated: true,
+  },
+  {
+    value: "technical_issue",
+    label: "Centre coordination",
+    hint: "Scheduling or compensation with your centre",
+  },
+  {
+    value: "regrade_request",
+    label: "Grading follow-up",
+    hint: "Grading questions or regrade outcomes",
+    requiresRelated: true,
+  },
+  {
+    value: "technical_issue",
+    label: "Technical issue",
+    hint: "Platform, audio/video, or grading tools",
+  },
+];
+
 export const STUDENT_HELP_FAQS: HelpFaq[] = [
   {
     q: "When are my results released?",
@@ -141,25 +238,154 @@ export const ADMIN_HELP_FAQS: HelpFaq[] = [
   },
 ];
 
+export const INSTITUTION_HELP_FAQS: HelpFaq[] = [
+  {
+    q: "Where do requests from my students and examiners appear?",
+    a: "Centre member requests appear in the Centre requests section on this page. Platform issues you submit go to iTestU Admin → Disputes.",
+  },
+  {
+    q: "How do credit packs work?",
+    a: "Purchase credits from the Credits page. Each student enrollment consumes credits at your wholesale rate. Credits are deducted when you enroll students in a mock.",
+  },
+  {
+    q: "A student is stuck in pending — what should I do?",
+    a: "Open Students → Pending and approve or reject the application. Students waiting for approval can also message you via Help.",
+  },
+  {
+    q: "How do I invite an examiner to my centre?",
+    a: "Go to Examiners → Invite examiner. They receive an email to set up their scoped portal account for your centre only.",
+  },
+  {
+    q: "Who handles exam-day technical failures?",
+    a: "Your centre coordinates locally first. Escalate to iTestU platform support from this page if the issue is a system bug affecting the exam app.",
+  },
+];
+
+export const INST_STUDENT_HELP_FAQS: HelpFaq[] = [
+  {
+    q: "Why am I waiting for approval?",
+    a: "Your centre must approve your application before you can sit mocks. Submit a request here or contact your centre coordinator directly.",
+  },
+  {
+    q: "Who schedules my mock?",
+    a: "Your edu centre assigns and schedules mocks. Contact them for date changes — not the iTestU marketplace flow.",
+  },
+  {
+    q: "When are my results released?",
+    a: "After all sections are graded. Your centre and iTestU examiners complete Writing and Speaking before the full report is released.",
+  },
+  {
+    q: "I disagree with a band score — what can I do?",
+    a: "Submit a Results & regrade request here. Your centre receives it first and coordinates with examiners or escalates to platform support if needed.",
+  },
+  {
+    q: "Who do I pay for the mock?",
+    a: "Billing is arranged with your centre. iTestU does not charge centre students directly for mocks enrolled by the institution.",
+  },
+];
+
+export const INST_EXAMINER_HELP_FAQS: HelpFaq[] = [
+  {
+    q: "How am I paid as a centre examiner?",
+    a: "iTestU does not process your pay. Compensation is arranged directly with your centre — cash, transfer, or other agreement between you and the institution.",
+  },
+  {
+    q: "What students do I see?",
+    a: "Only students enrolled through your centre appear in your Speaking and Writing queues. You do not have marketplace-wide availability.",
+  },
+  {
+    q: "What is the Writing grading SLA?",
+    a: "Grade Writing submissions within the published window. Overdue items are highlighted on your Writing Grading queue.",
+  },
+  {
+    q: "A student misbehaved during a session — what should I do?",
+    a: "Submit a Student conduct request and link the session. Your centre admin receives it and handles follow-up.",
+  },
+  {
+    q: "I have a scheduling conflict — who do I contact?",
+    a: "Contact your centre coordinator first using Centre coordination or Scheduling categories. They manage your timetable and local arrangements.",
+  },
+];
+
+const ALL_CATEGORIES: HelpCategory[] = [
+  ...STUDENT_HELP_CATEGORIES,
+  ...TEACHER_HELP_CATEGORIES,
+  ...ADMIN_HELP_CATEGORIES,
+  ...INSTITUTION_HELP_CATEGORIES,
+  ...INST_STUDENT_HELP_CATEGORIES,
+  ...INST_EXAMINER_HELP_CATEGORIES,
+];
+
 export function categoriesForRole(role: HelpRole): HelpCategory[] {
-  if (role === "teacher") return TEACHER_HELP_CATEGORIES;
-  if (role === "admin") return ADMIN_HELP_CATEGORIES;
-  return STUDENT_HELP_CATEGORIES;
+  switch (role) {
+    case "teacher":
+      return TEACHER_HELP_CATEGORIES;
+    case "admin":
+      return ADMIN_HELP_CATEGORIES;
+    case "institution":
+      return INSTITUTION_HELP_CATEGORIES;
+    case "inst_student":
+      return INST_STUDENT_HELP_CATEGORIES;
+    case "inst_examiner":
+      return INST_EXAMINER_HELP_CATEGORIES;
+    default:
+      return STUDENT_HELP_CATEGORIES;
+  }
 }
 
 export function faqsForRole(role: HelpRole): HelpFaq[] {
-  if (role === "teacher") return TEACHER_HELP_FAQS;
-  if (role === "admin") return ADMIN_HELP_FAQS;
-  return STUDENT_HELP_FAQS;
+  switch (role) {
+    case "teacher":
+      return TEACHER_HELP_FAQS;
+    case "admin":
+      return ADMIN_HELP_FAQS;
+    case "institution":
+      return INSTITUTION_HELP_FAQS;
+    case "inst_student":
+      return INST_STUDENT_HELP_FAQS;
+    case "inst_examiner":
+      return INST_EXAMINER_HELP_FAQS;
+    default:
+      return STUDENT_HELP_FAQS;
+  }
 }
 
 export function ticketTypeLabel(type: string): string {
-  const all = [
-    ...STUDENT_HELP_CATEGORIES,
-    ...TEACHER_HELP_CATEGORIES,
-    ...ADMIN_HELP_CATEGORIES,
-  ];
-  const match = all.find((c) => c.value === type);
+  const match = ALL_CATEGORIES.find((c) => c.value === type);
   if (match) return match.label;
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function portalLabelForRole(role: HelpRole): string {
+  switch (role) {
+    case "teacher":
+      return "Teacher Portal";
+    case "admin":
+      return "Admin";
+    case "institution":
+      return "Institution Portal";
+    case "inst_student":
+      return "Centre Student Portal";
+    case "inst_examiner":
+      return "Centre Examiner Portal";
+    default:
+      return "Student Portal";
+  }
+}
+
+export function helpDescriptionForRole(role: HelpRole): string {
+  switch (role) {
+    case "teacher":
+      return "Report session issues, student conduct, or payout questions. Every request lands in the Admin Disputes queue with the right category and priority.";
+    case "admin":
+      return "Internal tickets and billing follow-ups. Student and teacher requests already appear on Disputes — use this only when you need a tracked note.";
+    case "institution":
+      return "Contact iTestU platform support for credits, enrollment tools, and portal issues. Requests from your students and examiners appear in Centre requests below.";
+    case "inst_student":
+      return "Send requests to your edu centre first — approval, scheduling, results, and exam-day issues. Your centre coordinator receives and responds to each ticket.";
+    case "inst_examiner":
+      return "Contact your centre for scheduling and compensation. iTestU does not pay centre examiners — payment is arranged directly with your institution.";
+    default:
+      return "Ask about results, examiners, payments, or exam-day tech. Pick a category so Admin sees the right ticket type — not a generic catch-all.";
+  }
 }

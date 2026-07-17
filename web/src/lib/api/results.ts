@@ -40,15 +40,18 @@ export function getResult(enrollmentId: string) {
     candidateEmail?: string | null;
     country?: string | null;
     candidateExamType?: string | null;
+    /** ISO date strings — formatted on the certificate as DD/MMM/YYYY. */
+    issueDate?: string | null;
     dateOfBirth?: string | null;
     sex?: string | null;
     firstLanguage?: string | null;
+    schemeCode?: string | null;
     centre?: {
       name: string;
       logoUrl: string | null;
       city: string | null;
+      code?: string | null;
     } | null;
-    issueDate?: string | null;
     skills?: {
       skill: string;
       band: number | null;

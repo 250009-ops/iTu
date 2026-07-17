@@ -8,6 +8,7 @@ import {
   Coins,
   GraduationCap,
   LayoutDashboard,
+  LifeBuoy,
   Settings,
   UserCheck,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const iconMap = {
   calendar: Calendar,
   "bar-chart": BarChart3,
   settings: Settings,
+  "life-buoy": LifeBuoy,
 } as const;
 
 export function InstitutionMobileNav() {

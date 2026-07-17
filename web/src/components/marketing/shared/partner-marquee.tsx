@@ -4,8 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PartnerCenter } from "@/lib/marketing/server-data";
 
-/** Approximate width of one name chip in the marquee row. */
-const ITEM_WIDTH = 120;
+/** Approximate width of one partner chip in the marquee row. */
+const ITEM_WIDTH = 130;
+
+function chipWidth(center: PartnerCenter): number {
+  return center.logoUrl ? 140 : ITEM_WIDTH;
+}
 
 function buildRow(
   centers: PartnerCenter[],
@@ -13,7 +17,7 @@ function buildRow(
 ): { items: PartnerCenter[]; animate: boolean } {
   if (centers.length === 0) return { items: [], animate: false };
 
-  const naturalWidth = centers.length * ITEM_WIDTH;
+  const naturalWidth = centers.reduce((sum, center) => sum + chipWidth(center), 0);
   const fillsRow = naturalWidth >= containerWidth * 0.92;
 
   if (fillsRow) {
@@ -21,7 +25,10 @@ function buildRow(
   }
 
   let filled: PartnerCenter[] = [];
-  while (filled.length * ITEM_WIDTH < containerWidth * 1.05) {
+  while (
+    filled.reduce((sum, center) => sum + chipWidth(center), 0) <
+    containerWidth * 1.05
+  ) {
     filled = filled.concat(centers);
   }
   return { items: [...filled, ...filled], animate: true };
@@ -34,14 +41,23 @@ function PartnerChip({ center }: { center: PartnerCenter }) {
       className="group inline-flex shrink-0 items-center rounded-xl px-2 py-1 transition-colors"
       aria-label={center.name}
     >
-      <span className="text-base font-semibold text-slate-500 transition-colors group-hover:text-navy">
-        {center.name}
-      </span>
+      {center.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={center.logoUrl}
+          alt={center.name}
+          className="h-8 max-w-[140px] object-contain object-left opacity-80 transition-opacity group-hover:opacity-100"
+        />
+      ) : (
+        <span className="text-base font-semibold text-slate-500 transition-colors group-hover:text-navy">
+          {center.name}
+        </span>
+      )}
     </Link>
   );
 }
 
-// One horizontal row of Edu Center names. Repeats existing partners only when
+// One horizontal row of partner logos or names. Repeats existing partners only when
 // there are too few to fill the viewport width; stops repeating once the count
 // is enough to cover the line naturally.
 export function PartnerMarquee({

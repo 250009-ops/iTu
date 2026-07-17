@@ -6,164 +6,145 @@ import {
   cefrMet,
   type CertificateViewModel,
 } from "./certificate-utils";
+import { TRF, TRF_SKILL_ORDER } from "./certificate-trf-theme";
+import { ItestuValidationStamp } from "./validation-stamp";
 
-const NAVY = "#0f1e3d";
-const BRAND_RED = "#E31837";
-const BOX_BG = "#eef1f4";
-const BOX_BORDER = "#c7d0da";
-const INK = "#1f2937";
-const MUTED = "#64748b";
-
-function Field({
-  label,
-  value,
-  className,
-  boxClassName,
-  valueStyle,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-  boxClassName?: string;
-  valueStyle?: React.CSSProperties;
-}) {
+function CentreStampName({ name }: { name: string }) {
   return (
-    <div className={className} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <span
-        style={{
-          fontSize: 8.5,
-          fontWeight: 600,
-          color: MUTED,
-          lineHeight: 1.15,
-          letterSpacing: "0.01em",
-        }}
-      >
-        {label}
-      </span>
-      <div
-        className={boxClassName}
-        style={{
-          background: BOX_BG,
-          border: `1px solid ${BOX_BORDER}`,
-          borderRadius: 2,
-          minHeight: 22,
-          padding: "3px 8px",
-          fontSize: 11,
-          fontWeight: 600,
-          color: INK,
-          display: "flex",
-          alignItems: "center",
-          ...valueStyle,
-        }}
-      >
-        {value}
-      </div>
-    </div>
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        color: TRF.centreStampInk,
+        fontFamily: TRF.centreStampFont,
+        textTransform: "uppercase",
+        letterSpacing: "0.14em",
+        lineHeight: 1.35,
+        maxWidth: "95%",
+      }}
+    >
+      {name}
+    </span>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function TrfLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p
+    <span
       style={{
-        fontSize: 12.5,
-        fontWeight: 800,
-        color: NAVY,
-        margin: "0 0 8px",
-        letterSpacing: "-0.01em",
+        fontSize: 8,
+        fontWeight: 700,
+        color: TRF.black,
+        lineHeight: 1.2,
       }}
     >
       {children}
-    </p>
+    </span>
   );
 }
 
-function SkillResult({
-  name,
-  band,
+function GreyBox({
+  children,
+  style,
+  center,
 }: {
-  name: string;
-  band: number | null;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  center?: boolean;
 }) {
-  const cefr = bandToCefr(band);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: NAVY }}>{name}</span>
-      <div style={{ display: "flex", gap: 5 }}>
-        <div
-          style={{
-            background: BOX_BG,
-            border: `1px solid ${BOX_BORDER}`,
-            borderRadius: 2,
-            width: 40,
-            height: 34,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 15,
-            fontWeight: 800,
-            color: INK,
-          }}
-        >
-          {formatBandDisplay(band)}
-        </div>
-        <div
-          style={{
-            background: BOX_BG,
-            border: `1px solid ${BOX_BORDER}`,
-            borderRadius: 2,
-            width: 30,
-            height: 34,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 11,
-            fontWeight: 700,
-            color: MUTED,
-          }}
-        >
-          {cefr}
-        </div>
-      </div>
+    <div
+      style={{
+        background: TRF.greyFill,
+        border: `1px solid ${TRF.border}`,
+        minHeight: 20,
+        padding: "2px 6px",
+        fontSize: 11,
+        fontWeight: 700,
+        color: TRF.black,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: center ? "center" : "flex-start",
+        ...style,
+      }}
+    >
+      {children}
     </div>
   );
 }
 
-/** iTestU circular validation seal (drawn, not an image). */
-function ValidationSeal() {
+function WhiteBox({
+  children,
+  style,
+  center,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  center?: boolean;
+}) {
   return (
-    <svg width="72" height="72" viewBox="0 0 100 100" aria-hidden>
-      <defs>
-        <path id="cert-seal-arc-top" d="M 12,50 A 38,38 0 0 1 88,50" fill="none" />
-        <path id="cert-seal-arc-bottom" d="M 88,50 A 38,38 0 0 1 12,50" fill="none" />
-      </defs>
-      <circle cx="50" cy="50" r="47" fill="none" stroke={BRAND_RED} strokeWidth="1.5" />
-      <circle cx="50" cy="50" r="40" fill="none" stroke={BRAND_RED} strokeWidth="0.8" />
-      <circle cx="50" cy="50" r="22" fill="none" stroke={BRAND_RED} strokeWidth="0.8" />
-      <text fontSize="8.5" fontWeight="700" fill={BRAND_RED} letterSpacing="1.2">
-        <textPath href="#cert-seal-arc-top" startOffset="50%" textAnchor="middle">
-          iTestU • VERIFIED
-        </textPath>
-      </text>
-      <text fontSize="7" fontWeight="600" fill={BRAND_RED} letterSpacing="1.5">
-        <textPath href="#cert-seal-arc-bottom" startOffset="50%" textAnchor="middle">
-          MOCK EXAMINATION
-        </textPath>
-      </text>
-      <text
-        x="50"
-        y="47"
-        textAnchor="middle"
-        fontSize="13"
-        fontWeight="800"
-        fill={BRAND_RED}
-      >
-        iTU
-      </text>
-      <text x="50" y="58" textAnchor="middle" fontSize="6.5" fontWeight="600" fill={BRAND_RED}>
-        CBT
-      </text>
-    </svg>
+    <div
+      style={{
+        background: TRF.white,
+        border: `1px solid ${TRF.border}`,
+        minHeight: 20,
+        padding: "2px 6px",
+        fontSize: 10.5,
+        fontWeight: 700,
+        color: TRF.black,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: center ? "center" : "flex-start",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function MetaField({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ flex: 1 }}>
+      <TrfLabel>{label}</TrfLabel>
+      <GreyBox style={{ marginTop: 4, minHeight: 22 }}>{value}</GreyBox>
+    </div>
+  );
+}
+
+function CandidateRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "148px 1fr",
+        gap: 8,
+        alignItems: "center",
+        marginBottom: 5,
+      }}
+    >
+      <TrfLabel>{label}</TrfLabel>
+      <GreyBox>{value}</GreyBox>
+    </div>
+  );
+}
+
+function InlineField({
+  label,
+  value,
+  flex,
+}: {
+  label: string;
+  value: string;
+  flex: number;
+}) {
+  return (
+    <div style={{ flex, minWidth: 0 }}>
+      <TrfLabel>{label}</TrfLabel>
+      <WhiteBox style={{ marginTop: 4 }} center={label === "Sex (M/F)"}>
+        {value}
+      </WhiteBox>
+    </div>
   );
 }
 
@@ -173,451 +154,340 @@ export const MockCertificate = forwardRef<
 >(function MockCertificate({ vm }, ref) {
   const centre = vm.centre;
 
+  const skillsByName = Object.fromEntries(
+    vm.skills.map((s) => [s.name, s]),
+  ) as Record<string, (typeof vm.skills)[number]>;
+
+  const orderedSkills = TRF_SKILL_ORDER.map((name) => ({
+    name,
+    band: skillsByName[name]?.band ?? null,
+  }));
+
+  const overallCefr = bandToCefr(vm.overallBand);
+
   return (
     <div
       ref={ref}
       data-certificate
       style={{
-        width: 794,
-        minHeight: 1123,
-        background: "#ffffff",
-        color: INK,
-        fontFamily:
-          "'Segoe UI', Arial, Helvetica, sans-serif",
-        position: "relative",
+        width: TRF.pageWidthPx,
+        minHeight: TRF.pageMinHeightPx,
+        background: TRF.white,
+        color: TRF.black,
+        fontFamily: TRF.font,
         boxSizing: "border-box",
-        padding: 0,
+        padding: `${TRF.marginPx}px`,
       }}
     >
-      {/* Security watermark */}
+      {/* Header */}
       <div
-        aria-hidden
         style={{
-          position: "absolute",
-          inset: 0,
-          overflow: "hidden",
-          pointerEvents: "none",
-          opacity: 0.04,
           display: "flex",
-          flexWrap: "wrap",
-          transform: "rotate(-30deg) scale(1.4)",
-          transformOrigin: "center",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
         }}
       >
-        {Array.from({ length: 60 }).map((_, i) => (
-          <span
-            key={i}
-            style={{
-              fontSize: 16,
-              fontWeight: 800,
-              color: NAVY,
-              whiteSpace: "nowrap",
-              padding: "10px 18px",
-            }}
-          >
-            iTestU MOCK · NOT AN OFFICIAL IELTS DOCUMENT
-          </span>
-        ))}
-      </div>
-
-      {/* Document border */}
-      <div
-        style={{
-          position: "relative",
-          margin: 14,
-          border: `2px solid ${NAVY}`,
-          padding: "22px 26px 18px",
-          minHeight: 1123 - 28,
-          boxSizing: "border-box",
-        }}
-      >
-        {/* Header */}
+        <div>
+          <p style={{ margin: 0, fontSize: 34, fontWeight: 800, lineHeight: 1 }}>
+            iTestU
+            <sup style={{ fontSize: 9, fontWeight: 700, marginLeft: 2 }}>TM</sup>
+          </p>
+          <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 700 }}>
+            Mock Test Report Form
+          </p>
+        </div>
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            borderBottom: `2px solid ${NAVY}`,
-            paddingBottom: 12,
+            border: `1px solid ${TRF.border}`,
+            padding: "8px 18px",
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: "0.04em",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <span
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 46,
-                height: 46,
-                borderRadius: 10,
-                background: BRAND_RED,
-                color: "#fff",
-                fontSize: 22,
-                fontWeight: 800,
-                boxShadow: "0 4px 10px rgba(227,24,55,0.35)",
-              }}
-            >
-              iT
-            </span>
-            <div>
-              <p style={{ margin: 0, fontSize: 26, fontWeight: 800, color: NAVY, lineHeight: 1 }}>
-                iTestU
-              </p>
-              <p style={{ margin: "3px 0 0", fontSize: 12.5, fontWeight: 600, color: INK }}>
-                Mock Test Report Form
-                <sup style={{ fontSize: 7, marginLeft: 2 }}>TM</sup>
-              </p>
-            </div>
-          </div>
+          {vm.moduleLabel.toUpperCase()}
+        </div>
+      </div>
+
+      {/* NOTE */}
+      <p
+        style={{
+          margin: "14px 0 8px",
+          fontSize: 8.5,
+          lineHeight: 1.45,
+          color: TRF.muted,
+        }}
+      >
+        <strong style={{ color: TRF.black, fontStyle: "normal" }}>NOTE</strong>
+        <em>
+          {" "}
+          This document is a practice mock report issued by iTestU. It mirrors the
+          layout of the IELTS Test Report Form for preparation purposes only and is
+          not an official IELTS document. It is recommended that the candidate&apos;s
+          language ability be re-assessed after two years from the date of the mock
+          test.
+        </em>
+      </p>
+      <p style={{ margin: "0 0 14px", fontSize: 8, lineHeight: 1.4, color: TRF.muted }}>
+        Mock examinations are delivered by iTestU and partner centres. This form is
+        not issued by or affiliated with the British Council, IDP IELTS, or Cambridge
+        University Press &amp; Assessment.
+      </p>
+
+      {/* Meta row */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+        <MetaField label="Centre Number" value={vm.centreNumber} />
+        <MetaField label="Test Date" value={vm.testDateLabel} />
+        <MetaField label="Candidate Number" value={vm.candidateNumber} />
+      </div>
+
+      <hr style={{ border: "none", borderTop: `1px solid ${TRF.border}`, margin: "0 0 10px" }} />
+
+      {/* Candidate details */}
+      <p style={{ margin: "0 0 10px", fontSize: 11.5, fontWeight: 800 }}>
+        Candidate Details
+      </p>
+      <div style={{ display: "flex", gap: 14, marginBottom: 14 }}>
+        <div style={{ flex: 1 }}>
+          <CandidateRow label="Family Name" value={vm.family} />
+          <CandidateRow label="First Name" value={vm.first} />
+          <CandidateRow label="Candidate ID" value={vm.candidateId} />
+
           <div
             style={{
-              border: `1px solid ${NAVY}`,
-              borderRadius: 3,
-              padding: "8px 14px",
-              fontSize: 12,
-              fontWeight: 800,
-              color: NAVY,
-              textTransform: "uppercase",
-              letterSpacing: "0.03em",
+              display: "grid",
+              gridTemplateColumns: "148px 1fr",
+              gap: 8,
+              marginBottom: 5,
             }}
           >
-            {vm.moduleLabel}
+            <span aria-hidden="true" />
+            <div style={{ display: "flex", gap: 8 }}>
+              <InlineField label="Date of Birth" value={vm.dateOfBirth} flex={1.45} />
+              <InlineField label="Sex (M/F)" value={vm.sex} flex={0.55} />
+              <InlineField label="Scheme Code" value={vm.schemeCode} flex={1.2} />
+            </div>
           </div>
+
+          <CandidateRow
+            label="Country or Region of Origin"
+            value={vm.country}
+          />
+          <CandidateRow label="Country of Nationality" value={vm.country} />
+          <CandidateRow label="First Language" value={vm.firstLanguage} />
         </div>
 
-        {/* Note */}
-        <p
+        <div
           style={{
-            margin: "10px 0 16px",
-            fontSize: 8,
-            lineHeight: 1.5,
-            color: MUTED,
+            width: 108,
+            height: 132,
+            border: `1px solid ${TRF.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
           }}
         >
-          <strong style={{ color: INK }}>NOTE&nbsp;&nbsp;</strong>
-          This Mock Test Report Form is issued by iTestU as a practice assessment of the
-          candidate&apos;s English language ability. It simulates the format of the IELTS test but
-          is <strong>not an official IELTS Test Report Form</strong> and is not issued by or
-          affiliated with the British Council, IDP: IELTS Australia, or Cambridge Assessment English.
-          Bands are indicative and intended for preparation purposes only.
-        </p>
-
-        {/* Top info row */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 18 }}>
-          <Field
-            label="Centre Number"
-            value={vm.centreNumber}
-            className="cert-grow"
-          />
-          <Field label="Test Date" value={vm.testDateLabel} className="cert-grow" />
-          <Field
-            label="Candidate Number"
-            value={vm.candidateNumber}
-            className="cert-grow"
-          />
+          <span
+            style={{
+              fontSize: 28,
+              fontWeight: 800,
+              color: TRF.black,
+            }}
+          >
+            {vm.initials}
+          </span>
         </div>
+      </div>
 
-        {/* Candidate details */}
-        <SectionTitle>Candidate Details</SectionTitle>
-        <div style={{ display: "flex", gap: 14, marginBottom: 18 }}>
+      <hr style={{ border: "none", borderTop: `1px solid ${TRF.border}`, margin: "0 0 10px" }} />
+
+      {/* Test results */}
+      <p style={{ margin: "0 0 10px", fontSize: 11.5, fontWeight: 800 }}>
+        Test Results
+      </p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 8,
+          marginBottom: 16,
+        }}
+      >
+        {orderedSkills.map((skill) => (
+          <div key={skill.name} style={{ width: 78 }}>
+            <TrfLabel>{skill.name}</TrfLabel>
+            <div style={{ display: "flex", gap: 3, marginTop: 4 }}>
+              <GreyBox style={{ width: 36, minHeight: 26 }} center>
+                {formatBandDisplay(skill.band)}
+              </GreyBox>
+              <WhiteBox style={{ width: 28, minHeight: 26 }} center>
+                {bandToCefr(skill.band)}
+              </WhiteBox>
+            </div>
+          </div>
+        ))}
+        <div style={{ marginLeft: "auto", textAlign: "center", width: 96 }}>
+          <TrfLabel>
+            Overall
+            <br />
+            Band Score
+          </TrfLabel>
+          <GreyBox style={{ marginTop: 4, minHeight: 30, fontSize: 16 }} center>
+            {formatBandDisplay(vm.overallBand)}
+          </GreyBox>
+          <WhiteBox style={{ marginTop: 4, minHeight: 20 }} center>
+            {overallCefr}
+          </WhiteBox>
+        </div>
+      </div>
+
+      <hr style={{ border: "none", borderTop: `1px solid ${TRF.border}`, margin: "0 0 10px" }} />
+
+      {/* Comments + stamps */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+        <div style={{ flex: "0 0 46%" }}>
+          <TrfLabel>Administrator Comments</TrfLabel>
           <div
             style={{
-              flex: 1,
+              marginTop: 4,
+              border: `1px solid ${TRF.border}`,
+              minHeight: 88,
+            }}
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <TrfLabel>Centre Stamp</TrfLabel>
+          <div
+            style={{
+              marginTop: 4,
+              border: `1px solid ${TRF.border}`,
+              minHeight: 88,
               display: "flex",
               flexDirection: "column",
-              gap: 9,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              padding: 6,
+              textAlign: "center",
             }}
           >
-            <Field label="Family Name" value={vm.family} />
-            <Field label="First Name" value={vm.first} />
-            <Field label="Candidate ID" value={vm.candidateId} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <Field label="Date of Birth" value={vm.dateOfBirth} className="cert-grow" />
-              <Field label="Sex (M/F)" value={vm.sex} boxClassName="cert-narrow" />
-              <Field label="Scheme Code" value="Mock" className="cert-grow" />
-            </div>
-            <Field
-              label="Country or Region of Origin"
-              value={vm.country || "—"}
-            />
-            <Field label="Country of Nationality" value={vm.country || "—"} />
-            <Field label="First Language" value={vm.firstLanguage} />
-          </div>
-
-          {/* Photo / initials */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <div
-              style={{
-                width: 118,
-                height: 148,
-                border: `1px solid ${BOX_BORDER}`,
-                background: BOX_BG,
-                borderRadius: 3,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-              }}
-            >
-              <span
-                style={{
-                  width: 68,
-                  height: 68,
-                  borderRadius: "50%",
-                  background: NAVY,
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 26,
-                  fontWeight: 800,
-                }}
-              >
-                {vm.initials}
-              </span>
-              <span
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  fontSize: 7,
-                  color: MUTED,
-                  fontWeight: 600,
-                }}
-              >
-                CANDIDATE
-              </span>
-            </div>
+            {centre?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={centre.logoUrl}
+                alt={centre.name}
+                style={{ maxHeight: 46, maxWidth: "92%", objectFit: "contain" }}
+              />
+            ) : null}
+            <CentreStampName name={centre?.name ?? "iTestU Online Centre"} />
           </div>
         </div>
-
-        {/* Test results */}
-        <SectionTitle>Test Results</SectionTitle>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: 10,
-            marginBottom: 20,
-          }}
-        >
-          {vm.skills.map((s) => (
-            <SkillResult key={s.id} name={s.name} band={s.band} />
-          ))}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 4 }}>
-            <span style={{ fontSize: 10.5, fontWeight: 800, color: BRAND_RED, textAlign: "center" }}>
-              Overall Band Score
-            </span>
-            <div
-              style={{
-                width: 74,
-                height: 42,
-                border: `2px solid ${BRAND_RED}`,
-                borderRadius: 3,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 22,
-                fontWeight: 800,
-                color: BRAND_RED,
-                background: "rgba(227,24,55,0.05)",
-                margin: "0 auto",
-              }}
-            >
-              {formatBandDisplay(vm.overallBand)}
-            </div>
+        <div style={{ flex: 1 }}>
+          <TrfLabel>Validation stamp</TrfLabel>
+          <div
+            style={{
+              marginTop: 4,
+              border: `1px solid ${TRF.border}`,
+              minHeight: 88,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <ItestuValidationStamp size={52} />
           </div>
         </div>
-
-        {/* Stamps row */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-          <div style={{ flex: 1.6, display: "flex", flexDirection: "column", gap: 3 }}>
-            <span style={{ fontSize: 8.5, fontWeight: 600, color: MUTED }}>
-              Administrator Comments
-            </span>
-            <div
-              style={{
-                border: `1px solid ${BOX_BORDER}`,
-                borderRadius: 2,
-                minHeight: 96,
-                padding: "8px 10px",
-                fontSize: 9.5,
-                lineHeight: 1.5,
-                color: INK,
-              }}
-            >
-              Assessment completed under simulated IELTS conditions. Writing and Speaking
-              sections were graded by certified examiners against official band descriptors.
-              This report reflects the candidate&apos;s performance on the mock examination date.
-            </div>
-          </div>
-
-          {/* Centre stamp — partner logo appears here when the exam was conducted by a partner */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
-            <span style={{ fontSize: 8.5, fontWeight: 600, color: MUTED }}>
-              Centre Stamp
-            </span>
-            <div
-              style={{
-                border: `1px dashed ${BOX_BORDER}`,
-                borderRadius: 2,
-                minHeight: 96,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                padding: 8,
-                textAlign: "center",
-              }}
-            >
-              {centre?.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={centre.logoUrl}
-                  alt={centre.name}
-                  style={{ maxHeight: 46, maxWidth: "90%", objectFit: "contain" }}
-                />
-              ) : (
-                <span
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: "50%",
-                    background: NAVY,
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 15,
-                    fontWeight: 800,
-                  }}
-                >
-                  iT
-                </span>
-              )}
-              <span style={{ fontSize: 9, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>
-                {centre?.name ?? "iTestU Online Centre"}
-              </span>
-              {centre?.city ? (
-                <span style={{ fontSize: 7.5, color: MUTED }}>{centre.city}</span>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Validation stamp — always iTestU */}
-          <div style={{ flex: 0.8, display: "flex", flexDirection: "column", gap: 3 }}>
-            <span style={{ fontSize: 8.5, fontWeight: 600, color: MUTED }}>
-              Validation Stamp
-            </span>
-            <div
-              style={{
-                border: `1px solid ${BOX_BORDER}`,
-                borderRadius: 2,
-                minHeight: 96,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ValidationSeal />
-            </div>
-          </div>
-        </div>
-
-        {/* Signature + issue date */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "flex-end" }}>
-          <div style={{ flex: 1.6 }}>
-            <p
-              style={{
-                fontFamily: "'Segoe Script', 'Brush Script MT', cursive",
-                fontSize: 20,
-                color: NAVY,
-                margin: "0 0 2px",
-                borderBottom: `1px solid ${INK}`,
-                paddingBottom: 2,
-                width: "70%",
-              }}
-            >
-              iTestU Assessment Office
-            </p>
-            <span style={{ fontSize: 8.5, fontWeight: 600, color: MUTED }}>
-              Administrator&apos;s Signature
-            </span>
-          </div>
-          <Field label="Issue Date" value={vm.issueDateLabel} className="cert-grow" />
-        </div>
-
-        {/* CEFR + reference block */}
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "stretch",
-            borderTop: `1px solid ${BOX_BORDER}`,
-            paddingTop: 12,
-          }}
-        >
-          <div style={{ flex: 0.9 }}>
-            <span style={{ fontSize: 8, fontWeight: 600, color: MUTED }}>
-              CEFR Threshold Met
-            </span>
-            <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
-              {CEFR_THRESHOLDS.map((level) => {
-                const met = cefrMet(vm.overallBand, level);
-                return (
-                  <div key={level} style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: INK }}>{level}</div>
-                    <div
-                      style={{
-                        marginTop: 2,
-                        width: 20,
-                        height: 18,
-                        border: `1px solid ${BOX_BORDER}`,
-                        borderRadius: 2,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: met ? "#059669" : "transparent",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        background: met ? "rgba(5,150,105,0.08)" : BOX_BG,
-                      }}
-                    >
-                      ✓
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div style={{ flex: 1.55, display: "flex", flexDirection: "column", gap: 8 }}>
-            <Field label="Unique Reference Number" value={vm.referenceNumber} />
-            <Field label="Test Report Form Number" value={vm.reportFormNumber} />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p
-          style={{
-            position: "absolute",
-            bottom: 8,
-            left: 26,
-            right: 26,
-            margin: 0,
-            fontSize: 7.5,
-            color: MUTED,
-            textAlign: "center",
-            lineHeight: 1.4,
-          }}
-        >
-          Verify this report at verify.itestu.uz using the Unique Reference Number above. ·
-          iTestU Computer-Based Testing · This document certifies a practice mock examination only.
-        </p>
       </div>
 
+      {/* Signature + issue date */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ width: "42%" }}>
+          <div
+            style={{
+              borderBottom: `1px solid ${TRF.border}`,
+              minHeight: 22,
+              marginBottom: 4,
+            }}
+          />
+          <TrfLabel>Administrator&apos;s Signature</TrfLabel>
+        </div>
+        <div style={{ width: 140 }}>
+          <TrfLabel>Issue Date</TrfLabel>
+          <GreyBox style={{ marginTop: 4 }}>{vm.issueDateLabel}</GreyBox>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ display: "flex", gap: 16 }}>
+        <div>
+          <TrfLabel>
+            CEFR Level
+            <br />
+            Threshold Met
+          </TrfLabel>
+          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+            {CEFR_THRESHOLDS.map((level) => {
+              const met = cefrMet(vm.overallBand, level);
+              return (
+                <div key={level} style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700 }}>{level}</div>
+                  <div
+                    style={{
+                      marginTop: 2,
+                      width: 22,
+                      height: 16,
+                      border: `1px solid ${TRF.border}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {met ? (
+                      <svg width="12" height="10" viewBox="0 0 12 10" aria-hidden>
+                        <path
+                          d="M1 5 L4 8 L11 1"
+                          fill="none"
+                          stroke={TRF.black}
+                          strokeWidth="1.5"
+                        />
+                      </svg>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <TrfLabel>Unique Reference Number</TrfLabel>
+          <GreyBox style={{ marginTop: 4, marginBottom: 10 }}>
+            {vm.referenceNumber}
+          </GreyBox>
+          <TrfLabel>Test Report Form Number</TrfLabel>
+          <GreyBox style={{ marginTop: 4 }}>{vm.reportFormNumber}</GreyBox>
+        </div>
+      </div>
+
+      <p
+        style={{
+          margin: "16px 0 0",
+          fontSize: 8,
+          fontStyle: "italic",
+          color: TRF.muted,
+        }}
+      >
+        Recognising organisations must verify this mock score at verify.itestu.uz
+      </p>
+
       <style>{`
-        [data-certificate] .cert-grow { flex: 1; }
-        [data-certificate] .cert-narrow { min-width: 44px; width: 44px; }
         @media print {
           @page { size: A4 portrait; margin: 0; }
         }

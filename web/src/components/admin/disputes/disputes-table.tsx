@@ -93,6 +93,7 @@ function roleLabel(role: Ticket["reporterRole"]) {
   if (role === "teacher") return "Teacher";
   if (role === "student") return "Student";
   if (role === "admin") return "Admin";
+  if (role === "institution") return "Institution";
   return "Reporter";
 }
 
