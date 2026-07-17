@@ -60,7 +60,7 @@ const DEFAULT_SETTINGS: Record<string, object> = {
   },
   integrations: {
     stripeConfigured: false,
-    lemonSqueezyConfigured: false,
+    uzumCheckoutConfigured: false,
     smtpConfigured: false,
     sendgridConfigured: false,
     livekitConfigured: false,
@@ -293,11 +293,11 @@ export class SettingsService {
     const livekitConfigured = this.isLivekitConfigured();
     const mediaStorageConfigured = this.isMediaStorageConfigured();
     const smtpConfigured = this.isSmtpConfigured();
-    const lemonSqueezyConfigured = this.isLemonSqueezyConfigured();
+    const uzumCheckoutConfigured = this.isUzumCheckoutConfigured();
 
     return {
       ...stored,
-      lemonSqueezyConfigured,
+      uzumCheckoutConfigured,
       smtpConfigured,
       sendgridConfigured: smtpConfigured || Boolean(stored.sendgridConfigured),
       livekitConfigured,
@@ -345,10 +345,12 @@ export class SettingsService {
     );
   }
 
-  private isLemonSqueezyConfigured(): boolean {
-    return Boolean(
-      this.config.get<string>('LEMON_SQUEEZY_API_KEY')?.trim() &&
-        this.config.get<string>('LEMON_SQUEEZY_STORE_ID')?.trim(),
-    );
+  private isUzumCheckoutConfigured(): boolean {
+    const terminalId = this.config.get<string>('UZUM_CHECKOUT_TERMINAL_ID')?.trim();
+    if (!terminalId) return false;
+    const apiKey = this.config.get<string>('UZUM_CHECKOUT_API_KEY')?.trim();
+    const certPath = this.config.get<string>('UZUM_CHECKOUT_CERT_PATH')?.trim();
+    const keyPath = this.config.get<string>('UZUM_CHECKOUT_KEY_PATH')?.trim();
+    return Boolean(apiKey || (certPath && keyPath));
   }
 }

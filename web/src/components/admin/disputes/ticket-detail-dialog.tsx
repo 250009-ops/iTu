@@ -473,7 +473,7 @@ export function TicketDetailDialog({
         title={ticket.orderCode ? `Refund ${ticket.orderCode}?` : "Issue refund?"}
         message={
           ticket.orderAmount != null
-            ? `Issue a full refund of ${formatPrice(ticket.orderAmount)} for ${studentName}? This cancels the enrollment in admin records. Card reversal may still be required in Lemon Squeezy.`
+            ? `Issue a full refund of ${formatPrice(ticket.orderAmount)} for ${studentName}? This cancels the enrollment in admin records. Card reversal may still be required in Uzum Checkout.`
             : "Issue a refund for this order?"
         }
         confirmLabel={acting ? "Processing…" : "Issue refund"}

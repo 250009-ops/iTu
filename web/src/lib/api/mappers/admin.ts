@@ -778,7 +778,7 @@ const defaultNotificationValues: Record<string, boolean> = {
 };
 
 const defaultIntegrationValues: Record<string, boolean> = {
-  lemonSqueezyConfigured: false,
+  uzumCheckoutConfigured: false,
   smtpConfigured: false,
   sendgridConfigured: false,
   livekitConfigured: false,

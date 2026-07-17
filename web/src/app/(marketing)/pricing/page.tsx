@@ -34,7 +34,7 @@ const SLA = { academic: "24 hours", gt: "—", speaking: "24 hours", writing: "2
 const PRICING_FAQS: MarketingFaq[] = [
   { id: "which", category: "Booking", question: "Which package should I choose?", answer: "If you need a full band score for university or a visa, choose the Full Academic or General Training mock. If you only want to practise one skill before your real test, the Speaking Only or Writing Only packages are a cost-effective option." },
   { id: "multiple", category: "Booking", question: "Can I take multiple mocks?", answer: "Yes — there is no limit. Every mock gives you fresh exam content and a new examiner selection. Your score history is tracked across all attempts so you can see your improvement over time." },
-  { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: "We accept Visa, Mastercard, and other major cards via our secure Lemon Squeezy checkout. International cards — including Uzum Bank Visa — are supported. All transactions are encrypted." },
+  { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: "We accept Uzcard, Humo, Visa, and Mastercard via our secure Uzum Checkout payment page. All transactions are encrypted." },
   { id: "discount", category: "Booking", question: "Is there a group or institutional discount?", answer: "Yes. Bookings of 10+ mocks receive 10% off, 50+ receive 15% off, and 100+ receive 20% off. Contact our institutions team for a custom quote." },
   { id: "refund", category: "Booking", question: "Can I get a refund?", answer: "Full refund if you cancel at least 24 hours before your mock date. Within 24 hours you can reschedule once at no cost. Refunds are processed within 5 business days." },
 ];
@@ -50,7 +50,7 @@ function Cell({ value }: { value: boolean }) {
 export default async function PricingPage() {
   const [stats, packages] = await Promise.all([fetchHeroStats(), fetchPackages()]);
   const TRUST = [
-    { icon: Lock, title: "Secure payment", body: "Lemon Squeezy encrypted checkout" },
+    { icon: Lock, title: "Secure payment", body: "Uzum Checkout encrypted payment" },
     { icon: ShieldCheck, title: "Certified examiners", body: "CELTA+ qualified, ID verified" },
     ...(stats.rating
       ? [{ icon: Star, title: `${stats.rating}★ rating`, body: "From verified examiner reviews" }]

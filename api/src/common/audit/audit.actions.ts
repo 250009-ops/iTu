@@ -63,6 +63,8 @@ export const AuditAction = {
   INSTITUTION_STUDENT_APPROVE: 'institution.student.approve',
   INSTITUTION_STUDENT_REJECT: 'institution.student.reject',
   INSTITUTION_EXAMINER_INVITE: 'institution.examiner.invite',
+  INSTITUTION_EXAMINER_UPDATE: 'institution.examiner.update',
+  INSTITUTION_EXAMINER_REMOVE: 'institution.examiner.remove',
   INSTITUTION_PROFILE_UPDATE: 'institution.profile.update',
   INSTITUTION_SUPPORT_TICKET_UPDATE: 'institution.support_ticket.update',
 } as const;

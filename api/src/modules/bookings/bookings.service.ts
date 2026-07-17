@@ -39,7 +39,7 @@ import { ScheduleSpeakingSlotDto } from './dto/schedule-speaking-slot.dto';
 import { ReappointEnrollmentDto } from '../admin/dto/reappoint-enrollment.dto';
 import { UpdateGrantEnrollmentDto } from '../admin/dto/update-grant-enrollment.dto';
 import { SettingsService } from '../settings/settings.service';
-import { LemonSqueezyService } from '../payments/lemon-squeezy.service';
+import { UzumCheckoutService } from '../payments/uzum-checkout.service';
 import {
   assignContentTests,
   evaluatePackageAvailability,
@@ -88,8 +88,8 @@ export class BookingsService {
     private notifications: NotificationsService,
     private audit: AuditService,
     private settings: SettingsService,
-    @Inject(forwardRef(() => LemonSqueezyService))
-    private lemon: LemonSqueezyService,
+    @Inject(forwardRef(() => UzumCheckoutService))
+    private uzum: UzumCheckoutService,
   ) {}
 
   async getAvailability(date: string, teacherId?: string) {
@@ -165,18 +165,12 @@ export class BookingsService {
       auditAction: AuditAction.BOOKING_CREATE,
     };
 
-    if (this.lemon.isConfigured()) {
+    if (this.uzum.isConfigured()) {
       const pkg = await this.prisma.mockTestPackage.findUnique({
         where: { id: dto.packageId },
       });
       if (!pkg) throw new NotFoundException('Package not found');
-      const variantId = this.lemon.resolveVariantId(pkg.slug, pkg.packageKind);
-      if (!variantId) {
-        throw new BadRequestException(
-          `Payment is not configured for package "${pkg.slug}". Contact support.`,
-        );
-      }
-      return this.initiatePaidCheckout(params, user, pkg, variantId);
+      return this.initiatePaidCheckout(params, user, pkg);
     }
 
     return this.provisionEnrollment(params);
@@ -1280,14 +1274,13 @@ export class BookingsService {
   }
 
   /**
-   * Creates a pending enrollment + order and redirects the student to Lemon
-   * Squeezy checkout. Speaking slots are held until payment or expiry.
+   * Creates a pending enrollment + order and redirects the student to Uzum
+   * Checkout. Speaking slots are held until payment or expiry.
    */
   async initiatePaidCheckout(
     params: ProvisionEnrollmentParams,
     user: RequestUser,
     pkg: { id: string; slug: string; title: string; price: number; currency: string; skills: unknown; isActive: boolean },
-    variantId: string,
   ) {
     const { studentProfileId, actorUserId } = params;
     await this.validatePaidBookingParams(params, pkg);
@@ -1361,7 +1354,7 @@ export class BookingsService {
       return { enrollment, order, slot };
     });
 
-    const checkout = await this.lemon.createCheckout({
+    const checkout = await this.uzum.createCheckout({
       orderId: pending.order.id,
       orderCode: pending.order.orderCode,
       email: user.email,
@@ -1369,13 +1362,14 @@ export class BookingsService {
       amount: pkg.price,
       currency: pkg.currency,
       packageTitle: pkg.title,
-      variantId,
+      clientId: user.id,
+      sessionTimeoutSecs: BookingsService.CHECKOUT_HOLD_MINUTES * 60,
     });
 
     await this.prisma.order.update({
       where: { id: pending.order.id },
       data: {
-        lemonCheckoutId: checkout.checkoutId,
+        uzumCheckoutId: checkout.checkoutId,
         checkoutUrl: checkout.checkoutUrl,
       },
     });
@@ -1406,7 +1400,7 @@ export class BookingsService {
     };
   }
 
-  /** Completes exam delivery after Lemon Squeezy confirms payment. */
+  /** Completes exam delivery after Uzum Checkout confirms payment. */
   async fulfillPendingPayment(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },

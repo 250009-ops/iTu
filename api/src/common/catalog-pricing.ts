@@ -1,4 +1,4 @@
-/** Lemon Squeezy catalog prices in Uzbek soum (must match Lemon product variants). */
+/** Platform catalog prices in Uzbek soum (Uzum Checkout). */
 export const CATALOG_CURRENCY = 'UZS' as const;
 
 export const UZS_PRICE_BY_PACKAGE_KIND: Record<string, number> = {

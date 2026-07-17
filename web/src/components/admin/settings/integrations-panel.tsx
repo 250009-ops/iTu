@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 
 const services = [
   {
-    name: "Lemon Squeezy",
-    description: "Student checkout — cards, PayPal, Apple Pay (international cards supported)",
-    key: "lemonSqueezyConfigured" as const,
+    name: "Uzum Checkout",
+    description: "Student and institution payments — Uzcard, Humo, Visa, Mastercard",
+    key: "uzumCheckoutConfigured" as const,
   },
   {
     name: "Eskiz SMTP",

@@ -1,10 +1,8 @@
-import type { RawBodyRequest } from '@nestjs/common';
 import {
   BadRequestException,
   Controller,
   ForbiddenException,
   Get,
-  Headers,
   Param,
   Post,
   Req,
@@ -16,6 +14,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { UzumCallbackPayload } from './uzum-checkout.service';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('payments')
@@ -30,13 +29,13 @@ export class PaymentsController {
   }
 
   @Public()
-  @Post('webhooks/lemon-squeezy')
-  handleLemonWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('x-signature') signature?: string,
-  ) {
-    const rawBody = req.rawBody?.toString('utf8') ?? '';
-    return this.payments.handleWebhook(rawBody, signature);
+  @Post('webhooks/uzum-checkout')
+  handleUzumWebhook(@Req() req: Request) {
+    const payload = req.body as UzumCallbackPayload;
+    if (!payload?.orderNumber || !payload?.orderId) {
+      throw new BadRequestException('Invalid Uzum callback payload');
+    }
+    return this.payments.handleUzumCallback(payload);
   }
 
   @ApiBearerAuth()

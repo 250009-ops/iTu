@@ -1,8 +1,6 @@
 /**
- * Institution credit packs. `variantKey` maps into LEMON_VARIANTS (see
- * ./lemon-variants.ts) so the Lemon Squeezy checkout can resolve a buy link.
- * Per-credit price defaults to the institution's `wholesalePrice`; larger packs
- * apply the discount below.
+ * Institution credit packs. Per-credit price defaults to the institution's
+ * `wholesalePrice`; larger packs apply the discount below.
  */
 export interface CreditPack {
   id: string;
@@ -10,15 +8,13 @@ export interface CreditPack {
   credits: number;
   /** Percentage discount off the per-credit wholesale price. */
   discountPct: number;
-  /** Key into LEMON_VARIANTS for the Lemon Squeezy variant. */
-  variantKey: string;
   popular?: boolean;
 }
 
 export const CREDIT_PACKS: CreditPack[] = [
-  { id: 'starter', label: 'Starter', credits: 10, discountPct: 0, variantKey: 'credits-10' },
-  { id: 'growth', label: 'Growth', credits: 50, discountPct: 10, variantKey: 'credits-50', popular: true },
-  { id: 'pro', label: 'Pro', credits: 100, discountPct: 20, variantKey: 'credits-100' },
+  { id: 'starter', label: 'Starter', credits: 10, discountPct: 0 },
+  { id: 'growth', label: 'Growth', credits: 50, discountPct: 10, popular: true },
+  { id: 'pro', label: 'Pro', credits: 100, discountPct: 20 },
 ];
 
 export function findCreditPack(id: string): CreditPack | undefined {

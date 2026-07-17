@@ -299,7 +299,7 @@ export function TransactionLedgerTable() {
         title={refunding ? `Refund ${refunding.orderId}?` : ""}
         message={
           refunding
-            ? `This cancels the enrollment and marks ${formatPrice(refunding.amount)} as refunded for ${refunding.studentName}. Card money must still be reversed in Lemon Squeezy if the student paid via Checkout. This cannot be undone.`
+            ? `This cancels the enrollment and marks ${formatPrice(refunding.amount)} as refunded for ${refunding.studentName}. Card money must still be reversed in Uzum Checkout if the student paid online. This cannot be undone.`
             : ""
         }
         confirmLabel={busy ? "Processing…" : "Issue refund"}

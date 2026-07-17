@@ -1,6 +1,6 @@
 # Phase G — Hardening & Manual E2E
 
-Phase G prepares iTestU for beta and real payments (Phase H). Run these checks **before** Lemon Squeezy integration.
+Phase G prepares iTestU for beta and real payments (Phase H). Run these checks **before** Uzum Checkout integration.
 
 ## Status checklist
 
@@ -188,10 +188,10 @@ Before beta on `itestu.uz`:
 
 ## 8. After Phase G → Phase H (payments)
 
-Only start Lemon Squeezy after this checklist passes. Phase H will:
+Only start Uzum Checkout after this checklist passes. Phase H will:
 
 1. Create `PENDING` orders (not instant `PAID`)
-2. Redirect to Lemon checkout
+2. Redirect to Uzum Checkout
 3. Confirm payment via webhook
 4. Then unlock enrollment / exam access
 

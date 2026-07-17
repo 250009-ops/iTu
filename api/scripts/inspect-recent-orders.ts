@@ -7,7 +7,7 @@ const orders = await prisma.order.findMany({
   select: {
     orderCode: true,
     checkoutUrl: true,
-    lemonCheckoutId: true,
+    uzumCheckoutId: true,
     status: true,
     createdAt: true,
   },

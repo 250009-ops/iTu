@@ -703,11 +703,10 @@ export function BookingWizard({
                 </div>
                 {paymentsEnabled ? (
                   <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-900">
-                    <p className="font-medium">Pay with card via Lemon Squeezy</p>
+                    <p className="font-medium">Pay with card via Uzum Checkout</p>
                     <p className="mt-1 text-muted">
-                      Visa, Mastercard, and international cards (including Uzum
-                      Bank Visa) are accepted. Your speaking slot is held for 15
-                      minutes while you complete checkout.
+                      Uzcard, Humo, Visa, and Mastercard are accepted. Your speaking
+                      slot is held for 15 minutes while you complete checkout.
                     </p>
                   </div>
                 ) : (
@@ -738,8 +737,8 @@ export function BookingWizard({
                     </div>
                     <p className="flex items-center gap-1.5 text-xs text-muted">
                       <Lock size={12} />
-                      Demo checkout — no real card is charged until Lemon
-                      Squeezy is configured.
+                      Demo checkout — no real card is charged until Uzum
+                      Checkout is configured.
                     </p>
                   </>
                 )}

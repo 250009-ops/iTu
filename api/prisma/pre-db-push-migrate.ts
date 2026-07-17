@@ -261,6 +261,23 @@ async function main() {
   if (bandsFixed > 0) {
     console.log(`Synced band scores for ${bandsFixed} L/R section attempt(s).`);
   }
+
+  const hasLemonCheckout = await columnExists('orders', 'lemon_checkout_id');
+  const hasUzumCheckout = await columnExists('orders', 'uzum_checkout_id');
+  if (hasLemonCheckout && !hasUzumCheckout) {
+    console.log('Renaming orders.lemon_* payment columns to uzum_*...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE orders RENAME COLUMN lemon_checkout_id TO uzum_checkout_id;
+      ALTER TABLE orders RENAME COLUMN lemon_order_id TO uzum_order_id;
+    `);
+  } else if (!hasUzumCheckout) {
+    console.log('Adding orders.uzum_* payment columns...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS uzum_checkout_id TEXT,
+      ADD COLUMN IF NOT EXISTS uzum_order_id TEXT;
+    `);
+  }
 }
 
 main()

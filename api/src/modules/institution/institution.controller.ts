@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -19,6 +20,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
+import { UpdateExaminerDto } from './dto/update-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
 import { UpdateInstitutionSupportTicketDto } from './dto/update-institution-support-ticket.dto';
 import { InstitutionService } from './institution.service';
@@ -96,6 +98,20 @@ export class InstitutionController {
     @Body() dto: InviteExaminerDto,
   ) {
     return this.institution.inviteExaminer(user, dto);
+  }
+
+  @Patch('examiners/:id')
+  updateExaminer(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateExaminerDto,
+  ) {
+    return this.institution.updateExaminer(user, id, dto);
+  }
+
+  @Delete('examiners/:id')
+  removeExaminer(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.institution.removeExaminer(user, id);
   }
 
   @Get('enrollments')

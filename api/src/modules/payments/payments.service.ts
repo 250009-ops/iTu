@@ -14,7 +14,10 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingsService } from '../bookings/bookings.service';
-import { LemonSqueezyService } from './lemon-squeezy.service';
+import {
+  UzumCallbackPayload,
+  UzumCheckoutService,
+} from './uzum-checkout.service';
 
 @Injectable()
 export class PaymentsService {
@@ -22,62 +25,69 @@ export class PaymentsService {
 
   constructor(
     private prisma: PrismaService,
-    private lemon: LemonSqueezyService,
+    private uzum: UzumCheckoutService,
     @Inject(forwardRef(() => BookingsService))
     private bookings: BookingsService,
   ) {}
 
   isConfigured(): boolean {
-    return this.lemon.isConfigured();
+    return this.uzum.isConfigured();
   }
 
-  async handleWebhook(rawBody: string, signature: string | undefined) {
-    if (!this.lemon.verifyWebhookSignature(rawBody, signature)) {
-      throw new BadRequestException('Invalid webhook signature');
+  async handleUzumCallback(payload: UzumCallbackPayload) {
+    const orderCode = payload.orderNumber?.trim();
+    if (!orderCode) {
+      throw new BadRequestException('Missing orderNumber in callback');
     }
 
-    const payload = JSON.parse(rawBody) as {
-      meta?: { event_name?: string; custom_data?: Record<string, string> };
-      data?: {
-        id?: string;
-        attributes?: {
-          status?: string;
-          first_order_item?: { order_id?: number };
-        };
-      };
-    };
+    const order = await this.prisma.order.findUnique({
+      where: { orderCode },
+    });
+    if (!order) {
+      this.logger.warn(`Uzum callback for unknown order: ${orderCode}`);
+      return { received: true };
+    }
 
-    const eventName = payload.meta?.event_name ?? '';
-    const customOrderId =
-      payload.meta?.custom_data?.order_id ??
-      payload.meta?.custom_data?.orderId;
+    if (this.uzum.isSuccessfulRefundCallback(payload)) {
+      await this.markRefundedByOrderId(order.id);
+      return { received: true };
+    }
 
-    if (
-      eventName === 'order_created' ||
-      eventName === 'order_paid' ||
-      eventName === 'order_refunded' ||
-      eventName === 'subscription_payment_success'
-    ) {
-      const lemonOrderId = payload.data?.id ? String(payload.data.id) : undefined;
-      const status = payload.data?.attributes?.status;
+    if (!this.uzum.isSuccessfulPaymentCallback(payload)) {
+      return { received: true };
+    }
 
-      if (customOrderId) {
-        if (
-          eventName === 'order_paid' ||
-          eventName === 'subscription_payment_success' ||
-          status === 'paid'
-        ) {
-          await this.fulfillByOrderId(customOrderId, lemonOrderId);
-        } else if (eventName === 'order_refunded') {
-          await this.markRefundedByOrderId(customOrderId);
-        }
-      }
+    const confirmed = await this.confirmAndFulfill(order.id, payload.orderId);
+    if (!confirmed) {
+      this.logger.warn(
+        `Uzum callback for ${orderCode} could not be confirmed via getOrderStatus`,
+      );
     }
 
     return { received: true };
   }
 
-  async fulfillByOrderId(orderId: string, lemonOrderId?: string) {
+  /** Reconcile a pending order against Uzum and fulfill when paid. */
+  async reconcilePendingOrder(orderId: string): Promise<boolean> {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order || order.status !== OrderStatus.PENDING || !order.uzumCheckoutId) {
+      return false;
+    }
+
+    return this.confirmAndFulfill(order.id, order.uzumCheckoutId);
+  }
+
+  private async confirmAndFulfill(orderId: string, uzumOrderId: string): Promise<boolean> {
+    const status = await this.uzum.getOrderStatus(uzumOrderId);
+    if (!status || !this.uzum.isPaidStatus(status.status)) {
+      return false;
+    }
+
+    await this.fulfillByOrderId(orderId, status.orderId);
+    return true;
+  }
+
+  async fulfillByOrderId(orderId: string, uzumOrderId?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { enrollment: true },
@@ -94,7 +104,7 @@ export class PaymentsService {
       where: { id: order.id },
       data: {
         status: OrderStatus.PAID,
-        lemonOrderId: lemonOrderId ?? order.lemonOrderId,
+        uzumOrderId: uzumOrderId ?? order.uzumOrderId,
       },
     });
 
@@ -169,6 +179,29 @@ export class PaymentsService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
+    if (order.status === OrderStatus.PENDING && order.uzumCheckoutId) {
+      await this.reconcilePendingOrder(order.id);
+      const refreshed = await this.prisma.order.findFirst({
+        where: { orderCode, studentId: studentProfileId },
+        include: { enrollment: true },
+      });
+      if (refreshed) {
+        return this.formatOrderStatus(refreshed);
+      }
+    }
+
+    return this.formatOrderStatus(order);
+  }
+
+  private formatOrderStatus(
+    order: {
+      orderCode: string;
+      status: OrderStatus;
+      checkoutUrl: string | null;
+      checkoutExpiresAt: Date | null;
+      enrollment: { enrollmentCode: string } | null;
+    },
+  ) {
     return {
       orderCode: order.orderCode,
       status: order.status.toLowerCase(),

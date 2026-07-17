@@ -84,6 +84,23 @@ export function inviteExaminer(body: {
   );
 }
 
+export function updateExaminerSpeciality(
+  examinerId: string,
+  speciality: "WRITING" | "SPEAKING" | "BOTH",
+) {
+  return apiFetch<{ updated: boolean; speciality: string }>(
+    `/institution/examiners/${examinerId}`,
+    { method: "PATCH", body: { speciality } },
+  );
+}
+
+export function removeExaminer(examinerId: string) {
+  return apiFetch<{ removed: boolean }>(
+    `/institution/examiners/${examinerId}`,
+    { method: "DELETE" },
+  );
+}
+
 export function getInstitutionEnrollments() {
   return apiFetch<EnrollmentsData>("/institution/enrollments");
 }

@@ -1,5 +1,5 @@
 /**
- * Sync all catalog package prices/currency to UZS (matches Lemon Squeezy).
+ * Sync all catalog package prices/currency to UZS (Uzum Checkout).
  */
 import { PrismaClient } from '@prisma/client';
 import {

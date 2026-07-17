@@ -30,21 +30,32 @@ import {
   findCreditPack,
 } from '../../config/credit-packs';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
+import {
+  teacherCanAccessSpeaking,
+  teacherCanAccessWriting,
+} from '../../common/teacher-speciality';
 import { helpPathForReporter } from '../../common/support/support-routing';
 import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingsService } from '../bookings/bookings.service';
-import { LemonSqueezyService } from '../payments/lemon-squeezy.service';
+import { UzumCheckoutService } from '../payments/uzum-checkout.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
+import { UpdateExaminerDto } from './dto/update-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
 import { UpdateInstitutionSupportTicketDto } from './dto/update-institution-support-ticket.dto';
 
 const SETUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
+const ACTIVE_ENROLLMENT_STATUSES: EnrollmentStatus[] = [
+  EnrollmentStatus.ENROLLED,
+  EnrollmentStatus.IN_PROGRESS,
+  EnrollmentStatus.AWAITING_RESULTS,
+];
 
 /** Sections done (submitted) per skill for the L/R/W/S progress dots. */
 type SectionProgress = {
@@ -85,7 +96,7 @@ export class InstitutionService {
   constructor(
     private prisma: PrismaService,
     private bookings: BookingsService,
-    private lemon: LemonSqueezyService,
+    private uzum: UzumCheckoutService,
     private mail: MailService,
     private audit: AuditService,
     private notifications: NotificationsService,
@@ -293,20 +304,13 @@ export class InstitutionService {
       },
     });
 
-    if (!this.lemon.isConfigured()) {
+    if (!this.uzum.isConfigured()) {
       throw new BadRequestException(
         'Online payment is not configured. Contact the platform to top up credits.',
       );
     }
 
-    const variantId = this.lemon.resolveVariantId(pack.variantKey);
-    if (!variantId) {
-      throw new BadRequestException(
-        'This credit pack is not available for checkout yet.',
-      );
-    }
-
-    const checkout = await this.lemon.createCheckout({
+    const checkout = await this.uzum.createCheckout({
       orderId: order.id,
       orderCode: order.orderCode,
       email: institution.contactEmail,
@@ -314,14 +318,17 @@ export class InstitutionService {
       amount,
       currency: institution.currency,
       packageTitle: `${pack.credits} mock credits`,
-      variantId,
+      clientId: institution.id,
+      successPath: '/institution/credits?payment=success',
+      failurePath: '/institution/credits?payment=failed',
+      sessionTimeoutSecs: 1800,
     });
 
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await this.prisma.order.update({
       where: { id: order.id },
       data: {
-        lemonCheckoutId: checkout.checkoutId,
+        uzumCheckoutId: checkout.checkoutId,
         checkoutUrl: checkout.checkoutUrl,
         checkoutExpiresAt: expiresAt,
       },
@@ -661,6 +668,221 @@ export class InstitutionService {
     });
 
     return { invited: true, examinerId: created.teacherProfile?.id };
+  }
+
+  async updateExaminer(
+    user: RequestUser,
+    examinerId: string,
+    dto: UpdateExaminerDto,
+  ) {
+    const institutionId = requireInstitutionId(user);
+    const teacher = await this.loadInstitutionExaminer(
+      institutionId,
+      examinerId,
+    );
+    const nextSpeciality = dto.speciality as TeacherSpeciality;
+
+    if (teacher.speciality === nextSpeciality) {
+      return {
+        updated: true,
+        speciality: teacher.speciality.toLowerCase(),
+      };
+    }
+
+    const losingSpeaking =
+      teacherCanAccessSpeaking(teacher.speciality) &&
+      !teacherCanAccessSpeaking(nextSpeciality);
+    const losingWriting =
+      teacherCanAccessWriting(teacher.speciality) &&
+      !teacherCanAccessWriting(nextSpeciality);
+
+    if (losingSpeaking) {
+      const blockers = await this.examinerSpeakingBlockers(
+        examinerId,
+        institutionId,
+      );
+      if (blockers.length > 0) {
+        throw new BadRequestException(
+          `Cannot switch to this speciality: ${blockers.join(' ')}`,
+        );
+      }
+    }
+    if (losingWriting) {
+      const blockers = await this.examinerWritingBlockers(
+        examinerId,
+        institutionId,
+      );
+      if (blockers.length > 0) {
+        throw new BadRequestException(
+          `Cannot switch to this speciality: ${blockers.join(' ')}`,
+        );
+      }
+    }
+
+    await this.prisma.teacherProfile.update({
+      where: { id: examinerId },
+      data: { speciality: nextSpeciality },
+    });
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_EXAMINER_UPDATE,
+      entity: 'teacher_profile',
+      entityId: examinerId,
+      metadata: {
+        institutionId,
+        speciality: nextSpeciality.toLowerCase(),
+      },
+    });
+
+    return { updated: true, speciality: nextSpeciality.toLowerCase() };
+  }
+
+  async removeExaminer(user: RequestUser, examinerId: string) {
+    const institutionId = requireInstitutionId(user);
+    const teacher = await this.loadInstitutionExaminer(
+      institutionId,
+      examinerId,
+    );
+
+    const blockers = await this.examinerRemovalBlockers(
+      examinerId,
+      institutionId,
+    );
+    if (blockers.length > 0) {
+      throw new BadRequestException(blockers.join(' '));
+    }
+
+    const pendingInvite = teacher.user.emailVerifiedAt == null;
+
+    if (pendingInvite) {
+      await this.prisma.user.delete({ where: { id: teacher.userId } });
+    } else {
+      await this.prisma.$transaction([
+        this.prisma.teacherProfile.update({
+          where: { id: examinerId },
+          data: { institutionId: null },
+        }),
+        this.prisma.user.update({
+          where: { id: teacher.userId },
+          data: { institutionId: null },
+        }),
+      ]);
+    }
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_EXAMINER_REMOVE,
+      entity: 'teacher_profile',
+      entityId: examinerId,
+      metadata: {
+        institutionId,
+        pendingInvite,
+        email: teacher.user.email,
+      },
+    });
+
+    return { removed: true };
+  }
+
+  private async loadInstitutionExaminer(
+    institutionId: string,
+    examinerId: string,
+  ) {
+    const teacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: examinerId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            institutionId: true,
+            emailVerifiedAt: true,
+          },
+        },
+      },
+    });
+    if (!teacher || teacher.institutionId !== institutionId) {
+      throw new NotFoundException('Examiner not found');
+    }
+    return teacher;
+  }
+
+  private async examinerRemovalBlockers(
+    examinerId: string,
+    institutionId: string,
+  ): Promise<string[]> {
+    return [
+      ...(await this.examinerSpeakingBlockers(examinerId, institutionId)),
+      ...(await this.examinerWritingBlockers(examinerId, institutionId)),
+    ];
+  }
+
+  private async examinerSpeakingBlockers(
+    examinerId: string,
+    institutionId: string,
+  ): Promise<string[]> {
+    const messages: string[] = [];
+    const speakingAssignments = await this.prisma.enrollment.count({
+      where: {
+        institutionId,
+        status: { in: ACTIVE_ENROLLMENT_STATUSES },
+        speakingTeacherId: examinerId,
+      },
+    });
+    if (speakingAssignments > 0) {
+      messages.push(
+        `They are the speaking examiner on ${speakingAssignments} active enrollment(s).`,
+      );
+    }
+
+    const pendingSpeaking = await this.prisma.speakingSession.count({
+      where: {
+        teacherId: examinerId,
+        OR: [
+          { status: 'COMPLETED', grade: null },
+          { status: { in: ['SCHEDULED', 'WAITING', 'ACTIVE'] } },
+        ],
+      },
+    });
+    if (pendingSpeaking > 0) {
+      messages.push(
+        `They still have ${pendingSpeaking} speaking session(s) to deliver or grade.`,
+      );
+    }
+    return messages;
+  }
+
+  private async examinerWritingBlockers(
+    examinerId: string,
+    institutionId: string,
+  ): Promise<string[]> {
+    const messages: string[] = [];
+    const writingAssignments = await this.prisma.enrollment.count({
+      where: {
+        institutionId,
+        status: { in: ACTIVE_ENROLLMENT_STATUSES },
+        writingTeacherId: examinerId,
+      },
+    });
+    if (writingAssignments > 0) {
+      messages.push(
+        `They are the writing examiner on ${writingAssignments} active enrollment(s).`,
+      );
+    }
+
+    const pendingWriting = await this.prisma.writingSubmission.count({
+      where: {
+        teacherId: examinerId,
+        status: { in: ['PENDING', 'IN_REVIEW'] },
+      },
+    });
+    if (pendingWriting > 0) {
+      messages.push(
+        `They still have ${pendingWriting} writing submission(s) to grade.`,
+      );
+    }
+    return messages;
   }
 
   // ─── Enrollments pipeline ────────────────────────────────────────────────
