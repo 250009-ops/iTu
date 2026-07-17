@@ -266,17 +266,20 @@ async function main() {
   const hasUzumCheckout = await columnExists('orders', 'uzum_checkout_id');
   if (hasLemonCheckout && !hasUzumCheckout) {
     console.log('Renaming orders.lemon_* payment columns to uzum_*...');
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE orders RENAME COLUMN lemon_checkout_id TO uzum_checkout_id;
-      ALTER TABLE orders RENAME COLUMN lemon_order_id TO uzum_order_id;
-    `);
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE orders RENAME COLUMN lemon_checkout_id TO uzum_checkout_id',
+    );
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE orders RENAME COLUMN lemon_order_id TO uzum_order_id',
+    );
   } else if (!hasUzumCheckout) {
     console.log('Adding orders.uzum_* payment columns...');
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS uzum_checkout_id TEXT,
-      ADD COLUMN IF NOT EXISTS uzum_order_id TEXT;
-    `);
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE orders ADD COLUMN IF NOT EXISTS uzum_checkout_id TEXT',
+    );
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE orders ADD COLUMN IF NOT EXISTS uzum_order_id TEXT',
+    );
   }
 }
 
