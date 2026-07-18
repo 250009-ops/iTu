@@ -135,6 +135,33 @@ async function main() {
     await upload(sftp, artifact.localPath, `${REMOTE_DIR}/${artifact.fileName}`);
   }
 
+  // Merge with existing platform settings when uploading a subset
+  const existingRow = await new Promise((resolve, reject) => {
+    conn.exec(
+      `cd /var/www/itestu/app/api && node -e "const {PrismaClient}=require('@prisma/client'); const p=new PrismaClient(); p.platformSettings.findUnique({where:{section:'desktop_releases'}}).then(r=>{console.log(JSON.stringify(r?.settings||{}));p.\\$disconnect();}).catch(e=>{console.error(e);process.exit(1);});"`,
+      (err, stream) => {
+        if (err) return reject(err);
+        let out = '';
+        stream.on('data', (d) => {
+          out += d.toString();
+        });
+        stream.on('close', () => {
+          try {
+            resolve(JSON.parse(out.trim() || '{}'));
+          } catch {
+            resolve({});
+          }
+        });
+      },
+    );
+  });
+
+  for (const key of ['windows', 'macos', 'linux']) {
+    if (!platforms[key]?.url && existingRow?.platforms?.[key]?.url) {
+      platforms[key] = existingRow.platforms[key];
+    }
+  }
+
   const settings = {
     version: VERSION,
     releasedAt: new Date().toISOString(),
