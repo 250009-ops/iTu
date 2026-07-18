@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Suspense } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ContentStudioHeader } from "@/components/admin/content/content-studio-header";
 import { ContentSummaryCards } from "@/components/admin/content/content-summary-cards";
 import { ContentDeepLink } from "@/components/admin/content/content-deep-link";
+import { PracticeStudioView } from "@/components/admin/content/practice/practice-studio-view";
 import { ListeningEditor } from "@/components/admin/content/listening-editor";
 import { ReadingEditor } from "@/components/admin/content/reading-editor";
 import { SpeakingEditor } from "@/components/admin/content/speaking-editor";
@@ -130,13 +131,61 @@ function ContentStudioInner() {
   );
 }
 
-export function ContentStudioView() {
+function StudioModeBar({ active }: { active: "mock" | "practice" }) {
+  return (
+    <div className="border-b border-slate-200 bg-white px-4 py-3 lg:px-8">
+      <div className="mx-auto flex max-w-7xl gap-2">
+        <a
+          href="/admin/content"
+          className={cn(
+            "rounded-lg px-4 py-2 text-sm font-medium",
+            active === "mock" ? "bg-navy text-white" : "text-muted hover:bg-slate-100",
+          )}
+        >
+          Mock Creation
+        </a>
+        <a
+          href="/admin/content?mode=practice"
+          className={cn(
+            "rounded-lg px-4 py-2 text-sm font-medium",
+            active === "practice"
+              ? "bg-navy text-white"
+              : "text-muted hover:bg-slate-100",
+          )}
+        >
+          Practice Creation
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function ContentStudioViewWithMode() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode") === "practice" ? "practice" : "mock";
+
+  if (mode === "practice") {
+    return (
+      <div>
+        <StudioModeBar active="practice" />
+        <PracticeStudioView />
+      </div>
+    );
+  }
+
   return (
     <AdminContentProvider>
-      <Suspense fallback={null}>
-        <ContentStudioInner />
-      </Suspense>
+      <StudioModeBar active="mock" />
+      <ContentStudioInner />
     </AdminContentProvider>
+  );
+}
+
+export function ContentStudioView() {
+  return (
+    <Suspense fallback={null}>
+      <ContentStudioViewWithMode />
+    </Suspense>
   );
 }
 

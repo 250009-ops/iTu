@@ -27,6 +27,11 @@ export const instStudentNav: InstStudentNavItem[] = [
     badge: "activeMock",
   },
   {
+    label: "Practice",
+    href: "/inst-student/practice",
+    icon: "monitor-play",
+  },
+  {
     label: "Results",
     href: "/inst-student/results",
     icon: "line-chart",

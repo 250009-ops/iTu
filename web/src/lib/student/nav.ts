@@ -27,6 +27,11 @@ export const studentNav: NavItem[] = [
     icon: "calendar-days",
   },
   {
+    label: "Practice",
+    href: "/student/practice",
+    icon: "search",
+  },
+  {
     label: "Results",
     href: STUDENT_VIEW_PATHS.results,
     icon: "trophy",

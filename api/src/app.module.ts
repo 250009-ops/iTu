@@ -33,8 +33,10 @@ import { InstitutionContentModule } from './modules/institution-content/institut
 import { InstExaminerModule } from './modules/inst-examiner/inst-examiner.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { PaymentsModule } from './modules/payments/payments.module';
-import { PrismaModule } from './prisma/prisma.module';
 import { AuditModule } from './common/audit/audit.module';
+import { PracticeModule } from './modules/practice/practice.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { PracticeCommonModule } from './common/practice/practice-common.module';
 import { MailModule } from './common/mail/mail.module';
 import { RedisModule } from './common/redis/redis.module';
 import { StorageModule } from './common/storage/storage.module';
@@ -63,6 +65,7 @@ import { StorageModule } from './common/storage/storage.module';
       },
     ]),
     AuditModule,
+    PracticeCommonModule,
     RedisModule,
     StorageModule,
     MailModule,
@@ -72,6 +75,7 @@ import { StorageModule } from './common/storage/storage.module';
     MarketingModule,
     BookingsModule,
     PaymentsModule,
+    PracticeModule,
     StudentsModule,
     TeachersModule,
     InstitutionModule,

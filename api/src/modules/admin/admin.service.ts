@@ -1558,6 +1558,7 @@ export class AdminService {
         include: {
           student: { include: { user: true } },
           package: true,
+          practicePackage: true,
           enrollment: true,
           institution: { select: { name: true } },
         },
@@ -1599,6 +1600,7 @@ export class AdminService {
         enrollmentRef: o.enrollment?.enrollmentCode,
         package:
           o.package?.title ??
+          o.practicePackage?.title ??
           (o.creditQuantity ? `${o.creditQuantity} mock credits` : '—'),
         paymentMethod,
         amount: o.amount,

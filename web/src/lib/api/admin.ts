@@ -958,3 +958,198 @@ export function updateAdminSettings(section: string, settings: object) {
     body: settings,
   });
 }
+
+// ─── Practice content & packages ─────────────────────────────────────────────
+
+export type AdminPracticeUnit = {
+  id: string;
+  code: string;
+  title: string;
+  type: string;
+  skill: string;
+  questionType: string | null;
+  status: string;
+  durationMin: number;
+  questionCount: number;
+  updatedAt: string;
+  publishedAt: string | null;
+  mediaCount: number;
+};
+
+export type AdminWritingPrompt = {
+  id: string;
+  code: string;
+  title: string;
+  taskNumber: number;
+  minWords: number;
+  status: string;
+  updatedAt: string;
+  publishedAt: string | null;
+};
+
+export type AdminPracticePackage = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  bundle: Record<string, number>;
+  displayPrices: Record<string, number>;
+  isActive: boolean;
+  mostPopular: boolean;
+};
+
+export function getAdminPracticeUnits(params?: { type?: string; skill?: string }) {
+  const q = new URLSearchParams();
+  if (params?.type) q.set("type", params.type);
+  if (params?.skill) q.set("skill", params.skill);
+  const qs = q.toString();
+  return apiFetch<AdminPracticeUnit[]>(
+    `/admin/practice/units${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export function getAdminPracticeUnit(id: string) {
+  return apiFetch(`/admin/practice/units/${id}`);
+}
+
+export function suggestPracticeUnitIdentity(type: string) {
+  return apiFetch<{ code: string; title: string; type: string; skill: string }>(
+    `/admin/practice/units/next-identity?type=${encodeURIComponent(type)}`,
+  );
+}
+
+export function createPracticeUnit(payload: {
+  code: string;
+  title: string;
+  type: string;
+  questionType?: string;
+  content: object;
+  answerKey?: object;
+  durationMin?: number;
+}) {
+  return apiFetch("/admin/practice/units", { method: "POST", body: payload });
+}
+
+export function updatePracticeUnit(
+  id: string,
+  payload: {
+    title?: string;
+    questionType?: string;
+    content?: object;
+    answerKey?: object;
+    durationMin?: number;
+  },
+) {
+  return apiFetch(`/admin/practice/units/${id}`, { method: "PATCH", body: payload });
+}
+
+export function publishPracticeUnit(id: string) {
+  return apiFetch(`/admin/practice/units/${id}/publish`, { method: "POST" });
+}
+
+export function archivePracticeUnit(id: string) {
+  return apiFetch(`/admin/practice/units/${id}/archive`, { method: "POST" });
+}
+
+export function deletePracticeUnit(id: string) {
+  return apiFetch(`/admin/practice/units/${id}`, { method: "DELETE" });
+}
+
+export function uploadPracticeUnitMedia(id: string, key: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<{ key: string; url: string }>(
+    `/admin/practice/units/${id}/media?key=${encodeURIComponent(key)}`,
+    { method: "POST", body: form },
+  );
+}
+
+export function getAdminWritingPrompts() {
+  return apiFetch<AdminWritingPrompt[]>("/admin/practice/writing-prompts");
+}
+
+export function getAdminWritingPrompt(id: string) {
+  return apiFetch(`/admin/practice/writing-prompts/${id}`);
+}
+
+export function suggestWritingPromptIdentity(taskNumber: number) {
+  return apiFetch<{ code: string; title: string; taskNumber: number }>(
+    `/admin/practice/writing-prompts/next-identity?taskNumber=${taskNumber}`,
+  );
+}
+
+export function createWritingPrompt(payload: {
+  code: string;
+  title: string;
+  taskNumber: number;
+  instruction: string;
+  minWords?: number;
+  imageUrl?: string;
+}) {
+  return apiFetch("/admin/practice/writing-prompts", { method: "POST", body: payload });
+}
+
+export function updateWritingPrompt(
+  id: string,
+  payload: { title?: string; instruction?: string; minWords?: number; imageUrl?: string },
+) {
+  return apiFetch(`/admin/practice/writing-prompts/${id}`, {
+    method: "PATCH",
+    body: payload,
+  });
+}
+
+export function publishWritingPrompt(id: string) {
+  return apiFetch(`/admin/practice/writing-prompts/${id}/publish`, { method: "POST" });
+}
+
+export function getAdminPracticePackages() {
+  return apiFetch<AdminPracticePackage[]>("/admin/practice/packages");
+}
+
+export function suggestPracticePackagePrice(bundle: Record<string, number>) {
+  return apiFetch<{ suggestedPrice: number; bundle: Record<string, number> }>(
+    "/admin/practice/packages/suggest-price",
+    { method: "POST", body: { bundle } },
+  );
+}
+
+export function createPracticePackage(payload: {
+  slug: string;
+  title: string;
+  description?: string;
+  price: number;
+  bundle: Record<string, number>;
+  displayPrices?: Record<string, number>;
+  isActive?: boolean;
+  mostPopular?: boolean;
+}) {
+  return apiFetch("/admin/practice/packages", { method: "POST", body: payload });
+}
+
+export function updatePracticePackage(
+  id: string,
+  payload: Partial<{
+    title: string;
+    description: string;
+    price: number;
+    bundle: Record<string, number>;
+    displayPrices: Record<string, number>;
+    isActive: boolean;
+    mostPopular: boolean;
+  }>,
+) {
+  return apiFetch(`/admin/practice/packages/${id}`, { method: "PATCH", body: payload });
+}
+
+export function grantPracticeCredits(
+  studentId: string,
+  credits: Record<string, number> & { note?: string },
+) {
+  return apiFetch(`/admin/practice/students/${studentId}/credits`, {
+    method: "POST",
+    body: credits,
+  });
+}

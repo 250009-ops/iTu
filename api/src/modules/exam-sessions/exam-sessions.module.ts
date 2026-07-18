@@ -25,6 +25,6 @@ import { ExamTimerService } from './exam-timer.service';
     ExamTimerService,
     ExamHeartbeatMonitorService,
   ],
-  exports: [ExamSessionsService],
+  exports: [ExamSessionsService, AutoScoringService],
 })
 export class ExamSessionsModule {}

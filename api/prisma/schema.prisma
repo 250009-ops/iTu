@@ -34,6 +34,42 @@ enum InstitutionMemberStatus {
 enum OrderType {
   ENROLLMENT
   CREDIT_PACK
+  PRACTICE_BUNDLE
+}
+
+enum PracticeUnitType {
+  READING_PASSAGE
+  READING_QUESTION_TYPE
+  LISTENING_SECTION
+  LISTENING_QUESTION_TYPE
+}
+
+enum PracticeCreditType {
+  READING_PASSAGE
+  READING_QUESTION_TYPE
+  LISTENING_SECTION
+  LISTENING_QUESTION_TYPE
+  AI_WRITING_ESSAY
+}
+
+enum PracticeCreditTxnType {
+  PURCHASE
+  CONSUME
+  REFUND
+  ADJUSTMENT
+}
+
+enum PracticeAttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum WritingPracticeSessionStatus {
+  DRAFT
+  ANALYZING
+  READY
+  FAILED
 }
 
 enum CreditTxnType {
@@ -257,9 +293,13 @@ model StudentProfile {
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   institution Institution? @relation(fields: [institutionId], references: [id])
-  enrollments Enrollment[]
-  orders      Order[]
-  reviews     Review[]
+  enrollments           Enrollment[]
+  orders                Order[]
+  reviews               Review[]
+  practiceWallet        StudentPracticeWallet?
+  practiceCreditTxns    PracticeCreditTxn[]
+  practiceAttempts      PracticeAttempt[]
+  writingPracticeSessions WritingPracticeSession[]
 
   @@index([institutionId])
   @@map("student_profiles")
@@ -404,8 +444,9 @@ model ContentTest {
   packageWriting MockTestPackage[]    @relation("PackageWriting")
   packageSpeaking  MockTestPackage[]    @relation("PackageSpeaking")
   mediaAssets      MediaAsset[]
-  poolEntries      PackageContentTest[] @relation("PoolTest")
-  sectionAttempts  SectionAttempt[]     @relation("AttemptContent")
+  poolEntries       PackageContentTest[] @relation("PoolTest")
+  sectionAttempts   SectionAttempt[]     @relation("AttemptContent")
+  practiceUnitsFrom PracticeUnit[]
 
   @@index([institutionId])
   @@map("content_tests")
@@ -431,17 +472,20 @@ model PackageContentTest {
 }
 
 model MediaAsset {
-  id        String   @id @default(cuid())
-  testId    String?  @map("test_id")
-  key       String
-  url       String
-  mimeType  String   @map("mime_type")
-  sizeBytes Int?     @map("size_bytes")
-  createdAt DateTime @default(now()) @map("created_at")
+  id             String   @id @default(cuid())
+  testId         String?  @map("test_id")
+  practiceUnitId String?  @map("practice_unit_id")
+  key            String
+  url            String
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int?     @map("size_bytes")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  test ContentTest? @relation(fields: [testId], references: [id], onDelete: SetNull)
+  test         ContentTest?  @relation(fields: [testId], references: [id], onDelete: SetNull)
+  practiceUnit PracticeUnit? @relation(fields: [practiceUnitId], references: [id], onDelete: SetNull)
 
   @@unique([testId, key])
+  @@unique([practiceUnitId, key])
   @@map("media_assets")
 }
 
@@ -519,6 +563,7 @@ model Order {
   creditQuantity    Int?          @map("credit_quantity")
   enrollmentId      String?       @unique @map("enrollment_id")
   packageId         String?       @map("package_id")
+  practicePackageId String?       @map("practice_package_id")
   amount            Float
   currency          String        @default("UZS")
   paymentMethod     PaymentMethod @default(CARD) @map("payment_method")
@@ -534,11 +579,157 @@ model Order {
   student     StudentProfile?  @relation(fields: [studentId], references: [id])
   institution Institution?     @relation(fields: [institutionId], references: [id])
   enrollment  Enrollment?      @relation(fields: [enrollmentId], references: [id])
-  package     MockTestPackage? @relation(fields: [packageId], references: [id])
-  refunds     Refund[]
+  package         MockTestPackage?        @relation(fields: [packageId], references: [id])
+  practicePackage PracticeProductPackage? @relation(fields: [practicePackageId], references: [id])
+  refunds         Refund[]
 
   @@index([institutionId])
   @@map("orders")
+}
+
+// ─── Practice Tests & AI Writing ─────────────────────────────────────────────
+
+model PracticeUnit {
+  id                  String            @id @default(cuid())
+  code                String            @unique
+  title               String
+  type                PracticeUnitType
+  skill               ExamSkill
+  questionType        String?           @map("question_type")
+  content             Json
+  answerKey           Json?             @map("answer_key")
+  durationMin         Int               @default(20) @map("duration_min")
+  questionCount       Int               @default(0) @map("question_count")
+  status              ContentTestStatus @default(DRAFT)
+  sourceContentTestId String?           @map("source_content_test_id")
+  sourcePassageIndex  Int?              @map("source_passage_index")
+  sourcePartIndex     Int?              @map("source_part_index")
+  publishedAt         DateTime?         @map("published_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  sourceContentTest ContentTest?   @relation(fields: [sourceContentTestId], references: [id], onDelete: SetNull)
+  mediaAssets       MediaAsset[]
+  attempts          PracticeAttempt[]
+
+  @@index([type, status])
+  @@index([skill, questionType])
+  @@map("practice_units")
+}
+
+model WritingPracticePrompt {
+  id             String            @id @default(cuid())
+  code           String            @unique
+  title          String
+  taskNumber     Int               @map("task_number")
+  instruction    String
+  minWords       Int               @default(150) @map("min_words")
+  imageAssetKey  String?           @map("image_asset_key")
+  imageUrl       String?           @map("image_url")
+  status         ContentTestStatus @default(DRAFT)
+  publishedAt    DateTime?         @map("published_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  sessions WritingPracticeSession[]
+
+  @@map("writing_practice_prompts")
+}
+
+model PracticeProductPackage {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  description   String?
+  price         Float
+  currency      String   @default("UZS")
+  /// Credit counts: readingPassages, readingQuestionTypes, listeningSections, listeningQuestionTypes, aiWritingEssays
+  bundle        Json
+  /// Optional per-credit reference prices for marketing display
+  displayPrices Json?    @map("display_prices")
+  isActive      Boolean  @default(true) @map("is_active")
+  mostPopular   Boolean  @default(false) @map("most_popular")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("practice_product_packages")
+}
+
+model StudentPracticeWallet {
+  id                    String   @id @default(cuid())
+  studentId             String   @unique @map("student_id")
+  readingPassages       Int      @default(0) @map("reading_passages")
+  readingQuestionTypes  Int      @default(0) @map("reading_question_types")
+  listeningSections     Int      @default(0) @map("listening_sections")
+  listeningQuestionTypes Int     @default(0) @map("listening_question_types")
+  aiWritingEssays       Int      @default(0) @map("ai_writing_essays")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_practice_wallets")
+}
+
+model PracticeCreditTxn {
+  id         String                @id @default(cuid())
+  studentId  String                @map("student_id")
+  type       PracticeCreditTxnType
+  creditType PracticeCreditType    @map("credit_type")
+  delta      Int
+  balanceAfter Int                 @map("balance_after")
+  orderId    String?               @map("order_id")
+  attemptId  String?               @map("attempt_id")
+  sessionId  String?               @map("session_id")
+  reference  String?
+  note       String?
+  createdAt  DateTime              @default(now()) @map("created_at")
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("practice_credit_txns")
+}
+
+model PracticeAttempt {
+  id          String                @id @default(cuid())
+  attemptCode String                @unique @map("attempt_code")
+  studentId   String                @map("student_id")
+  unitId      String                @map("unit_id")
+  status      PracticeAttemptStatus @default(IN_PROGRESS)
+  answers     Json                  @default("{}")
+  score       Json?
+  startedAt   DateTime              @default(now()) @map("started_at")
+  completedAt DateTime?             @map("completed_at")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  unit    PracticeUnit   @relation(fields: [unitId], references: [id])
+
+  @@index([studentId])
+  @@map("practice_attempts")
+}
+
+model WritingPracticeSession {
+  id              String                       @id @default(cuid())
+  sessionCode     String                       @unique @map("session_code")
+  studentId       String                       @map("student_id")
+  promptId        String                       @map("prompt_id")
+  taskNumber      Int                          @map("task_number")
+  sections        Json                         @default("{}")
+  aiFeedback      Json?                        @map("ai_feedback")
+  status          WritingPracticeSessionStatus @default(DRAFT)
+  creditConsumedAt DateTime?                   @map("credit_consumed_at")
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
+
+  student StudentProfile        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  prompt  WritingPracticePrompt @relation(fields: [promptId], references: [id])
+
+  @@index([studentId])
+  @@map("writing_practice_sessions")
 }
 
 model Refund {

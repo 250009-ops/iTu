@@ -12,6 +12,8 @@ import {
   OrderStatus,
   OrderType,
 } from '@prisma/client';
+import { normalizeBundle } from '../../common/practice/practice.types';
+import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingsService } from '../bookings/bookings.service';
 import {
@@ -26,6 +28,7 @@ export class PaymentsService {
   constructor(
     private prisma: PrismaService,
     private uzum: UzumCheckoutService,
+    private practiceWallet: PracticeWalletService,
     @Inject(forwardRef(() => BookingsService))
     private bookings: BookingsService,
   ) {}
@@ -122,7 +125,39 @@ export class PaymentsService {
       return;
     }
 
+    if (order.orderType === OrderType.PRACTICE_BUNDLE) {
+      await this.fulfillPracticeBundle(order.id);
+      return;
+    }
+
     await this.bookings.fulfillPendingPayment(order.id);
+  }
+
+  /** Credits practice wallet from a paid practice bundle order. */
+  private async fulfillPracticeBundle(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { practicePackage: true },
+    });
+    if (!order || order.orderType !== OrderType.PRACTICE_BUNDLE) return;
+    if (!order.studentId || !order.practicePackage) return;
+
+    const alreadyFulfilled = await this.prisma.practiceCreditTxn.findFirst({
+      where: { orderId: order.id, type: 'PURCHASE' },
+    });
+    if (alreadyFulfilled) return;
+
+    const bundle = normalizeBundle(order.practicePackage.bundle);
+    await this.practiceWallet.creditFromBundle(
+      order.studentId,
+      bundle,
+      order.id,
+      order.orderCode,
+    );
+
+    this.logger.log(
+      `Fulfilled practice bundle order ${order.orderCode} for student ${order.studentId}`,
+    );
   }
 
   /** Credits an institution's balance and records a PURCHASE ledger entry. */

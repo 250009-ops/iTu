@@ -1,0 +1,245 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  archivePracticeUnit,
+  createPracticeUnit,
+  createWritingPrompt,
+  deletePracticeUnit,
+  getAdminPracticeUnit,
+  getAdminPracticeUnits,
+  getAdminWritingPrompt,
+  getAdminWritingPrompts,
+  publishPracticeUnit,
+  publishWritingPrompt,
+  suggestPracticeUnitIdentity,
+  suggestWritingPromptIdentity,
+  updatePracticeUnit,
+  updateWritingPrompt,
+  type AdminPracticeUnit,
+  type AdminWritingPrompt,
+} from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/errors";
+
+export type PracticeStudioTab = "reading" | "listening" | "writing-ai";
+
+type AdminPracticeContextValue = {
+  loading: boolean;
+  error: string | null;
+  units: AdminPracticeUnit[];
+  prompts: AdminWritingPrompt[];
+  activeTab: PracticeStudioTab;
+  setActiveTab: (tab: PracticeStudioTab) => void;
+  selectedUnitId: string | null;
+  setSelectedUnitId: (id: string | null) => void;
+  selectedPromptId: string | null;
+  setSelectedPromptId: (id: string | null) => void;
+  refresh: () => Promise<void>;
+  createUnit: (payload: {
+    type: string;
+    questionType?: string;
+    content: object;
+    answerKey?: object;
+  }) => Promise<void>;
+  saveUnit: (
+    id: string,
+    payload: {
+      title?: string;
+      questionType?: string;
+      content?: object;
+      answerKey?: object;
+      durationMin?: number;
+    },
+  ) => Promise<void>;
+  publishUnit: (id: string) => Promise<void>;
+  archiveUnit: (id: string) => Promise<void>;
+  removeUnit: (id: string) => Promise<void>;
+  loadUnit: (id: string) => Promise<unknown>;
+  createPrompt: (taskNumber: number, instruction: string) => Promise<void>;
+  savePrompt: (
+    id: string,
+    payload: { title?: string; instruction?: string; minWords?: number },
+  ) => Promise<void>;
+  publishPrompt: (id: string) => Promise<void>;
+  loadPrompt: (id: string) => Promise<unknown>;
+};
+
+const AdminPracticeContext = createContext<AdminPracticeContextValue | null>(
+  null,
+);
+
+const UNIT_TYPE_BY_TAB: Record<
+  Exclude<PracticeStudioTab, "writing-ai">,
+  { passage: string; questionType: string }
+> = {
+  reading: {
+    passage: "READING_PASSAGE",
+    questionType: "READING_QUESTION_TYPE",
+  },
+  listening: {
+    passage: "LISTENING_SECTION",
+    questionType: "LISTENING_QUESTION_TYPE",
+  },
+};
+
+function emptyReadingPassage() {
+  return {
+    id: "passage-1",
+    part: 1,
+    title: "Practice Passage",
+    blurb: "Read the passage and answer the questions.",
+    paragraphs: [{ marker: "A", text: "Enter passage text here." }],
+    groups: [],
+  };
+}
+
+function emptyListeningPart() {
+  return {
+    id: "part-1",
+    part: 1,
+    title: "Section 1",
+    blurb: "Listen and answer the questions.",
+    groups: [],
+  };
+}
+
+export function AdminPracticeProvider({ children }: { children: ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [units, setUnits] = useState<AdminPracticeUnit[]>([]);
+  const [prompts, setPrompts] = useState<AdminWritingPrompt[]>([]);
+  const [activeTab, setActiveTab] = useState<PracticeStudioTab>("reading");
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [unitList, promptList] = await Promise.all([
+        getAdminPracticeUnits(),
+        getAdminWritingPrompts(),
+      ]);
+      setUnits(unitList);
+      setPrompts(promptList);
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to load practice content"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const createUnit = useCallback(
+    async (payload: {
+      type: string;
+      questionType?: string;
+      content: object;
+      answerKey?: object;
+    }) => {
+      const identity = await suggestPracticeUnitIdentity(payload.type);
+      await createPracticeUnit({
+        code: identity.code,
+        title: identity.title,
+        type: payload.type,
+        questionType: payload.questionType,
+        content: payload.content,
+        answerKey: payload.answerKey ?? {},
+      });
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const value = useMemo<AdminPracticeContextValue>(
+    () => ({
+      loading,
+      error,
+      units,
+      prompts,
+      activeTab,
+      setActiveTab,
+      selectedUnitId,
+      setSelectedUnitId,
+      selectedPromptId,
+      setSelectedPromptId,
+      refresh,
+      createUnit,
+      saveUnit: async (id, payload) => {
+        await updatePracticeUnit(id, payload);
+        await refresh();
+      },
+      publishUnit: async (id) => {
+        await publishPracticeUnit(id);
+        await refresh();
+      },
+      archiveUnit: async (id) => {
+        await archivePracticeUnit(id);
+        await refresh();
+      },
+      removeUnit: async (id) => {
+        await deletePracticeUnit(id);
+        setSelectedUnitId(null);
+        await refresh();
+      },
+      loadUnit: (id) => getAdminPracticeUnit(id),
+      createPrompt: async (taskNumber, instruction) => {
+        const identity = await suggestWritingPromptIdentity(taskNumber);
+        await createWritingPrompt({
+          code: identity.code,
+          title: identity.title,
+          taskNumber,
+          instruction,
+        });
+        await refresh();
+      },
+      savePrompt: async (id, payload) => {
+        await updateWritingPrompt(id, payload);
+        await refresh();
+      },
+      publishPrompt: async (id) => {
+        await publishWritingPrompt(id);
+        await refresh();
+      },
+      loadPrompt: (id) => getAdminWritingPrompt(id),
+    }),
+    [
+      loading,
+      error,
+      units,
+      prompts,
+      activeTab,
+      selectedUnitId,
+      selectedPromptId,
+      refresh,
+      createUnit,
+    ],
+  );
+
+  return (
+    <AdminPracticeContext.Provider value={value}>
+      {children}
+    </AdminPracticeContext.Provider>
+  );
+}
+
+export function useAdminPractice() {
+  const ctx = useContext(AdminPracticeContext);
+  if (!ctx) {
+    throw new Error("useAdminPractice must be used within AdminPracticeProvider");
+  }
+  return ctx;
+}
+
+export { UNIT_TYPE_BY_TAB, emptyReadingPassage, emptyListeningPart };
