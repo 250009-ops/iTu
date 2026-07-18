@@ -14,10 +14,7 @@ import { ModuleTabs } from "@/components/admin/content/module-tabs";
 import { TestsTable } from "@/components/admin/content/tests-table";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { Button } from "@/components/ui/button";
-import {
-  AdminContentProvider,
-  useAdminContent,
-} from "@/contexts/admin-content-context";
+import { AdminContentProvider, useAdminContent } from "@/contexts/admin-content-context";
 import type { ContentModule } from "@/lib/admin/types";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +35,7 @@ const moduleEditors: Record<
   speaking: SpeakingEditor,
 };
 
-function ContentStudioContent() {
+function ContentStudioInner() {
   const { loading, error, tests, selectedTestId, setSelectedTestId } =
     useAdminContent();
   const [activeModule, setActiveModule] = useState<ContentModule>("listening");
@@ -137,8 +134,10 @@ export function ContentStudioView() {
   return (
     <AdminContentProvider>
       <Suspense fallback={null}>
-        <ContentStudioContent />
+        <ContentStudioInner />
       </Suspense>
     </AdminContentProvider>
   );
 }
+
+export { ContentStudioInner };

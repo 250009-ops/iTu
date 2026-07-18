@@ -64,6 +64,38 @@ async function main() {
 
   console.log(`Backfilled mock numbers for ${packages.length} package(s).`);
 
+  const hasScopeKey = await columnExists('mock_test_packages', 'scope_key');
+  const hasInstitutionId = await columnExists('mock_test_packages', 'institution_id');
+  if (!hasScopeKey || !hasInstitutionId) {
+    console.log('Adding mock_test_packages.scope_key / institution_id columns...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE mock_test_packages
+      ADD COLUMN IF NOT EXISTS scope_key TEXT DEFAULT 'platform',
+      ADD COLUMN IF NOT EXISTS institution_id TEXT;
+    `);
+  }
+
+  const scopeBackfill = await prisma.mockTestPackage.updateMany({
+    where: { scopeKey: { not: 'platform' }, institutionId: null },
+    data: { scopeKey: 'platform' },
+  });
+  if (scopeBackfill.count === 0) {
+    await prisma.mockTestPackage.updateMany({
+      where: { institutionId: null },
+      data: { scopeKey: 'platform' },
+    });
+  }
+  console.log('Platform package scope_key backfill complete.');
+
+  const hasContentInstitutionId = await columnExists('content_tests', 'institution_id');
+  if (!hasContentInstitutionId) {
+    console.log('Adding content_tests.institution_id column...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE content_tests
+      ADD COLUMN IF NOT EXISTS institution_id TEXT;
+    `);
+  }
+
   // Build pool rows from legacy FKs; warn loudly on duplicate exclusive assignments.
   const assignedTests = new Map<string, { slug: string; skill: string }>();
   const conflicts: string[] = [];

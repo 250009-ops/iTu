@@ -349,6 +349,9 @@ model MockTestPackage {
   /// Skill-set key (e.g. "listening+reading+writing+speaking") — separate mock-number sequence per kind.
   packageKind     String   @default("listening+reading+writing+speaking") @map("package_kind")
   mockNumber      Int      @default(1) @map("mock_number")
+  /// "platform" for public catalog; institution id for centre-private packages.
+  scopeKey        String   @default("platform") @map("scope_key")
+  institutionId   String?  @map("institution_id")
   mostPopular     Boolean  @default(false) @map("most_popular")
   rating          Float?
   reviewCount     Int      @default(0) @map("review_count")
@@ -363,6 +366,7 @@ model MockTestPackage {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  institution   Institution?       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   listeningTest ContentTest?         @relation("PackageListening", fields: [listeningTestId], references: [id])
   readingTest   ContentTest?         @relation("PackageReading", fields: [readingTestId], references: [id])
   writingTest   ContentTest?         @relation("PackageWriting", fields: [writingTestId], references: [id])
@@ -372,32 +376,36 @@ model MockTestPackage {
   orders        Order[]
   reviews       Review[]
 
-  @@unique([packageKind, mockNumber])
+  @@unique([scopeKey, packageKind, mockNumber])
+  @@index([institutionId])
   @@map("mock_test_packages")
 }
 
 model ContentTest {
-  id          String            @id @default(cuid())
-  code        String            @unique
-  title       String
-  type        ContentTestType
-  status      ContentTestStatus @default(DRAFT)
-  version     Int               @default(1)
-  content     Json
-  answerKey   Json?             @map("answer_key")
-  durationMin Int               @default(60) @map("duration_min")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  publishedAt DateTime?         @map("published_at")
+  id            String            @id @default(cuid())
+  code          String            @unique
+  title         String
+  type          ContentTestType
+  status        ContentTestStatus @default(DRAFT)
+  version       Int               @default(1)
+  content       Json
+  answerKey     Json?             @map("answer_key")
+  durationMin   Int               @default(60) @map("duration_min")
+  institutionId String?           @map("institution_id")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  publishedAt   DateTime?         @map("published_at")
 
+  institution      Institution?         @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   packageListening MockTestPackage[]    @relation("PackageListening")
   packageReading   MockTestPackage[]    @relation("PackageReading")
-  packageWriting   MockTestPackage[]    @relation("PackageWriting")
+  packageWriting MockTestPackage[]    @relation("PackageWriting")
   packageSpeaking  MockTestPackage[]    @relation("PackageSpeaking")
   mediaAssets      MediaAsset[]
   poolEntries      PackageContentTest[] @relation("PoolTest")
   sectionAttempts  SectionAttempt[]     @relation("AttemptContent")
 
+  @@index([institutionId])
   @@map("content_tests")
 }
 
@@ -566,13 +574,15 @@ model Institution {
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 
-  admins         User[]           @relation("InstitutionAdmins")
+  admins         User[]             @relation("InstitutionAdmins")
   students       StudentProfile[]
   teachers       TeacherProfile[]
   enrollments    Enrollment[]
   orders         Order[]
   creditTxns     InstitutionCreditTxn[]
   supportTickets SupportTicket[]
+  contentTests   ContentTest[]
+  mockPackages   MockTestPackage[]
 
   @@map("institutions")
 }

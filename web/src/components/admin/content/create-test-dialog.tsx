@@ -5,11 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getContentTemplate } from "@/lib/admin/content-templates";
 import type { ContentModule } from "@/lib/admin/types";
-import { useAdminContent } from "@/contexts/admin-content-context";
+import { useContentStudio } from "@/contexts/content-studio-context";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
-import { useNextTestIdentity } from "@/hooks/use-next-test-identity";
-import { useState } from "react";
+import { placeholderTestCode, placeholderTestTitle } from "@/lib/admin/content-templates";
+import { useEffect, useState } from "react";
 
 type Props = {
   open: boolean;
@@ -18,13 +18,30 @@ type Props = {
 };
 
 export function CreateTestDialog({ open, module, onClose }: Props) {
-  const { createTest } = useAdminContent();
+  const { createTest, fetchNextIdentity } = useContentStudio();
   const { toast } = useToast();
-  const { code, title, setCode, setTitle, loadingIdentity } = useNextTestIdentity(
-    module,
-    open,
-  );
+  const [code, setCode] = useState(() => placeholderTestCode(module));
+  const [title, setTitle] = useState(() => placeholderTestTitle(module));
+  const [loadingIdentity, setLoadingIdentity] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setLoadingIdentity(true);
+    void fetchNextIdentity(module)
+      .then((identity) => {
+        if (!active) return;
+        setCode(identity.code);
+        setTitle(identity.title);
+      })
+      .finally(() => {
+        if (active) setLoadingIdentity(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, module, fetchNextIdentity]);
 
   if (!open) return null;
 

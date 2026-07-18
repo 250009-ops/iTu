@@ -488,7 +488,19 @@ export class InstitutionService {
     const institution = await this.getInstitutionOrThrow(user);
     const institutionId = institution.id;
 
-    if (dto.studentIds.length > institution.creditBalance) {
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id: dto.packageId },
+      select: { id: true, institutionId: true, isActive: true, title: true },
+    });
+    if (!pkg || !pkg.isActive) {
+      throw new BadRequestException('Package not found or inactive');
+    }
+    if (pkg.institutionId != null && pkg.institutionId !== institutionId) {
+      throw new BadRequestException('This package does not belong to your centre');
+    }
+
+    const isOwnPackage = pkg.institutionId === institutionId;
+    if (!isOwnPackage && dto.studentIds.length > institution.creditBalance) {
       throw new BadRequestException(
         `Not enough credits: need ${dto.studentIds.length}, have ${institution.creditBalance}.`,
       );
@@ -516,14 +528,16 @@ export class InstitutionService {
         continue;
       }
 
-      // Atomically reserve one credit.
-      const reserved = await this.prisma.institution.updateMany({
-        where: { id: institutionId, creditBalance: { gte: 1 } },
-        data: { creditBalance: { decrement: 1 } },
-      });
-      if (reserved.count === 0) {
-        results.push({ studentId, error: 'Insufficient credits' });
-        break;
+      // Reserve one credit for platform catalog packages only.
+      if (!isOwnPackage) {
+        const reserved = await this.prisma.institution.updateMany({
+          where: { id: institutionId, creditBalance: { gte: 1 } },
+          data: { creditBalance: { decrement: 1 } },
+        });
+        if (reserved.count === 0) {
+          results.push({ studentId, error: 'Insufficient credits' });
+          break;
+        }
       }
 
       try {
@@ -539,28 +553,32 @@ export class InstitutionService {
           auditAction: AuditAction.INSTITUTION_ENROLL,
         });
 
-        const fresh = await this.prisma.institution.findUnique({
-          where: { id: institutionId },
-          select: { creditBalance: true },
-        });
-        await this.prisma.institutionCreditTxn.create({
-          data: {
-            institutionId,
-            type: CreditTxnType.CONSUME,
-            delta: -1,
-            balanceAfter: fresh?.creditBalance ?? 0,
-            enrollmentId: enrollment.enrollmentId,
-            reference: enrollment.enrollmentCode,
-            note: `Enrolled ${student.user.name}`,
-          },
-        });
+        if (!isOwnPackage) {
+          const fresh = await this.prisma.institution.findUnique({
+            where: { id: institutionId },
+            select: { creditBalance: true },
+          });
+          await this.prisma.institutionCreditTxn.create({
+            data: {
+              institutionId,
+              type: CreditTxnType.CONSUME,
+              delta: -1,
+              balanceAfter: fresh?.creditBalance ?? 0,
+              enrollmentId: enrollment.enrollmentId,
+              reference: enrollment.enrollmentCode,
+              note: `Enrolled ${student.user.name}`,
+            },
+          });
+        }
         results.push({ studentId, enrollmentCode: enrollment.enrollmentCode });
       } catch (err) {
-        // Compensate: return the reserved credit.
-        await this.prisma.institution.update({
-          where: { id: institutionId },
-          data: { creditBalance: { increment: 1 } },
-        });
+        if (!isOwnPackage) {
+          // Compensate: return the reserved credit.
+          await this.prisma.institution.update({
+            where: { id: institutionId },
+            data: { creditBalance: { increment: 1 } },
+          });
+        }
         const message = err instanceof Error ? err.message : 'Enrollment failed';
         results.push({ studentId, error: message });
       }

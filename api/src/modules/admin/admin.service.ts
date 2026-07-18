@@ -1164,7 +1164,7 @@ export class AdminService {
     }
 
     const packages = await this.prisma.mockTestPackage.findMany({
-      where: { isActive: true },
+      where: { isActive: true, institutionId: null },
       orderBy: [{ mostPopular: 'desc' }, { title: 'asc' }],
     });
 
@@ -2101,12 +2101,14 @@ export class AdminService {
   async getPackages() {
     const [packages, tests, allAssignments] = await Promise.all([
       this.prisma.mockTestPackage.findMany({
+        where: { institutionId: null },
         orderBy: [{ isActive: 'desc' }, { mostPopular: 'desc' }, { price: 'desc' }],
         include: {
           _count: { select: { enrollments: true, orders: true } },
         },
       }),
       this.prisma.contentTest.findMany({
+        where: { institutionId: null },
         select: { id: true, code: true, title: true, type: true, status: true },
         orderBy: { updatedAt: 'desc' },
       }),
@@ -2165,7 +2167,7 @@ export class AdminService {
   async getNextMockNumber(skills: unknown, examType: ExamType = 'ACADEMIC') {
     const packageKind = derivePackageKind(skills);
     const latest = await this.prisma.mockTestPackage.findFirst({
-      where: { packageKind },
+      where: { packageKind, institutionId: null },
       orderBy: { mockNumber: 'desc' },
       select: { mockNumber: true },
     });
@@ -2228,6 +2230,8 @@ export class AdminService {
         examType: dto.examType ?? 'ACADEMIC',
         packageKind,
         mockNumber,
+        scopeKey: 'platform',
+        institutionId: null,
         mostPopular: dto.mostPopular ?? false,
         rating: null,
         reviewCount: 0,
@@ -2731,6 +2735,7 @@ export class AdminService {
         where: {
           testId: { in: exclusiveIds },
           ...(excludePackageId ? { packageId: { not: excludePackageId } } : {}),
+          package: { institutionId: null },
         },
         include: {
           test: { select: { code: true } },
@@ -2755,11 +2760,19 @@ export class AdminService {
 
     const tests = await this.prisma.contentTest.findMany({
       where: { id: { in: linked } },
-      select: { id: true, code: true, status: true },
+      select: { id: true, code: true, status: true, institutionId: true },
     });
 
     if (tests.length !== linked.length) {
       throw new BadRequestException('One or more linked content tests were not found');
+    }
+
+    const institutionOwned = tests.filter((t) => t.institutionId != null);
+    if (institutionOwned.length > 0) {
+      const codes = institutionOwned.map((t) => t.code).join(', ');
+      throw new BadRequestException(
+        `Centre-owned tests cannot be linked to platform packages (${codes})`,
+      );
     }
 
     const blocked = tests.filter((t) => t.status !== ContentTestStatus.PUBLISHED);

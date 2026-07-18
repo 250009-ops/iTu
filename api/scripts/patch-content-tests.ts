@@ -39,7 +39,7 @@ async function upsertPublishedByCode(
   answerKey?: object,
 ) {
   const existing = await prisma.contentTest.findFirst({
-    where: { code, type },
+    where: { code, type, institutionId: null },
   });
 
   if (existing) {
@@ -67,6 +67,7 @@ async function upsertPublishedByCode(
       status: ContentTestStatus.PUBLISHED,
       durationMin,
       publishedAt: new Date(),
+      institutionId: null,
       content,
       ...(answerKey !== undefined ? { answerKey } : {}),
     },
@@ -80,6 +81,7 @@ async function defaultListeningWithAudioId(): Promise<string | undefined> {
     where: {
       type: ContentTestType.LISTENING,
       status: ContentTestStatus.PUBLISHED,
+      institutionId: null,
       mediaAssets: { some: { key: 'full-audio' } },
     },
     orderBy: { code: 'asc' },
@@ -97,7 +99,9 @@ async function linkPackages(ids: {
   const listeningFallback =
     (await defaultListeningWithAudioId()) ?? ids.listeningId;
 
-  const packages = await prisma.mockTestPackage.findMany();
+  const packages = await prisma.mockTestPackage.findMany({
+    where: { institutionId: null },
+  });
   let linked = 0;
 
   for (const pkg of packages) {
@@ -133,6 +137,7 @@ async function linkPackages(ids: {
 
 async function syncAllPackagePools() {
   const packages = await prisma.mockTestPackage.findMany({
+    where: { institutionId: null },
     select: {
       id: true,
       skills: true,

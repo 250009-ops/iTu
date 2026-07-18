@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useState,
   type ReactNode,
@@ -13,6 +11,7 @@ import {
   createContentTest,
   cloneContentTest,
   deleteContentTest,
+  getContentTest,
   getContentTests,
   importAnswerKeyCsv,
   importContentTest,
@@ -21,10 +20,17 @@ import {
   revertContentTestToDraft,
   submitContentTestForReview,
   updateContentTest,
+  uploadContentMedia,
+  getNextContentTestIdentity,
 } from "@/lib/api/admin";
 import { mapContentTests } from "@/lib/api/mappers/admin";
 import { useApiQuery } from "@/hooks/use-api-query";
-import type { ContentModule, ContentTest } from "@/lib/admin/types";
+import type { ContentModule } from "@/lib/admin/types";
+import {
+  ADMIN_CONTENT_FEATURES,
+  ContentStudioProvider,
+  type ContentStudioValue,
+} from "@/contexts/content-studio-context";
 
 type CreateTestPayload = {
   code: string;
@@ -34,44 +40,6 @@ type CreateTestPayload = {
   answerKey?: object;
   durationMin?: number;
 };
-
-type UpdateTestPayload = {
-  title?: string;
-  content?: object;
-  answerKey?: object;
-  durationMin?: number;
-};
-
-type ContentValue = {
-  loading: boolean;
-  error: string | null;
-  tests: ContentTest[];
-  moduleTabs: ReturnType<typeof mapContentTests>["moduleTabs"];
-  summary: ReturnType<typeof mapContentTests>["summary"];
-  selectedTestId: string | null;
-  setSelectedTestId: (id: string | null) => void;
-  createTest: (payload: CreateTestPayload) => Promise<{ id: string; title: string }>;
-  updateTest: (id: string, payload: UpdateTestPayload) => Promise<void>;
-  publishTest: (id: string) => Promise<void>;
-  cloneTest: (id: string) => Promise<{ id: string; title: string; code: string }>;
-  archiveTest: (id: string) => Promise<void>;
-  retireAndDuplicate: (
-    id: string,
-  ) => Promise<{
-    archived: boolean;
-    activePackageLinks: number;
-    cloneId: string;
-    cloneTitle: string;
-  }>;
-  deleteTest: (id: string) => Promise<void>;
-  submitForReview: (id: string) => Promise<void>;
-  revertToDraft: (id: string) => Promise<void>;
-  importTest: (payload: CreateTestPayload) => Promise<{ id: string; title: string }>;
-  importAnswerKey: (id: string, csv: string) => Promise<void>;
-  refresh: () => Promise<void>;
-};
-
-const AdminContentContext = createContext<ContentValue | null>(null);
 
 export function AdminContentProvider({ children }: { children: ReactNode }) {
   const { data, loading, error, refresh } = useApiQuery(getContentTests);
@@ -88,7 +56,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   );
 
   const updateTest = useCallback(
-    async (id: string, payload: UpdateTestPayload) => {
+    async (id: string, payload: Parameters<ContentStudioValue["updateTest"]>[1]) => {
       await updateContentTest(id, payload);
       await refresh();
     },
@@ -179,9 +147,21 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
-  const value = useMemo<ContentValue>(() => {
+  const fetchTest = useCallback((id: string) => getContentTest(id), []);
+  const uploadMedia = useCallback(
+    (testId: string, key: string, file: File) => uploadContentMedia(testId, key, file),
+    [],
+  );
+  const fetchNextIdentity = useCallback(
+    (module: ContentModule) => getNextContentTestIdentity(module),
+    [],
+  );
+
+  const value = useMemo<ContentStudioValue>(() => {
     const mapped = data ? mapContentTests(data) : null;
     return {
+      variant: "admin",
+      features: ADMIN_CONTENT_FEATURES,
       loading,
       error,
       tests: mapped?.tests ?? [],
@@ -200,6 +180,9 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
       },
       selectedTestId,
       setSelectedTestId,
+      fetchTest,
+      uploadMedia,
+      fetchNextIdentity,
       createTest,
       updateTest,
       publishTest,
@@ -218,6 +201,9 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     loading,
     error,
     selectedTestId,
+    fetchTest,
+    uploadMedia,
+    fetchNextIdentity,
     createTest,
     updateTest,
     publishTest,
@@ -232,17 +218,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     refresh,
   ]);
 
-  return (
-    <AdminContentContext.Provider value={value}>
-      {children}
-    </AdminContentContext.Provider>
-  );
+  return <ContentStudioProvider value={value}>{children}</ContentStudioProvider>;
 }
 
-export function useAdminContent() {
-  const ctx = useContext(AdminContentContext);
-  if (!ctx) {
-    throw new Error("useAdminContent requires AdminContentProvider");
-  }
-  return ctx;
-}
+export { useAdminContent, useContentStudio } from "@/contexts/content-studio-context";

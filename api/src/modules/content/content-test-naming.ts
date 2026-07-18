@@ -17,6 +17,8 @@ export const TEST_TYPE_TITLE_PREFIX: Record<ContentTestType, string> = {
 };
 
 const NEW_CODE_RE = /^[A-Z]{3}-MOCK-A(\d{3,})$/;
+const INSTITUTION_CODE_RE =
+  /^[A-Z0-9-]+-[A-Z]{3}-MOCK-A(\d{3,})$/;
 const LEGACY_ACAD_CODE_RE = /^[A-Z]{3}-ACAD-(\d+)$/;
 const LEGACY_BANK_CODE_RE = /^SPK-BANK-(\d+)$/i;
 const TITLE_MOCK_SERIAL_RE = /Mock-A(\d+)/i;
@@ -32,6 +34,44 @@ export function formatTestCode(type: ContentTestType, serial: number): string {
 
 export function formatTestTitle(type: ContentTestType, serial: number): string {
   return `${TEST_TYPE_TITLE_PREFIX[type]} Mock-${formatSerial(serial)}`;
+}
+
+export function sanitizeInstitutionSlug(slug: string): string {
+  return slug
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 24);
+}
+
+export function formatInstitutionTestCode(
+  institutionSlug: string,
+  type: ContentTestType,
+  serial: number,
+): string {
+  const prefix = sanitizeInstitutionSlug(institutionSlug);
+  return `${prefix}-${formatTestCode(type, serial)}`;
+}
+
+export function formatInstitutionTestTitle(
+  institutionSlug: string,
+  type: ContentTestType,
+  serial: number,
+): string {
+  const prefix = sanitizeInstitutionSlug(institutionSlug);
+  return `${prefix} ${formatTestTitle(type, serial)}`;
+}
+
+export function isValidInstitutionTestCode(
+  code: string,
+  institutionSlug: string,
+): boolean {
+  const prefix = sanitizeInstitutionSlug(institutionSlug);
+  const normalized = code.trim().toUpperCase();
+  if (!normalized.startsWith(`${prefix}-`)) return false;
+  const suffix = normalized.slice(prefix.length + 1);
+  return NEW_CODE_RE.test(suffix);
 }
 
 export function parseSerialFromCode(code: string): number {
@@ -76,6 +116,23 @@ export function nextTestIdentity(
     serial,
     code: formatTestCode(type, serial),
     title: formatTestTitle(type, serial),
+  };
+}
+
+export function nextInstitutionTestIdentity(
+  institutionSlug: string,
+  type: ContentTestType,
+  tests: ReadonlyArray<{ code: string; title: string }>,
+): { code: string; title: string; serial: number } {
+  const prefix = sanitizeInstitutionSlug(institutionSlug);
+  const scoped = tests.filter((t) =>
+    t.code.trim().toUpperCase().startsWith(`${prefix}-`),
+  );
+  const serial = maxSerialFromTests(scoped) + 1;
+  return {
+    serial,
+    code: formatInstitutionTestCode(institutionSlug, type, serial),
+    title: formatInstitutionTestTitle(institutionSlug, type, serial),
   };
 }
 

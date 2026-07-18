@@ -20,7 +20,7 @@ export class CatalogService {
 
   async listPackages() {
     const packages = await this.prisma.mockTestPackage.findMany({
-      where: { isActive: true },
+      where: { isActive: true, institutionId: null },
       orderBy: [{ mostPopular: 'desc' }, { price: 'desc' }],
     });
 
@@ -30,7 +30,7 @@ export class CatalogService {
   /** Active packages the student has not already taken or enrolled in. */
   async listPackagesForStudent(studentProfileId: string) {
     const packages = await this.prisma.mockTestPackage.findMany({
-      where: { isActive: true },
+      where: { isActive: true, institutionId: null },
       orderBy: [{ mostPopular: 'desc' }, { price: 'desc' }],
     });
 
@@ -49,7 +49,7 @@ export class CatalogService {
    */
   async listOffersForStudent(studentProfileId: string) {
     const activePackages = await this.prisma.mockTestPackage.findMany({
-      where: { isActive: true },
+      where: { isActive: true, institutionId: null },
       select: { packageKind: true, examType: true },
     });
 

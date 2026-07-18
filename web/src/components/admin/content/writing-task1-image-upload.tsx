@@ -11,7 +11,7 @@ import {
   WRITING_TASK1_IMAGE_KEY,
 } from "@/lib/admin/content/writing-media";
 import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
-import { getContentTest, uploadContentMedia } from "@/lib/api/admin";
+import { useContentStudio } from "@/contexts/content-studio-context";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,7 @@ export function WritingTask1ImageUpload({
   onImageUploaded: (url: string) => void;
   onMediaUpdated?: () => void;
 }) {
+  const { fetchTest, uploadMedia } = useContentStudio();
   const { toast } = useToast();
   const [assets, setAssets] = useState<MediaAssetRef[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
@@ -42,7 +43,7 @@ export function WritingTask1ImageUpload({
 
   const loadAssets = useCallback(() => {
     setLoadingAssets(true);
-    return getContentTest(testId)
+    return fetchTest(testId)
       .then((test) => {
         setAssets(
           (test.mediaAssets ?? []).map((a) => ({
@@ -58,7 +59,7 @@ export function WritingTask1ImageUpload({
       .finally(() => {
         setLoadingAssets(false);
       });
-  }, [testId]);
+  }, [testId, fetchTest]);
 
   useEffect(() => {
     let active = true;
@@ -79,7 +80,7 @@ export function WritingTask1ImageUpload({
     async (file: File) => {
       setUploading(true);
       try {
-        const result = await uploadContentMedia(
+        const result = await uploadMedia(
           testId,
           WRITING_TASK1_IMAGE_KEY,
           file,
@@ -107,7 +108,7 @@ export function WritingTask1ImageUpload({
         setUploading(false);
       }
     },
-    [testId, toast, onImageUploaded, onMediaUpdated],
+    [testId, toast, onImageUploaded, onMediaUpdated, uploadMedia],
   );
 
   const asset = getWritingTask1Asset(assets);

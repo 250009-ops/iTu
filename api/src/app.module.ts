@@ -28,6 +28,7 @@ import { SpeakingModule } from './modules/speaking/speaking.module';
 import { StudentsModule } from './modules/students/students.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { InstitutionModule } from './modules/institution/institution.module';
+import { InstitutionContentModule } from './modules/institution-content/institution-content.module';
 import { InstExaminerModule } from './modules/inst-examiner/inst-examiner.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -73,6 +74,7 @@ import { StorageModule } from './common/storage/storage.module';
     StudentsModule,
     TeachersModule,
     InstitutionModule,
+    InstitutionContentModule,
     InstExaminerModule,
     TelegramModule,
     ExamSessionsModule,

@@ -186,6 +186,7 @@ export async function resolveNextPackageForStudent(
   const candidates = await tx.mockTestPackage.findMany({
     where: {
       isActive: true,
+      institutionId: null,
       packageKind: filters.packageKind,
       ...(filters.examType ? { examType: filters.examType } : {}),
     },

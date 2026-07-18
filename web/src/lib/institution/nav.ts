@@ -6,7 +6,8 @@ export type InstitutionNavIcon =
   | "calendar"
   | "bar-chart"
   | "settings"
-  | "message-square";
+  | "message-square"
+  | "file-text";
 
 export type InstitutionNavItem = {
   label: string;
@@ -42,6 +43,11 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
         label: "Mock Schedule",
         href: "/institution/schedule",
         icon: "calendar",
+      },
+      {
+        label: "Content Studio",
+        href: "/institution/content",
+        icon: "file-text",
       },
     ],
   },

@@ -22,8 +22,7 @@ import { syncAnswerKey } from "@/lib/admin/content/utils";
 import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
 import { normalizeContent } from "@/lib/admin/content/normalize";
 import type { ContentModule } from "@/lib/admin/types";
-import { useAdminContent } from "@/contexts/admin-content-context";
-import { getContentTest } from "@/lib/api/admin";
+import { useContentStudio } from "@/contexts/content-studio-context";
 import { ApiError, getErrorMessage } from "@/lib/api/errors";
 import type {
   ListeningContent,
@@ -67,9 +66,12 @@ export function ContentTestEditor({
     revertToDraft,
     deleteTest,
     retireAndDuplicate,
+    cloneTest,
     tests,
     setSelectedTestId,
-  } = useAdminContent();
+    fetchTest,
+    features,
+  } = useContentStudio();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -77,6 +79,7 @@ export function ContentTestEditor({
   const [reviewing, setReviewing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [retiring, setRetiring] = useState(false);
+  const [cloningId, setCloningId] = useState(false);
   const [tab, setTab] = useState<EditorTab>(initialTab);
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
@@ -126,7 +129,7 @@ export function ContentTestEditor({
     let active = true;
     setLoading(true);
     setLoadedTestId(null);
-    void getContentTest(testId)
+    void fetchTest(testId)
       .then((test) => {
         if (!active) return;
         setTitle(test.title);
@@ -185,7 +188,7 @@ export function ContentTestEditor({
 
   function refreshMediaAssets() {
     if (!testId) return;
-    void getContentTest(testId).then((test) => {
+    void fetchTest(testId).then((test) => {
       setMediaAssets(
         (test.mediaAssets ?? []).map((a) => ({
           key: a.key,
@@ -353,6 +356,25 @@ export function ContentTestEditor({
     }
   }
 
+  async function handleClonePublished() {
+    if (!testId) return;
+    setCloningId(true);
+    try {
+      const cloned = await cloneTest(testId);
+      toast("Test duplicated", {
+        description: `${cloned.title} is ready to edit.`,
+        variant: "success",
+      });
+    } catch (err) {
+      toast("Duplicate failed", {
+        description: getErrorMessage(err, "Please try again."),
+        variant: "warning",
+      });
+    } finally {
+      setCloningId(false);
+    }
+  }
+
   async function handleRetireAndDuplicate() {
     if (!testId) return;
     setRetiring(true);
@@ -394,7 +416,7 @@ export function ContentTestEditor({
           <p className="mt-0.5 font-mono text-xs text-muted">{code}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {status === "published" && (
+          {status === "published" && features.retireAndDuplicate && (
             <Button
               variant="secondary"
               size="sm"
@@ -402,6 +424,16 @@ export function ContentTestEditor({
               onClick={() => void handleRetireAndDuplicate()}
             >
               Retire &amp; duplicate
+            </Button>
+          )}
+          {status === "published" && !features.retireAndDuplicate && (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={cloningId}
+              onClick={() => void handleClonePublished()}
+            >
+              Duplicate
             </Button>
           )}
           {!isLocked && (
@@ -414,7 +446,7 @@ export function ContentTestEditor({
               >
                 Save draft
               </Button>
-              {status === "draft" && (
+              {status === "draft" && features.submitForReview && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -424,7 +456,7 @@ export function ContentTestEditor({
                   Submit for review
                 </Button>
               )}
-              {status === "under_review" && (
+              {status === "under_review" && features.revertToDraft && (
                 <Button
                   variant="secondary"
                   size="sm"

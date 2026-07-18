@@ -12,8 +12,7 @@ import { normalizeContent } from "@/lib/admin/content/normalize";
 import { syncAnswerKey, type AnswerKeyMap } from "@/lib/admin/content/utils";
 import { isPublishReady } from "@/components/admin/content/publish-checklist";
 import type { ContentModule, TestStatus } from "@/lib/admin/types";
-import { useAdminContent } from "@/contexts/admin-content-context";
-import { getContentTest } from "@/lib/api/admin";
+import { useContentStudio } from "@/contexts/content-studio-context";
 import { getErrorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
@@ -67,7 +66,9 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
     revertToDraft,
     setSelectedTestId,
     selectedTestId,
-  } = useAdminContent();
+    fetchTest,
+    features,
+  } = useContentStudio();
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
@@ -78,7 +79,7 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
   async function handlePublish(id: string, name: string) {
     setPublishingId(id);
     try {
-      const test = await getContentTest(id);
+      const test = await fetchTest(id);
       const content = normalizeContent(module, (test.content ?? {}) as object);
       const answerKey = moduleUsesAnswerKey(module)
         ? syncAnswerKey(module, content, (test.answerKey ?? {}) as AnswerKeyMap)
@@ -333,16 +334,18 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                             >
                               Preview
                             </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-8 px-3"
-                              loading={retiringId === test.id}
-                              onClick={() => void handleRetireAndDuplicate(test.id, test.name)}
-                            >
-                              Retire &amp; duplicate
-                            </Button>
-                            {(test.activePackageLinks ?? 0) === 0 && (
+                            {features.retireAndDuplicate && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-8 px-3"
+                                loading={retiringId === test.id}
+                                onClick={() => void handleRetireAndDuplicate(test.id, test.name)}
+                              >
+                                Retire &amp; duplicate
+                              </Button>
+                            )}
+                            {features.archive && (test.activePackageLinks ?? 0) === 0 && (
                               <Button
                                 variant="secondary"
                                 size="sm"
@@ -387,15 +390,17 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                           </>
                         ) : test.status === "review" ? (
                           <>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-8 px-3"
-                              loading={publishingId === test.id}
-                              onClick={() => void handleRevertDraft(test.id, test.name)}
-                            >
-                              Draft
-                            </Button>
+                            {features.revertToDraft && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-8 px-3"
+                                loading={publishingId === test.id}
+                                onClick={() => void handleRevertDraft(test.id, test.name)}
+                              >
+                                Draft
+                              </Button>
+                            )}
                             <Button
                               variant="primary"
                               size="sm"
@@ -408,15 +413,17 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                           </>
                         ) : (
                           <>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-8 px-3"
-                              loading={publishingId === test.id}
-                              onClick={() => void handleSubmitReview(test.id, test.name)}
-                            >
-                              Review
-                            </Button>
+                            {features.submitForReview && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-8 px-3"
+                                loading={publishingId === test.id}
+                                onClick={() => void handleSubmitReview(test.id, test.name)}
+                              >
+                                Review
+                              </Button>
+                            )}
                             <Button
                               variant="secondary"
                               size="sm"

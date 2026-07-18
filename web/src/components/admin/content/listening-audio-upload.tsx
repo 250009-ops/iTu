@@ -12,7 +12,7 @@ import {
   isListeningAudioWithinLimit,
   MAX_LISTENING_AUDIO_MB,
 } from "@/lib/admin/content/listening-upload-limits";
-import { getContentTest, uploadListeningMedia } from "@/lib/api/admin";
+import { useContentStudio } from "@/contexts/content-studio-context";
 import { getErrorMessage, ApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ export function ListeningAudioUpload({
   onUploaded?: () => void;
   onMediaUpdated?: () => void;
 }) {
+  const { fetchTest, uploadMedia } = useContentStudio();
   const { toast } = useToast();
   const [assets, setAssets] = useState<MediaAssetRef[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
@@ -41,7 +42,7 @@ export function ListeningAudioUpload({
   useEffect(() => {
     let active = true;
     setLoadingAssets(true);
-    void getContentTest(testId)
+    void fetchTest(testId)
       .then((test) => {
         if (!active) return;
         setAssets(
@@ -61,7 +62,7 @@ export function ListeningAudioUpload({
     return () => {
       active = false;
     };
-  }, [testId]);
+  }, [testId, fetchTest]);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -75,7 +76,7 @@ export function ListeningAudioUpload({
 
       setUploading(true);
       try {
-        const result = await uploadListeningMedia(
+        const result = await uploadMedia(
           testId,
           LISTENING_FULL_AUDIO_KEY,
           file,
@@ -113,7 +114,7 @@ export function ListeningAudioUpload({
         setUploading(false);
       }
     },
-    [testId, toast, onUploaded, onMediaUpdated],
+    [testId, toast, onUploaded, onMediaUpdated, uploadMedia],
   );
 
   const audioAsset = getListeningAudioAsset(assets);

@@ -16,6 +16,7 @@ describe('ContentService test lifecycle', () => {
               id: 't1',
               status: ContentTestStatus.PUBLISHED,
               type: 'LISTENING',
+              institutionId: null,
             }),
         },
       };
@@ -36,6 +37,7 @@ describe('ContentService test lifecycle', () => {
               id: 't1',
               status: ContentTestStatus.PUBLISHED,
               type: 'LISTENING',
+              institutionId: null,
             }),
         },
         packageContentTest: {
@@ -73,6 +75,7 @@ describe('ContentService test lifecycle', () => {
               id: 't1',
               status: ContentTestStatus.PUBLISHED,
               mediaAssets: [],
+              institutionId: null,
             }),
         },
       };
@@ -91,6 +94,7 @@ describe('ContentService test lifecycle', () => {
               id: 't1',
               status: ContentTestStatus.DRAFT,
               mediaAssets: [],
+              institutionId: null,
             }),
           delete: jest.fn(),
         },
@@ -117,6 +121,7 @@ describe('ContentService test lifecycle', () => {
               id: 't1',
               status: ContentTestStatus.DRAFT,
               mediaAssets: [],
+              institutionId: null,
             }),
         },
         sectionAttempt: { count: () => Promise.resolve(1) },

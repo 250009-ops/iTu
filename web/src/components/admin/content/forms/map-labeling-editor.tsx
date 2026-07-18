@@ -10,7 +10,7 @@ import { MatchOptionsBankEditor } from "@/components/admin/content/forms/matchin
 import { nextMatchOptionId, removeQuestionAt } from "@/lib/admin/content/match-editor-helpers";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type { MapLabelingGroup } from "@/lib/exam/types";
-import { uploadContentMedia } from "@/lib/api/admin";
+import { useContentStudio } from "@/contexts/content-studio-context";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -77,6 +77,7 @@ export function MapLabelingEditor({
   onChange,
   onAnswerKeyChange,
 }: Props) {
+  const { uploadMedia } = useContentStudio();
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [activeZone, setActiveZone] = useState<number | null>(null);
@@ -98,7 +99,7 @@ export function MapLabelingEditor({
       setUploading(true);
       try {
         const key = `map-${group.id}`;
-        const result = await uploadContentMedia(testId, key, file);
+        const result = await uploadMedia(testId, key, file);
         onChange({ ...group, imageUrl: result.url });
         toast("Map image uploaded", { variant: "success" });
       } catch (err) {
@@ -110,7 +111,7 @@ export function MapLabelingEditor({
         setUploading(false);
       }
     },
-    [group, onChange, testId, toast],
+    [group, onChange, testId, toast, uploadMedia],
   );
 
   function setLayoutMode(mode: "zones" | "place_list") {

@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import {
   enrollStudents,
+  getInstitutionEnrollmentPackages,
   getInstitutionExaminers,
-  getInstitutionPackages,
-  type CatalogPackageOption,
+  type EnrollmentPackagesGrouped,
 } from "@/lib/api/institution";
 import type { ExaminerRow } from "@/lib/institution/types";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,10 @@ export function EnrollWizard({
   onEnrolled: () => void;
 }) {
   const { toast } = useToast();
-  const [packages, setPackages] = useState<CatalogPackageOption[]>([]);
+  const [groups, setGroups] = useState<EnrollmentPackagesGrouped>({
+    platform: [],
+    own: [],
+  });
   const [examiners, setExaminers] = useState<ExaminerRow[]>([]);
   const [packageId, setPackageId] = useState("");
   const [mockDate, setMockDate] = useState("");
@@ -36,11 +39,21 @@ export function EnrollWizard({
 
   useEffect(() => {
     if (!open) return;
-    void getInstitutionPackages().then(setPackages);
+    void getInstitutionEnrollmentPackages().then(setGroups);
     void getInstitutionExaminers()
       .then((res) => setExaminers(res.examiners.filter((e) => e.status === "active")))
       .catch(() => setExaminers([]));
   }, [open]);
+
+  const selectedPackage = useMemo(() => {
+    return (
+      groups.platform.find((p) => p.id === packageId) ??
+      groups.own.find((p) => p.id === packageId)
+    );
+  }, [groups, packageId]);
+
+  const costsCredits = selectedPackage?.costsCredit ?? true;
+  const creditCost = costsCredits ? studentIds.length : 0;
 
   const writingExaminers = examiners.filter(
     (e) => e.speciality === "writing" || e.speciality === "both",
@@ -71,7 +84,9 @@ export function EnrollWizard({
           description:
             res.failed.length > 0
               ? `${res.failed.length} could not be enrolled.`
-              : `Credit balance: ${res.creditBalance}`,
+              : costsCredits
+                ? `Credit balance: ${res.creditBalance}`
+                : "No credits spent — centre-owned package.",
           variant: res.failed.length > 0 ? "warning" : "success",
         });
         onEnrolled();
@@ -112,8 +127,17 @@ export function EnrollWizard({
 
       <div className="space-y-4 overflow-y-auto p-5">
         <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-          This spends <strong>{studentIds.length}</strong> credit
-          {studentIds.length !== 1 ? "s" : ""} (1 per student).
+          {costsCredits ? (
+            <>
+              Platform mock: spends <strong>{creditCost}</strong> credit
+              {creditCost !== 1 ? "s" : ""} (1 per student).
+            </>
+          ) : (
+            <>
+              Your centre&apos;s mock: <strong>no credit cost</strong> for{" "}
+              {studentIds.length} student{studentIds.length !== 1 ? "s" : ""}.
+            </>
+          )}
         </p>
 
         <Field label="Mock package">
@@ -123,11 +147,24 @@ export function EnrollWizard({
             className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
           >
             <option value="">Select a package…</option>
-            {packages.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
+            {groups.platform.length > 0 && (
+              <optgroup label="Platform mocks (1 credit each)">
+                {groups.platform.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.mockLabel} — {p.title}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {groups.own.length > 0 && (
+              <optgroup label="Your centre's mocks (no credit)">
+                {groups.own.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.mockLabel} — {p.title}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </Field>
 

@@ -28,9 +28,17 @@ import {
 } from './content-package-assignments';
 import {
   isValidTestCode,
+  isValidInstitutionTestCode,
   nextTestIdentity,
+  nextInstitutionTestIdentity,
   syncContentTestId,
 } from './content-test-naming';
+import {
+  assertScopeMatch,
+  ContentScope,
+  PLATFORM_CONTENT_SCOPE,
+  scopeWhere,
+} from './content-scope';
 import { Prisma } from '@prisma/client';
 
 const AUDIO_MIME = new Set([
@@ -64,9 +72,15 @@ export class ContentService {
     private storage: StorageService,
   ) {}
 
-  async listTests(type?: ContentTestType) {
+  async listTests(
+    type?: ContentTestType,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
     const tests = await this.prisma.contentTest.findMany({
-      where: type ? { type } : undefined,
+      where: {
+        ...scopeWhere(scope),
+        ...(type ? { type } : {}),
+      },
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true,
@@ -135,17 +149,21 @@ export class ContentService {
     });
   }
 
-  async getTest(id: string) {
+  async getTest(id: string, scope: ContentScope = PLATFORM_CONTENT_SCOPE) {
     const test = await this.prisma.contentTest.findUnique({
       where: { id },
       include: { mediaAssets: { orderBy: { key: 'asc' } } },
     });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
     return test;
   }
 
-  async suggestNextTestIdentity(type: ContentTestType) {
-    return this.allocateNextTestIdentity(type);
+  async suggestNextTestIdentity(
+    type: ContentTestType,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
+    return this.allocateNextTestIdentity(type, scope);
   }
 
   async createTest(
@@ -158,10 +176,12 @@ export class ContentService {
       durationMin?: number;
     },
     actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+    auditAction: string = AuditAction.CONTENT_TEST_CREATE,
   ) {
     const code = data.code.trim().toUpperCase();
     const title = data.title.trim();
-    this.assertValidTestCode(code);
+    await this.assertValidTestCodeForScope(code, scope);
 
     const existing = await this.prisma.contentTest.findUnique({
       where: { code },
@@ -181,25 +201,37 @@ export class ContentService {
         answerKey: data.answerKey,
         durationMin: data.durationMin ?? 60,
         status: ContentTestStatus.DRAFT,
+        institutionId: scope.institutionId,
       },
     });
 
     await this.audit.log({
       userId: actorId,
-      action: AuditAction.CONTENT_TEST_CREATE,
+      action: auditAction,
       entity: 'content_test',
       entityId: created.id,
-      metadata: { code: created.code, type: created.type },
+      metadata: {
+        code: created.code,
+        type: created.type,
+        institutionId: scope.institutionId,
+      },
     });
 
     return created;
   }
 
-  async updateTest(id: string, dto: UpdateContentTestDto, actorId: string) {
+  async updateTest(
+    id: string,
+    dto: UpdateContentTestDto,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+    auditAction: string = AuditAction.CONTENT_TEST_UPDATE,
+  ) {
     const existing = await this.prisma.contentTest.findUnique({
       where: { id },
     });
     if (!existing) throw new NotFoundException('Test not found');
+    assertScopeMatch(existing, scope);
 
     await this.assertTestEditable(existing.id, existing.status);
 
@@ -229,7 +261,7 @@ export class ContentService {
 
     await this.audit.log({
       userId: actorId,
-      action: AuditAction.CONTENT_TEST_UPDATE,
+      action: auditAction,
       entity: 'content_test',
       entityId: id,
       metadata: { code: updated.code, type: updated.type },
@@ -238,9 +270,14 @@ export class ContentService {
     return updated;
   }
 
-  async submitForReview(id: string, actorId: string) {
+  async submitForReview(
+    id: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
     const test = await this.prisma.contentTest.findUnique({ where: { id } });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
     if (test.status !== ContentTestStatus.DRAFT) {
       throw new BadRequestException('Only draft tests can be submitted for review');
     }
@@ -261,9 +298,14 @@ export class ContentService {
     return updated;
   }
 
-  async revertToDraft(id: string, actorId: string) {
+  async revertToDraft(
+    id: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
     const test = await this.prisma.contentTest.findUnique({ where: { id } });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
     if (test.status !== ContentTestStatus.UNDER_REVIEW) {
       throw new BadRequestException('Only tests under review can be reverted to draft');
     }
@@ -294,9 +336,10 @@ export class ContentService {
       durationMin?: number;
     },
     actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
   ) {
     const code = data.code.trim().toUpperCase();
-    this.assertValidTestCode(code);
+    await this.assertValidTestCodeForScope(code, scope);
 
     const existing = await this.prisma.contentTest.findUnique({
       where: { code },
@@ -305,7 +348,7 @@ export class ContentService {
       throw new BadRequestException('Test code already exists — use a unique code');
     }
 
-    const created = await this.createTest({ ...data, code }, actorId);
+    const created = await this.createTest({ ...data, code }, actorId, scope);
 
     await this.audit.log({
       userId: actorId,
@@ -318,9 +361,15 @@ export class ContentService {
     return created;
   }
 
-  async importAnswerKeyCsv(id: string, csvText: string, actorId: string) {
+  async importAnswerKeyCsv(
+    id: string,
+    csvText: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
     const test = await this.prisma.contentTest.findUnique({ where: { id } });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
     if (
       test.type !== ContentTestType.LISTENING &&
       test.type !== ContentTestType.READING
@@ -371,7 +420,12 @@ export class ContentService {
     return updated;
   }
 
-  async publishTest(id: string, actorId: string) {
+  async publishTest(
+    id: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+    auditAction: string = AuditAction.CONTENT_TEST_PUBLISH,
+  ) {
     const test = await this.prisma.contentTest.findUnique({
       where: { id },
       include: {
@@ -379,6 +433,7 @@ export class ContentService {
       },
     });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
 
     if (
       test.status !== ContentTestStatus.DRAFT &&
@@ -446,7 +501,7 @@ export class ContentService {
 
     await this.audit.log({
       userId: actorId,
-      action: AuditAction.CONTENT_TEST_PUBLISH,
+      action: auditAction,
       entity: 'content_test',
       entityId: id,
       metadata: { code: updated.code },
@@ -455,14 +510,20 @@ export class ContentService {
     return updated;
   }
 
-  async cloneTest(id: string, actorId: string) {
+  async cloneTest(
+    id: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+    auditAction: string = AuditAction.CONTENT_TEST_CREATE,
+  ) {
     const source = await this.prisma.contentTest.findUnique({
       where: { id },
       include: { mediaAssets: true },
     });
     if (!source) throw new NotFoundException('Test not found');
+    assertScopeMatch(source, scope);
 
-    const { code, title } = await this.allocateNextTestIdentity(source.type);
+    const { code, title } = await this.allocateNextTestIdentity(source.type, scope);
     const content = syncContentTestId(source.content, code) as object;
 
     const cloned = await this.prisma.contentTest.create({
@@ -474,14 +535,15 @@ export class ContentService {
         answerKey: source.answerKey as object | undefined,
         durationMin: source.durationMin,
         status: ContentTestStatus.DRAFT,
+        institutionId: scope.institutionId,
       },
     });
 
-    await this.copyTestMedia(source.id, cloned.id, source.mediaAssets);
+    await this.copyTestMedia(source.id, cloned.id, source.mediaAssets, scope);
 
     await this.audit.log({
       userId: actorId,
-      action: AuditAction.CONTENT_TEST_CREATE,
+      action: auditAction,
       entity: 'content_test',
       entityId: cloned.id,
       metadata: { code: cloned.code, clonedFrom: source.code },
@@ -490,9 +552,14 @@ export class ContentService {
     return cloned;
   }
 
-  async archiveTest(id: string, actorId: string) {
+  async archiveTest(
+    id: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
     const test = await this.prisma.contentTest.findUnique({ where: { id } });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
 
     if (test.status !== ContentTestStatus.PUBLISHED) {
       throw new BadRequestException('Only published tests can be retired.');
@@ -525,16 +592,21 @@ export class ContentService {
    * Clone a published test into a new draft, then retire the original when it is
    * not linked to any active package.
    */
-  async retireAndDuplicate(id: string, actorId: string) {
+  async retireAndDuplicate(
+    id: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
     const test = await this.prisma.contentTest.findUnique({ where: { id } });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
 
     if (test.status !== ContentTestStatus.PUBLISHED) {
       throw new BadRequestException('Only published tests can be retired.');
     }
 
     const activeLinks = await this.countActivePackageLinks(id);
-    const clone = await this.cloneTest(id, actorId);
+    const clone = await this.cloneTest(id, actorId, scope);
 
     let archived = false;
     if (activeLinks === 0) {
@@ -564,12 +636,18 @@ export class ContentService {
     };
   }
 
-  async deleteTest(id: string, actorId: string) {
+  async deleteTest(
+    id: string,
+    actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+    auditAction: string = AuditAction.CONTENT_TEST_DELETE,
+  ) {
     const test = await this.prisma.contentTest.findUnique({
       where: { id },
       include: { mediaAssets: true },
     });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
 
     if (test.status === ContentTestStatus.PUBLISHED) {
       throw new BadRequestException(
@@ -611,7 +689,7 @@ export class ContentService {
 
     await this.audit.log({
       userId: actorId,
-      action: AuditAction.CONTENT_TEST_DELETE,
+      action: auditAction,
       entity: 'content_test',
       entityId: id,
       metadata: { code: test.code, type: test.type },
@@ -629,6 +707,7 @@ export class ContentService {
       mimeType: string;
       sizeBytes: number | null;
     }[],
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
   ) {
     for (const asset of assets) {
       const relative = this.storage.relativePathFromPublicUrl(asset.url);
@@ -636,10 +715,15 @@ export class ContentService {
 
       const targetRelative = relative.includes(sourceTestId)
         ? relative.replace(sourceTestId, targetTestId)
-        : relative.replace(
-            /^(listening|maps|writing)\/[^/]+/,
-            `$1/${targetTestId}`,
-          );
+        : scope.institutionId
+          ? relative.replace(
+              new RegExp(`institutions/${scope.institutionId}/[^/]+`),
+              `institutions/${scope.institutionId}/${targetTestId}`,
+            )
+          : relative.replace(
+              /^(listening|maps|writing)\/[^/]+/,
+              `$1/${targetTestId}`,
+            );
 
       try {
         const buffer = await this.storage.readBuffer(relative);
@@ -668,6 +752,8 @@ export class ContentService {
     key: string,
     file: Express.Multer.File,
     actorId: string,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+    auditAction: string = AuditAction.CONTENT_MEDIA_UPLOAD,
   ) {
     const isAudio = PART_KEY.test(key) || key === FULL_AUDIO_KEY;
     const isMap = MAP_KEY.test(key);
@@ -686,6 +772,7 @@ export class ContentService {
       where: { id: testId },
     });
     if (!test) throw new NotFoundException('Test not found');
+    assertScopeMatch(test, scope);
 
     await this.assertTestEditable(test.id, test.status);
 
@@ -729,7 +816,9 @@ export class ContentService {
       isMap || isWritingImage,
     );
     const folder = isMap ? 'maps' : isWritingImage ? 'writing' : 'listening';
-    const relativePath = `${folder}/${testId}/${key}${ext}`;
+    const relativePath = scope.institutionId
+      ? `institutions/${scope.institutionId}/${folder}/${testId}/${key}${ext}`
+      : `${folder}/${testId}/${key}${ext}`;
     const publicUrl = await this.storage.saveBuffer(relativePath, file.buffer);
 
     const asset = await this.prisma.mediaAsset.upsert({
@@ -761,7 +850,7 @@ export class ContentService {
 
     await this.audit.log({
       userId: actorId,
-      action: AuditAction.CONTENT_MEDIA_UPLOAD,
+      action: auditAction,
       entity: 'media_asset',
       entityId: asset.id,
       metadata: { testId, key, url: publicUrl, sizeBytes: file.size },
@@ -870,19 +959,46 @@ export class ContentService {
     return summarizeAssignmentsForTest(assignments).activePackageLinks;
   }
 
-  private assertValidTestCode(code: string) {
-    if (!isValidTestCode(code)) {
+  private async assertValidTestCodeForScope(
+    code: string,
+    scope: ContentScope,
+  ) {
+    if (!scope.institutionId) {
+      if (!isValidTestCode(code)) {
+        throw new BadRequestException(
+          'Test code must match format e.g. REA-MOCK-A001 (SKILL-MOCK-A###).',
+        );
+      }
+      return;
+    }
+    const inst = await this.prisma.institution.findUnique({
+      where: { id: scope.institutionId },
+      select: { slug: true },
+    });
+    if (!inst) throw new NotFoundException('Institution not found');
+    if (!isValidInstitutionTestCode(code, inst.slug)) {
       throw new BadRequestException(
-        'Test code must match format e.g. REA-MOCK-A001 (SKILL-MOCK-A###).',
+        'Test code must match your centre prefix, e.g. CENTRE-REA-MOCK-A001.',
       );
     }
   }
 
-  private async allocateNextTestIdentity(type: ContentTestType) {
+  private async allocateNextTestIdentity(
+    type: ContentTestType,
+    scope: ContentScope = PLATFORM_CONTENT_SCOPE,
+  ) {
     const tests = await this.prisma.contentTest.findMany({
-      where: { type },
+      where: { type, ...scopeWhere(scope) },
       select: { code: true, title: true },
     });
+    if (scope.institutionId) {
+      const inst = await this.prisma.institution.findUnique({
+        where: { id: scope.institutionId },
+        select: { slug: true },
+      });
+      if (!inst) throw new NotFoundException('Institution not found');
+      return nextInstitutionTestIdentity(inst.slug, type, tests);
+    }
     return nextTestIdentity(type, tests);
   }
 }

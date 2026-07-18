@@ -67,6 +67,13 @@ export const AuditAction = {
   INSTITUTION_EXAMINER_REMOVE: 'institution.examiner.remove',
   INSTITUTION_PROFILE_UPDATE: 'institution.profile.update',
   INSTITUTION_SUPPORT_TICKET_UPDATE: 'institution.support_ticket.update',
+  INSTITUTION_CONTENT_TEST_CREATE: 'institution.content_test.create',
+  INSTITUTION_CONTENT_TEST_UPDATE: 'institution.content_test.update',
+  INSTITUTION_CONTENT_TEST_PUBLISH: 'institution.content_test.publish',
+  INSTITUTION_CONTENT_TEST_DELETE: 'institution.content_test.delete',
+  INSTITUTION_CONTENT_MEDIA_UPLOAD: 'institution.content.media.upload',
+  INSTITUTION_PACKAGE_CREATE: 'institution.package.create',
+  INSTITUTION_PACKAGE_UPDATE: 'institution.package.update',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];

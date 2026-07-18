@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import { getInstitutionEnrollmentPackages as fetchEnrollmentPackages } from "./institution-content";
 import type {
   CohortReport,
   CreditsData,
@@ -154,11 +155,31 @@ export async function uploadInstitutionLogo(
 
 // ─── Catalog helpers reused for the enroll wizard ──────────────────────────
 
+export interface EnrollmentPackageOption {
+  id: string;
+  title: string;
+  mockLabel: string;
+  costsCredit: boolean;
+}
+
+export interface EnrollmentPackagesGrouped {
+  platform: EnrollmentPackageOption[];
+  own: EnrollmentPackageOption[];
+}
+
+export function getInstitutionEnrollmentPackages() {
+  return fetchEnrollmentPackages();
+}
+
+/** @deprecated Use getInstitutionEnrollmentPackages */
 export interface CatalogPackageOption {
   id: string;
   title: string;
 }
 
 export function getInstitutionPackages() {
-  return apiFetch<CatalogPackageOption[]>("/catalog/packages").catch(() => []);
+  return getInstitutionEnrollmentPackages().then((groups) => [
+    ...groups.platform,
+    ...groups.own,
+  ]);
 }
