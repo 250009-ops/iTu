@@ -16,6 +16,8 @@ deploy/node_modules/
 # Build output
 api/dist/
 dist/desktop/
+dist/desktop-ci/
+ci-artifacts/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 web/.next/
