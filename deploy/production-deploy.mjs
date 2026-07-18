@@ -49,7 +49,7 @@ async function main() {
   const tarPath = join(tmpdir(), 'itestu-production.tar.gz');
   console.log('==> Packaging api + web...');
   execSync(
-    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh deploy/ensure-local-media.sh deploy/nginx/itestu.uz.conf`,
+    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local --exclude=desktop/src-tauri/target --exclude=dist -C "${ROOT}" api web desktop deploy/deploy-rebuild.sh deploy/ensure-local-media.sh deploy/nginx/itestu.uz.conf deploy/generate-tauri-icons.mjs deploy/build-tauri-desktop.mjs deploy/build-linux-on-vps.mjs deploy/upload-desktop-release.mjs deploy/build-windows-installer.mjs`,
     { stdio: 'inherit' },
   );
 
@@ -109,6 +109,7 @@ npm run packages:ensure-skill
 npm run sync:exam-content
 npm run content:patch
 npm run content:repair-mocks
+npm run content:fix-conflicts || true
 npm run content:migrate-names
 npm run enrollments:backfill-cutoff
 npm run settings:migrate-day-cutoff

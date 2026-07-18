@@ -4,10 +4,11 @@
  *
  * Usage:
  *   VPS_PASSWORD=... node deploy/upload-desktop-release.mjs
- *   VPS_PASSWORD=... node deploy/upload-desktop-release.mjs path/to/iTestU_1.0.0_x64-setup.exe
+ *   VPS_PASSWORD=... node deploy/upload-desktop-release.mjs dist/desktop/iTestU_1.0.0_x64-setup.exe
+ *   VPS_PASSWORD=... node deploy/upload-desktop-release.mjs --all
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'ssh2';
@@ -16,12 +17,13 @@ import { VPS, assertVpsCredentials } from './lib/vps.js';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REMOTE_DIR = '/var/www/releases/desktop';
 const VERSION = process.env.DESKTOP_VERSION || '1.0.0';
-const DEFAULT_ARTIFACT = path.join(
-  ROOT,
-  'dist',
-  'desktop',
-  `iTestU_${VERSION}_x64-setup.exe`,
-);
+const DIST_DIR = path.join(ROOT, 'dist', 'desktop');
+
+const PLATFORM_PATTERNS = {
+  windows: [/iTestU_.*_x64-setup\.exe$/i, /iTestU_.*_x64_en-US\.msi$/i],
+  macos: [/iTestU_.*\.dmg$/i, /iTestU_.*universal\.dmg$/i],
+  linux: [/iTestU_.*\.AppImage$/i, /iTestU_.*amd64\.deb$/i],
+};
 
 function exec(conn, cmd) {
   return new Promise((resolve, reject) => {
@@ -42,35 +44,81 @@ function exec(conn, cmd) {
 
 function upload(sftp, local, remote) {
   return new Promise((resolve, reject) => {
-    sftp.writeFile(remote, readFileSync(local), (e) =>
-      e ? reject(e) : resolve(),
-    );
+    const data = Buffer.isBuffer(local) ? local : readFileSync(local);
+    sftp.writeFile(remote, data, (e) => (e ? reject(e) : resolve()));
   });
+}
+
+function artifactMeta(localPath) {
+  const bytes = readFileSync(localPath);
+  const fileName = path.basename(localPath);
+  const domain = process.env.DEPLOY_DOMAIN || 'www.itestu.uz';
+  return {
+    fileName,
+    localPath,
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    size: statSync(localPath).size,
+    url: `https://${domain}/releases/desktop/${fileName}`,
+  };
+}
+
+function detectPlatform(fileName) {
+  for (const [platform, patterns] of Object.entries(PLATFORM_PATTERNS)) {
+    if (patterns.some((re) => re.test(fileName))) return platform;
+  }
+  return null;
+}
+
+function collectArtifacts(inputPaths) {
+  const artifacts = [];
+  for (const input of inputPaths) {
+    if (!existsSync(input)) continue;
+    const stat = statSync(input);
+    if (stat.isDirectory()) {
+      for (const name of readdirSync(input)) {
+        const full = path.join(input, name);
+        if (statSync(full).isFile()) artifacts.push(full);
+      }
+    } else {
+      artifacts.push(input);
+    }
+  }
+  return artifacts;
 }
 
 async function main() {
   assertVpsCredentials();
 
-  const localPath = process.argv[2]
-    ? path.resolve(process.argv[2])
-    : DEFAULT_ARTIFACT;
+  const uploadAll = process.argv.includes('--all');
+  const fileArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 
-  if (!existsSync(localPath)) {
-    console.error(`Artifact not found: ${localPath}`);
-    console.error('Run: node deploy/build-windows-installer.mjs');
-    process.exit(1);
+  let paths = fileArgs.map((p) => path.resolve(p));
+  if (uploadAll || paths.length === 0) {
+    paths = [DIST_DIR];
   }
 
-  const fileName = path.basename(localPath);
-  const bytes = readFileSync(localPath);
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
-  const size = statSync(localPath).size;
-  const domain = process.env.DEPLOY_DOMAIN || 'www.itestu.uz';
-  const url = `https://${domain}/releases/desktop/${fileName}`;
+  const files = collectArtifacts(paths);
+  const platforms = {
+    windows: null,
+    macos: null,
+    linux: null,
+  };
 
-  console.log(
-    `==> Uploading ${fileName} (${size} bytes, sha256 ${sha256.slice(0, 12)}…)`,
-  );
+  for (const file of files) {
+    const base = path.basename(file);
+    const platform = detectPlatform(base);
+    if (!platform) continue;
+    if (!platforms[platform] || base.includes('setup')) {
+      platforms[platform] = artifactMeta(file);
+    }
+  }
+
+  const toUpload = Object.values(platforms).filter(Boolean);
+  if (toUpload.length === 0) {
+    console.error('No recognized desktop artifacts found.');
+    console.error('Run: node deploy/build-tauri-desktop.mjs');
+    process.exit(1);
+  }
 
   const conn = new Client();
   await new Promise((r, j) => conn.on('ready', r).on('error', j).connect(VPS));
@@ -79,25 +127,48 @@ async function main() {
   );
 
   await exec(conn, `mkdir -p ${REMOTE_DIR}`);
-  await upload(sftp, localPath, `${REMOTE_DIR}/${fileName}`);
+
+  for (const artifact of toUpload) {
+    console.log(
+      `==> Uploading ${artifact.fileName} (${artifact.size} bytes)`,
+    );
+    await upload(sftp, artifact.localPath, `${REMOTE_DIR}/${artifact.fileName}`);
+  }
+
+  const settings = {
+    version: VERSION,
+    releasedAt: new Date().toISOString(),
+    platforms: {
+      windows: platforms.windows ?? { url: '', sha256: '', size: 0 },
+      macos: platforms.macos ?? { url: '', sha256: '', size: 0 },
+      linux: platforms.linux ?? { url: '', sha256: '', size: 0 },
+    },
+  };
+
+  const settingsJson = JSON.stringify(settings);
+
+  await upload(
+    sftp,
+    Buffer.from(settingsJson),
+    '/tmp/desktop-releases.json',
+  );
 
   await exec(
     conn,
     `
 set -e
 cd /var/www/itestu/app/api
-DESKTOP_RELEASE_URL='${url}' \\
-DESKTOP_RELEASE_SHA256='${sha256}' \\
-DESKTOP_RELEASE_SIZE='${size}' \\
-DESKTOP_VERSION='${VERSION}' \\
-npx tsx scripts/update-desktop-releases.ts
-curl -sfI '${url}' | head -1 || echo 'WARN: HEAD check failed'
+DESKTOP_RELEASES_JSON="$(cat /tmp/desktop-releases.json)" npx tsx scripts/update-desktop-releases.ts
+rm -f /tmp/desktop-releases.json
 `,
   );
 
+  for (const artifact of toUpload) {
+    await exec(conn, `curl -sfI '${artifact.url}' | head -1 || echo 'WARN: ${artifact.fileName}'`);
+  }
+
   conn.end();
-  console.log('\nDesktop release uploaded and settings updated.');
-  console.log('URL:', url);
+  console.log('\nDesktop releases uploaded and settings updated.');
 }
 
 main().catch((e) => {

@@ -60,12 +60,26 @@ async function ensureSkillPackage(
 
 async function main() {
   const listeningTest = await prisma.contentTest.findFirst({
-    where: { type: 'LISTENING', status: 'PUBLISHED' },
-    orderBy: { publishedAt: 'asc' },
+    where: {
+      type: 'LISTENING',
+      status: 'PUBLISHED',
+      code: 'LIS-MOCK-A002',
+      institutionId: null,
+    },
+  }) ?? await prisma.contentTest.findFirst({
+    where: { type: 'LISTENING', status: 'PUBLISHED', institutionId: null },
+    orderBy: { code: 'desc' },
   });
   const readingTest = await prisma.contentTest.findFirst({
-    where: { type: 'READING', status: 'PUBLISHED' },
-    orderBy: { publishedAt: 'asc' },
+    where: {
+      type: 'READING',
+      status: 'PUBLISHED',
+      code: 'REA-MOCK-A002',
+      institutionId: null,
+    },
+  }) ?? await prisma.contentTest.findFirst({
+    where: { type: 'READING', status: 'PUBLISHED', institutionId: null },
+    orderBy: { code: 'desc' },
   });
 
   if (!listeningTest) {

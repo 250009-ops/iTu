@@ -1,7 +1,7 @@
 use std::env;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
-const DEFAULT_WEB_URL: &str = "https://itestu.uz";
+const DEFAULT_WEB_URL: &str = "https://www.itestu.uz";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
