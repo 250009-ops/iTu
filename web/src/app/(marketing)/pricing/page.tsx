@@ -10,7 +10,7 @@ import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchHeroStats, fetchPackages } from "@/lib/marketing/server-data";
 
 export const metadata: Metadata = {
-  title: "Pricing — Transparent IELTS Mock Exam Plans",
+  title: "Pricing — iTestU IELTS Mock Exam Plans",
   description:
     "Simple, transparent IELTS mock pricing. Human grading, examiner choice, and results within 24 hours included. No add-ons, no surprises.",
   alternates: { canonical: "/pricing" },

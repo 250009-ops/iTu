@@ -15,7 +15,7 @@ export function TeacherTopBar() {
         <div className="flex items-center gap-2 md:hidden">
           <BrandMarkIcon size="md" />
           <div>
-            <p className="text-xs font-bold leading-tight text-navy">itestu</p>
+            <p className="text-xs font-bold leading-tight text-navy">iTestU</p>
             <p className="text-[10px] text-emerald-600">Teacher Portal</p>
           </div>
         </div>

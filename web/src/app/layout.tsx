@@ -10,12 +10,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.itestu.uz"),
   title: {
-    default: "itestu Platform",
-    template: "%s | itestu Platform",
+    default: "iTestU — IELTS Mock Exams",
+    template: "%s | iTestU",
   },
   description:
-    "Professional IELTS computer-delivered mock exams — Listening, Reading, Writing and Speaking in one day.",
+    "iTestU (iTu) — professional computer-delivered IELTS mock exams. Listening, Reading, Writing and Speaking in one day.",
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/favicon.svg", type: "image/svg+xml" }],

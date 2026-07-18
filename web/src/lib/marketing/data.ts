@@ -6,14 +6,34 @@ export type SkillId = "listening" | "reading" | "writing" | "speaking";
 export type AccentColor = "sky" | "emerald" | "violet" | "rose";
 
 export const SITE = {
-  name: "itestu",
-  domain: "https://itestu.uz",
+  name: "iTestU",
+  /** Common search / legacy spellings — use in SEO schema and keywords only. */
+  alternateNames: ["ITestU", "itestu", "iTu"] as const,
+  domain: "https://www.itestu.uz",
   tagline: "Real examiners. Real feedback. Real bands.",
   description:
-    "Sit a realistic, computer-delivered IELTS mock exam — Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
+    "iTestU (iTu) — sit a realistic, computer-delivered IELTS mock exam. Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
+  foundedYear: 2026,
   fullMockPrice: 56_000,
   currency: "UZS",
 } as const;
+
+/** Brand + product terms for meta keywords across marketing pages. */
+export const SITE_KEYWORDS = [
+  "itestu",
+  "ITestU",
+  "iTestU",
+  "itestu.uz",
+  "iTu IELTS mock",
+  "IELTS mock exam",
+  "IELTS practice test",
+  "computer-delivered IELTS",
+  "IELTS Writing feedback",
+  "IELTS Speaking mock",
+  "IELTS band score",
+  "IELTS mock Uzbekistan",
+  "computer-delivered IELTS practice",
+] as const;
 
 export const NAV_LINKS = [
   { label: "Mock Exams", href: "/mock-exams" },

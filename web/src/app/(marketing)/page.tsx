@@ -26,7 +26,7 @@ import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 
 export const metadata: Metadata = {
-  title: "Realistic IELTS Mock Exams with Real Examiners & Same-Day Results",
+  title: `${SITE.name} — Realistic IELTS Mock Exams with Real Examiners & Same-Day Results`,
   description: SITE.description,
   alternates: { canonical: "/" },
 };
@@ -59,8 +59,17 @@ function buildJsonLd(rating: string | null) {
       {
         "@type": "Organization",
         name: SITE.name,
+        alternateName: [...SITE.alternateNames],
         url: SITE.domain,
+        logo: `${SITE.domain}/logo/itestu3.svg`,
+        foundingDate: String(SITE.foundedYear),
         description: SITE.description,
+      },
+      {
+        "@type": "WebSite",
+        name: SITE.name,
+        alternateName: [...SITE.alternateNames],
+        url: SITE.domain,
       },
       product,
       {
@@ -210,7 +219,7 @@ export default async function HomePage() {
             align="center"
             eyebrow="FAQ"
             title="Common questions"
-            subtitle="Everything you need to know about booking and sitting an IELTS Mock."
+            subtitle={`Everything you need to know about booking and sitting an ${SITE.name} mock exam.`}
           />
         </Reveal>
         <div className="mx-auto mt-12 max-w-3xl">

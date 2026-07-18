@@ -9,7 +9,7 @@ import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchPackages, fetchTestimonials } from "@/lib/marketing/server-data";
 
 export const metadata: Metadata = {
-  title: "IELTS Mock Exam Packages — Academic, General Training & Single Skills",
+  title: "Mock Exams — iTestU IELTS Packages (Academic, GT & Single Skills)",
   description:
     "Choose your IELTS mock exam package: full 4-skill Academic or General Training, or single Speaking and Writing modules. Real examiners, same-day results.",
   alternates: { canonical: "/mock-exams" },

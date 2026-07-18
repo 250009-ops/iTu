@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SmoothScroll } from "@/components/marketing/motion/smooth-scroll";
 import { SiteHeader } from "@/components/marketing/layout/site-header";
 import { SiteFooter } from "@/components/marketing/layout/site-footer";
-import { SITE } from "@/lib/marketing/data";
+import { SITE, SITE_KEYWORDS } from "@/lib/marketing/data";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.domain),
@@ -11,15 +11,8 @@ export const metadata: Metadata = {
     template: `%s | ${SITE.name}`,
   },
   description: SITE.description,
-  keywords: [
-    "IELTS mock exam",
-    "IELTS practice test",
-    "computer-delivered IELTS",
-    "IELTS Writing feedback",
-    "IELTS Speaking mock",
-    "IELTS band score",
-    "computer-delivered IELTS practice",
-  ],
+  keywords: [...SITE_KEYWORDS],
+  applicationName: SITE.name,
   openGraph: {
     type: "website",
     siteName: SITE.name,

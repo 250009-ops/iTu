@@ -10,7 +10,7 @@ import { FaqExplorer } from "@/components/marketing/shared/faq-explorer";
 export const metadata: Metadata = {
   title: "FAQ — Frequently Asked Questions",
   description:
-    "Everything you need to know about IELTS Mock: the exam, results, examiners, technical requirements, and booking. Search and browse by category.",
+    `Everything you need to know about iTestU: the exam, results, examiners, technical requirements, and booking. Search and browse by category.`,
   alternates: { canonical: "/faq" },
 };
 
@@ -35,7 +35,7 @@ export default function FaqPage() {
       <PageHero
         eyebrow="FAQ"
         title="Frequently asked questions"
-        subtitle="Everything you need to know about IELTS Mock. Can't find your answer? Contact our support team."
+        subtitle="Everything you need to know about iTestU. Can't find your answer? Contact our support team."
       />
 
       <Section className="pt-12">

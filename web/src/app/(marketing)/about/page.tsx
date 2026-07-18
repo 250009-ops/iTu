@@ -4,12 +4,13 @@ import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { fetchHeroStats } from "@/lib/marketing/server-data";
+import { SITE } from "@/lib/marketing/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "About — Built by Exam Professionals",
   description:
-    "IELTS Mock was founded to give candidates access to the most realistic, most useful mock exam available anywhere. Built by former examiners and exam-infrastructure engineers.",
+    `${SITE.name} was founded in ${SITE.foundedYear} to give candidates access to the most realistic, most useful mock exam available anywhere. Built by former examiners and exam-infrastructure engineers.`,
   alternates: { canonical: "/about" },
 };
 
@@ -29,7 +30,7 @@ const CREDIBILITY = [
 export default async function AboutPage() {
   const stats = await fetchHeroStats();
   const storyStats: [string, string][] = [
-    ["2022", "Founded"],
+    [String(SITE.foundedYear), "Founded"],
     ...(stats.mocks ? [[stats.mocks, "Mocks delivered"] as [string, string]] : []),
     ...(stats.examiners ? [[stats.examiners, "Certified examiners"] as [string, string]] : []),
     ...(stats.rating ? [[`${stats.rating}★`, "Avg. examiner rating"] as [string, string]] : []),
@@ -40,7 +41,7 @@ export default async function AboutPage() {
       <PageHero
         eyebrow="About Us"
         title="We built the mock we wished existed"
-        subtitle="IELTS Mock was founded to give candidates access to the most realistic, most useful mock exam available — anywhere in the world."
+        subtitle={`${SITE.name} was founded to give candidates access to the most realistic, most useful mock exam available — anywhere in the world.`}
       />
 
       <Section className="pt-16">
@@ -59,7 +60,7 @@ export default async function AboutPage() {
                 score. The difference is rarely raw language ability — it&apos;s preparation quality.
               </p>
               <p>
-                IELTS Mock launched in 2022 with one goal: give every candidate access to the most
+                {SITE.name} launched in {SITE.foundedYear} with one goal: give every candidate access to the most
                 realistic, most useful IELTS mock exam available — at a price that doesn&apos;t require
                 a tutor-level budget.
               </p>

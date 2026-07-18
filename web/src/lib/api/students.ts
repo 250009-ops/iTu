@@ -203,6 +203,73 @@ export function setLeaderboardConsent(publish: boolean) {
   );
 }
 
+export type LeaderboardEntry = {
+  id: string;
+  rank: number;
+  name: string;
+  country: string;
+  overallBand: number;
+  skillBands: {
+    listening: number;
+    reading: number;
+    writing: number;
+    speaking: number;
+  };
+  improvementDelta: number;
+};
+
+export type StudentLeaderboardResponse = {
+  top: LeaderboardEntry[];
+  currentStudent: LeaderboardEntry | null;
+  showCurrentSeparately: boolean;
+  optedIn: boolean;
+  totalRanked: number;
+};
+
+export function getStudentLeaderboard() {
+  return apiFetch<StudentLeaderboardResponse>("/students/leaderboard");
+}
+
+export type ApiPublicTeacher = {
+  id: string;
+  slug: string;
+  name: string;
+  initials: string;
+  speciality: string;
+  rating: number;
+  reviewCount: number;
+  totalSessions: number;
+  isTopRated: boolean;
+  bio: string;
+  longBio: string;
+  credentials: string[];
+  languages: string[];
+  avatarUrl: string | null;
+  memberSince: number;
+  reviews?: { id: string; name: string; rating: number; quote: string }[];
+};
+
+export function getStudentTeachers(params?: {
+  limit?: number;
+  activeOnly?: boolean;
+  speciality?: "writing" | "speaking" | "both";
+}) {
+  const search = new URLSearchParams();
+  if (params?.limit != null) search.set("limit", String(params.limit));
+  if (params?.activeOnly) search.set("activeOnly", "true");
+  if (params?.speciality) search.set("speciality", params.speciality);
+  const q = search.toString();
+  return apiFetch<ApiPublicTeacher[]>(
+    `/students/teachers${q ? `?${q}` : ""}`,
+  );
+}
+
+export function getStudentTeacher(slug: string) {
+  return apiFetch<ApiPublicTeacher>(
+    `/students/teachers/${encodeURIComponent(slug)}`,
+  );
+}
+
 export function createSupportTicket(body: {
   subject: string;
   message: string;

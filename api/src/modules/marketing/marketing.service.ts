@@ -14,6 +14,11 @@ import { notifyAdminsOfInstitutionApplication } from '../../common/institution/n
 import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { toPublicTeacher } from '../../common/public-teacher';
+import {
+  buildStudentLeaderboard,
+  sliceLeaderboard,
+} from '../../common/student-leaderboard';
 import { teacherSpecialityWhere } from '../../common/teacher-speciality';
 import { InstitutionApplicationDto } from './dto/institution-application.dto';
 import { JoinCenterDto } from './dto/join-center.dto';
@@ -186,68 +191,8 @@ export class MarketingService {
   }
 
   async getLeaderboard(limit = 7) {
-    const students = await this.prisma.studentProfile.findMany({
-      where: {
-        publishToLeaderboard: true,
-        enrollments: { some: { status: 'COMPLETED', resultsStatus: 'RELEASED' } },
-      },
-      include: {
-        user: { select: { name: true } },
-        enrollments: {
-          where: { status: 'COMPLETED' },
-          include: {
-            examSession: { select: { sectionAttempts: true } },
-          },
-          orderBy: { mockDate: 'asc' },
-        },
-      },
-    });
-
-    const ranked = students
-      .map((s) => {
-        const overalls: number[] = [];
-        let best: Record<string, number> = {};
-        let bestOverall = 0;
-        for (const e of s.enrollments) {
-          const bySkill: Record<string, number> = {};
-          for (const a of e.examSession?.sectionAttempts ?? []) {
-            if (a.band != null) bySkill[a.skill.toLowerCase()] = a.band;
-          }
-          const bands = Object.values(bySkill);
-          if (!bands.length) continue;
-          const overall =
-            Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2;
-          overalls.push(overall);
-          if (overall >= bestOverall) {
-            bestOverall = overall;
-            best = bySkill;
-          }
-        }
-        if (!overalls.length) return null;
-        const improvement =
-          overalls.length > 1
-            ? Math.round((overalls[overalls.length - 1] - overalls[0]) * 2) / 2
-            : 0;
-        return {
-          id: s.id,
-          name: s.user.name,
-          country: s.country ?? '',
-          overallBand: bestOverall,
-          skillBands: {
-            listening: best.listening ?? 0,
-            reading: best.reading ?? 0,
-            writing: best.writing ?? 0,
-            speaking: best.speaking ?? 0,
-          },
-          improvementDelta: improvement,
-        };
-      })
-      .filter((s): s is NonNullable<typeof s> => s != null)
-      .sort((a, b) => b.overallBand - a.overallBand)
-      .slice(0, limit)
-      .map((s, i) => ({ ...s, rank: i + 1 }));
-
-    return ranked;
+    const rows = await buildStudentLeaderboard(this.prisma);
+    return sliceLeaderboard(rows, limit);
   }
 
   async getTestimonials(limit = 6) {
@@ -296,7 +241,7 @@ export class MarketingService {
     });
 
     return teachers
-      .map((t) => this.toPublicTeacher(t))
+      .map((t) => toPublicTeacher(t))
       .filter((t) => t.bio.trim().length > 0);
   }
 
@@ -316,75 +261,13 @@ export class MarketingService {
     if (!t) return null;
 
     return {
-      ...this.toPublicTeacher(t),
+      ...toPublicTeacher(t),
       reviews: t.reviews.map((r) => ({
         id: r.id,
         name: r.student.user.name,
         rating: r.rating,
         quote: r.comment ?? '',
       })),
-    };
-  }
-
-  private toPublicTeacher(t: {
-    id: string;
-    slug: string | null;
-    user: { name: string };
-    bio: string | null;
-    longBio: string | null;
-    credentials: unknown;
-    languages: unknown;
-    speciality: string;
-    rating: number | null;
-    reviewCount: number;
-    isTopRated: boolean;
-    totalSessions: number;
-    applicationData?: unknown;
-  }) {
-    const specialityLabel =
-      t.speciality === 'BOTH'
-        ? 'Writing & Speaking'
-        : t.speciality === 'WRITING'
-          ? 'Writing'
-          : 'Speaking';
-
-    const app = (t.applicationData ?? null) as {
-      yearsExperience?: number;
-      ieltsWritingBand?: number;
-      ieltsSpeakingBand?: number;
-      certificateUrls?: string[];
-    } | null;
-
-    const bio =
-      t.bio?.trim() ||
-      (app?.yearsExperience
-        ? `Certified IELTS Writing & Speaking examiner with ${app.yearsExperience} years of experience. Band ${app.ieltsWritingBand ?? '—'} Writing · Band ${app.ieltsSpeakingBand ?? '—'} Speaking.`
-        : '');
-
-    const storedCredentials = Array.isArray(t.credentials)
-      ? (t.credentials as string[])
-      : [];
-    const credentials =
-      storedCredentials.length > 0
-        ? storedCredentials
-        : app?.certificateUrls?.length
-          ? ['Verified qualifications']
-          : [];
-
-    return {
-      id: t.id,
-      slug: t.slug ?? t.id,
-      name: t.user.name,
-      initials: initialsOf(t.user.name),
-      speciality: specialityLabel,
-      rating: t.rating ?? 0,
-      reviewCount: t.reviewCount,
-      totalSessions: t.totalSessions,
-      isTopRated: t.isTopRated,
-      bio,
-      longBio: t.longBio?.trim() || bio,
-      credentials,
-      languages: Array.isArray(t.languages) ? (t.languages as string[]) : ['English'],
     };
   }
 
@@ -563,14 +446,4 @@ export class MarketingService {
 
     return { status: 'ok', centerName: institution.name, email };
   }
-}
-
-function initialsOf(name: string): string {
-  return name
-    .replace(/^(Dr\.?|Prof\.?)\s+/i, '')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('');
 }

@@ -828,7 +828,7 @@ export function mapAdminSettings(raw: Record<string, unknown>) {
       platformName: "iTestU",
       supportEmail: String(general.supportEmail ?? "support@itestu.uz"),
       adminContact: String(general.adminContact ?? "admin@itestu.uz"),
-      platformUrl: String(general.platformUrl ?? "https://itestu.uz"),
+      platformUrl: String(general.platformUrl ?? "https://www.itestu.uz"),
       timezone: String(general.timezone ?? "Asia/Tashkent"),
       defaultLanguage: String(general.defaultLanguage ?? "English (en-GB)"),
     },

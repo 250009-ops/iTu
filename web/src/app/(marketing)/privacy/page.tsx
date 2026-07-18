@@ -5,7 +5,7 @@ import { LegalDoc, type LegalSection } from "@/components/marketing/shared/legal
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "How IELTS Mock collects, uses, stores, and protects your personal data — including exam recordings, payment information, and your rights under GDPR.",
+    "How iTestU collects, uses, stores, and protects your personal data — including exam recordings, payment information, and your rights under GDPR.",
   alternates: { canonical: "/privacy" },
 };
 
@@ -17,7 +17,7 @@ const SECTIONS: LegalSection[] = [
     heading: "Overview",
     body: (
       <p>
-        This Privacy Policy explains what personal data IELTS Mock collects, why we collect it, how we
+        This Privacy Policy explains what personal data iTestU collects, why we collect it, how we
         use and protect it, and the rights you have over it. We act as the data controller for the
         information you provide while using the Service.
       </p>
@@ -142,10 +142,10 @@ const SECTIONS: LegalSection[] = [
         <p>
           To exercise any of these rights, contact us at{" "}
           <a
-            href="mailto:privacy@ieltsmock.com"
+            href="mailto:support@itestu.uz"
             className="font-medium text-navy underline underline-offset-2 hover:text-brand-red"
           >
-            privacy@ieltsmock.com
+            support@itestu.uz
           </a>
           .
         </p>
@@ -170,10 +170,10 @@ const SECTIONS: LegalSection[] = [
       <p>
         For any privacy questions or data requests, email{" "}
         <a
-          href="mailto:privacy@ieltsmock.com"
+          href="mailto:support@itestu.uz"
           className="font-medium text-navy underline underline-offset-2 hover:text-brand-red"
         >
-          privacy@ieltsmock.com
+          support@itestu.uz
         </a>
         .
       </p>
@@ -192,10 +192,10 @@ export default function PrivacyPage() {
       <LegalDoc
         updated={UPDATED}
         sections={SECTIONS}
-        contactEmail="privacy@ieltsmock.com"
+        contactEmail="support@itestu.uz"
         intro={
           <p>
-            Your trust matters to us. This policy describes the data we handle when you use IELTS Mock
+            Your trust matters to us. This policy describes the data we handle when you use iTestU
             and how we keep it safe. It should be read together with our{" "}
             <a
               href="/terms"

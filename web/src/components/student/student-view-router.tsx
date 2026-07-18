@@ -14,6 +14,7 @@ import { DashboardView } from "@/components/student/views/dashboard-view";
 import { MockDayView } from "@/components/student/views/mock-day-view";
 import { ProfileView } from "@/components/student/views/profile-view";
 import { ResultsView } from "@/components/student/views/results-view";
+import { TeachersView } from "@/components/student/views/teachers-view";
 
 function StudentHelpView() {
   return <HelpSupportView role="student" />;
@@ -27,6 +28,7 @@ const VIEW_COMPONENTS: Record<StudentView, React.ComponentType> = {
   profile: ProfileView,
   notifications: NotificationsCenter,
   help: StudentHelpView,
+  teachers: TeachersView,
 };
 
 export function StudentViewRouter() {

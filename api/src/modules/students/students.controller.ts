@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -66,6 +66,34 @@ export class StudentsController {
     @Body() dto: LeaderboardConsentDto,
   ) {
     return this.students.setLeaderboardConsent(user, dto.publish);
+  }
+
+  @Get('leaderboard')
+  getLeaderboard(@CurrentUser() user: RequestUser) {
+    return this.students.getLeaderboard(user);
+  }
+
+  @Get('teachers')
+  listTeachers(
+    @CurrentUser() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('activeOnly') activeOnly?: string,
+    @Query('speciality') speciality?: 'writing' | 'speaking' | 'both',
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    return this.students.listTeachers(user, {
+      limit: parsedLimit && parsedLimit > 0 ? parsedLimit : undefined,
+      activeOnly: activeOnly === 'true' || activeOnly === '1',
+      speciality,
+    });
+  }
+
+  @Get('teachers/:slug')
+  getTeacher(
+    @CurrentUser() user: RequestUser,
+    @Param('slug') slug: string,
+  ) {
+    return this.students.getTeacher(user, slug);
   }
 
   @Post('support-tickets')

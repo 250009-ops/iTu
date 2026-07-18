@@ -4,6 +4,8 @@ import { WelcomeSection } from "@/components/student/dashboard/welcome-section";
 import { ResultsBanner } from "@/components/student/dashboard/results-banner";
 import { MissedMockBanner } from "@/components/student/dashboard/missed-mock-banner";
 import { StatCards } from "@/components/student/dashboard/stat-cards";
+import { DashboardLeaderboard } from "@/components/student/dashboard/dashboard-leaderboard";
+import { RecommendedExaminers } from "@/components/student/dashboard/recommended-examiners";
 import { UpcomingMockCard } from "@/components/student/dashboard/upcoming-mock-card";
 import { BandProgressChart } from "@/components/student/dashboard/band-progress-chart";
 import { PastMocksTable } from "@/components/student/dashboard/past-mocks-table";
@@ -12,6 +14,7 @@ import {
   PreparationTip,
 } from "@/components/student/dashboard/activity-sidebar";
 import { StudentDashboardProvider, useStudentDashboardData } from "@/contexts/student-dashboard-context";
+import { useStudentDashboardExtras } from "@/hooks/use-student-dashboard-extras";
 
 export function DashboardView() {
   return (
@@ -23,6 +26,11 @@ export function DashboardView() {
 
 function DashboardContent() {
   const { loading, error } = useStudentDashboardData();
+  const {
+    leaderboard,
+    examiners,
+    loading: extrasLoading,
+  } = useStudentDashboardExtras();
 
   if (loading) {
     return (
@@ -54,6 +62,11 @@ function DashboardContent() {
         <ResultsBanner />
         <MissedMockBanner />
         <StatCards />
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <DashboardLeaderboard data={leaderboard} loading={extrasLoading} />
+          <RecommendedExaminers examiners={examiners} loading={extrasLoading} />
+        </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3">

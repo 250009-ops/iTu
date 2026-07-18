@@ -5,7 +5,7 @@ import { LegalDoc, type LegalSection } from "@/components/marketing/shared/legal
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "The terms governing your use of the IELTS Mock platform — bookings, payments, exam conduct, refunds, and your rights and responsibilities as a candidate.",
+    "The terms governing your use of the iTestU platform — bookings, payments, exam conduct, refunds, and your rights and responsibilities as a candidate.",
   alternates: { canonical: "/terms" },
 };
 
@@ -18,12 +18,12 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          By creating an account, booking a mock exam, or otherwise using the IELTS Mock platform
+          By creating an account, booking a mock exam, or otherwise using the iTestU platform
           (the &ldquo;Service&rdquo;), you agree to be bound by these Terms of Service. If you do not
           agree, you must not use the Service.
         </p>
         <p>
-          These terms form a binding agreement between you and IELTS Mock. We may update them from
+          These terms form a binding agreement between you and iTestU. We may update them from
           time to time; the &ldquo;last updated&rdquo; date above reflects the current version.
         </p>
       </>
@@ -135,7 +135,7 @@ const SECTIONS: LegalSection[] = [
     heading: "Intellectual property",
     body: (
       <p>
-        All exam materials, software, branding, and content on the Service are owned by IELTS Mock or
+        All exam materials, software, branding, and content on the Service are owned by iTestU or
         our licensors and are protected by intellectual property laws. You receive a limited,
         non-transferable licence to use them for your personal exam preparation only.
       </p>
@@ -192,14 +192,14 @@ export default function TermsPage() {
       <PageHero
         eyebrow="Legal"
         title="Terms of Service"
-        subtitle="The agreement that governs your use of the IELTS Mock platform — bookings, payments, exam conduct, and your rights as a candidate."
+        subtitle="The agreement that governs your use of the iTestU platform — bookings, payments, exam conduct, and your rights as a candidate."
       />
       <LegalDoc
         updated={UPDATED}
         sections={SECTIONS}
         intro={
           <p>
-            Please read these terms carefully before using IELTS Mock. They explain how bookings and
+            Please read these terms carefully before using iTestU. They explain how bookings and
             payments work, what we expect during exam sessions, and how results and refunds are
             handled. Together with our{" "}
             <a

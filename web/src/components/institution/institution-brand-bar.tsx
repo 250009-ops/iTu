@@ -21,7 +21,7 @@ export function InstitutionBrandBar() {
         <BrandMarkIcon size="lg" />
         {!collapsed && (
           <div>
-            <p className="text-sm font-bold leading-tight">itestu</p>
+            <p className="text-sm font-bold leading-tight">iTestU</p>
             <p className="text-xs text-amber-400">Institution Portal</p>
           </div>
         )}

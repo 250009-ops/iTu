@@ -92,7 +92,7 @@ export function WaitingApprovalView({
         <div className="relative flex items-center gap-3">
           <BrandMarkIcon size="md" />
           <div>
-            <p className="text-sm font-bold leading-tight">itestu</p>
+            <p className="text-sm font-bold leading-tight">iTestU</p>
             <p className="text-xs text-slate-400">Centre Student</p>
           </div>
         </div>

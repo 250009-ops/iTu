@@ -78,7 +78,7 @@ export async function AuthMarketingPanel() {
           </div>
         ) : null}
         <p className="text-xs text-slate-500">
-          © {new Date().getFullYear()} itestu. For practice only.
+          © {new Date().getFullYear()} iTestU. For practice only.
         </p>
       </div>
     </div>

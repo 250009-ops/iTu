@@ -8,6 +8,7 @@ import {
   ExamSkill,
   NotificationType,
   Prisma,
+  SlotStatus,
   TicketPriority,
   TicketType,
   UserRole,
@@ -19,6 +20,12 @@ import {
   overallBandFromSkillBands,
   resolveAttemptBand,
 } from '../../common/band-resolution';
+import { toPublicTeacher } from '../../common/public-teacher';
+import {
+  buildStudentLeaderboard,
+  withRanks,
+} from '../../common/student-leaderboard';
+import { teacherSpecialityWhere } from '../../common/teacher-speciality';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CatalogService } from '../catalog/catalog.service';
@@ -650,6 +657,129 @@ export class StudentsService {
       data: { publishToLeaderboard: publish },
     });
     return { publishToLeaderboard: publish };
+  }
+
+  async getLeaderboard(user: RequestUser) {
+    this.requireStudent(user);
+
+    const profile = await this.prisma.studentProfile.findUnique({
+      where: { id: user.studentProfileId },
+      select: { publishToLeaderboard: true },
+    });
+
+    const rows = await buildStudentLeaderboard(this.prisma);
+    const ranked = withRanks(rows);
+    const top = ranked.slice(0, 10);
+    const currentStudent =
+      ranked.find((s) => s.id === user.studentProfileId) ?? null;
+
+    return {
+      top,
+      currentStudent,
+      showCurrentSeparately:
+        currentStudent != null && currentStudent.rank > 10,
+      optedIn: profile?.publishToLeaderboard ?? false,
+      totalRanked: ranked.length,
+    };
+  }
+
+  async listTeachers(
+    user: RequestUser,
+    options?: {
+      limit?: number;
+      activeOnly?: boolean;
+      speciality?: 'writing' | 'speaking' | 'both';
+    },
+  ) {
+    this.requireStudent(user);
+
+    const now = new Date();
+    const teachers = await this.prisma.teacherProfile.findMany({
+      where: {
+        status: 'APPROVED',
+        institutionId: null,
+        ...teacherSpecialityWhere(options?.speciality),
+        ...(options?.activeOnly
+          ? {
+              OR: [
+                { availability: { some: {} } },
+                {
+                  slots: {
+                    some: {
+                      status: SlotStatus.AVAILABLE,
+                      startsAt: { gte: now },
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        user: { select: { name: true } },
+        slots: {
+          where: {
+            status: SlotStatus.AVAILABLE,
+            startsAt: { gte: now },
+          },
+          select: { id: true },
+        },
+      },
+    });
+
+    const mapped = teachers
+      .map((t) => ({
+        ...toPublicTeacher(t),
+        openSlots: t.slots.length,
+      }))
+      .filter((t) => t.bio.trim().length > 0)
+      .sort((a, b) => {
+        if (b.openSlots !== a.openSlots) return b.openSlots - a.openSlots;
+        if (b.isTopRated !== a.isTopRated)
+          return Number(b.isTopRated) - Number(a.isTopRated);
+        return b.rating - a.rating;
+      })
+      .map(({ openSlots: _openSlots, ...teacher }) => teacher);
+
+    if (options?.limit != null && options.limit > 0) {
+      return mapped.slice(0, options.limit);
+    }
+    return mapped;
+  }
+
+  async getTeacher(user: RequestUser, slug: string) {
+    this.requireStudent(user);
+
+    const t = await this.prisma.teacherProfile.findFirst({
+      where: { slug, status: 'APPROVED', institutionId: null },
+      include: {
+        user: { select: { name: true } },
+        reviews: {
+          where: { publishConsent: true, comment: { not: null } },
+          include: {
+            student: { include: { user: { select: { name: true } } } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
+      },
+    });
+    if (!t) throw new NotFoundException('Examiner not found');
+
+    const publicProfile = toPublicTeacher(t);
+    if (!publicProfile.bio.trim()) {
+      throw new NotFoundException('Examiner not found');
+    }
+
+    return {
+      ...publicProfile,
+      reviews: t.reviews.map((r) => ({
+        id: r.id,
+        name: r.student.user.name,
+        rating: r.rating,
+        quote: r.comment ?? '',
+      })),
+    };
   }
 
   private async recomputeTeacherRating(teacherId: string) {

@@ -8,7 +8,7 @@ import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 
 export const metadata: Metadata = {
-  title: "IELTS Mock Results — Criteria-Level Examiner Feedback & Band Report",
+  title: "Results — iTestU Band Reports & Examiner Feedback",
   description:
     "See exactly what your IELTS mock results include: four bands plus overall, criteria-level written examiner feedback, and score progression tracking.",
   alternates: { canonical: "/results" },

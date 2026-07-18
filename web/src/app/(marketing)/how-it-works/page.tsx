@@ -17,9 +17,9 @@ import type { SkillId } from "@/lib/marketing/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "How It Works — Everything That Happens on IELTS Mock Day",
+  title: "How It Works — Everything That Happens on Mock Exam Day",
   description:
-    "From booking to results — a complete walkthrough of the IELTS Mock exam experience: check-in, the four skills, exam integrity rules, and a typical mock-day timeline.",
+    "From booking to results — a complete walkthrough of the iTestU mock exam experience: check-in, the four skills, exam integrity rules, and a typical mock-day timeline.",
   alternates: { canonical: "/how-it-works" },
 };
 
@@ -119,7 +119,7 @@ export default function HowItWorksPage() {
       <PageHero
         eyebrow="How It Works"
         title="Everything that happens on Mock Day"
-        subtitle="From booking to results — a complete walkthrough of the IELTS Mock exam experience."
+        subtitle="From booking to results — a complete walkthrough of the iTestU mock exam experience."
       />
 
       {/* Journey */}

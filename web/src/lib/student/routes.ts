@@ -7,7 +7,8 @@ export type StudentView =
   | "results"
   | "profile"
   | "notifications"
-  | "help";
+  | "help"
+  | "teachers";
 
 export const STUDENT_VIEW_PATHS: Record<StudentView, string> = {
   dashboard: "/student",
@@ -17,6 +18,7 @@ export const STUDENT_VIEW_PATHS: Record<StudentView, string> = {
   profile: "/student/profile",
   notifications: "/student/notifications",
   help: "/student/help",
+  teachers: "/student/teachers",
 };
 
 export const STUDENT_VIEW_LABELS: Record<StudentView, string> = {
@@ -27,6 +29,7 @@ export const STUDENT_VIEW_LABELS: Record<StudentView, string> = {
   profile: "Profile",
   notifications: "Notifications",
   help: "Help & Support",
+  teachers: "Examiners",
 };
 
 const VALID_VIEWS = new Set<string>(Object.keys(STUDENT_VIEW_PATHS));

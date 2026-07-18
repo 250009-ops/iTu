@@ -51,7 +51,7 @@ export function ExamTopBar({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <BrandMarkIcon size="md" />
-          <span className="text-sm font-semibold tracking-tight">itestu</span>
+          <span className="text-sm font-semibold tracking-tight">iTestU</span>
         </div>
         <div className="hidden h-6 w-px bg-slate-600 sm:block" />
         <span className="hidden text-[13px] text-slate-300 sm:block">

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { SITE } from "@/lib/marketing/data";
 
 const SIZE_CONFIG = {
   sm: {
@@ -59,7 +60,7 @@ export function BrandMark({
       </span>
       {showText ? (
         <span className={cn(config.text, textClassName ?? "text-white")}>
-          itestu
+          {SITE.name}
         </span>
       ) : null}
     </div>

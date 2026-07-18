@@ -62,7 +62,7 @@ export default async function ForStudentsPage() {
       <Section className="pt-16">
         <Reveal>
           <SectionHeading
-            eyebrow="Why IELTS Mock"
+            eyebrow="Why iTestU"
             title="Not just another practice test"
             subtitle="Generic free tests don't replicate the pressure, format, or grading rigour of the real exam. We do."
           />
@@ -89,7 +89,7 @@ export default async function ForStudentsPage() {
             <thead>
               <tr className="bg-navy text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
                 <th className="px-4 py-3.5 sm:px-6">Feature</th>
-                <th className="px-3 py-3.5 text-center text-emerald-300">IELTS Mock</th>
+                <th className="px-3 py-3.5 text-center text-emerald-300">iTestU</th>
                 <th className="px-3 py-3.5 text-center">Free online tests</th>
                 <th className="px-3 py-3.5 text-center">Tutor practice</th>
               </tr>

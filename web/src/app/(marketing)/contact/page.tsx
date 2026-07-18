@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "Contact — Support, Demos & Enquiries",
   description:
-    "Reach the IELTS Mock team for support, demo requests, institution pricing, or press enquiries. Email support and self-service help available.",
+    "Reach the iTestU team for support, demo requests, institution pricing, or press enquiries. Email support and self-service help available.",
   alternates: { canonical: "/contact" },
 };
 
