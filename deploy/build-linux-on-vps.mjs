@@ -41,9 +41,9 @@ if ! command -v rustc >/dev/null 2>&1; then
 fi
 source "$HOME/.cargo/env" 2>/dev/null || true
 apt-get update -qq
-apt-get install -y -qq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential curl
+apt-get install -y -qq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential curl pkg-config
 cd /var/www/itestu/app
-if [ ! -d desktop/package.json ]; then
+if [ ! -f desktop/package.json ]; then
   echo "desktop/ not found on VPS — include it in deploy tarball first"
   exit 1
 fi
@@ -51,7 +51,7 @@ node deploy/generate-tauri-icons.mjs
 cd desktop && npm ci
 WEB_APP_URL=https://www.itestu.uz npm run build:linux
 mkdir -p /var/www/itestu/app/dist/desktop
-find src-tauri/target/release/bundle -type f \\( -name '*.AppImage' -o -name '*.deb' \\) -exec cp {} /var/www/itestu/app/dist/desktop/ \\;
+find src-tauri/target -path '*/release/bundle/*' -type f \\( -name '*.AppImage' -o -name '*.deb' \\) -exec cp {} /var/www/itestu/app/dist/desktop/ \\;
 ls -la /var/www/itestu/app/dist/desktop/
 `,
   );

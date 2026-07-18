@@ -83,7 +83,7 @@ const DEFAULT_SETTINGS: Record<string, object> = {
         size: 0,
       },
       linux: {
-        url: '',
+        url: 'https://www.itestu.uz/releases/desktop/iTestU_1.0.0_amd64.AppImage',
         sha256: '',
         size: 0,
       },

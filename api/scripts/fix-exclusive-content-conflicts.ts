@@ -178,14 +178,16 @@ async function main() {
   });
 
   for (const pkg of packages) {
-    if (pkg._count.enrollments > 0) {
-      console.log(`Skip "${pkg.slug}" — ${pkg._count.enrollments} enrollment(s)`);
-      continue;
-    }
-
     const skills = packageExamSkills(pkg.skills);
 
     if (pkg.packageKind === FULL_MOCK_KIND) {
+      if (pkg._count.enrollments > 0) {
+        console.log(
+          `Skip full mock "${pkg.slug}" — ${pkg._count.enrollments} enrollment(s)`,
+        );
+        continue;
+      }
+
       for (const skill of skills) {
         if (
           skill !== ExamSkill.LISTENING &&

@@ -1,5 +1,5 @@
 use std::env;
-use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, WebviewUrl, WebviewWindowBuilder};
 
 const DEFAULT_WEB_URL: &str = "https://www.itestu.uz";
 
