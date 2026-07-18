@@ -33,14 +33,25 @@ function run(cmd, args, opts = {}) {
 }
 
 function hasWorkflowScope() {
+  if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return true;
   const status = run('gh', ['auth', 'status'], { stdio: 'pipe' });
-  const blocks = status.split(/(?=  ✓ Logged in to github.com account)/);
-  for (const block of blocks) {
-    if (/Active account: true/.test(block) && /Token scopes:.*workflow/.test(block)) {
-      return true;
-    }
+  const match = status.match(
+    /✓ Logged in to github.com account ([^\n]+)\n(?:.*\n)*?  - Active account: true\n(?:.*\n)*?  - Token scopes: '([^']+)'/,
+  );
+  return Boolean(match?.[2]?.includes('workflow'));
+}
+
+function gitPushMain() {
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+  if (token) {
+    run('git', [
+      'push',
+      `https://x-access-token:${token}@github.com/${repo}.git`,
+      'main',
+    ]);
+    return;
   }
-  return false;
+  run('git', ['push', 'origin', 'main']);
 }
 
 async function waitForRun(startedAfter) {
@@ -106,7 +117,7 @@ async function main() {
   }
 
   console.log('Pushing to origin/main…');
-  run('git', ['push', 'origin', 'main']);
+  gitPushMain();
 
   const startedAfter = new Date(Date.now() - 60_000).toISOString();
   console.log('Triggering desktop-releases workflow…');
