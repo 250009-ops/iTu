@@ -16,7 +16,13 @@ import { VPS, assertVpsCredentials } from './lib/vps.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REMOTE_DIR = '/var/www/releases/desktop';
-const VERSION = process.env.DESKTOP_VERSION || '1.0.0';
+const TAURI_CONF = path.join(ROOT, 'desktop', 'src-tauri', 'tauri.conf.json');
+const VERSION =
+  process.env.DESKTOP_VERSION ||
+  (existsSync(TAURI_CONF)
+    ? JSON.parse(readFileSync(TAURI_CONF, 'utf8')).version
+    : null) ||
+  '1.0.0';
 const DIST_DIR = path.join(ROOT, 'dist', 'desktop');
 
 const PLATFORM_PATTERNS = {
