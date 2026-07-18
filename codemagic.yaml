@@ -25,14 +25,13 @@ workflows:
           brew install node
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source "$HOME/.cargo/env"
-          rustup target add universal-apple-darwin
       - name: Build Tauri macOS
         script: |
           set -e
           source "$HOME/.cargo/env"
           npm ci --prefix desktop
           node deploy/generate-tauri-icons.mjs
-          cd desktop && npm run build:macos
+          cd desktop && npm run build
           mkdir -p dist/desktop
           find src-tauri/target -path '*/release/bundle/*' -name '*.dmg' -exec cp {} ../dist/desktop/ \;
           ls -la ../dist/desktop/
