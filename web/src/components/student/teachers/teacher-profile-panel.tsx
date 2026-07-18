@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, MessageSquare, ShieldCheck, Star } from "lucide-react";
+import { MessageSquare, ShieldCheck, Star } from "lucide-react";
 import { ExaminerAvatar } from "@/components/student/teachers/examiner-card";
 import type { PublicExaminer } from "@/lib/teachers/map-public-teacher";
 import { positiveReviewPercent } from "@/lib/teachers/map-public-teacher";
-import { STUDENT_VIEW_PATHS } from "@/lib/student/routes";
+import {
+  browseUrlForFullMockExaminer,
+  browseUrlForSpeakingExaminer,
+  browseUrlForWritingExaminer,
+} from "@/lib/student/browse-booking";
 import { cn } from "@/lib/utils";
 
 export function TeacherProfilePanel({ teacher }: { teacher: PublicExaminer }) {
@@ -15,6 +19,12 @@ export function TeacherProfilePanel({ teacher }: { teacher: PublicExaminer }) {
   const tabs = hasReviews ? (["overview", "reviews"] as const) : (["overview"] as const);
   const [tab, setTab] = useState<"overview" | "reviews">("overview");
   const positivePercent = positiveReviewPercent(teacher.rating);
+
+  const canBookWriting =
+    teacher.speciality === "Writing" || teacher.speciality === "Writing & Speaking";
+  const canBookSpeaking =
+    teacher.speciality === "Speaking" || teacher.speciality === "Writing & Speaking";
+  const canBookFullMock = teacher.speciality === "Writing & Speaking";
 
   return (
     <div className="space-y-6">
@@ -41,13 +51,32 @@ export function TeacherProfilePanel({ teacher }: { teacher: PublicExaminer }) {
               </p>
             </div>
           </div>
-          <Link
-            href={`${STUDENT_VIEW_PATHS.browse}?book=1`}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy/90"
-          >
-            Book a mock
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="flex flex-col gap-2 sm:items-end">
+            {canBookWriting ? (
+              <Link
+                href={browseUrlForWritingExaminer(teacher.id)}
+                className="inline-flex items-center justify-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy/90"
+              >
+                Book for Writing
+              </Link>
+            ) : null}
+            {canBookSpeaking ? (
+              <Link
+                href={browseUrlForSpeakingExaminer(teacher.id)}
+                className="inline-flex items-center justify-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy/90"
+              >
+                Book for Speaking
+              </Link>
+            ) : null}
+            {canBookFullMock ? (
+              <Link
+                href={browseUrlForFullMockExaminer(teacher.id)}
+                className="inline-flex items-center justify-center rounded-full border border-navy px-5 py-2.5 text-sm font-semibold text-navy hover:bg-navy/5"
+              >
+                Book Full Mock
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
 

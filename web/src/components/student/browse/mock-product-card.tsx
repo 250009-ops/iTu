@@ -86,10 +86,14 @@ export function MockProductCard({
   product,
   autoOpenBooking = false,
   onBookingOpened,
+  initialWritingTeacherId,
+  initialSpeakingTeacherId,
 }: {
   product: BrowseProduct;
   autoOpenBooking?: boolean;
   onBookingOpened?: () => void;
+  initialWritingTeacherId?: string | null;
+  initialSpeakingTeacherId?: string | null;
 }) {
   const [wizardOpen, setWizardOpen] = useState(false);
 
@@ -234,7 +238,12 @@ export function MockProductCard({
 
     </div>
     {wizardOpen && (
-      <BookingWizard product={product} onClose={() => setWizardOpen(false)} />
+      <BookingWizard
+        product={product}
+        onClose={() => setWizardOpen(false)}
+        initialWritingTeacherId={initialWritingTeacherId}
+        initialSpeakingTeacherId={initialSpeakingTeacherId}
+      />
     )}
     </>
   );

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
-import { ExaminerCard } from "@/components/student/teachers/examiner-card";
+import { ExaminerListRow } from "@/components/student/teachers/examiner-list-row";
 import type { PublicExaminer } from "@/lib/teachers/map-public-teacher";
 import { STUDENT_VIEW_PATHS } from "@/lib/student/routes";
 
@@ -15,14 +15,14 @@ export function RecommendedExaminers({
 }) {
   if (loading) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="flex h-fit self-start items-center justify-center rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </div>
     );
   }
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <section className="h-fit self-start rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-base font-bold text-gray-900">Recommended examiners</h2>
         <Link
@@ -36,14 +36,19 @@ export function RecommendedExaminers({
 
       {examiners.length === 0 ? (
         <p className="text-sm text-gray-500">
-          No examiners with open availability right now. Check back soon.
+          No examiners have open slots right now. Check back later or{" "}
+          <Link
+            href={STUDENT_VIEW_PATHS.teachers}
+            className="font-semibold text-navy underline underline-offset-2"
+          >
+            browse all examiners
+          </Link>
+          .
         </p>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
+        <div className="space-y-2">
           {examiners.map((examiner) => (
-            <div key={examiner.id} className="w-[260px] shrink-0 lg:w-auto">
-              <ExaminerCard examiner={examiner} compact />
-            </div>
+            <ExaminerListRow key={examiner.id} examiner={examiner} />
           ))}
         </div>
       )}

@@ -28,11 +28,11 @@ function initialsOf(name: string): string {
 
 function SkillBands({ bands }: { bands: LeaderboardEntry["skillBands"] }) {
   return (
-    <div className="grid grid-cols-4 gap-1 text-[10px] tabular-nums">
+    <div className="grid w-[5.25rem] shrink-0 grid-cols-4 gap-0.5 text-[10px] tabular-nums">
       {SKILL_LETTERS.map(([key, letter, color]) => (
-        <div key={key} className="flex flex-col items-center">
+        <div key={key} className="flex flex-col items-center gap-0.5">
           <span className={cn("font-bold leading-none", color)}>{letter}</span>
-          <span className="mt-0.5 font-semibold leading-none text-gray-700">
+          <span className="font-semibold leading-none text-gray-700">
             {bands[key] > 0 ? bands[key] : "—"}
           </span>
         </div>
@@ -51,33 +51,31 @@ function LeaderboardRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border px-3 py-2.5",
+        "grid grid-cols-[2rem_2.25rem_minmax(0,1fr)_5.25rem_2.75rem] items-center gap-x-2.5 rounded-xl border px-3 py-2",
         highlight
           ? "border-navy/20 bg-navy/5 ring-1 ring-navy/10"
           : "border-gray-100 bg-white",
       )}
     >
-      <span className="w-8 shrink-0 text-sm font-bold text-gray-400">
+      <span className="text-sm font-bold tabular-nums text-gray-400">
         #{entry.rank}
       </span>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy/10 text-xs font-bold text-navy">
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy/10 text-xs font-bold text-navy">
         {initialsOf(entry.name)}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-gray-900">
-          {entry.name}
-          {entry.country ? (
-            <span className="font-normal text-gray-500"> · {entry.country}</span>
-          ) : null}
-        </p>
-        <SkillBands bands={entry.skillBands} />
-      </div>
-      <div className="shrink-0 text-right">
-        <p className="text-lg font-extrabold text-emerald-600">
+      <p className="min-w-0 truncate text-sm font-semibold text-gray-900">
+        {entry.name}
+        {entry.country ? (
+          <span className="font-normal text-gray-500"> · {entry.country}</span>
+        ) : null}
+      </p>
+      <SkillBands bands={entry.skillBands} />
+      <div className="text-right">
+        <p className="text-base font-extrabold leading-none text-emerald-600">
           {entry.overallBand.toFixed(1)}
         </p>
         {entry.improvementDelta > 0 ? (
-          <p className="text-[11px] font-medium text-emerald-600">
+          <p className="mt-0.5 text-[10px] font-medium leading-none text-emerald-600">
             +{entry.improvementDelta}
           </p>
         ) : null}
@@ -95,7 +93,7 @@ export function DashboardLeaderboard({
 }) {
   if (loading) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="flex h-fit self-start items-center justify-center rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </div>
     );
@@ -106,7 +104,7 @@ export function DashboardLeaderboard({
   const showSeparate = data?.showCurrentSeparately ?? false;
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <section className="h-fit self-start rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-2">
         <Trophy className="h-5 w-5 text-amber-500" />
         <h2 className="text-base font-bold text-gray-900">Band Heroes</h2>

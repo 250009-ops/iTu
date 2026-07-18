@@ -699,21 +699,6 @@ export class StudentsService {
         status: 'APPROVED',
         institutionId: null,
         ...teacherSpecialityWhere(options?.speciality),
-        ...(options?.activeOnly
-          ? {
-              OR: [
-                { availability: { some: {} } },
-                {
-                  slots: {
-                    some: {
-                      status: SlotStatus.AVAILABLE,
-                      startsAt: { gte: now },
-                    },
-                  },
-                },
-              ],
-            }
-          : {}),
       },
       include: {
         user: { select: { name: true } },
@@ -724,6 +709,9 @@ export class StudentsService {
           },
           select: { id: true },
         },
+        ...(options?.activeOnly
+          ? { availability: { select: { id: true }, take: 1 } }
+          : {}),
       },
     });
 
@@ -731,15 +719,27 @@ export class StudentsService {
       .map((t) => ({
         ...toPublicTeacher(t),
         openSlots: t.slots.length,
+        hasAvailability:
+          'availability' in t &&
+          Array.isArray(t.availability) &&
+          t.availability.length > 0,
+        rawSpeciality: t.speciality,
       }))
       .filter((t) => t.bio.trim().length > 0)
+      .filter((t) => {
+        if (!options?.activeOnly) return true;
+        return (
+          t.openSlots > 0 ||
+          (t.rawSpeciality === 'WRITING' && t.hasAvailability)
+        );
+      })
       .sort((a, b) => {
         if (b.openSlots !== a.openSlots) return b.openSlots - a.openSlots;
         if (b.isTopRated !== a.isTopRated)
           return Number(b.isTopRated) - Number(a.isTopRated);
         return b.rating - a.rating;
       })
-      .map(({ openSlots: _openSlots, ...teacher }) => teacher);
+      .map(({ openSlots: _openSlots, hasAvailability: _ha, rawSpeciality: _rs, ...teacher }) => teacher);
 
     if (options?.limit != null && options.limit > 0) {
       return mapped.slice(0, options.limit);

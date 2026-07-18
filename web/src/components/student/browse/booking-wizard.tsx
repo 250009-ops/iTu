@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatPrice } from "@/lib/format-price";
 import { useRouter } from "next/navigation";
 import {
@@ -107,9 +107,13 @@ function dateStepHint(product: BrowseProduct) {
 export function BookingWizard({
   product,
   onClose,
+  initialWritingTeacherId,
+  initialSpeakingTeacherId,
 }: {
   product: BrowseProduct;
   onClose: () => void;
+  initialWritingTeacherId?: string | null;
+  initialSpeakingTeacherId?: string | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -122,12 +126,18 @@ export function BookingWizard({
   const [mockTime, setMockTime] = useState(EXAM_START_TIMES[0]);
 
   const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
-  const [writingTeacherId, setWritingTeacherId] = useState<string | null>(null);
+  const [writingTeacherId, setWritingTeacherId] = useState<string | null>(
+    initialWritingTeacherId ?? null,
+  );
   const [speakingTeachers, setSpeakingTeachers] = useState<Teacher[]>([]);
   const [speakingTeacherId, setSpeakingTeacherId] = useState<string | null>(
-    null,
+    initialSpeakingTeacherId ?? null,
   );
   const [teachersLoading, setTeachersLoading] = useState(false);
+
+  const previousMockDate = useRef(mockDate);
+  const advancedPastWriting = useRef(false);
+  const advancedPastSpeaking = useRef(false);
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -248,10 +258,37 @@ export function BookingWizard({
   ]);
 
   useEffect(() => {
+    if (previousMockDate.current === mockDate) return;
+    previousMockDate.current = mockDate;
     setSpeakingTeacherId(null);
     setSelectedSlot(null);
     setSlots([]);
+    advancedPastSpeaking.current = false;
   }, [mockDate]);
+
+  useEffect(() => {
+    if (currentStep !== "writing") return;
+    if (!writingTeacherId) return;
+    if (writingTeachers.length === 0) return;
+    if (!writingTeachers.some((teacher) => teacher.id === writingTeacherId)) {
+      return;
+    }
+    if (advancedPastWriting.current) return;
+    advancedPastWriting.current = true;
+    setStepIndex((index) => Math.min(index + 1, steps.length - 1));
+  }, [currentStep, writingTeacherId, writingTeachers, steps.length]);
+
+  useEffect(() => {
+    if (currentStep !== "speakingExaminer") return;
+    if (!speakingTeacherId) return;
+    if (speakingTeachers.length === 0) return;
+    if (!speakingTeachers.some((teacher) => teacher.id === speakingTeacherId)) {
+      return;
+    }
+    if (advancedPastSpeaking.current) return;
+    advancedPastSpeaking.current = true;
+    setStepIndex((index) => Math.min(index + 1, steps.length - 1));
+  }, [currentStep, speakingTeacherId, speakingTeachers, steps.length]);
 
   const slotCountByTeacher = useMemo(() => {
     const counts = new Map<string, number>();

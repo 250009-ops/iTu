@@ -8,7 +8,7 @@ import {
   type PublicExaminer,
   type TeacherSpeciality,
 } from "@/lib/teachers/map-public-teacher";
-import { ExaminerCard } from "@/components/student/teachers/examiner-card";
+import { ExaminerListRow } from "@/components/student/teachers/examiner-list-row";
 import { cn } from "@/lib/utils";
 
 type Filter = "All" | TeacherSpeciality;
@@ -49,30 +49,9 @@ export function TeachersDirectory() {
     void load();
   }, [load]);
 
-  const topRated = teachers.filter((t) => t.isTopRated);
-
   return (
     <div>
-      {topRated.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50/50 px-4 py-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-            Top rated
-          </span>
-          {topRated.map((t) => (
-            <span
-              key={t.id}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-2.5 py-1 text-sm font-medium text-navy shadow-sm"
-            >
-              {t.name}
-              {t.rating > 0 ? (
-                <span className="text-xs text-amber-600">{t.rating}★</span>
-              ) : null}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      <div className={cn("flex flex-wrap items-center gap-2", topRated.length > 0 && "mt-6")}>
+      <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-sm font-medium text-gray-500">Speciality:</span>
         {FILTERS.map((f) => (
           <button
@@ -102,9 +81,9 @@ export function TeachersDirectory() {
           No examiners match this filter yet.
         </p>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 space-y-2">
           {teachers.map((teacher) => (
-            <ExaminerCard key={teacher.id} examiner={teacher} />
+            <ExaminerListRow key={teacher.id} examiner={teacher} />
           ))}
         </div>
       )}

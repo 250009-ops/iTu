@@ -37,6 +37,8 @@ function BrowseContent() {
 
   const tabFromUrl = searchParams.get("tab");
   const bookFromUrl = searchParams.get("book") === "1";
+  const writingTeacherIdFromUrl = searchParams.get("writingTeacherId");
+  const speakingTeacherIdFromUrl = searchParams.get("speakingTeacherId");
 
   const defaultTabId = useMemo(() => {
     if (tabFromUrl && visibleOffers.some((offer) => offer.tabId === tabFromUrl)) {
@@ -92,6 +94,8 @@ function BrowseContent() {
               product={activeOffer.product}
               autoOpenBooking={autoOpenBooking}
               onBookingOpened={() => setAutoOpenBooking(false)}
+              initialWritingTeacherId={writingTeacherIdFromUrl}
+              initialSpeakingTeacherId={speakingTeacherIdFromUrl}
             />
           ) : activeOffer?.activeEnrollment ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-10 text-center">

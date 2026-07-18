@@ -80,7 +80,13 @@ export function TeachersView() {
           </>
         ) : (
           <>
-            <div className="mb-6">
+            <Link
+              href={STUDENT_VIEW_PATHS.dashboard}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-navy"
+            >
+              <ChevronLeft className="h-4 w-4" /> Dashboard
+            </Link>
+            <div className="mb-6 mt-4">
               <h1 className="text-2xl font-bold text-gray-900">Examiners</h1>
               <p className="mt-1 text-sm text-gray-500">
                 Browse certified IELTS examiners by speciality, rating, and availability.
