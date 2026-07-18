@@ -9,19 +9,7 @@
     "frontendDist": "../../web/public"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "iTestU",
-        "url": "https://www.itestu.uz",
-        "width": 1280,
-        "height": 860,
-        "minWidth": 1024,
-        "minHeight": 700,
-        "resizable": true,
-        "fullscreen": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
