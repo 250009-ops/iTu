@@ -1,0 +1,45 @@
+# Codemagic macOS desktop build (alternative to GitHub Actions when workflow OAuth scope is unavailable).
+# Connect this repo at https://codemagic.io and add environment group `itestu_vps`:
+#   VPS_HOST, VPS_USER, VPS_PASSWORD
+workflows:
+  macos-desktop-release:
+    name: iTestU macOS Desktop
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - itestu_vps
+      vars:
+        WEB_APP_URL: https://www.itestu.uz
+        DEPLOY_DOMAIN: www.itestu.uz
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Install toolchain
+        script: |
+          set -e
+          brew install node
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+          rustup target add universal-apple-darwin
+      - name: Build Tauri macOS
+        script: |
+          set -e
+          source "$HOME/.cargo/env"
+          npm ci --prefix desktop
+          node deploy/generate-tauri-icons.mjs
+          cd desktop && npm run build:macos
+          mkdir -p dist/desktop
+          find src-tauri/target -path '*/release/bundle/*' -name '*.dmg' -exec cp {} ../dist/desktop/ \;
+          ls -la ../dist/desktop/
+      - name: Upload to VPS
+        script: |
+          set -e
+          npm install ssh2 --no-save --prefix deploy
+          node deploy/upload-desktop-release.mjs --all dist/desktop
+    artifacts:
+      - dist/desktop/*.dmg

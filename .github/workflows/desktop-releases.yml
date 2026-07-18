@@ -1,0 +1,106 @@
+name: Desktop releases
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'desktop-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            script: build:windows
+          - os: macos-latest
+            platform: macos
+            script: build:macos
+          - os: ubuntu-latest
+            platform: linux
+            script: build:linux
+            apt: libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add macOS universal target
+        if: matrix.platform == 'macos'
+        run: rustup target add universal-apple-darwin
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt }}
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Generate icons
+        run: node deploy/generate-tauri-icons.mjs
+
+      - name: Build Tauri (${{ matrix.platform }})
+        working-directory: desktop
+        env:
+          WEB_APP_URL: https://www.itestu.uz
+        run: npm run ${{ matrix.script }}
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist/desktop
+          find desktop/src-tauri/target -path '*/release/bundle/*' -type f \( \
+            -name '*setup.exe' -o -name '*.msi' -o -name '*.dmg' -o -name '*.AppImage' \
+          \) -exec cp {} dist/desktop/ \;
+          ls -la dist/desktop/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: dist/desktop/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/desktop-v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: artifacts
+          merge-multiple: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install ssh2
+        run: npm install ssh2 --no-save
+
+      - name: Upload to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          DEPLOY_DOMAIN: www.itestu.uz
+        run: node deploy/upload-desktop-release.mjs --all artifacts
