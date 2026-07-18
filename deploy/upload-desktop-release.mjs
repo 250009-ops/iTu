@@ -71,17 +71,21 @@ function detectPlatform(fileName) {
 
 function collectArtifacts(inputPaths) {
   const artifacts = [];
-  for (const input of inputPaths) {
-    if (!existsSync(input)) continue;
-    const stat = statSync(input);
-    if (stat.isDirectory()) {
-      for (const name of readdirSync(input)) {
-        const full = path.join(input, name);
-        if (statSync(full).isFile()) artifacts.push(full);
-      }
-    } else {
-      artifacts.push(input);
+
+  function walk(entry) {
+    if (!existsSync(entry)) return;
+    const stat = statSync(entry);
+    if (stat.isFile()) {
+      artifacts.push(entry);
+      return;
     }
+    for (const name of readdirSync(entry)) {
+      walk(path.join(entry, name));
+    }
+  }
+
+  for (const input of inputPaths) {
+    walk(path.resolve(input));
   }
   return artifacts;
 }
@@ -89,11 +93,10 @@ function collectArtifacts(inputPaths) {
 async function main() {
   assertVpsCredentials();
 
-  const uploadAll = process.argv.includes('--all');
   const fileArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 
   let paths = fileArgs.map((p) => path.resolve(p));
-  if (uploadAll || paths.length === 0) {
+  if (paths.length === 0) {
     paths = [DIST_DIR];
   }
 
