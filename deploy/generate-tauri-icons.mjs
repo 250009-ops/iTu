@@ -13,16 +13,25 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const desktopDir = path.join(root, 'desktop');
 const svgPath = path.join(root, 'web', 'public', 'favicon.svg');
 const pngPath = path.join(desktopDir, 'app-icon.png');
-const sharpPath = path.join(root, 'web', 'node_modules', 'sharp');
+const sharpCandidates = [
+  path.join(root, 'web', 'node_modules', 'sharp'),
+  path.join(root, 'node_modules', 'sharp'),
+];
 
 if (!existsSync(svgPath)) {
   console.error('Missing brand icon:', svgPath);
   process.exit(1);
 }
 
-if (!existsSync(sharpPath)) {
-  console.error('Missing sharp — run npm install in web/ first.');
-  process.exit(1);
+let sharpPath = sharpCandidates.find((candidate) => existsSync(candidate));
+if (!sharpPath) {
+  console.log('Installing sharp for SVG rasterization…');
+  const install = spawnSync('npm', ['install', 'sharp', '--no-save', '--prefix', root], {
+    stdio: 'inherit',
+    shell: true,
+  });
+  if (install.status !== 0) process.exit(install.status ?? 1);
+  sharpPath = path.join(root, 'node_modules', 'sharp');
 }
 
 const sharp = require(sharpPath);
