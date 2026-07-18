@@ -9,14 +9,12 @@ import {
   CreditCard,
   Loader2,
   Lock,
-  Mic,
-  PenLine,
-  Star,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import {
   createBooking,
@@ -136,8 +134,6 @@ export function BookingWizard({
   const [teachersLoading, setTeachersLoading] = useState(false);
 
   const previousMockDate = useRef(mockDate);
-  const advancedPastWriting = useRef(false);
-  const advancedPastSpeaking = useRef(false);
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -263,32 +259,7 @@ export function BookingWizard({
     setSpeakingTeacherId(null);
     setSelectedSlot(null);
     setSlots([]);
-    advancedPastSpeaking.current = false;
   }, [mockDate]);
-
-  useEffect(() => {
-    if (currentStep !== "writing") return;
-    if (!writingTeacherId) return;
-    if (writingTeachers.length === 0) return;
-    if (!writingTeachers.some((teacher) => teacher.id === writingTeacherId)) {
-      return;
-    }
-    if (advancedPastWriting.current) return;
-    advancedPastWriting.current = true;
-    setStepIndex((index) => Math.min(index + 1, steps.length - 1));
-  }, [currentStep, writingTeacherId, writingTeachers, steps.length]);
-
-  useEffect(() => {
-    if (currentStep !== "speakingExaminer") return;
-    if (!speakingTeacherId) return;
-    if (speakingTeachers.length === 0) return;
-    if (!speakingTeachers.some((teacher) => teacher.id === speakingTeacherId)) {
-      return;
-    }
-    if (advancedPastSpeaking.current) return;
-    advancedPastSpeaking.current = true;
-    setStepIndex((index) => Math.min(index + 1, steps.length - 1));
-  }, [currentStep, speakingTeacherId, speakingTeachers, steps.length]);
 
   const slotCountByTeacher = useMemo(() => {
     const counts = new Map<string, number>();
@@ -505,45 +476,32 @@ export function BookingWizard({
                   No Writing examiners are available right now.
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {writingTeachers.map((teacher) => (
-                    <button
-                      key={teacher.id}
-                      type="button"
-                      onClick={() => setWritingTeacherId(teacher.id)}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-xl border p-4 text-left transition-colors",
-                        writingTeacherId === teacher.id
-                          ? "border-navy bg-navy/5"
-                          : "border-border bg-white hover:bg-slate-50",
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-                          <PenLine size={18} />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground">
-                            {teacher.name}
-                          </p>
-                          <p className="text-xs text-muted">
-                            Writing examiner · IELTS certified
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {teacher.rating != null && (
-                          <span className="flex items-center gap-1 text-sm text-amber-500">
-                            <Star size={14} className="fill-current" />
-                            {teacher.rating.toFixed(1)}
-                          </span>
-                        )}
-                        {writingTeacherId === teacher.id && (
-                          <Check size={18} className="text-navy" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">
+                    Writing examiner
+                  </label>
+                  <Select
+                    value={writingTeacherId ?? ""}
+                    onChange={(event) =>
+                      setWritingTeacherId(event.target.value || null)
+                    }
+                  >
+                    <option value="">Select a Writing examiner…</option>
+                    {writingTeachers.map((teacher) => (
+                      <option key={teacher.id} value={teacher.id}>
+                        {teacher.name}
+                        {teacher.rating != null
+                          ? ` · ${teacher.rating.toFixed(1)}★`
+                          : ""}
+                      </option>
+                    ))}
+                  </Select>
+                  {selectedWritingTeacher ? (
+                    <p className="text-xs text-muted">
+                      {selectedWritingTeacher.name} will grade your Writing
+                      tasks. You can change this before continuing.
+                    </p>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -571,59 +529,47 @@ export function BookingWizard({
                   No Speaking examiners are available right now.
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {speakingTeachers.map((teacher) => {
-                    const availableSlots = slotCountByTeacher.get(teacher.id) ?? 0;
-                    const disabled = !slotsLoading && availableSlots === 0;
-                    return (
-                      <button
-                        key={teacher.id}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => {
-                          setSpeakingTeacherId(teacher.id);
-                          setSelectedSlot(null);
-                        }}
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-xl border p-4 text-left transition-colors",
-                          disabled && "cursor-not-allowed opacity-50",
-                          speakingTeacherId === teacher.id
-                            ? "border-rose-500 bg-rose-50"
-                            : "border-border bg-white hover:bg-slate-50",
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600">
-                            <Mic size={18} />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-foreground">
-                              {teacher.name}
-                            </p>
-                            <p className="text-xs text-muted">
-                              Speaking examiner · IELTS certified
-                              {slotsLoading
-                                ? " · checking availability…"
-                                : availableSlots > 0
-                                  ? ` · ${availableSlots} open slot${availableSlots === 1 ? "" : "s"}`
-                                  : " · no slots on this date"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {teacher.rating != null && (
-                            <span className="flex items-center gap-1 text-sm text-amber-500">
-                              <Star size={14} className="fill-current" />
-                              {teacher.rating.toFixed(1)}
-                            </span>
-                          )}
-                          {speakingTeacherId === teacher.id && (
-                            <Check size={18} className="text-rose-600" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">
+                    Speaking examiner
+                  </label>
+                  <Select
+                    value={speakingTeacherId ?? ""}
+                    onChange={(event) => {
+                      setSpeakingTeacherId(event.target.value || null);
+                      setSelectedSlot(null);
+                    }}
+                  >
+                    <option value="">Select a Speaking examiner…</option>
+                    {speakingTeachers.map((teacher) => {
+                      const availableSlots =
+                        slotCountByTeacher.get(teacher.id) ?? 0;
+                      const disabled = !slotsLoading && availableSlots === 0;
+                      return (
+                        <option
+                          key={teacher.id}
+                          value={teacher.id}
+                          disabled={disabled}
+                        >
+                          {teacher.name}
+                          {slotsLoading
+                            ? " · checking availability…"
+                            : availableSlots > 0
+                              ? ` · ${availableSlots} open slot${availableSlots === 1 ? "" : "s"}`
+                              : " · no slots on this date"}
+                          {teacher.rating != null
+                            ? ` · ${teacher.rating.toFixed(1)}★`
+                            : ""}
+                        </option>
+                      );
+                    })}
+                  </Select>
+                  {selectedSpeakingTeacher ? (
+                    <p className="text-xs text-muted">
+                      {selectedSpeakingTeacher.name} is pre-selected. Change
+                      the dropdown if you prefer someone else.
+                    </p>
+                  ) : null}
                 </div>
               )}
             </div>

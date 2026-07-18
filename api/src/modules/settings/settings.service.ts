@@ -73,17 +73,17 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     releasedAt: new Date(0).toISOString(),
     platforms: {
       windows: {
-        url: 'https://itestu.uz/releases/desktop/iTestU_1.0.0_x64-setup.exe',
+        url: 'https://www.itestu.uz/releases/desktop/iTestU_1.0.0_x64-setup.exe',
         sha256: '',
         size: 0,
       },
       macos: {
-        url: 'https://itestu.uz/releases/desktop/iTestU_1.0.0_universal.dmg',
+        url: '',
         sha256: '',
         size: 0,
       },
       linux: {
-        url: 'https://itestu.uz/releases/desktop/iTestU_1.0.0_amd64.AppImage',
+        url: '',
         sha256: '',
         size: 0,
       },

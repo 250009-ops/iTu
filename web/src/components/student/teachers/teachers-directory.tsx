@@ -8,7 +8,7 @@ import {
   type PublicExaminer,
   type TeacherSpeciality,
 } from "@/lib/teachers/map-public-teacher";
-import { ExaminerListRow } from "@/components/student/teachers/examiner-list-row";
+import { ExaminerCard } from "@/components/student/teachers/examiner-card";
 import { cn } from "@/lib/utils";
 
 type Filter = "All" | TeacherSpeciality;
@@ -81,9 +81,9 @@ export function TeachersDirectory() {
           No examiners match this filter yet.
         </p>
       ) : (
-        <div className="mt-6 space-y-2">
+        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {teachers.map((teacher) => (
-            <ExaminerListRow key={teacher.id} examiner={teacher} />
+            <ExaminerCard key={teacher.id} examiner={teacher} />
           ))}
         </div>
       )}

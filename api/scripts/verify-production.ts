@@ -171,7 +171,6 @@ async function checkOrphanPoolRows() {
   const orphans = await prisma.packageContentTest.count({
     where: {
       skill: { in: [...EXCLUSIVE_PACKAGE_SKILLS] },
-      testId: { not: null },
       package: { isActive: false },
     },
   });

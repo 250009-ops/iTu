@@ -51,11 +51,11 @@ export function TeacherProfilePanel({ teacher }: { teacher: PublicExaminer }) {
               </p>
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:items-end">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[12rem]">
             {canBookWriting ? (
               <Link
                 href={browseUrlForWritingExaminer(teacher.id)}
-                className="inline-flex items-center justify-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy/90"
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-white px-5 text-sm font-semibold text-foreground transition-colors hover:bg-slate-50"
               >
                 Book for Writing
               </Link>
@@ -63,7 +63,7 @@ export function TeacherProfilePanel({ teacher }: { teacher: PublicExaminer }) {
             {canBookSpeaking ? (
               <Link
                 href={browseUrlForSpeakingExaminer(teacher.id)}
-                className="inline-flex items-center justify-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy/90"
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-white px-5 text-sm font-semibold text-foreground transition-colors hover:bg-slate-50"
               >
                 Book for Speaking
               </Link>
@@ -71,7 +71,7 @@ export function TeacherProfilePanel({ teacher }: { teacher: PublicExaminer }) {
             {canBookFullMock ? (
               <Link
                 href={browseUrlForFullMockExaminer(teacher.id)}
-                className="inline-flex items-center justify-center rounded-full border border-navy px-5 py-2.5 text-sm font-semibold text-navy hover:bg-navy/5"
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-brand-red px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-red-hover active:scale-[0.99]"
               >
                 Book Full Mock
               </Link>
