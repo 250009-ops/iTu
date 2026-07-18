@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarDays, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
-import { useToast } from "@/components/ui/toast";
 import { useStudentDashboardData } from "@/contexts/student-dashboard-context";
 import {
   claimWelcomePromo,
@@ -26,7 +26,7 @@ export function WelcomePromoClaimModal({
   promo: WelcomePromo;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const router = useRouter();
   const { refresh } = useStudentDashboardData();
   const [mockDate, setMockDate] = useState(todayIso());
   const [submitting, setSubmitting] = useState(false);
@@ -40,12 +40,9 @@ export function WelcomePromoClaimModal({
         skill: promo.skill,
         mockDate,
       });
-      await refresh();
-      toast("Welcome gift claimed", {
-        description: `Your free ${promo.skill} mock is booked. Head to Mock Day when you're ready.`,
-        variant: "success",
-      });
       onClose();
+      router.push(`/student/mock-day?welcome=${promo.skill}`);
+      void refresh();
     } catch (err) {
       setError(getErrorMessage(err, "Could not claim this offer"));
     } finally {

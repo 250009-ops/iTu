@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -67,10 +67,28 @@ function StatusBadge({ status }: { status: SectionStatus }) {
   );
 }
 
-export function SectionCards() {
+export function SectionCards({
+  focusSectionId = null,
+}: {
+  focusSectionId?: string | null;
+}) {
   const { data, refresh } = useStudentMockDayData();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [speakingSlotOpen, setSpeakingSlotOpen] = useState(false);
+
+  useEffect(() => {
+    if (!focusSectionId || !data) return;
+    const hasSection = data.sections.some((section) => section.id === focusSectionId);
+    if (!hasSection) return;
+
+    setExpanded(focusSectionId);
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`mock-day-section-${focusSectionId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusSectionId, data]);
 
   if (!data) return null;
   const isMissed = data.status === "missed";
@@ -94,7 +112,11 @@ export function SectionCards() {
         return (
           <div
             key={section.id}
-            className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+            id={`mock-day-section-${section.id}`}
+            className={cn(
+              "overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm",
+              focusSectionId === section.id && "ring-2 ring-sky-300 ring-offset-2",
+            )}
           >
             <div
               className="h-0.5"

@@ -199,10 +199,10 @@ test.describe("Student dashboard (fresh user, detailed)", () => {
       .getByRole("button", { name: /^Claim free mock$/i })
       .click();
 
-    await expect(page.getByText("Welcome gift claimed")).toBeVisible({
+    await expect(page).toHaveURL(/\/student\/mock-day\?welcome=listening/, {
       timeout: 15_000,
     });
-    await expect(page.getByText("Free Listening mock")).not.toBeVisible();
-    await expect(page.getByText("Free Reading mock")).toBeVisible();
+    await expect(page.getByText(/Welcome gift booked/i)).toBeVisible();
+    await expect(page.getByText(/Listening/i).first()).toBeVisible();
   });
 });

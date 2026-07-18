@@ -30,6 +30,9 @@ function MockDayContent() {
   const { data, loading, error } = useStudentMockDayData();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const welcomeSkill = searchParams.get("welcome");
+  const showWelcomeBanner =
+    welcomeSkill === "listening" || welcomeSkill === "reading";
 
   useEffect(() => {
     if (searchParams.get("payment") !== "success") return;
@@ -38,6 +41,15 @@ function MockDayContent() {
       variant: "success",
     });
   }, [searchParams, toast]);
+
+  useEffect(() => {
+    if (!showWelcomeBanner) return;
+    const label = welcomeSkill === "listening" ? "Listening" : "Reading";
+    toast("Welcome gift claimed", {
+      description: `Your free ${label} mock is ready in Mock Day Hub.`,
+      variant: "success",
+    });
+  }, [showWelcomeBanner, welcomeSkill, toast]);
 
   if (loading) {
     return <MockDayLoadingSkeleton />;
@@ -75,13 +87,25 @@ function MockDayContent() {
           </div>
         </div>
       ) : null}
+      {showWelcomeBanner ? (
+        <div className="border-b border-sky-200 bg-sky-50 px-6 py-3 text-sm text-sky-900">
+          <div className="mx-auto flex max-w-7xl items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-sky-600" />
+            <span>
+              <strong>Welcome gift booked.</strong> Your free{" "}
+              {welcomeSkill === "listening" ? "Listening" : "Reading"} mock is
+              confirmed — check in below on mock day to begin.
+            </span>
+          </div>
+        </div>
+      ) : null}
       <CurrentStatusBanner />
 
       <div className="mx-auto max-w-7xl px-6 py-7 lg:px-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="space-y-4 lg:col-span-8">
             <ExamRulesBanner />
-            <SectionCards />
+            <SectionCards focusSectionId={showWelcomeBanner ? welcomeSkill : null} />
           </div>
 
           <div className="space-y-4 lg:col-span-4">
