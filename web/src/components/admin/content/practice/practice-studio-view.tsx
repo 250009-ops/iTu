@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Plus } from "lucide-react";
+import { PracticeUnitsSection } from "@/components/admin/content/practice/practice-units-section";
+import { PracticeWritingPromptsSection } from "@/components/admin/content/practice/practice-writing-prompts-section";
+import { PracticeUnitEditor } from "@/components/admin/content/practice/practice-unit-editor";
+import { PracticeWritingPromptEditor } from "@/components/admin/content/practice/practice-writing-prompt-editor";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -13,15 +17,49 @@ import {
   useAdminPractice,
   type PracticeStudioTab,
 } from "@/contexts/admin-practice-context";
-import { PracticeUnitEditor } from "@/components/admin/content/practice/practice-unit-editor";
-import { PracticeWritingPromptEditor } from "@/components/admin/content/practice/practice-writing-prompt-editor";
-import { PracticeUnitsTable } from "@/components/admin/content/practice/practice-units-table";
+import { createQuestionGroup, QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
+import type { QuestionGroup } from "@/lib/exam/types";
 import { cn } from "@/lib/utils";
 
 const TABS: { id: PracticeStudioTab; label: string }[] = [
   { id: "reading", label: "Reading" },
   { id: "listening", label: "Listening" },
   { id: "writing-ai", label: "Writing (AI)" },
+];
+
+const READING_DRILL_TYPES: QuestionGroup["type"][] = [
+  "tfng",
+  "yng",
+  "form_completion",
+  "note_completion",
+  "summary_completion",
+  "summary_completion_list",
+  "table_completion",
+  "flowchart_completion",
+  "map_labeling",
+  "matching_information",
+  "matching_headings",
+  "matching_features",
+  "matching",
+  "mcq_single",
+  "mcq_multi",
+  "sentence_completion",
+  "short_answer",
+];
+
+const LISTENING_DRILL_TYPES: QuestionGroup["type"][] = [
+  "form_completion",
+  "note_completion",
+  "summary_completion",
+  "summary_completion_list",
+  "sentence_completion",
+  "mcq_single",
+  "mcq_multi",
+  "matching",
+  "flowchart_completion",
+  "map_labeling",
+  "table_completion",
+  "short_answer",
 ];
 
 function PracticeStudioInner() {
@@ -42,38 +80,88 @@ function PracticeStudioInner() {
   } = useAdminPractice();
 
   const [creating, setCreating] = useState(false);
+  const [readingDrillType, setReadingDrillType] =
+    useState<QuestionGroup["type"]>("mcq_single");
+  const [listeningDrillType, setListeningDrillType] =
+    useState<QuestionGroup["type"]>("mcq_single");
+
   const isEditingUnit = Boolean(selectedUnitId);
   const isEditingPrompt = Boolean(selectedPromptId);
 
-  const filteredUnits = units.filter((u) => {
-    if (activeTab === "writing-ai") return false;
-    const skill = activeTab.toUpperCase();
-    return u.skill === skill;
-  });
+  const readingPassages = useMemo(
+    () => units.filter((u) => u.type === "READING_PASSAGE"),
+    [units],
+  );
+  const readingDrills = useMemo(
+    () => units.filter((u) => u.type === "READING_QUESTION_TYPE"),
+    [units],
+  );
+  const listeningSections = useMemo(
+    () => units.filter((u) => u.type === "LISTENING_SECTION"),
+    [units],
+  );
+  const listeningDrills = useMemo(
+    () => units.filter((u) => u.type === "LISTENING_QUESTION_TYPE"),
+    [units],
+  );
+  const task1Prompts = useMemo(
+    () => prompts.filter((p) => p.taskNumber === 1),
+    [prompts],
+  );
+  const task2Prompts = useMemo(
+    () => prompts.filter((p) => p.taskNumber === 2),
+    [prompts],
+  );
 
-  const filteredPrompts =
-    activeTab === "writing-ai" ? prompts : [];
-
-  async function handleCreateUnit(kind: "passage" | "questionType") {
+  async function handleCreatePassage() {
     if (activeTab === "writing-ai") return;
     setCreating(true);
     try {
       const types = UNIT_TYPE_BY_TAB[activeTab];
-      const type = kind === "passage" ? types.passage : types.questionType;
       const passage =
         activeTab === "reading" ? emptyReadingPassage() : emptyListeningPart();
       const content =
         activeTab === "reading"
-          ? { passages: [passage] }
-          : { parts: [passage] };
+          ? { passages: [{ ...passage, groups: [] }] }
+          : { parts: [{ ...passage, groups: [] }] };
       await createUnit({
-        type,
-        questionType: kind === "questionType" ? "mcq_single" : undefined,
+        type: types.passage,
         content,
         answerKey: {},
       });
     } catch (err) {
       toast("Could not create practice unit", {
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleCreateDrill() {
+    if (activeTab === "writing-ai") return;
+    setCreating(true);
+    try {
+      const types = UNIT_TYPE_BY_TAB[activeTab];
+      const drillType =
+        activeTab === "reading" ? readingDrillType : listeningDrillType;
+      const group = createQuestionGroup(drillType, 1);
+      const partition =
+        activeTab === "reading" ? emptyReadingPassage() : emptyListeningPart();
+      const partitionWithGroup = { ...partition, groups: [group] };
+      const content =
+        activeTab === "reading"
+          ? { passages: [partitionWithGroup] }
+          : { parts: [partitionWithGroup] };
+      await createUnit({
+        type: types.questionType,
+        questionType: drillType,
+        content,
+        answerKey: {},
+      });
+    } catch (err) {
+      toast("Could not create question-type drill", {
         description: err instanceof Error ? err.message : "Please try again.",
         variant: "error",
       });
@@ -101,7 +189,7 @@ function PracticeStudioInner() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 lg:px-8">
         <div>
           <p className="text-xs font-medium text-muted">
             Admin &gt; Content Studio &gt; Practice Creation
@@ -144,7 +232,7 @@ function PracticeStudioInner() {
               <ArrowLeft className="h-4 w-4" />
               Back to units
             </Button>
-            <PracticeUnitEditor unitId={selectedUnitId!} module={activeTab as "reading" | "listening"} />
+            <PracticeUnitEditor unitId={selectedUnitId!} />
           </div>
         ) : isEditingPrompt ? (
           <div className="space-y-4">
@@ -158,94 +246,153 @@ function PracticeStudioInner() {
             </Button>
             <PracticeWritingPromptEditor promptId={selectedPromptId!} />
           </div>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-2">
-              {activeTab !== "writing-ai" ? (
+        ) : activeTab === "reading" ? (
+          <div className="space-y-10">
+            <PracticeUnitsSection
+              title="Reading passages"
+              description="Full passages with multiple question types — same editor as Mock Content Studio."
+              units={readingPassages}
+              onEdit={setSelectedUnitId}
+              emptyMessage="No reading passages yet."
+              actions={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={creating}
+                  onClick={() => void handleCreatePassage()}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Passage
+                </Button>
+              }
+            />
+            <PracticeUnitsSection
+              title="Reading question-type drills"
+              description="Single question format per drill — one group only, optional short stimulus."
+              units={readingDrills}
+              onEdit={setSelectedUnitId}
+              emptyMessage="No reading question-type drills yet."
+              actions={
                 <>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => void handleCreateUnit("passage")}
+                  <select
+                    value={readingDrillType}
+                    onChange={(e) =>
+                      setReadingDrillType(e.target.value as QuestionGroup["type"])
+                    }
+                    className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"
                   >
-                    <Plus className="h-4 w-4" />
-                    New {activeTab === "reading" ? "Passage" : "Section"}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => void handleCreateUnit("questionType")}
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Question Type Drill
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => void handleCreatePrompt(1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Task 1 Prompt
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => void handleCreatePrompt(2)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Task 2 Prompt
-                  </Button>
-                </>
-              )}
-            </div>
-
-            {activeTab === "writing-ai" ? (
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-muted">
-                    <tr>
-                      <th className="px-4 py-3">Code</th>
-                      <th className="px-4 py-3">Title</th>
-                      <th className="px-4 py-3">Task</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPrompts.map((p) => (
-                      <tr key={p.id} className="border-t border-slate-100">
-                        <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
-                        <td className="px-4 py-3">{p.title}</td>
-                        <td className="px-4 py-3">Task {p.taskNumber}</td>
-                        <td className="px-4 py-3 capitalize">{p.status}</td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedPromptId(p.id)}
-                          >
-                            Edit
-                          </Button>
-                        </td>
-                      </tr>
+                    {READING_DRILL_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {QUESTION_TYPE_LABELS[type]}
+                      </option>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <PracticeUnitsTable
-                units={filteredUnits}
-                onEdit={(id) => setSelectedUnitId(id)}
-              />
-            )}
-          </>
+                  </select>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={creating}
+                    onClick={() => void handleCreateDrill()}
+                  >
+                    <Plus className="h-4 w-4" />
+                    New Question-Type Drill
+                  </Button>
+                </>
+              }
+            />
+          </div>
+        ) : activeTab === "listening" ? (
+          <div className="space-y-10">
+            <PracticeUnitsSection
+              title="Listening sections"
+              description="Full sections with multiple question types and audio upload."
+              units={listeningSections}
+              onEdit={setSelectedUnitId}
+              emptyMessage="No listening sections yet."
+              actions={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={creating}
+                  onClick={() => void handleCreatePassage()}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Section
+                </Button>
+              }
+            />
+            <PracticeUnitsSection
+              title="Listening question-type drills"
+              description="Single question format per drill — one group only with section audio."
+              units={listeningDrills}
+              onEdit={setSelectedUnitId}
+              emptyMessage="No listening question-type drills yet."
+              actions={
+                <>
+                  <select
+                    value={listeningDrillType}
+                    onChange={(e) =>
+                      setListeningDrillType(e.target.value as QuestionGroup["type"])
+                    }
+                    className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    {LISTENING_DRILL_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {QUESTION_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={creating}
+                    onClick={() => void handleCreateDrill()}
+                  >
+                    <Plus className="h-4 w-4" />
+                    New Question-Type Drill
+                  </Button>
+                </>
+              }
+            />
+          </div>
+        ) : (
+          <div className="space-y-10">
+            <PracticeWritingPromptsSection
+              title="Task 1 prompts"
+              description="AI writing coach prompts for Academic Task 1."
+              prompts={task1Prompts}
+              onEdit={setSelectedPromptId}
+              emptyMessage="No Task 1 prompts yet."
+              actions={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={creating}
+                  onClick={() => void handleCreatePrompt(1)}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Task 1 Prompt
+                </Button>
+              }
+            />
+            <PracticeWritingPromptsSection
+              title="Task 2 prompts"
+              description="AI writing coach prompts for Task 2 essays."
+              prompts={task2Prompts}
+              onEdit={setSelectedPromptId}
+              emptyMessage="No Task 2 prompts yet."
+              actions={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={creating}
+                  onClick={() => void handleCreatePrompt(2)}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Task 2 Prompt
+                </Button>
+              }
+            />
+          </div>
         )}
       </div>
     </ApiDataShell>

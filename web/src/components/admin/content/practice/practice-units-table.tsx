@@ -6,13 +6,14 @@ import type { AdminPracticeUnit } from "@/lib/api/admin";
 type Props = {
   units: AdminPracticeUnit[];
   onEdit: (id: string) => void;
+  emptyMessage?: string;
 };
 
-export function PracticeUnitsTable({ units, onEdit }: Props) {
+export function PracticeUnitsTable({ units, onEdit, emptyMessage }: Props) {
   if (units.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-muted">
-        No practice units yet. Create a passage, section, or question-type drill.
+        {emptyMessage ?? "No practice units yet."}
       </div>
     );
   }

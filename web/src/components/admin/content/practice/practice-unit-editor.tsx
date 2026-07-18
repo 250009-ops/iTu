@@ -1,32 +1,79 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ReadingVisualEditor } from "@/components/admin/content/editors/reading-visual-editor";
+import { ListeningVisualEditor } from "@/components/admin/content/editors/listening-visual-editor";
+import { RichTextField } from "@/components/admin/content/forms/rich-text-field";
 import { QuestionGroupsPanel } from "@/components/admin/content/forms/question-groups-panel";
+import { PracticeListeningAudioUpload } from "@/components/admin/content/practice/practice-listening-audio-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminPractice } from "@/contexts/admin-practice-context";
-import { uploadPracticeUnitMedia } from "@/lib/api/admin";
+import {
+  emptyListeningContent,
+  emptyReadingContent,
+  QUESTION_TYPE_LABELS,
+} from "@/lib/admin/content/factories";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
-import type { ListeningPart, QuestionGroup, ReadingPassage } from "@/lib/exam/types";
+import type {
+  ListeningContent,
+  ListeningPart,
+  QuestionGroup,
+  ReadingContent,
+  ReadingPassage,
+} from "@/lib/exam/types";
 import { useToast } from "@/components/ui/toast";
 
 type Props = {
   unitId: string;
-  module: "reading" | "listening";
 };
 
-export function PracticeUnitEditor({ unitId, module }: Props) {
+type LoadedUnit = {
+  title: string;
+  type: string;
+  skill: string;
+  questionType: string | null;
+  durationMin: number;
+  status: string;
+  content: ReadingContent | ListeningContent;
+  answerKey?: AnswerKeyMap;
+};
+
+function isQuestionTypeUnit(type: string) {
+  return type.includes("QUESTION_TYPE");
+}
+
+function asReadingContent(content: ReadingContent | ListeningContent): ReadingContent {
+  if ("passages" in content && Array.isArray(content.passages)) {
+    return content;
+  }
+  return emptyReadingContent("Practice Reading");
+}
+
+function asListeningContent(content: ReadingContent | ListeningContent): ListeningContent {
+  if ("parts" in content && Array.isArray(content.parts)) {
+    return content;
+  }
+  return emptyListeningContent("Practice Listening");
+}
+
+export function PracticeUnitEditor({ unitId }: Props) {
   const { loadUnit, saveUnit, publishUnit, archiveUnit, removeUnit } =
     useAdminPractice();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [unitType, setUnitType] = useState("");
+  const [module, setModule] = useState<"reading" | "listening">("reading");
   const [title, setTitle] = useState("");
-  const [questionType, setQuestionType] = useState("");
+  const [questionType, setQuestionType] = useState<QuestionGroup["type"]>("mcq_single");
   const [durationMin, setDurationMin] = useState(20);
   const [status, setStatus] = useState("draft");
-  const [passage, setPassage] = useState<ReadingPassage | ListeningPart | null>(
-    null,
+  const [readingContent, setReadingContent] = useState<ReadingContent>(
+    emptyReadingContent("Practice Reading"),
+  );
+  const [listeningContent, setListeningContent] = useState<ListeningContent>(
+    emptyListeningContent("Practice Listening"),
   );
   const [answerKey, setAnswerKey] = useState<AnswerKeyMap>({});
   const [saving, setSaving] = useState(false);
@@ -37,26 +84,18 @@ export function PracticeUnitEditor({ unitId, module }: Props) {
     void loadUnit(unitId)
       .then((raw) => {
         if (!active) return;
-        const unit = raw as {
-          title: string;
-          questionType: string | null;
-          durationMin: number;
-          status: string;
-          content: {
-            passages?: ReadingPassage[];
-            parts?: ListeningPart[];
-          };
-          answerKey?: AnswerKeyMap;
-        };
+        const unit = raw as LoadedUnit;
+        setUnitType(unit.type);
+        setModule(unit.skill === "listening" ? "listening" : "reading");
         setTitle(unit.title);
-        setQuestionType(unit.questionType ?? "");
+        setQuestionType((unit.questionType as QuestionGroup["type"]) ?? "mcq_single");
         setDurationMin(unit.durationMin);
         setStatus(unit.status.toLowerCase());
-        const partition =
-          module === "reading"
-            ? unit.content.passages?.[0]
-            : unit.content.parts?.[0];
-        setPassage(partition ?? null);
+        if (unit.skill === "listening") {
+          setListeningContent(asListeningContent(unit.content));
+        } else {
+          setReadingContent(asReadingContent(unit.content));
+        }
         setAnswerKey((unit.answerKey as AnswerKeyMap) ?? {});
       })
       .finally(() => {
@@ -65,29 +104,21 @@ export function PracticeUnitEditor({ unitId, module }: Props) {
     return () => {
       active = false;
     };
-  }, [unitId, module, loadUnit]);
+  }, [unitId, loadUnit]);
 
-  if (loading || !passage) {
+  if (loading) {
     return <div className="py-12 text-center text-sm text-muted">Loading…</div>;
   }
 
-  const groups = passage.groups ?? [];
-
-  function updateGroups(next: QuestionGroup[]) {
-    if (!passage) return;
-    setPassage({ ...passage, groups: next });
-  }
+  const isDrill = isQuestionTypeUnit(unitType);
 
   async function handleSave() {
     setSaving(true);
     try {
-      const content =
-        module === "reading"
-          ? { passages: [{ ...passage, groups }] }
-          : { parts: [{ ...passage, groups }] };
+      const content = module === "reading" ? readingContent : listeningContent;
       await saveUnit(unitId, {
         title,
-        questionType: questionType || undefined,
+        questionType: isDrill ? questionType : undefined,
         content,
         answerKey,
         durationMin,
@@ -115,76 +146,68 @@ export function PracticeUnitEditor({ unitId, module }: Props) {
             onChange={(e) => setDurationMin(Number(e.target.value))}
           />
         </div>
-        {questionType !== undefined && (
+        {isDrill && (
           <div>
-            <Label>Question type (for drills)</Label>
+            <Label>Question type</Label>
             <Input
-              value={questionType}
-              onChange={(e) => setQuestionType(e.target.value)}
-              placeholder="e.g. mcq_single"
+              value={QUESTION_TYPE_LABELS[questionType] ?? questionType}
+              readOnly
+              className="bg-slate-50"
             />
           </div>
         )}
       </div>
 
-      {"paragraphs" in passage && (
-        <div>
-          <Label>Passage text</Label>
-          <textarea
-            className="mt-1 min-h-[120px] w-full rounded-lg border border-slate-200 p-3 text-sm"
-            value={passage.paragraphs.map((p) => p.text).join("\n\n")}
-            onChange={(e) =>
-              setPassage({
-                ...passage,
-                paragraphs: e.target.value
-                  .split(/\n\n+/)
-                  .filter(Boolean)
-                  .map((text, i) => ({
-                    marker: String.fromCharCode(65 + i),
-                    text,
-                  })),
-              })
-            }
+      {isDrill ? (
+        <PracticeQuestionTypeBody
+          module={module}
+          unitId={unitId}
+          questionType={questionType}
+          readingContent={readingContent}
+          listeningContent={listeningContent}
+          answerKey={answerKey}
+          onReadingContentChange={setReadingContent}
+          onListeningContentChange={setListeningContent}
+          onAnswerKeyChange={setAnswerKey}
+        />
+      ) : module === "reading" ? (
+        <div className="min-h-[480px]">
+          <ReadingVisualEditor
+            testId={unitId}
+            content={readingContent}
+            answerKey={answerKey}
+            onContentChange={setReadingContent}
+            onAnswerKeyChange={setAnswerKey}
+          />
+        </div>
+      ) : (
+        <div className="min-h-[480px] space-y-4">
+          <PracticeListeningAudioUpload unitId={unitId} />
+          <ListeningVisualEditor
+            content={listeningContent}
+            answerKey={answerKey}
+            onContentChange={setListeningContent}
+            onAnswerKeyChange={setAnswerKey}
           />
         </div>
       )}
-
-      {module === "listening" && (
-        <div>
-          <Label>Section audio</Label>
-          <input
-            type="file"
-            accept="audio/*"
-            className="mt-1 block text-sm"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              void uploadPracticeUnitMedia(unitId, "full-audio", file).then(() =>
-                toast("Audio uploaded", { variant: "success" }),
-              );
-            }}
-          />
-        </div>
-      )}
-
-      <QuestionGroupsPanel
-        groups={groups}
-        module={module}
-        partNumber={1}
-        testId={unitId}
-        answerKey={answerKey}
-        onGroupsChange={updateGroups}
-        onAnswerKeyChange={setAnswerKey}
-      />
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" disabled={saving || status === "published"} onClick={() => void handleSave()}>
+        <Button
+          variant="primary"
+          disabled={saving || status === "published"}
+          onClick={() => void handleSave()}
+        >
           Save draft
         </Button>
         {status === "draft" && (
           <Button
             variant="secondary"
-            onClick={() => void publishUnit(unitId).then(() => toast("Published", { variant: "success" }))}
+            onClick={() =>
+              void publishUnit(unitId).then(() =>
+                toast("Published", { variant: "success" }),
+              )
+            }
           >
             Publish
           </Button>
@@ -200,6 +223,103 @@ export function PracticeUnitEditor({ unitId, module }: Props) {
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+function PracticeQuestionTypeBody({
+  module,
+  unitId,
+  questionType,
+  readingContent,
+  listeningContent,
+  answerKey,
+  onReadingContentChange,
+  onListeningContentChange,
+  onAnswerKeyChange,
+}: {
+  module: "reading" | "listening";
+  unitId: string;
+  questionType: QuestionGroup["type"];
+  readingContent: ReadingContent;
+  listeningContent: ListeningContent;
+  answerKey: AnswerKeyMap;
+  onReadingContentChange: (content: ReadingContent) => void;
+  onListeningContentChange: (content: ListeningContent) => void;
+  onAnswerKeyChange: (key: AnswerKeyMap) => void;
+}) {
+  if (module === "reading") {
+    const passage = readingContent.passages[0] ?? emptyReadingContent().passages[0];
+    const stimulus = passage.paragraphs[0]?.text ?? "";
+
+    function updatePassage(patch: Partial<ReadingPassage>) {
+      const nextPassage = { ...passage, ...patch };
+      onReadingContentChange({
+        ...readingContent,
+        passages: [nextPassage],
+      });
+    }
+
+    return (
+      <div className="space-y-5">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Question-type drills use one question format only. Add a short reading
+          stimulus below if needed, then build the single question group.
+        </div>
+        <RichTextField
+          label="Reading stimulus (optional)"
+          value={stimulus}
+          onChange={(text) =>
+            updatePassage({
+              paragraphs: [{ marker: "A", text }],
+            })
+          }
+          rows={6}
+          placeholder="Short passage or context for this drill…"
+        />
+        <QuestionGroupsPanel
+          groups={passage.groups ?? []}
+          module="reading"
+          partNumber={passage.part}
+          testId={unitId}
+          answerKey={answerKey}
+          passageParagraphs={passage.paragraphs}
+          allowedTypes={[questionType]}
+          maxGroups={1}
+          onGroupsChange={(groups) => updatePassage({ groups })}
+          onAnswerKeyChange={onAnswerKeyChange}
+        />
+      </div>
+    );
+  }
+
+  const part = listeningContent.parts[0] ?? emptyListeningContent().parts[0];
+
+  function updatePart(patch: Partial<ListeningPart>) {
+    onListeningContentChange({
+      ...listeningContent,
+      parts: [{ ...part, ...patch }],
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Question-type drills use one question format only. Upload audio, then build
+        the single question group.
+      </div>
+      <PracticeListeningAudioUpload unitId={unitId} />
+      <QuestionGroupsPanel
+        groups={part.groups ?? []}
+        module="listening"
+        partNumber={part.part}
+        testId={unitId}
+        answerKey={answerKey}
+        allowedTypes={[questionType]}
+        maxGroups={1}
+        onGroupsChange={(groups) => updatePart({ groups })}
+        onAnswerKeyChange={onAnswerKeyChange}
+      />
     </div>
   );
 }

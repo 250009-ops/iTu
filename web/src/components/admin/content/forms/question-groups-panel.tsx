@@ -61,6 +61,10 @@ type Props = {
   answerKey: AnswerKeyMap;
   /** Passage paragraph markers for matching_headings section mapping. */
   passageParagraphs?: { marker?: string }[];
+  /** When set, only these group types can be added. */
+  allowedTypes?: QuestionGroup["type"][];
+  /** When set, caps how many groups the partition may contain. */
+  maxGroups?: number;
   onGroupsChange: (groups: QuestionGroup[]) => void;
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
 };
@@ -73,12 +77,17 @@ export function QuestionGroupsPanel({
   testId,
   answerKey,
   passageParagraphs,
+  allowedTypes,
+  maxGroups,
   onGroupsChange,
   onAnswerKeyChange,
 }: Props) {
   const groups = groupsProp ?? [];
-  const types = module === "reading" ? READING_TYPES : LISTENING_TYPES;
+  const types =
+    allowedTypes ??
+    (module === "reading" ? READING_TYPES : LISTENING_TYPES);
   const partitionFrom = partitionFromOverride ?? partitionForPart(module, partNumber).from;
+  const canAddGroup = maxGroups == null || groups.length < maxGroups;
 
   function commitGroups(next: QuestionGroup[]) {
     onGroupsChange(renumberPartitionGroups(next, partitionFrom));
@@ -102,20 +111,22 @@ export function QuestionGroupsPanel({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-navy">Question groups</h3>
-        <div className="flex flex-wrap gap-1">
-          {types.map((type) => (
-            <Button
-              key={type}
-              variant="secondary"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => addGroup(type)}
-            >
-              <Plus className="h-3 w-3" />
-              {QUESTION_TYPE_LABELS[type]}
-            </Button>
-          ))}
-        </div>
+        {canAddGroup && (
+          <div className="flex flex-wrap gap-1">
+            {types.map((type) => (
+              <Button
+                key={type}
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => addGroup(type)}
+              >
+                <Plus className="h-3 w-3" />
+                {QUESTION_TYPE_LABELS[type]}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {groups.length === 0 ? (
