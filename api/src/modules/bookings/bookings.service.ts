@@ -46,6 +46,10 @@ import {
 } from '../content/content-assignment';
 import { packageExamSkills } from '../content/package-skills';
 import { teacherSpecialityWhere } from '../../common/teacher-speciality';
+import {
+  welcomePromoClaimField,
+  type WelcomePromoSkill,
+} from '../../common/welcome-promo';
 
 /**
  * Parameters for {@link BookingsService.provisionEnrollment}. Shared by the
@@ -68,6 +72,8 @@ export interface ProvisionEnrollmentParams {
   reappointmentOfId?: string;
   /** When true: $0 order, COMPLIMENTARY payment method, adminGranted enrollment. */
   complimentary?: boolean;
+  /** When true: $0 welcome promo enrollment — separate from admin grants. */
+  welcomePromo?: boolean;
   /** Reappointment of a paid mock — no charge, not flagged adminGranted. */
   isReappointment?: boolean;
   /** When set: enrollment belongs to an institution (credit-funded, off-platform pay). */
@@ -190,8 +196,9 @@ export class BookingsService {
   async provisionEnrollment(params: ProvisionEnrollmentParams) {
     const { studentProfileId, actorUserId, auditAction } = params;
     const complimentary = params.complimentary ?? false;
+    const welcomePromo = params.welcomePromo ?? false;
     const institutionGranted = params.institutionGranted ?? false;
-    const zeroCharge = complimentary || institutionGranted;
+    const zeroCharge = complimentary || institutionGranted || welcomePromo;
 
     const pkg = await this.prisma.mockTestPackage.findUnique({
       where: { id: params.packageId },
@@ -209,7 +216,7 @@ export class BookingsService {
     }
 
     const flexibleGrant = zeroCharge && !params.mockTime;
-    if (complimentary && !params.reappointmentOfId) {
+    if (complimentary && !params.reappointmentOfId && !welcomePromo) {
       await this.assertNoActiveAdminGrant(studentProfileId);
     }
     if (needsSpeaking && !params.speakingTeacherId) {
@@ -335,6 +342,7 @@ export class BookingsService {
           mockDayCutoffAt,
           status: EnrollmentStatus.ENROLLED,
           adminGranted: complimentary,
+          welcomePromoGranted: welcomePromo,
           institutionId: params.institutionId ?? null,
           institutionGranted,
           reappointmentOfId: params.reappointmentOfId ?? null,
@@ -406,6 +414,26 @@ export class BookingsService {
         }
       }
 
+      if (welcomePromo) {
+        const skill: WelcomePromoSkill | null =
+          pkg.packageKind === 'reading'
+            ? 'reading'
+            : pkg.packageKind === 'listening'
+              ? 'listening'
+              : null;
+        if (!skill) {
+          throw new BadRequestException(
+            'Welcome promo only supports listening or reading packages',
+          );
+        }
+        await tx.studentProfile.update({
+          where: { id: studentProfileId },
+          data: {
+            [welcomePromoClaimField(skill)]: new Date(),
+          },
+        });
+      }
+
       return { enrollment, order, session, slot, speakingSession };
     });
 
@@ -435,18 +463,28 @@ export class BookingsService {
         hour12: false,
       });
       let body: string;
-      if (complimentary && flexibleGrant) {
+      let title: string;
+      if (welcomePromo && flexibleGrant) {
+        const skillLabel =
+          pkg.packageKind === 'reading' ? 'Reading' : 'Listening';
+        title = 'Welcome gift claimed';
+        body = `Your free ${skillLabel} mock is ready for ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
+      } else if (complimentary && flexibleGrant) {
+        title = 'Free mock granted';
         body = `An admin granted you a free mock on ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
       } else if (params.isReappointment) {
+        title = 'Mock reappointed';
         body = `Your mock has been reappointed for ${dateLabel}${resolvedMockTime ? ` at ${resolvedMockTime}` : ` — start before ${cutoffLabel}`}.`;
       } else if (complimentary) {
+        title = 'Free mock granted';
         body = `An admin granted you a free mock on ${dateLabel} at ${resolvedMockTime}.`;
       } else {
+        title = 'Mock booked';
         body = `Your mock is confirmed for ${dateLabel} at ${resolvedMockTime}.`;
       }
       await this.notifications.create(
         studentUser.id,
-        complimentary ? 'Free mock granted' : params.isReappointment ? 'Mock reappointed' : 'Mock booked',
+        title,
         body,
         NotificationType.INFO,
         '/student/mock-day',
@@ -484,6 +522,7 @@ export class BookingsService {
         sessionCode: result.session.sessionCode,
         packageId: params.packageId,
         complimentary,
+        welcomePromo,
       },
     });
 
@@ -495,7 +534,8 @@ export class BookingsService {
       sessionCode: result.session.sessionCode,
       amount: result.order.amount,
       currency: result.order.currency,
-      status: complimentary ? 'granted' : 'confirmed',
+      status:
+        welcomePromo || complimentary ? 'granted' : 'confirmed',
     };
   }
 

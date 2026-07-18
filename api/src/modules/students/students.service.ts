@@ -26,10 +26,18 @@ import {
   withRanks,
 } from '../../common/student-leaderboard';
 import { teacherSpecialityWhere } from '../../common/teacher-speciality';
+import { AuditAction } from '../../common/audit/audit.actions';
+import {
+  buildWelcomePromosForDashboard,
+  isWelcomePromoEligibleForSkill,
+  resolveWelcomePromoPackage,
+} from '../../common/welcome-promo';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CatalogService } from '../catalog/catalog.service';
+import { BookingsService } from '../bookings/bookings.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { ClaimWelcomePromoDto } from './dto/claim-welcome-promo.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { packageExamSkills } from '../content/package-skills';
@@ -62,6 +70,7 @@ export class StudentsService {
     private notifications: NotificationsService,
     private catalog: CatalogService,
     private enrollmentLifecycle: EnrollmentLifecycleService,
+    private bookings: BookingsService,
   ) {}
 
   async listCatalogPackages(user: RequestUser) {
@@ -72,6 +81,54 @@ export class StudentsService {
   async listCatalogOffers(user: RequestUser) {
     this.requireStudent(user);
     return this.catalog.listOffersForStudent(user.studentProfileId!);
+  }
+
+  async claimWelcomePromo(user: RequestUser, dto: ClaimWelcomePromoDto) {
+    this.requireStudent(user);
+
+    const profile = await this.prisma.studentProfile.findUnique({
+      where: { id: user.studentProfileId },
+      include: { user: true },
+    });
+    if (!profile) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const completedCount = await this.prisma.enrollment.count({
+      where: {
+        studentId: user.studentProfileId,
+        status: 'COMPLETED',
+      },
+    });
+
+    if (
+      !isWelcomePromoEligibleForSkill(
+        profile,
+        profile.user,
+        dto.skill,
+        completedCount,
+      )
+    ) {
+      throw new BadRequestException('This welcome offer is no longer available');
+    }
+
+    const pkg = await resolveWelcomePromoPackage(
+      this.prisma,
+      profile.examType,
+      dto.skill,
+    );
+    if (!pkg) {
+      throw new BadRequestException('Welcome mock package is not available');
+    }
+
+    return this.bookings.provisionEnrollment({
+      studentProfileId: user.studentProfileId!,
+      actorUserId: user.id,
+      packageId: pkg.id,
+      mockDate: dto.mockDate,
+      welcomePromo: true,
+      auditAction: AuditAction.BOOKING_CREATE,
+    });
   }
 
   async getDashboard(user: RequestUser) {
@@ -188,6 +245,15 @@ export class StudentsService {
       ? packageExamSkills(upcoming.package.skills)
       : [];
 
+    const welcomePromos = profile
+      ? await buildWelcomePromosForDashboard(
+          this.prisma,
+          profile,
+          profile.user,
+          completed.length,
+        )
+      : [];
+
     return {
       user: {
         name: profile?.user.name ?? user.name,
@@ -290,6 +356,7 @@ export class StudentsService {
         time: n.createdAt,
         isRead: n.isRead,
       })),
+      welcomePromos,
     };
   }
 

@@ -108,7 +108,17 @@ async function resetFreshStudent() {
 
     await tx.studentProfile.update({
       where: { id: studentId },
-      data: { publishToLeaderboard: false, targetBand: null },
+      data: {
+        publishToLeaderboard: false,
+        targetBand: null,
+        welcomeListeningClaimedAt: null,
+        welcomeReadingClaimedAt: null,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: user.id },
+      data: { createdAt: new Date() },
     });
   });
 

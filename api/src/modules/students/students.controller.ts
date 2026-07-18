@@ -7,6 +7,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { LeaderboardConsentDto } from './dto/leaderboard-consent.dto';
+import { ClaimWelcomePromoDto } from './dto/claim-welcome-promo.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { StudentsService } from './students.service';
 
@@ -20,6 +21,14 @@ export class StudentsController {
   @Get('dashboard')
   getDashboard(@CurrentUser() user: RequestUser) {
     return this.students.getDashboard(user);
+  }
+
+  @Post('welcome-promo/claim')
+  claimWelcomePromo(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: ClaimWelcomePromoDto,
+  ) {
+    return this.students.claimWelcomePromo(user, dto);
   }
 
   @Get('catalog/packages')

@@ -26,6 +26,15 @@ test.describe("Student dashboard (fresh user, detailed)", () => {
     await expect(bookBtn).toHaveAttribute("href", "/student/browse");
   });
 
+  test("welcome promo cards show for fresh user", async ({ page }) => {
+    await expect(page.getByText("Your welcome gifts")).toBeVisible();
+    await expect(page.getByText("Free Listening mock")).toBeVisible();
+    await expect(page.getByText("Free Reading mock")).toBeVisible();
+
+    const claimButtons = page.getByRole("button", { name: /Claim free mock/i });
+    await expect(claimButtons).toHaveCount(2);
+  });
+
   test("results alert is hidden for fresh user", async ({ page }) => {
     await expect(
       page.getByText("Your mock results are ready!"),
@@ -167,5 +176,33 @@ test.describe("Student dashboard (fresh user, detailed)", () => {
     await expect(
       page.getByRole("heading", { name: /Full Academic Mock/i }),
     ).toBeVisible();
+  });
+
+  test("claim free listening mock from dashboard promo", async ({ page }) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowIso = tomorrow.toISOString().slice(0, 10);
+
+    await page
+      .locator(".rounded-xl")
+      .filter({ hasText: "Free Listening mock" })
+      .getByRole("button", { name: /Claim free mock/i })
+      .click();
+
+    await expect(
+      page.getByRole("dialog", { name: /Claim free Listening mock/i }),
+    ).toBeVisible();
+
+    await page.locator("#welcome-promo-mock-date").fill(tomorrowIso);
+    await page
+      .getByRole("dialog", { name: /Claim free Listening mock/i })
+      .getByRole("button", { name: /^Claim free mock$/i })
+      .click();
+
+    await expect(page.getByText("Welcome gift claimed")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText("Free Listening mock")).not.toBeVisible();
+    await expect(page.getByText("Free Reading mock")).toBeVisible();
   });
 });

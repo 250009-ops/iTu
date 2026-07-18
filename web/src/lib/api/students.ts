@@ -74,6 +74,15 @@ export type StudentDashboardResponse = {
     time: string;
     isRead: boolean;
   }[];
+  welcomePromos: {
+    skill: "listening" | "reading";
+    title: string;
+    description: string;
+    packageId: string;
+    eligible: boolean;
+    claimed: boolean;
+    expiresAt: string;
+  }[];
 };
 
 export type StudentProfileResponse = {
@@ -142,6 +151,20 @@ export type ReviewableMock = {
 
 export function getStudentDashboard() {
   return apiFetch<StudentDashboardResponse>("/students/dashboard");
+}
+
+export function claimWelcomePromo(body: {
+  skill: "listening" | "reading";
+  mockDate: string;
+}) {
+  return apiFetch<{
+    enrollmentCode: string;
+    sessionCode: string;
+    status: string;
+  }>("/students/welcome-promo/claim", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function getStudentProfile() {

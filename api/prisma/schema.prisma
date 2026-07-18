@@ -250,6 +250,8 @@ model StudentProfile {
   notificationPrefs    Json?                    @map("notification_prefs")
   institutionId        String?                  @map("institution_id")
   institutionStatus    InstitutionMemberStatus? @map("institution_status")
+  welcomeListeningClaimedAt DateTime?           @map("welcome_listening_claimed_at")
+  welcomeReadingClaimedAt   DateTime?           @map("welcome_reading_claimed_at")
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
 
@@ -466,6 +468,7 @@ model Enrollment {
   speakingTeacherId  String?          @map("speaking_teacher_id")
   speakingSlotId     String?          @map("speaking_slot_id")
   adminGranted       Boolean          @default(false) @map("admin_granted")
+  welcomePromoGranted Boolean         @default(false) @map("welcome_promo_granted")
   institutionId      String?          @map("institution_id")
   institutionGranted Boolean          @default(false) @map("institution_granted")
   createdAt          DateTime         @default(now()) @map("created_at")
