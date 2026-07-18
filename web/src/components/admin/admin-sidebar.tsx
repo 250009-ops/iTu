@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
   BookOpen,
   Building2,
+  ChevronDown,
   GraduationCap,
   LayoutDashboard,
   Package,
@@ -19,7 +21,12 @@ import {
 import { useSidebar } from "@/contexts/sidebar-context";
 import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useAdminNavBadges } from "@/contexts/admin-nav-badges-context";
-import { adminNavGroups, type AdminNavItem } from "@/lib/admin/nav";
+import {
+  adminNavGroups,
+  isAdminNavItemActive,
+  isAdminNavParentActive,
+  type AdminNavItem,
+} from "@/lib/admin/nav";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -46,8 +53,175 @@ function navBadgeCount(
   return count > 0 ? count : null;
 }
 
-export function AdminSidebar() {
+function AdminNavLink({
+  item,
+  collapsed,
+  badge,
+  indent = false,
+}: {
+  item: AdminNavItem;
+  collapsed: boolean;
+  badge: number | null;
+  indent?: boolean;
+}) {
   const pathname = usePathname();
+  const href = item.href!;
+  const active = isAdminNavItemActive(pathname, href);
+  const Icon = iconMap[item.icon];
+
+  return (
+    <Link
+      href={href}
+      title={collapsed ? item.label : undefined}
+      className={cn(
+        "relative flex items-center rounded-lg text-sm font-medium transition-colors",
+        collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+        indent && !collapsed && "pl-11",
+        active
+          ? "bg-white/10 text-white"
+          : "text-slate-400 hover:bg-white/5 hover:text-white",
+      )}
+    >
+      {active && !collapsed && !indent && (
+        <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-brand-red" />
+      )}
+      {active && !collapsed && indent && (
+        <span className="absolute left-7 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-brand-red" />
+      )}
+      {!indent && (
+        <span
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-lg",
+            collapsed ? "h-9 w-9" : "h-8 w-8",
+            active && collapsed && "bg-brand-red text-white",
+          )}
+        >
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+      )}
+      {!collapsed && (
+        <>
+          <span className="flex-1">{item.label}</span>
+          {badge != null && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-red px-1.5 text-[10px] font-bold">
+              {badge}
+            </span>
+          )}
+        </>
+      )}
+      {collapsed && badge != null && (
+        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-red" />
+      )}
+    </Link>
+  );
+}
+
+function AdminNavDropdown({
+  item,
+  collapsed,
+  badge,
+}: {
+  item: AdminNavItem;
+  collapsed: boolean;
+  badge: number | null;
+}) {
+  const pathname = usePathname();
+  const parentActive = isAdminNavParentActive(pathname, item);
+  const Icon = iconMap[item.icon];
+  const [open, setOpen] = useState(parentActive);
+
+  useEffect(() => {
+    if (parentActive) setOpen(true);
+  }, [parentActive]);
+
+  if (collapsed) {
+    const firstChild = item.children![0];
+    return (
+      <Link
+        href={firstChild.href}
+        title={item.label}
+        className={cn(
+          "relative flex items-center justify-center rounded-lg px-2 py-2.5 text-sm font-medium transition-colors",
+          parentActive
+            ? "bg-white/10 text-white"
+            : "text-slate-400 hover:bg-white/5 hover:text-white",
+        )}
+      >
+        <span
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+            parentActive && "bg-brand-red text-white",
+          )}
+        >
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+        {badge != null && (
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-red" />
+        )}
+      </Link>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+          parentActive
+            ? "bg-white/10 text-white"
+            : "text-slate-400 hover:bg-white/5 hover:text-white",
+        )}
+      >
+        {parentActive && (
+          <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-brand-red" />
+        )}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+        <span className="flex-1">{item.label}</span>
+        {badge != null && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-red px-1.5 text-[10px] font-bold">
+            {badge}
+          </span>
+        )}
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open && (
+        <div className="mt-1 space-y-1">
+          {item.children!.map((child) => {
+            const active = isAdminNavItemActive(pathname, child.href);
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                className={cn(
+                  "relative flex items-center rounded-lg py-2 pl-11 pr-3 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-white/10 text-white"
+                    : "text-slate-400 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                {active && (
+                  <span className="absolute left-7 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-brand-red" />
+                )}
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function AdminSidebar() {
   const { collapsed } = useSidebar();
   const badges = useAdminNavBadges();
 
@@ -68,53 +242,24 @@ export function AdminSidebar() {
             )}
             <div className="space-y-1">
               {group.items.map((item) => {
-                const Icon = iconMap[item.icon];
                 const badge = navBadgeCount(item, badges);
-                const active =
-                  pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`);
-
+                if (item.children?.length) {
+                  return (
+                    <AdminNavDropdown
+                      key={item.label}
+                      item={item}
+                      collapsed={collapsed}
+                      badge={badge}
+                    />
+                  );
+                }
                 return (
-                  <Link
+                  <AdminNavLink
                     key={item.href}
-                    href={item.href}
-                    title={collapsed ? item.label : undefined}
-                    className={cn(
-                      "relative flex items-center rounded-lg text-sm font-medium transition-colors",
-                      collapsed
-                        ? "justify-center px-2 py-2.5"
-                        : "gap-3 px-3 py-2.5",
-                      active
-                        ? "bg-white/10 text-white"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white",
-                    )}
-                  >
-                    {active && !collapsed && (
-                      <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-brand-red" />
-                    )}
-                    <span
-                      className={cn(
-                        "flex shrink-0 items-center justify-center rounded-lg",
-                        collapsed ? "h-9 w-9" : "h-8 w-8",
-                        active && collapsed && "bg-brand-red text-white",
-                      )}
-                    >
-                      <Icon className="h-4 w-4" strokeWidth={1.75} />
-                    </span>
-                    {!collapsed && (
-                      <>
-                        <span className="flex-1">{item.label}</span>
-                        {badge != null && (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-red px-1.5 text-[10px] font-bold">
-                            {badge}
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {collapsed && badge != null && (
-                      <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-red" />
-                    )}
-                  </Link>
+                    item={item}
+                    collapsed={collapsed}
+                    badge={badge}
+                  />
                 );
               })}
             </div>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowLeft, Plus } from "lucide-react";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import {
   AdminPracticeProvider,
   emptyListeningPart,
@@ -16,6 +16,7 @@ import {
 import { PracticeUnitEditor } from "@/components/admin/content/practice/practice-unit-editor";
 import { PracticeWritingPromptEditor } from "@/components/admin/content/practice/practice-writing-prompt-editor";
 import { PracticeUnitsTable } from "@/components/admin/content/practice/practice-units-table";
+import { cn } from "@/lib/utils";
 
 const TABS: { id: PracticeStudioTab; label: string }[] = [
   { id: "reading", label: "Reading" },
@@ -24,6 +25,7 @@ const TABS: { id: PracticeStudioTab; label: string }[] = [
 ];
 
 function PracticeStudioInner() {
+  const { toast } = useToast();
   const {
     loading,
     error,
@@ -70,6 +72,11 @@ function PracticeStudioInner() {
         content,
         answerKey: {},
       });
+    } catch (err) {
+      toast("Could not create practice unit", {
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "error",
+      });
     } finally {
       setCreating(false);
     }
@@ -82,6 +89,11 @@ function PracticeStudioInner() {
         taskNumber,
         `Write your response for IELTS Writing Task ${taskNumber}.`,
       );
+    } catch (err) {
+      toast("Could not create writing prompt", {
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "error",
+      });
     } finally {
       setCreating(false);
     }

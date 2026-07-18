@@ -48,7 +48,7 @@ type AdminPracticeContextValue = {
     questionType?: string;
     content: object;
     answerKey?: object;
-  }) => Promise<void>;
+  }) => Promise<string>;
   saveUnit: (
     id: string,
     payload: {
@@ -63,7 +63,7 @@ type AdminPracticeContextValue = {
   archiveUnit: (id: string) => Promise<void>;
   removeUnit: (id: string) => Promise<void>;
   loadUnit: (id: string) => Promise<unknown>;
-  createPrompt: (taskNumber: number, instruction: string) => Promise<void>;
+  createPrompt: (taskNumber: number, instruction: string) => Promise<string>;
   savePrompt: (
     id: string,
     payload: { title?: string; instruction?: string; minWords?: number },
@@ -120,8 +120,10 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [unitList, promptList] = await Promise.all([
@@ -133,7 +135,9 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load practice content"));
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -149,7 +153,7 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
       answerKey?: object;
     }) => {
       const identity = await suggestPracticeUnitIdentity(payload.type);
-      await createPracticeUnit({
+      const created = await createPracticeUnit({
         code: identity.code,
         title: identity.title,
         type: payload.type,
@@ -157,7 +161,10 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
         content: payload.content,
         answerKey: payload.answerKey ?? {},
       });
-      await refresh();
+      setSelectedUnitId(created.id);
+      setSelectedPromptId(null);
+      await refresh({ silent: true });
+      return created.id;
     },
     [refresh],
   );
@@ -178,39 +185,42 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
       createUnit,
       saveUnit: async (id, payload) => {
         await updatePracticeUnit(id, payload);
-        await refresh();
+        await refresh({ silent: true });
       },
       publishUnit: async (id) => {
         await publishPracticeUnit(id);
-        await refresh();
+        await refresh({ silent: true });
       },
       archiveUnit: async (id) => {
         await archivePracticeUnit(id);
-        await refresh();
+        await refresh({ silent: true });
       },
       removeUnit: async (id) => {
         await deletePracticeUnit(id);
         setSelectedUnitId(null);
-        await refresh();
+        await refresh({ silent: true });
       },
       loadUnit: (id) => getAdminPracticeUnit(id),
       createPrompt: async (taskNumber, instruction) => {
         const identity = await suggestWritingPromptIdentity(taskNumber);
-        await createWritingPrompt({
+        const created = await createWritingPrompt({
           code: identity.code,
           title: identity.title,
           taskNumber,
           instruction,
         });
-        await refresh();
+        setSelectedPromptId(created.id);
+        setSelectedUnitId(null);
+        await refresh({ silent: true });
+        return created.id;
       },
       savePrompt: async (id, payload) => {
         await updateWritingPrompt(id, payload);
-        await refresh();
+        await refresh({ silent: true });
       },
       publishPrompt: async (id) => {
         await publishWritingPrompt(id);
-        await refresh();
+        await refresh({ silent: true });
       },
       loadPrompt: (id) => getAdminWritingPrompt(id),
     }),

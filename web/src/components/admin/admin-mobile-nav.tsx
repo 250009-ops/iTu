@@ -16,7 +16,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import { adminNav, type AdminNavItem } from "@/lib/admin/nav";
+import { adminNav, isAdminNavItemActive, type AdminNavItem } from "@/lib/admin/nav";
 import { useAdminNavBadges } from "@/contexts/admin-nav-badges-context";
 import { cn } from "@/lib/utils";
 
@@ -50,11 +50,12 @@ export function AdminMobileNav() {
 
   return (
     <nav className="flex gap-1 overflow-x-auto border-b border-border bg-white px-2 py-2 md:hidden">
-      {adminNav.map((item) => {
+      {adminNav
+        .filter((item): item is AdminNavItem & { href: string } => Boolean(item.href))
+        .map((item) => {
         const Icon = iconMap[item.icon];
         const badge = navBadgeCount(item, badges);
-        const active =
-          pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const active = isAdminNavItemActive(pathname, item.href);
 
         return (
           <Link

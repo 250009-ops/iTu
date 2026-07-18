@@ -1029,7 +1029,10 @@ export function createPracticeUnit(payload: {
   answerKey?: object;
   durationMin?: number;
 }) {
-  return apiFetch("/admin/practice/units", { method: "POST", body: payload });
+  return apiFetch<AdminPracticeUnit>("/admin/practice/units", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export function updatePracticeUnit(
@@ -1088,7 +1091,10 @@ export function createWritingPrompt(payload: {
   minWords?: number;
   imageUrl?: string;
 }) {
-  return apiFetch("/admin/practice/writing-prompts", { method: "POST", body: payload });
+  return apiFetch<AdminWritingPrompt>("/admin/practice/writing-prompts", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export function updateWritingPrompt(

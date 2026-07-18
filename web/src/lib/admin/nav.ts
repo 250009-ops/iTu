@@ -14,11 +14,17 @@ export type AdminNavIcon =
 
 export type AdminNavBadgeKey = "liveSessions" | "openTickets";
 
-export type AdminNavItem = {
+export type AdminNavChildItem = {
   label: string;
   href: string;
+};
+
+export type AdminNavItem = {
+  label: string;
+  href?: string;
   icon: AdminNavIcon;
   badgeKey?: AdminNavBadgeKey;
+  children?: AdminNavChildItem[];
 };
 
 export type AdminNavGroup = {
@@ -35,8 +41,22 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     label: "Content",
     items: [
-      { label: "Content Studio", href: "/admin/content", icon: "book-open" },
-      { label: "Packages & Pricing", href: "/admin/packages", icon: "package" },
+      {
+        label: "Content Studio",
+        icon: "book-open",
+        children: [
+          { label: "Mock Creation", href: "/admin/content" },
+          { label: "Practice Creation", href: "/admin/content/practice" },
+        ],
+      },
+      {
+        label: "Packages & Pricing",
+        icon: "package",
+        children: [
+          { label: "Mock Packages", href: "/admin/packages" },
+          { label: "Practice & AI Packages", href: "/admin/packages/practice" },
+        ],
+      },
     ],
   },
   {
@@ -70,4 +90,35 @@ export const adminNavGroups: AdminNavGroup[] = [
   },
 ];
 
-export const adminNav = adminNavGroups.flatMap((g) => g.items);
+export function isAdminNavItemActive(pathname: string, href: string): boolean {
+  if (href === "/admin/content") {
+    return pathname === href;
+  }
+  if (href === "/admin/packages") {
+    return pathname === href;
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function isAdminNavParentActive(
+  pathname: string,
+  item: AdminNavItem,
+): boolean {
+  if (item.href) {
+    return isAdminNavItemActive(pathname, item.href);
+  }
+  return item.children?.some((child) => isAdminNavItemActive(pathname, child.href)) ?? false;
+}
+
+export const adminNav: AdminNavItem[] = adminNavGroups.flatMap((group) =>
+  group.items.flatMap((item) => {
+    if (item.children?.length) {
+      return item.children.map((child) => ({
+        label: child.label,
+        href: child.href,
+        icon: item.icon,
+      }));
+    }
+    return [item];
+  }),
+);
