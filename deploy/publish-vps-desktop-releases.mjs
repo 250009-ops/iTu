@@ -53,7 +53,7 @@ async function main() {
     `
 set -e
 mkdir -p /var/www/itestu/app/dist/desktop /var/www/releases/desktop
-find /var/www/itestu/app/desktop/src-tauri/target -path '*/release/bundle/*' -type f \\( -name '*.AppImage' -o -name '*.deb' \\) -exec cp -f {} /var/www/releases/desktop/ \\;
+find /var/www/itestu/app/desktop/src-tauri/target -path '*/release/bundle/*' -type f \\( -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' \\) -exec cp -f {} /var/www/releases/desktop/ \\;
 ls -la /var/www/releases/desktop/
 `,
   );
@@ -69,6 +69,7 @@ ls -la /var/www/releases/desktop/
   });
 
   const appImage = list.find((f) => f.filename.endsWith('.AppImage'));
+  const dmg = list.find((f) => f.filename.endsWith('.dmg'));
   const windows = list.find((f) => f.filename.includes('x64-setup.exe'));
 
   const platforms = {
@@ -79,6 +80,7 @@ ls -la /var/www/releases/desktop/
 
   for (const [key, file] of [
     ['windows', windows],
+    ['macos', dmg],
     ['linux', appImage],
   ]) {
     if (!file) continue;
@@ -118,7 +120,10 @@ curl -sfI "https://${DOMAIN}/releases/desktop/${appImage?.filename || 'iTestU_1.
   );
 
   conn.end();
-  console.log('\nLinux release published:', platforms.linux.url || '(none)');
+  console.log('\nReleases published:');
+  console.log('  windows:', platforms.windows.url || '(none)');
+  console.log('  macos:  ', platforms.macos.url || '(none)');
+  console.log('  linux:  ', platforms.linux.url || '(none)');
 }
 
 main().catch((e) => {
