@@ -165,21 +165,26 @@ export function getInstitutionPackagesMine() {
   >("/institution/packages/mine");
 }
 
-export function getInstitutionEnrollmentPackages() {
+export function getInstitutionEnrollmentPackages(studentId: string) {
   return apiFetch<{
+    creditBalance: number;
+    studentId: string;
+    platformBlockedReason?: string;
     platform: {
       id: string;
       title: string;
-      mockLabel: string;
+      packageKind: string;
+      mockNumber: number;
       costsCredit: boolean;
     }[];
     own: {
       id: string;
       title: string;
-      mockLabel: string;
+      packageKind: string;
+      mockNumber: number;
       costsCredit: boolean;
     }[];
-  }>("/institution/enrollment-packages");
+  }>(`/institution/enrollment-packages?studentId=${encodeURIComponent(studentId)}`);
 }
 
 export function getInstitutionPackageContentTests(type?: string) {

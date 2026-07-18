@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import {
@@ -16,20 +17,20 @@ import { getErrorMessage } from "@/lib/api/errors";
 
 export function EnrollWizard({
   open,
-  studentIds,
+  studentId,
+  studentName,
   onClose,
   onEnrolled,
 }: {
   open: boolean;
-  studentIds: string[];
+  studentId: string;
+  studentName?: string;
   onClose: () => void;
   onEnrolled: () => void;
 }) {
   const { toast } = useToast();
-  const [groups, setGroups] = useState<EnrollmentPackagesGrouped>({
-    platform: [],
-    own: [],
-  });
+  const [data, setData] = useState<EnrollmentPackagesGrouped | null>(null);
+  const [loadingPackages, setLoadingPackages] = useState(false);
   const [examiners, setExaminers] = useState<ExaminerRow[]>([]);
   const [packageId, setPackageId] = useState("");
   const [mockDate, setMockDate] = useState("");
@@ -38,22 +39,32 @@ export function EnrollWizard({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    void getInstitutionEnrollmentPackages().then(setGroups);
+    if (!open || !studentId) return;
+    setPackageId("");
+    setLoadingPackages(true);
+    void getInstitutionEnrollmentPackages(studentId)
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoadingPackages(false));
     void getInstitutionExaminers()
       .then((res) => setExaminers(res.examiners.filter((e) => e.status === "active")))
       .catch(() => setExaminers([]));
-  }, [open]);
+  }, [open, studentId]);
 
   const selectedPackage = useMemo(() => {
+    if (!data) return null;
     return (
-      groups.platform.find((p) => p.id === packageId) ??
-      groups.own.find((p) => p.id === packageId)
+      data.platform.find((p) => p.id === packageId) ??
+      data.own.find((p) => p.id === packageId) ??
+      null
     );
-  }, [groups, packageId]);
+  }, [data, packageId]);
 
-  const costsCredits = selectedPackage?.costsCredit ?? true;
-  const creditCost = costsCredits ? studentIds.length : 0;
+  const costsCredits = selectedPackage?.costsCredit ?? false;
+  const creditBalance = data?.creditBalance ?? 0;
+  const platformBlocked = Boolean(data?.platformBlockedReason);
+  const hasOwnPackages = (data?.own.length ?? 0) > 0;
+  const hasPlatformPackages = (data?.platform.length ?? 0) > 0;
 
   const writingExaminers = examiners.filter(
     (e) => e.speciality === "writing" || e.speciality === "both",
@@ -61,6 +72,10 @@ export function EnrollWizard({
   const speakingExaminers = examiners.filter(
     (e) => e.speciality === "speaking" || e.speciality === "both",
   );
+
+  const canSubmit =
+    Boolean(packageId && mockDate) &&
+    (!costsCredits || creditBalance >= 1);
 
   async function handleSubmit() {
     if (!packageId || !mockDate) {
@@ -70,17 +85,24 @@ export function EnrollWizard({
       });
       return;
     }
+    if (costsCredits && creditBalance < 1) {
+      toast("Not enough credits", {
+        description: "Buy credits to enroll on platform mocks.",
+        variant: "warning",
+      });
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await enrollStudents({
-        studentIds,
+        studentIds: [studentId],
         packageId,
         mockDate,
         writingTeacherId: writingTeacherId || undefined,
         speakingTeacherId: speakingTeacherId || undefined,
       });
       if (res.enrolled > 0) {
-        toast(`Enrolled ${res.enrolled} student${res.enrolled !== 1 ? "s" : ""}`, {
+        toast(`Enrolled ${studentName ?? "student"}`, {
           description:
             res.failed.length > 0
               ? `${res.failed.length} could not be enrolled.`
@@ -94,13 +116,13 @@ export function EnrollWizard({
       } else {
         toast("Nothing enrolled", {
           description:
-            res.failed[0]?.error ?? "Enrollment failed for all selected students.",
+            res.failed[0]?.error ?? "Enrollment failed for this student.",
           variant: "error",
         });
       }
     } catch (err) {
       toast("Enrollment failed", {
-        description: getErrorMessage(err, "Could not enroll students."),
+        description: getErrorMessage(err, "Could not enroll student."),
         variant: "error",
       });
     } finally {
@@ -111,10 +133,10 @@ export function EnrollWizard({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <Modal open={open} onClose={onClose} ariaLabel="Enroll students" className="max-w-lg">
+    <Modal open={open} onClose={onClose} ariaLabel="Enroll student" className="max-w-lg">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-base font-bold text-navy">
-          Enroll {studentIds.length} student{studentIds.length !== 1 ? "s" : ""}
+          Enroll {studentName ?? "student"}
         </h2>
         <button
           type="button"
@@ -126,46 +148,69 @@ export function EnrollWizard({
       </div>
 
       <div className="space-y-4 overflow-y-auto p-5">
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-          {costsCredits ? (
-            <>
-              Platform mock: spends <strong>{creditCost}</strong> credit
-              {creditCost !== 1 ? "s" : ""} (1 per student).
-            </>
-          ) : (
-            <>
-              Your centre&apos;s mock: <strong>no credit cost</strong> for{" "}
-              {studentIds.length} student{studentIds.length !== 1 ? "s" : ""}.
-            </>
-          )}
-        </p>
+        {costsCredits ? (
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+            Platform mock: spends <strong>1</strong> credit for this student.
+            {creditBalance > 0 && (
+              <>
+                {" "}
+                Balance: <strong>{creditBalance}</strong>.
+              </>
+            )}
+          </p>
+        ) : packageId ? (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+            Your centre&apos;s mock: <strong>no credit cost</strong>.
+          </p>
+        ) : (
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+            Choose a platform mock (uses credits) or your centre&apos;s own mock (free).
+          </p>
+        )}
+
+        {platformBlocked && !hasPlatformPackages && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {data?.platformBlockedReason ?? "Platform mocks require credits."}{" "}
+            <Link href="/institution/credits" className="font-semibold underline">
+              Buy credits
+            </Link>
+          </p>
+        )}
 
         <Field label="Mock package">
-          <select
-            value={packageId}
-            onChange={(e) => setPackageId(e.target.value)}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
-          >
-            <option value="">Select a package…</option>
-            {groups.platform.length > 0 && (
-              <optgroup label="Platform mocks (1 credit each)">
-                {groups.platform.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.mockLabel} — {p.title}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {groups.own.length > 0 && (
-              <optgroup label="Your centre's mocks (no credit)">
-                {groups.own.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.mockLabel} — {p.title}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
+          {loadingPackages ? (
+            <p className="text-sm text-muted">Loading available mocks…</p>
+          ) : !hasPlatformPackages && !hasOwnPackages ? (
+            <p className="text-sm text-muted">
+              No mocks available for this student right now.
+            </p>
+          ) : (
+            <select
+              value={packageId}
+              onChange={(e) => setPackageId(e.target.value)}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+            >
+              <option value="">Select a package…</option>
+              {hasPlatformPackages && (
+                <optgroup label="Platform mocks (1 credit each)">
+                  {data!.platform.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {hasOwnPackages && (
+                <optgroup label="Your centre's mocks (no credit)">
+                  {data!.own.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          )}
         </Field>
 
         <Field label="Mock date">
@@ -217,6 +262,7 @@ export function EnrollWizard({
           variant="primary"
           size="sm"
           loading={submitting}
+          disabled={!canSubmit}
           onClick={handleSubmit}
         >
           Confirm enrollment

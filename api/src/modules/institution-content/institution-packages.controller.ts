@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ContentTestType, ExamType, UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -14,8 +22,11 @@ export class InstitutionPackagesController {
   constructor(private packages: InstitutionPackagesService) {}
 
   @Get('enrollment-packages')
-  listEnrollmentPackages(@CurrentUser() user: RequestUser) {
-    return this.packages.listEnrollmentPackages(user);
+  listEnrollmentPackages(
+    @CurrentUser() user: RequestUser,
+    @Query('studentId') studentId: string,
+  ) {
+    return this.packages.listEnrollmentPackages(user, studentId);
   }
 
   @Get('packages/mine')

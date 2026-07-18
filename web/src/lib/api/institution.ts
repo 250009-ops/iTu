@@ -158,28 +158,29 @@ export async function uploadInstitutionLogo(
 export interface EnrollmentPackageOption {
   id: string;
   title: string;
-  mockLabel: string;
+  packageKind: string;
+  mockNumber: number;
   costsCredit: boolean;
 }
 
 export interface EnrollmentPackagesGrouped {
+  creditBalance: number;
+  studentId: string;
+  platformBlockedReason?: string;
   platform: EnrollmentPackageOption[];
   own: EnrollmentPackageOption[];
 }
 
-export function getInstitutionEnrollmentPackages() {
-  return fetchEnrollmentPackages();
+export function getInstitutionEnrollmentPackages(studentId: string) {
+  return fetchEnrollmentPackages(studentId);
 }
 
-/** @deprecated Use getInstitutionEnrollmentPackages */
-export interface CatalogPackageOption {
-  id: string;
-  title: string;
-}
-
+/** @deprecated Use getInstitutionEnrollmentPackages(studentId) */
 export function getInstitutionPackages() {
-  return getInstitutionEnrollmentPackages().then((groups) => [
-    ...groups.platform,
-    ...groups.own,
-  ]);
+  return getInstitutionEnrollmentPackages("").catch(() => ({
+    creditBalance: 0,
+    studentId: "",
+    platform: [],
+    own: [],
+  }));
 }

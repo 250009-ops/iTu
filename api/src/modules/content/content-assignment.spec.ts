@@ -1,5 +1,8 @@
-import { evaluatePackageAvailability } from './content-assignment';
-import { ExamSkill } from '@prisma/client';
+import {
+  evaluatePackageAvailability,
+  resolveNextPackageForStudent,
+} from './content-assignment';
+import { ExamSkill, ExamType } from '@prisma/client';
 
 describe('evaluatePackageAvailability', () => {
   const pkg = {
@@ -74,5 +77,56 @@ describe('evaluatePackageAvailability', () => {
       pkg,
     );
     expect(result.canPurchase).toBe(true);
+  });
+});
+
+describe('resolveNextPackageForStudent', () => {
+  it('scopes candidates to institutionId when provided', async () => {
+    const findMany = jest.fn(async ({ where }: { where: { institutionId: string | null } }) => {
+      if (where.institutionId === 'centre-a') {
+        return [
+          {
+            id: 'own-1',
+            skills: ['listening'],
+            listeningTestId: 'listen-1',
+            readingTestId: null,
+            writingTestId: null,
+            speakingBankId: null,
+            packageKind: 'listening',
+            mockNumber: 1,
+          },
+        ];
+      }
+      return [];
+    });
+
+    const tx = {
+      mockTestPackage: { findMany },
+      packageContentTest: {
+        findFirst: jest.fn(async () => ({ testId: 'listen-1' })),
+      },
+      contentTest: {
+        findUnique: jest.fn(async () => ({
+          id: 'listen-1',
+          code: 'LIS-MOCK-A001',
+          status: 'PUBLISHED',
+        })),
+      },
+      sectionAttempt: { findMany: jest.fn(async () => []) },
+      enrollment: { findFirst: jest.fn(async () => null) },
+    } as never;
+
+    const result = await resolveNextPackageForStudent(tx, 'student-1', {
+      packageKind: 'listening',
+      examType: ExamType.ACADEMIC,
+      institutionId: 'centre-a',
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ institutionId: 'centre-a' }),
+      }),
+    );
+    expect(result?.id).toBe('own-1');
   });
 });

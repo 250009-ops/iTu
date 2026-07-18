@@ -39,6 +39,7 @@ import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
+import { evaluatePackageAvailability } from '../content/content-assignment';
 import { BookingsService } from '../bookings/bookings.service';
 import { UzumCheckoutService } from '../payments/uzum-checkout.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -488,9 +489,12 @@ export class InstitutionService {
     const institution = await this.getInstitutionOrThrow(user);
     const institutionId = institution.id;
 
+    if (dto.studentIds.length !== 1) {
+      throw new BadRequestException('Enroll one student at a time');
+    }
+
     const pkg = await this.prisma.mockTestPackage.findUnique({
       where: { id: dto.packageId },
-      select: { id: true, institutionId: true, isActive: true, title: true },
     });
     if (!pkg || !pkg.isActive) {
       throw new BadRequestException('Package not found or inactive');
@@ -500,9 +504,9 @@ export class InstitutionService {
     }
 
     const isOwnPackage = pkg.institutionId === institutionId;
-    if (!isOwnPackage && dto.studentIds.length > institution.creditBalance) {
+    if (!isOwnPackage && institution.creditBalance < 1) {
       throw new BadRequestException(
-        `Not enough credits: need ${dto.studentIds.length}, have ${institution.creditBalance}.`,
+        'Not enough credits: buy credits to enroll on platform mocks.',
       );
     }
 
@@ -525,6 +529,21 @@ export class InstitutionService {
       const student = await this.loadInstitutionStudent(institutionId, studentId);
       if (student.institutionStatus !== InstitutionMemberStatus.ACTIVE) {
         results.push({ studentId, error: 'Student is not approved' });
+        continue;
+      }
+
+      const availability = await evaluatePackageAvailability(
+        this.prisma,
+        student.id,
+        pkg,
+      );
+      if (!availability.canPurchase) {
+        results.push({
+          studentId,
+          error:
+            availability.blockingReason ??
+            'This student cannot be enrolled in this package.',
+        });
         continue;
       }
 

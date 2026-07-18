@@ -181,12 +181,20 @@ export async function evaluatePackageAvailability(
 export async function resolveNextPackageForStudent(
   tx: Tx,
   studentId: string,
-  filters: { packageKind: string; examType?: ExamType },
+  filters: {
+    packageKind: string;
+    examType?: ExamType;
+    /** null = platform catalog; set = centre-owned packages */
+    institutionId?: string | null;
+  },
 ) {
+  const scopeInstitutionId =
+    filters.institutionId === undefined ? null : filters.institutionId;
+
   const candidates = await tx.mockTestPackage.findMany({
     where: {
       isActive: true,
-      institutionId: null,
+      institutionId: scopeInstitutionId,
       packageKind: filters.packageKind,
       ...(filters.examType ? { examType: filters.examType } : {}),
     },

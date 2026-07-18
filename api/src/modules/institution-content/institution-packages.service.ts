@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { groupKey } from '../../common/catalog-offers';
 import {
   derivePackageKind,
   formatMockNumber,
@@ -24,8 +25,8 @@ import { RequestUser } from '../../common/types/request-user';
 import {
   assertPackageScopeMatch,
   packageScopeKey,
-  scopeWhere,
 } from '../content/content-scope';
+import { resolveNextPackageForStudent } from '../content/content-assignment';
 import { packageExamSkills } from '../content/package-skills';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -69,34 +70,98 @@ export class InstitutionPackagesService {
     return packages.map((pkg) => this.mapPackage(pkg));
   }
 
-  async listEnrollmentPackages(user: RequestUser) {
+  async listEnrollmentPackages(user: RequestUser, studentId: string) {
     const institutionId = requireInstitutionId(user);
-    const [platform, own] = await Promise.all([
-      this.prisma.mockTestPackage.findMany({
-        where: { institutionId: null, isActive: true },
-        orderBy: { title: 'asc' },
-        select: { id: true, title: true, packageKind: true, mockNumber: true },
+    if (!studentId?.trim()) {
+      throw new BadRequestException('Query parameter "studentId" is required');
+    }
+
+    const [institution, student] = await Promise.all([
+      this.prisma.institution.findUnique({
+        where: { id: institutionId },
+        select: { creditBalance: true },
       }),
-      this.prisma.mockTestPackage.findMany({
-        where: { institutionId, isActive: true },
-        orderBy: { title: 'asc' },
-        select: { id: true, title: true, packageKind: true, mockNumber: true },
+      this.prisma.studentProfile.findUnique({
+        where: { id: studentId.trim() },
+        select: { id: true, institutionId: true },
       }),
     ]);
+
+    if (!student || student.institutionId !== institutionId) {
+      throw new NotFoundException('Student not found for this institution');
+    }
+
+    const creditBalance = institution?.creditBalance ?? 0;
+    let platformBlockedReason: string | undefined;
+    let platform: Awaited<
+      ReturnType<InstitutionPackagesService['resolveNextPackagesForStudent']>
+    > = [];
+
+    if (creditBalance < 1) {
+      platformBlockedReason =
+        'No credits — buy credits to use platform mocks';
+    } else {
+      platform = await this.resolveNextPackagesForStudent(student.id, null);
+    }
+
+    const own = await this.resolveNextPackagesForStudent(
+      student.id,
+      institutionId,
+    );
+
     return {
-      platform: platform.map((p) => ({
-        id: p.id,
-        title: p.title,
-        mockLabel: formatMockNumber(p.packageKind, p.mockNumber),
-        costsCredit: true,
-      })),
-      own: own.map((p) => ({
-        id: p.id,
-        title: p.title,
-        mockLabel: formatMockNumber(p.packageKind, p.mockNumber),
-        costsCredit: false,
-      })),
+      creditBalance,
+      studentId: student.id,
+      platform: platform.map((p) => ({ ...p, costsCredit: true })),
+      own: own.map((p) => ({ ...p, costsCredit: false })),
+      ...(platformBlockedReason ? { platformBlockedReason } : {}),
     };
+  }
+
+  private async resolveNextPackagesForStudent(
+    studentId: string,
+    institutionId: string | null,
+  ) {
+    const activePackages = await this.prisma.mockTestPackage.findMany({
+      where: { isActive: true, institutionId },
+      select: { packageKind: true, examType: true },
+    });
+
+    const seen = new Map<string, { packageKind: string; examType: ExamType }>();
+    for (const pkg of activePackages) {
+      const key = groupKey(pkg.packageKind, pkg.examType);
+      if (!seen.has(key)) {
+        seen.set(key, {
+          packageKind: pkg.packageKind,
+          examType: pkg.examType,
+        });
+      }
+    }
+
+    const options: {
+      id: string;
+      title: string;
+      packageKind: string;
+      mockNumber: number;
+    }[] = [];
+
+    for (const group of seen.values()) {
+      const resolved = await resolveNextPackageForStudent(
+        this.prisma,
+        studentId,
+        { ...group, institutionId },
+      );
+      if (resolved) {
+        options.push({
+          id: resolved.id,
+          title: resolved.title,
+          packageKind: resolved.packageKind,
+          mockNumber: resolved.mockNumber,
+        });
+      }
+    }
+
+    return options.sort((a, b) => a.title.localeCompare(b.title));
   }
 
   async createPackage(

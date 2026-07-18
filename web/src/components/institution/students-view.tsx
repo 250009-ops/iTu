@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, UserPlus, X } from "lucide-react";
 import {
@@ -38,8 +38,10 @@ export function InstitutionStudentsView() {
   const [tab, setTab] = useState<TabId>(
     TABS.some((t) => t.id === initialTab) ? initialTab : "active",
   );
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const [enrollStudent, setEnrollStudent] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -47,17 +49,6 @@ export function InstitutionStudentsView() {
     () => getInstitutionStudents(tab),
     [tab],
   );
-
-  const selectedIds = useMemo(() => [...selected], [selected]);
-
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   async function handleApprove(id: string) {
     setBusyId(id);
@@ -97,17 +88,6 @@ export function InstitutionStudentsView() {
         breadcrumb="Institution &gt; Students"
         title="Students"
         description="Approve sign-ups and enroll your students into mock exams."
-        actions={
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={selectedIds.length === 0}
-            onClick={() => setWizardOpen(true)}
-          >
-            <UserPlus className="h-4 w-4" />
-            Enroll {selectedIds.length > 0 ? `(${selectedIds.length})` : ""}
-          </Button>
-        }
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -135,10 +115,7 @@ export function InstitutionStudentsView() {
             <button
               key={t.id}
               type="button"
-              onClick={() => {
-                setTab(t.id);
-                setSelected(new Set());
-              }}
+              onClick={() => setTab(t.id)}
               className={cn(
                 "rounded-lg px-4 py-2 text-sm font-medium transition",
                 tab === t.id
@@ -160,7 +137,6 @@ export function InstitutionStudentsView() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-5 py-3 font-medium" />
                   <th className="px-5 py-3 font-medium">Student</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Target</th>
@@ -172,15 +148,6 @@ export function InstitutionStudentsView() {
               <tbody>
                 {data.students.map((s) => (
                   <tr key={s.id} className="border-b border-border last:border-0">
-                    <td className="px-5 py-3">
-                      <input
-                        type="checkbox"
-                        disabled={s.status !== "active"}
-                        checked={selected.has(s.id)}
-                        onChange={() => toggle(s.id)}
-                        className="h-4 w-4 rounded border-border accent-navy disabled:opacity-30"
-                      />
-                    </td>
                     <td className="px-5 py-3">
                       <p className="font-medium text-navy">{s.name}</p>
                       <p className="text-xs text-muted">{s.email}</p>
@@ -197,6 +164,18 @@ export function InstitutionStudentsView() {
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-2">
+                        {s.status === "active" && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              setEnrollStudent({ id: s.id, name: s.name })
+                            }
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Enroll
+                          </Button>
+                        )}
                         {s.status === "pending" && (
                           <>
                             <Button
@@ -229,11 +208,11 @@ export function InstitutionStudentsView() {
       </SectionCard>
 
       <EnrollWizard
-        open={wizardOpen}
-        studentIds={selectedIds}
-        onClose={() => setWizardOpen(false)}
+        open={enrollStudent != null}
+        studentId={enrollStudent?.id ?? ""}
+        studentName={enrollStudent?.name}
+        onClose={() => setEnrollStudent(null)}
         onEnrolled={() => {
-          setSelected(new Set());
           void refresh({ silent: true });
         }}
       />
