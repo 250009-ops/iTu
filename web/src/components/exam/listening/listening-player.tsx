@@ -28,6 +28,9 @@ import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
 import { useExamIntegrity, exitExamFullscreen } from "@/hooks/use-exam-integrity";
 import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
+import { useExamProgressHydration } from "@/hooks/use-exam-progress-hydration";
+import { useExamPresence } from "@/hooks/use-exam-presence";
+import { ExamSuspendedView } from "@/components/exam/shell/exam-suspended-view";
 import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
 import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
 import { cn } from "@/lib/utils";
@@ -54,7 +57,13 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const { remaining, expired } = useServerTimer(sessionId, {
     enabled: sectionStarted,
   });
-  const { flushNow } = useExamAutosave(sessionId, state.answers);
+  const { flushNow, markSaved } = useExamAutosave(sessionId, state.answers);
+  const hydration = useExamProgressHydration(
+    sessionId,
+    "listening",
+    sectionStarted,
+  );
+  const presence = useExamPresence(sessionId, { enabled: sectionStarted });
   const { warning, dismissWarning } = useExamIntegrity(sessionId);
   const { markLocalSubmit, remoteNotice } = useExamSectionSync(sessionId, "listening", {
     enabled: sectionStarted,
@@ -72,6 +81,14 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
       .filter((p) => p.audioUrl)
       .map((p) => ({ part: p.part, url: p.audioUrl! }));
   }, [content]);
+
+  useEffect(() => {
+    if (hydration.loading || Object.keys(hydration.hydratedAnswers).length === 0) {
+      return;
+    }
+    state.hydrateAnswers(hydration.hydratedAnswers);
+    markSaved(hydration.hydratedAnswers);
+  }, [hydration.loading, hydration.hydratedAnswers, state.hydrateAnswers, markSaved]);
 
   useEffect(() => {
     if (!content || sectionStarted) return;
@@ -159,7 +176,20 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   );
 
   if (loading || !content || !activePart) {
-    return <ApiDataShell loading={loading} error={error} />;
+    return <ApiDataShell loading={loading || hydration.loading} error={error} />;
+  }
+
+  if (
+    presence.suspended ||
+    hydration.progress?.suspended
+  ) {
+    return (
+      <ExamSuspendedView
+        sessionCode={sessionId}
+        reason={presence.suspendReason ?? hydration.progress?.suspendReason}
+        onResumed={() => router.refresh()}
+      />
+    );
   }
 
   function goPrevQuestion() {

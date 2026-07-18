@@ -1,6 +1,7 @@
 "use client";
 
 import { NotificationMenu } from "@/components/portal/notification-menu";
+import { PortalHeaderDownloadButton } from "@/components/portal/portal-header-download-button";
 import { SearchBar } from "@/components/portal/search-bar";
 import { UserMenu } from "@/components/portal/user-menu";
 
@@ -19,6 +20,7 @@ export function PortalHeader({
       />
 
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
+        <PortalHeaderDownloadButton />
         <NotificationMenu />
 
         <div className="mx-1 hidden h-8 w-px bg-border sm:block" aria-hidden />

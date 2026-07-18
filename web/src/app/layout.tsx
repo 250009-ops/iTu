@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
+import { DesktopBridge } from "@/components/desktop/desktop-bridge";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -31,7 +32,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
       <body className="min-h-full font-sans antialiased">
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <DesktopBridge />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

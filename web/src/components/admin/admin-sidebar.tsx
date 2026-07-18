@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useAdminNavBadges } from "@/contexts/admin-nav-badges-context";
 import { adminNavGroups, type AdminNavItem } from "@/lib/admin/nav";
 import { cn } from "@/lib/utils";
@@ -120,6 +121,7 @@ export function AdminSidebar() {
           </div>
         ))}
       </nav>
+      <PortalSidebarDownload collapsed={collapsed} />
     </aside>
   );
 }

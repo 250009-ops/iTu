@@ -21,6 +21,7 @@ export const AuditAction = {
   EXAM_INTEGRITY_REVIEW: 'exam.integrity.review',
   EXAM_FORCE_SUBMIT: 'exam.force_submit',
   EXAM_SUSPEND: 'exam.suspend',
+  EXAM_RESUME: 'exam.resume',
 
   CONTENT_TEST_CREATE: 'content.test.create',
   CONTENT_TEST_PUBLISH: 'content.test.publish',

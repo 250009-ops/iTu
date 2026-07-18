@@ -235,6 +235,9 @@ export function mapLiveSessions(sessions: LiveSessions): LiveSessionRow[] {
       examiner: s.examiner ?? "Auto-graded",
       integrity: flagged ? "flagged" : "clear",
       flags,
+      suspended: s.suspended ?? false,
+      suspendReason: s.suspendReason ?? null,
+      suspendedAt: s.suspendedAt ?? null,
     };
   });
 }

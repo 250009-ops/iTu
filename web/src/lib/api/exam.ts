@@ -7,6 +7,8 @@ export type ExamSessionResponse = {
   state: string;
   integrity: string;
   checkInAt: string | null;
+  suspendedAt?: string | null;
+  suspendReason?: string | null;
   sectionTimers: Record<string, unknown>;
   enrollment: {
     id: string;
@@ -36,6 +38,17 @@ export type ExamTimerResponse = {
   serverTime: string;
   expired?: boolean;
   notStarted?: boolean;
+  paused?: boolean;
+  suspended?: boolean;
+};
+
+export type ExamProgressResponse = {
+  skill: string | null;
+  suspended: boolean;
+  suspendReason: string | null;
+  answers: Record<string, string | string[] | null>;
+  writing: { task1Text: string; task2Text: string } | null;
+  clientState: unknown;
 };
 
 export function getExamSession(sessionCode: string) {
@@ -81,6 +94,38 @@ export function submitWriting(
   return apiFetch<{ saved: boolean }>(
     `/exam-sessions/${sessionCode}/submit-writing`,
     { method: "POST", body: { task1Text, task2Text } },
+  );
+}
+
+export function getExamProgress(sessionCode: string) {
+  return apiFetch<ExamProgressResponse>(
+    `/exam-sessions/${sessionCode}/progress`,
+  );
+}
+
+export function sendExamHeartbeat(sessionCode: string) {
+  return apiFetch<{
+    ok: boolean;
+    suspended: boolean;
+    remainingSec: number | null;
+    paused: boolean;
+  }>(`/exam-sessions/${sessionCode}/heartbeat`, { method: "POST" });
+}
+
+export function suspendExamSession(sessionCode: string, reason: string) {
+  return apiFetch<{ suspended: boolean; reason: string; remainingSec?: number }>(
+    `/exam-sessions/${sessionCode}/suspend`,
+    { method: "POST", body: { reason } },
+  );
+}
+
+export function saveExamClientState(
+  sessionCode: string,
+  clientState: Record<string, unknown>,
+) {
+  return apiFetch<{ saved: boolean }>(
+    `/exam-sessions/${sessionCode}/client-state`,
+    { method: "POST", body: { clientState } },
   );
 }
 

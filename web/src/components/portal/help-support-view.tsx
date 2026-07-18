@@ -31,6 +31,7 @@ import {
   type HelpRole,
 } from "@/lib/portal/help-config";
 import { cn } from "@/lib/utils";
+import { DesktopDownloadCard } from "@/components/shared/desktop-download-card";
 
 const SUPPORT_EMAIL = "support@itestu.uz";
 
@@ -309,6 +310,8 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
             )}
           </div>
         </header>
+
+        <DesktopDownloadCard />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           <section className="xl:col-span-5">

@@ -43,6 +43,17 @@ export class LogIntegrityDto {
   metadata?: Record<string, unknown>;
 }
 
+export class SuspendSessionDto {
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
+}
+
+export class SaveClientStateDto {
+  @IsObject()
+  clientState: Record<string, unknown>;
+}
+
 export class CheckInDto {
   @IsOptional()
   acknowledgedRules?: boolean;

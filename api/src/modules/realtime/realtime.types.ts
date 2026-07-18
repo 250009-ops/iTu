@@ -11,6 +11,8 @@ export type RealtimeEvent =
       sessionCode: string;
       integrity: string;
     }
-  | { type: 'exam:state'; sessionCode: string; state: string };
+  | { type: 'exam:state'; sessionCode: string; state: string }
+  | { type: 'exam:suspended'; sessionCode: string; reason: string }
+  | { type: 'exam:resumed'; sessionCode: string };
 
 export const REALTIME_REDIS_CHANNEL = 'itestu:realtime';

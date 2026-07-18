@@ -170,7 +170,9 @@ export class RealtimeController {
             if (
               (event.type === 'exam:section-submitted' ||
                 event.type === 'exam:integrity' ||
-                event.type === 'exam:state') &&
+                event.type === 'exam:state' ||
+                event.type === 'exam:suspended' ||
+                event.type === 'exam:resumed') &&
               event.sessionCode === sessionCode
             ) {
               subscriber.next(sse(event));

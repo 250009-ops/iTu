@@ -9,6 +9,7 @@ import {
   CircleHelp,
   LayoutDashboard,
   LogOut,
+  Monitor,
   UserRound,
 } from "lucide-react";
 import { DASHBOARD_PATHS, type AuthSession, type UserRole } from "@/lib/auth/session";
@@ -74,6 +75,13 @@ function accountMenuItems(session: AuthSession, pathname: string): MenuItem[] {
     href: helpPath(session.role, pathname),
     label: "Help & support",
     icon: <CircleHelp className="h-4 w-4 text-slate-400" />,
+  });
+
+  items.push({
+    key: "download",
+    href: "/download",
+    label: "Download desktop app",
+    icon: <Monitor className="h-4 w-4 text-slate-400" />,
   });
 
   if (session.role === "student" || session.role === "teacher" || session.role === "admin") {

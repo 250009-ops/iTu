@@ -367,6 +367,27 @@ export class AdminController {
     return this.examSessions.adminForceSubmit(sessionCode, user);
   }
 
+  @Post('sessions/:sessionCode/resume')
+  resumeSession(
+    @Param('sessionCode') sessionCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.resumeSession(sessionCode, user);
+  }
+
+  @Post('sessions/:sessionCode/suspend')
+  suspendSession(
+    @Param('sessionCode') sessionCode: string,
+    @Body() body: { reason?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.suspendSession(
+      sessionCode,
+      body.reason ?? 'admin_hold',
+      user,
+    );
+  }
+
   @Post('sessions/:sessionCode/integrity/review')
   reviewIntegrity(
     @Param('sessionCode') sessionCode: string,

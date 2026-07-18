@@ -51,6 +51,7 @@ export const FOOTER_COLUMNS = [
       { label: "Pricing", href: "/pricing" },
       { label: "Results", href: "/results" },
       { label: "How It Works", href: "/how-it-works" },
+      { label: "Download app", href: "/download" },
     ],
   },
   {
@@ -73,6 +74,7 @@ export const FOOTER_COLUMNS = [
     title: "Resources",
     links: [
       { label: "FAQ", href: "/faq" },
+      { label: "Download app", href: "/download" },
       { label: "Exam Rules", href: "/how-it-works" },
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
@@ -402,7 +404,7 @@ export const MARKETING_FAQS: MarketingFaq[] = [
   { id: "real-examiners", category: "Examiners", question: "Are examiners real IELTS-qualified professionals?", answer: "Yes. All examiners hold CELTA or higher, and most are current or former certified IELTS examiners. Every examiner is verified and calibrated before going live." },
   { id: "internet", category: "Technical", question: "What internet speed do I need?", answer: "A minimum of 5 Mbps, wired connection preferred. The Speaking session uses live video, so a stable connection is essential. We run a system check at check-in." },
   { id: "multiple", category: "Booking", question: "Can I book multiple mocks?", answer: "Yes — there is no limit. Every mock gives you fresh exam content and a new examiner selection. Your score history is tracked across all attempts so you can see your improvement over time." },
-  { id: "drop", category: "Technical", question: "What happens if my internet drops during the exam?", answer: "Timers run server-side, so a brief disconnection does not pause or reset your time. Reconnect quickly and your autosaved answers will be restored. Prolonged disconnection may invalidate the session." },
+  { id: "drop", category: "Technical", question: "What happens if my internet drops during the exam?", answer: "Your section timer pauses automatically and your answers stay saved on our servers. Reconnect on any device and wait for an administrator to resume your session from the live monitor. Prolonged disconnection without resume may invalidate the session." },
   { id: "notes", category: "Results", question: "Can I see the examiner's notes after the exam?", answer: "Yes. Your Writing and Speaking examiner provides structured criteria-level written notes alongside your scores — this is the most valuable part of the report." },
 ];
 

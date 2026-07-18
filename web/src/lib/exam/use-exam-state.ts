@@ -22,11 +22,16 @@ export function useExamState(initialPartId: string) {
     setAnswers((prev) => ({ ...prev, [n]: value }));
   }, []);
 
+  const hydrateAnswers = useCallback((map: AnswerMap) => {
+    setAnswers(map);
+  }, []);
+
   const focusQuestion = useCallback((n: number) => setCurrent(n), []);
 
   return {
     answers,
     setAnswer,
+    hydrateAnswers,
     current,
     setCurrent,
     focusQuestion,

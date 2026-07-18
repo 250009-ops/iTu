@@ -120,4 +120,14 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     this.publish({ type: 'exam:state', sessionCode, state });
     this.notifyAdminLiveMonitor('state-change');
   }
+
+  notifyExamSuspended(sessionCode: string, reason: string) {
+    this.publish({ type: 'exam:suspended', sessionCode, reason });
+    this.notifyAdminLiveMonitor('session-suspended');
+  }
+
+  notifyExamResumed(sessionCode: string) {
+    this.publish({ type: 'exam:resumed', sessionCode });
+    this.notifyAdminLiveMonitor('session-resumed');
+  }
 }

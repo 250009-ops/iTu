@@ -62,6 +62,9 @@ export function useExamSectionSync(
       ) {
         void handleRemoteSubmit();
       }
+      if (msg.type === "exam:suspended" || msg.type === "exam:resumed") {
+        // presence hook handles UI; no-op here
+      }
     },
   });
 

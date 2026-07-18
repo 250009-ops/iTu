@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import {
   forceSubmitSession,
   getAdminSessionDetail,
+  resumeSession,
   reviewSessionIntegrity,
+  suspendSessionAdmin,
   type AdminSessionDetail,
 } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -52,6 +54,48 @@ export function SessionDetailDialog({
   }, [open, sessionCode]);
 
   if (!open) return null;
+
+  async function handleResume() {
+    setActing(true);
+    try {
+      await resumeSession(sessionCode);
+      toast("Session resumed", {
+        description: "The student can continue their exam.",
+        variant: "success",
+      });
+      onUpdated?.();
+      const data = await getAdminSessionDetail(sessionCode);
+      setDetail(data);
+    } catch (err) {
+      toast("Resume failed", {
+        description: getErrorMessage(err, "Request failed"),
+        variant: "error",
+      });
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function handleSuspend() {
+    setActing(true);
+    try {
+      await suspendSessionAdmin(sessionCode);
+      toast("Session suspended", {
+        description: "Timer paused until you resume.",
+        variant: "success",
+      });
+      onUpdated?.();
+      const data = await getAdminSessionDetail(sessionCode);
+      setDetail(data);
+    } catch (err) {
+      toast("Suspend failed", {
+        description: getErrorMessage(err, "Request failed"),
+        variant: "error",
+      });
+    } finally {
+      setActing(false);
+    }
+  }
 
   async function handleForceSubmit() {
     setActing(true);
@@ -145,6 +189,19 @@ export function SessionDetailDialog({
                   {detail.integrity}
                 </dd>
               </div>
+              {detail.suspended && (
+                <>
+                  <div className="col-span-2">
+                    <dt className="text-muted">Suspended</dt>
+                    <dd className="font-semibold text-amber-700">
+                      {detail.suspendReason ?? "unknown"}
+                      {detail.suspendedAt
+                        ? ` · ${new Date(detail.suspendedAt).toLocaleString()}`
+                        : ""}
+                    </dd>
+                  </div>
+                </>
+              )}
             </dl>
 
             <div>
@@ -174,6 +231,25 @@ export function SessionDetailDialog({
             </div>
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+              {detail.suspended ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={acting}
+                  onClick={() => void handleResume()}
+                >
+                  Resume session
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={acting}
+                  onClick={() => void handleSuspend()}
+                >
+                  Suspend session
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"

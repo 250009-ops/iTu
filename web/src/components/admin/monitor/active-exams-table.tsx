@@ -2,10 +2,11 @@
 
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, PauseCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LiveSkill } from "@/lib/admin/types";
 import { useAdminLiveMonitor } from "@/contexts/admin-live-monitor-context";
+import { resumeSession } from "@/lib/api/admin";
 import { SessionDetailDialog } from "@/components/admin/monitor/session-detail-dialog";
 import { LiveSessionTimeLeft } from "@/components/admin/monitor/live-session-time-left";
 import { SessionDeepLink } from "@/components/admin/monitor/session-deep-link";
@@ -69,6 +70,7 @@ export function ActiveExamsTable() {
               ) : (
                 liveSessions.map((session) => {
                   const isFlagged = session.integrity === "flagged";
+                  const isSuspended = session.suspended;
 
                   return (
                     <tr key={session.id} className="hover:bg-slate-50/80">
@@ -122,7 +124,12 @@ export function ActiveExamsTable() {
                         {session.examiner}
                       </td>
                       <td className="px-5 py-4 sm:px-6">
-                        {isFlagged ? (
+                        {isSuspended ? (
+                          <span className="flex items-center gap-1 text-sm font-medium text-amber-700">
+                            <PauseCircle className="h-4 w-4" />
+                            Suspended
+                          </span>
+                        ) : isFlagged ? (
                           <span className="flex items-center gap-1 text-sm font-medium text-brand-red">
                             <AlertTriangle className="h-4 w-4" />
                             {session.flags} flag{session.flags > 1 ? "s" : ""}
@@ -143,6 +150,19 @@ export function ActiveExamsTable() {
                           >
                             Details
                           </Button>
+                          {isSuspended && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => {
+                                void resumeSession(session.sessionCode).then(() =>
+                                  refresh(),
+                                );
+                              }}
+                            >
+                              Resume
+                            </Button>
+                          )}
                           {isFlagged && (
                             <Button
                               variant="danger"

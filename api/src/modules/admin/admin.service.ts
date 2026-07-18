@@ -524,7 +524,9 @@ export class AdminService {
         : undefined;
       const duration = activeSkill ? SECTION_DURATIONS_SEC[activeSkill] : 0;
       let remainingSec = 0;
-      if (attempt?.startedAt && !attempt.submittedAt && duration > 0) {
+      if (s.suspendedAt && attempt?.timeRemaining != null) {
+        remainingSec = attempt.timeRemaining;
+      } else if (attempt?.startedAt && !attempt.submittedAt && duration > 0) {
         const elapsed = Math.floor(
           (Date.now() - attempt.startedAt.getTime()) / 1000,
         );
@@ -550,6 +552,9 @@ export class AdminService {
         examiner: s.enrollment.speakingTeacher?.user.name,
         integrity: s.integrity.toLowerCase(),
         flags,
+        suspended: Boolean(s.suspendedAt),
+        suspendReason: s.suspendReason,
+        suspendedAt: s.suspendedAt?.toISOString() ?? null,
       };
     });
   }

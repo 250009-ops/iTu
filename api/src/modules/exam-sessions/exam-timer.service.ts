@@ -5,6 +5,8 @@ import { RedisService } from '../../common/redis/redis.service';
 export type SectionTimerState = {
   startedAt: string;
   durationSec: number;
+  pausedAt?: string;
+  remainingSec?: number;
 };
 
 @Injectable()
@@ -55,6 +57,40 @@ export class ExamTimerService {
     );
   }
 
+  async pauseSectionTimer(
+    sessionId: string,
+    skill: ExamSkill,
+    remainingSec: number,
+  ): Promise<void> {
+    const now = new Date();
+    await this.redis.setJson(
+      this.timerKey(sessionId, skill),
+      {
+        startedAt: now.toISOString(),
+        durationSec: remainingSec,
+        pausedAt: now.toISOString(),
+        remainingSec,
+      } satisfies SectionTimerState,
+      remainingSec + 86400,
+    );
+  }
+
+  async resumeSectionTimer(
+    sessionId: string,
+    skill: ExamSkill,
+    remainingSec: number,
+  ): Promise<void> {
+    const now = new Date();
+    await this.redis.setJson(
+      this.timerKey(sessionId, skill),
+      {
+        startedAt: now.toISOString(),
+        durationSec: remainingSec,
+      } satisfies SectionTimerState,
+      remainingSec + 3600,
+    );
+  }
+
   async getSectionTimer(
     sessionId: string,
     skill: ExamSkill,
@@ -68,7 +104,14 @@ export class ExamTimerService {
     await this.redis.del(this.timerKey(sessionId, skill));
   }
 
+  isPaused(state: SectionTimerState): boolean {
+    return state.pausedAt != null && state.remainingSec != null;
+  }
+
   remainingSeconds(state: SectionTimerState, now = Date.now()): number {
+    if (this.isPaused(state)) {
+      return state.remainingSec ?? 0;
+    }
     const started = new Date(state.startedAt).getTime();
     const elapsed = Math.floor((now - started) / 1000);
     return Math.max(0, state.durationSec - elapsed);

@@ -192,6 +192,9 @@ export type LiveSessionRow = {
   examiner: string;
   integrity: "clear" | "flagged";
   flags: number;
+  suspended?: boolean;
+  suspendReason?: string | null;
+  suspendedAt?: string | null;
 };
 
 export type ContentTest = {

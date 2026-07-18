@@ -13,6 +13,7 @@ import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading, SkillIcon } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
+import { MarketingDesktopAppSection } from "@/components/marketing/shared/desktop-app-section";
 import type { SkillId } from "@/lib/marketing/data";
 import { cn } from "@/lib/utils";
 
@@ -98,7 +99,7 @@ const RULES = [
   { icon: Camera, title: "Webcam on throughout", body: "Webcam must remain active during all sections. Cover or obstruction = disqualification." },
   { icon: Monitor, title: "Single screen only", body: "Only the exam browser window permitted. No virtual machines, no screen sharing." },
   { icon: AlertTriangle, title: "No external materials", body: "No notes, books, or reference materials visible. Clean desk required for Speaking." },
-  { icon: Clock, title: "Server-authoritative timers", body: "Timers run server-side. Refreshing the page or losing connection does not pause or reset time." },
+  { icon: Clock, title: "Server-authoritative timers", body: "Timers run on our servers. If connection or power drops, your section pauses and an admin resumes you — use the desktop app for the safest mock-day experience." },
 ];
 
 const TIMELINE: Array<[string, string, string, string]> = [
@@ -195,6 +196,8 @@ export default function HowItWorksPage() {
           ))}
         </Stagger>
       </Section>
+
+      <MarketingDesktopAppSection showAllPlatforms={false} />
 
       {/* Integrity rules */}
       <Section>

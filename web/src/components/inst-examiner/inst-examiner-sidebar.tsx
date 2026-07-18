@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Mic, PenLine, User } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useInstExaminer } from "@/contexts/inst-examiner-context";
 import {
   instExaminerNavForSpeciality,
@@ -81,6 +82,7 @@ export function InstExaminerSidebar() {
           );
         })}
       </nav>
+      <PortalSidebarDownload collapsed={collapsed} />
     </aside>
   );
 }

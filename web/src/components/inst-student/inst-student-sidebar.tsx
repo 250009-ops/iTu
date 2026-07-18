@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, LineChart, MonitorPlay, User } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useInstStudent } from "@/contexts/inst-student-context";
 import { instStudentNav, isInstStudentNavActive } from "@/lib/inst-student/nav";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,7 @@ export function InstStudentSidebar() {
           );
         })}
       </nav>
+      <PortalSidebarDownload collapsed={collapsed} />
     </aside>
   );
 }

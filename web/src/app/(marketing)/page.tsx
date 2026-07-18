@@ -24,6 +24,7 @@ import { TeacherCard } from "@/components/marketing/shared/teacher-card";
 import { TestimonialCard } from "@/components/marketing/shared/testimonial-card";
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
+import { MarketingDesktopAppSection } from "@/components/marketing/shared/desktop-app-section";
 
 export const metadata: Metadata = {
   title: `${SITE.name} — Realistic IELTS Mock Exams with Real Examiners & Same-Day Results`,
@@ -148,6 +149,8 @@ export default async function HomePage() {
           </CtaButton>
         </Reveal>
       </Section>
+
+      <MarketingDesktopAppSection />
 
       {leaderboard.length > 0 ? (
         <Section>

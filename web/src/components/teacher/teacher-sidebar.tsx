@@ -11,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useTeacherNavBadges } from "@/contexts/teacher-nav-badges-context";
 import { teacherNav } from "@/lib/teacher/nav";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,7 @@ export function TeacherSidebar() {
           );
         })}
       </nav>
+      <PortalSidebarDownload collapsed={collapsed} />
     </aside>
   );
 }

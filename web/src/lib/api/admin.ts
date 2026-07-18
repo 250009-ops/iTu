@@ -678,6 +678,9 @@ export function getLiveSessions() {
       examiner?: string;
       integrity: string;
       flags: number;
+      suspended?: boolean;
+      suspendReason?: string | null;
+      suspendedAt?: string | null;
     }[]
   >("/admin/sessions/live");
 }
@@ -698,6 +701,9 @@ export type AdminSessionDetail = {
   skill: string | null;
   sectionStartedAt: string | null;
   enrollmentCode: string;
+  suspended?: boolean;
+  suspendReason?: string | null;
+  suspendedAt?: string | null;
 };
 
 export function getAdminSessionDetail(sessionCode: string) {
@@ -707,6 +713,22 @@ export function getAdminSessionDetail(sessionCode: string) {
 export function forceSubmitSession(sessionCode: string) {
   return apiFetch(`/admin/sessions/${sessionCode}/force-submit`, {
     method: "POST",
+  });
+}
+
+export function resumeSession(sessionCode: string) {
+  return apiFetch(`/admin/sessions/${sessionCode}/resume`, {
+    method: "POST",
+  });
+}
+
+export function suspendSessionAdmin(
+  sessionCode: string,
+  reason = "admin_hold",
+) {
+  return apiFetch(`/admin/sessions/${sessionCode}/suspend`, {
+    method: "POST",
+    body: { reason },
   });
 }
 

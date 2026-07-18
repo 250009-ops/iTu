@@ -10,6 +10,7 @@ import {
   User,
 } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { studentNav, navItemToView } from "@/lib/student/nav";
 import { isStudentViewActive } from "@/lib/student/routes";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ export function StudentSidebar() {
           );
         })}
       </nav>
+      <PortalSidebarDownload collapsed={collapsed} />
     </aside>
   );
 }

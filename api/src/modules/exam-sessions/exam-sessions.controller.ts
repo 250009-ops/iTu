@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { ExamSkill, UserRole } from '@prisma/client';
+import { ExamSkill, Prisma, UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
@@ -8,9 +8,11 @@ import {
   CheckInDto,
   LogIntegrityDto,
   SaveAnswersDto,
+  SaveClientStateDto,
   StartSectionDto,
   SubmitSectionDto,
   SubmitWritingDto,
+  SuspendSessionDto,
 } from './dto/exam-session.dto';
 import { ExamSessionsService } from './exam-sessions.service';
 
@@ -80,6 +82,48 @@ export class ExamSessionsController {
       sessionCode,
       dto.task1Text,
       dto.task2Text,
+      user,
+    );
+  }
+
+  @Get(':sessionCode/progress')
+  @Roles(UserRole.STUDENT)
+  getProgress(
+    @Param('sessionCode') sessionCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.getProgress(sessionCode, user);
+  }
+
+  @Post(':sessionCode/heartbeat')
+  @Roles(UserRole.STUDENT)
+  heartbeat(
+    @Param('sessionCode') sessionCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.heartbeat(sessionCode, user);
+  }
+
+  @Post(':sessionCode/suspend')
+  @Roles(UserRole.STUDENT)
+  suspend(
+    @Param('sessionCode') sessionCode: string,
+    @Body() dto: SuspendSessionDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.suspendSession(sessionCode, dto.reason, user);
+  }
+
+  @Post(':sessionCode/client-state')
+  @Roles(UserRole.STUDENT)
+  saveClientState(
+    @Param('sessionCode') sessionCode: string,
+    @Body() dto: SaveClientStateDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.saveClientState(
+      sessionCode,
+      dto.clientState as Prisma.InputJsonValue,
       user,
     );
   }

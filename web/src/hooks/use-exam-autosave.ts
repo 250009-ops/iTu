@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { AnswerMap } from "@/lib/exam/types";
 import { saveAnswers } from "@/lib/api/exam";
+import { flushExamSaveOutbox, queueAnswerSave } from "@/lib/exam/save-outbox";
 
 export function useExamAutosave(
   sessionCode: string,
@@ -33,9 +34,21 @@ export function useExamAutosave(
     }
     if (Object.keys(payload).length === 0) return;
 
-    await saveAnswers(sessionRef.current, payload);
-    lastSaved.current = serialized;
+    try {
+      await saveAnswers(sessionRef.current, payload);
+      lastSaved.current = serialized;
+    } catch {
+      await queueAnswerSave(sessionRef.current, payload);
+    }
   }, []);
+
+  useEffect(() => {
+    function onOnline() {
+      void flushExamSaveOutbox(sessionRef.current).then(() => flushNow());
+    }
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [flushNow]);
 
   useEffect(() => {
     const serialized = JSON.stringify(answers);
@@ -58,5 +71,7 @@ export function useExamAutosave(
     };
   }, [answers, intervalMs, flushNow]);
 
-  return { flushNow };
+  return { flushNow, markSaved: (map: AnswerMap) => {
+    lastSaved.current = JSON.stringify(map);
+  } };
 }

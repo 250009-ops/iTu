@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -207,6 +208,11 @@ export class ExamSessionsService {
       this.realtime.notifyExamState(sessionCode, updated.state.toLowerCase());
       this.realtime.notifyAdminLiveMonitor('section-start');
 
+      await this.prisma.examSession.update({
+        where: { id: session.id },
+        data: { lastHeartbeatAt: now },
+      });
+
       return this.toSessionResponse(updated);
     });
   }
@@ -218,6 +224,7 @@ export class ExamSessionsService {
   ) {
     const session = await this.findSessionOrThrow(sessionCode);
     await this.assertSessionAccess(session.enrollment.studentId, user);
+    this.assertNotSuspended(session);
 
     const activeSkill = skillForActiveState(session.state);
     if (!activeSkill) {
@@ -266,6 +273,7 @@ export class ExamSessionsService {
     return this.examTimer.withSessionLock(sessionCode, async () => {
       const session = await this.findSessionOrThrow(sessionCode);
       await this.assertSessionAccess(session.enrollment.studentId, user);
+      this.assertNotSuspended(session);
 
       const submittedState = getSubmittedStateForSkill(dto.skill);
       assertTransition(session.state, submittedState);
@@ -451,6 +459,7 @@ export class ExamSessionsService {
   ) {
     const session = await this.findSessionOrThrow(sessionCode);
     await this.assertSessionAccess(session.enrollment.studentId, user);
+    this.assertNotSuspended(session);
 
     if (session.state !== ExamSessionState.WRITING_ACTIVE) {
       throw new BadRequestException('Writing section is not active');
@@ -491,6 +500,256 @@ export class ExamSessionsService {
     return { saved: true };
   }
 
+  async heartbeat(sessionCode: string, user: RequestUser) {
+    const session = await this.findSessionOrThrow(sessionCode);
+    await this.assertSessionAccess(session.enrollment.studentId, user);
+
+    const activeSkill = skillForActiveState(session.state);
+    if (!activeSkill) {
+      return {
+        ok: true,
+        suspended: Boolean(session.suspendedAt),
+        remainingSec: null as number | null,
+        paused: Boolean(session.suspendedAt),
+      };
+    }
+
+    const now = new Date();
+    await this.prisma.examSession.update({
+      where: { id: session.id },
+      data: { lastHeartbeatAt: now },
+    });
+
+    const timer = await this.getTimer(sessionCode, user);
+    return {
+      ok: true,
+      suspended: Boolean(session.suspendedAt),
+      remainingSec: timer.remainingSec,
+      paused: Boolean(timer.paused),
+    };
+  }
+
+  async suspendSession(
+    sessionCode: string,
+    reason: string,
+    user: RequestUser | null,
+  ) {
+    return this.examTimer.withSessionLock(sessionCode, async () => {
+      const session = await this.findSessionOrThrow(sessionCode);
+      if (user) {
+        await this.assertSessionAccess(session.enrollment.studentId, user);
+      }
+
+      if (session.suspendedAt) {
+        return { suspended: true, reason: session.suspendReason };
+      }
+
+      const activeSkill = skillForActiveState(session.state);
+      if (!activeSkill) {
+        throw new BadRequestException('No active section to suspend');
+      }
+
+      const remainingSec = await this.computeRemainingSec(session, activeSkill);
+      const attempt = session.sectionAttempts.find(
+        (a) => a.skill === activeSkill,
+      );
+      if (!attempt) {
+        throw new BadRequestException('Section attempt not found');
+      }
+
+      const now = new Date();
+      await this.prisma.$transaction(async (tx) => {
+        await tx.sectionAttempt.update({
+          where: { id: attempt.id },
+          data: { timeRemaining: remainingSec },
+        });
+        await tx.examSession.update({
+          where: { id: session.id },
+          data: {
+            suspendedAt: now,
+            suspendReason: reason,
+          },
+        });
+      });
+
+      await this.examTimer.pauseSectionTimer(
+        session.id,
+        activeSkill,
+        remainingSec,
+      );
+
+      if (user) {
+        await this.audit.log({
+          userId: user.id,
+          action: AuditAction.EXAM_SUSPEND,
+          entity: 'exam_session',
+          entityId: session.id,
+          metadata: { sessionCode, reason },
+        });
+      }
+
+      this.realtime.notifyExamSuspended(sessionCode, reason);
+      this.realtime.notifyAdminLiveMonitor('session-suspended');
+
+      return { suspended: true, reason, remainingSec };
+    });
+  }
+
+  async resumeSession(sessionCode: string, user: RequestUser) {
+    return this.examTimer.withSessionLock(sessionCode, async () => {
+      const session = await this.findSessionOrThrow(sessionCode);
+      if (!session.suspendedAt) {
+        return this.toSessionResponse(session);
+      }
+
+      const activeSkill = skillForActiveState(session.state);
+      if (!activeSkill) {
+        throw new BadRequestException('No active section to resume');
+      }
+
+      const attempt = session.sectionAttempts.find(
+        (a) => a.skill === activeSkill,
+      );
+      if (!attempt) {
+        throw new BadRequestException('Section attempt not found');
+      }
+
+      const remainingSec =
+        attempt.timeRemaining ??
+        (await this.computeRemainingSec(session, activeSkill));
+
+      const now = new Date();
+      const updated = await this.prisma.examSession.update({
+        where: { id: session.id },
+        data: {
+          suspendedAt: null,
+          suspendReason: null,
+          lastHeartbeatAt: now,
+        },
+        include: this.sessionInclude(),
+      });
+
+      await this.examTimer.resumeSectionTimer(
+        session.id,
+        activeSkill,
+        remainingSec,
+      );
+
+      await this.audit.log({
+        userId: user.id,
+        action: AuditAction.EXAM_RESUME,
+        entity: 'exam_session',
+        entityId: session.id,
+        metadata: { sessionCode, remainingSec },
+      });
+
+      this.realtime.notifyExamResumed(sessionCode);
+      this.realtime.notifyAdminLiveMonitor('session-resumed');
+
+      return this.toSessionResponse(updated);
+    });
+  }
+
+  async getProgress(sessionCode: string, user: RequestUser) {
+    const session = await this.findSessionOrThrow(sessionCode);
+    await this.assertSessionAccess(session.enrollment.studentId, user);
+
+    const activeSkill = skillForActiveState(session.state);
+    const attempt = activeSkill
+      ? session.sectionAttempts.find((a) => a.skill === activeSkill)
+      : undefined;
+
+    const answers: Record<string, string | string[] | null> = {};
+    if (attempt?.answers) {
+      for (const a of attempt.answers) {
+        const value = a.value;
+        if (typeof value === 'string' || value === null) {
+          answers[String(a.questionNumber)] = value;
+        } else if (Array.isArray(value)) {
+          answers[String(a.questionNumber)] = value.map(String);
+        } else if (value != null) {
+          answers[String(a.questionNumber)] = String(value);
+        }
+      }
+    }
+
+    const writing = attempt?.writingSubmission;
+    return {
+      skill: activeSkill?.toLowerCase() ?? null,
+      suspended: Boolean(session.suspendedAt),
+      suspendReason: session.suspendReason,
+      answers,
+      writing: writing
+        ? {
+            task1Text: writing.task1Text ?? '',
+            task2Text: writing.task2Text ?? '',
+          }
+        : null,
+      clientState: attempt?.clientState ?? null,
+    };
+  }
+
+  async saveClientState(
+    sessionCode: string,
+    clientState: Prisma.InputJsonValue,
+    user: RequestUser,
+  ) {
+    const session = await this.findSessionOrThrow(sessionCode);
+    await this.assertSessionAccess(session.enrollment.studentId, user);
+    this.assertNotSuspended(session);
+
+    const activeSkill = skillForActiveState(session.state);
+    if (!activeSkill) {
+      throw new BadRequestException('No active section for client state');
+    }
+
+    const attempt = await this.prisma.sectionAttempt.findUnique({
+      where: {
+        sessionId_skill: { sessionId: session.id, skill: activeSkill },
+      },
+    });
+    if (!attempt) {
+      throw new BadRequestException('Section attempt not found');
+    }
+
+    await this.prisma.sectionAttempt.update({
+      where: { id: attempt.id },
+      data: { clientState },
+    });
+
+    return { saved: true };
+  }
+
+  async checkMissedHeartbeats() {
+    const cutoff = new Date(Date.now() - 45_000);
+    const sessions = await this.prisma.examSession.findMany({
+      where: {
+        suspendedAt: null,
+        state: {
+          in: [
+            ExamSessionState.LISTENING_ACTIVE,
+            ExamSessionState.READING_ACTIVE,
+            ExamSessionState.WRITING_ACTIVE,
+            ExamSessionState.SPEAKING_ACTIVE,
+          ],
+        },
+        lastHeartbeatAt: { not: null, lt: cutoff },
+      },
+      select: { sessionCode: true },
+      take: 50,
+    });
+
+    for (const s of sessions) {
+      try {
+        await this.suspendSession(s.sessionCode, 'network_loss', null);
+      } catch {
+        // session may have ended between query and suspend
+      }
+    }
+
+    return { checked: sessions.length };
+  }
+
   async getTimer(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
     await this.assertSessionAccess(session.enrollment.studentId, user);
@@ -512,17 +771,40 @@ export class ExamSessionsService {
     const durations = await this.settings.getSectionDurationsSec();
     const duration = durations[activeSkill];
 
+    if (session.suspendedAt) {
+      const attempt = await this.prisma.sectionAttempt.findUnique({
+        where: {
+          sessionId_skill: { sessionId: session.id, skill: activeSkill },
+        },
+      });
+      const remainingSec =
+        attempt?.timeRemaining ??
+        (await this.computeRemainingSec(session, activeSkill));
+      return {
+        skill: activeSkill,
+        remainingSec,
+        serverTime: new Date().toISOString(),
+        expired: remainingSec === 0,
+        paused: true,
+        suspended: true,
+        redisBacked: this.examTimer.isRedisBacked(),
+      };
+    }
+
     const redisTimer = await this.examTimer.getSectionTimer(
       session.id,
       activeSkill,
     );
     if (redisTimer) {
       const remainingSec = this.examTimer.remainingSeconds(redisTimer);
+      const paused = this.examTimer.isPaused(redisTimer);
       return {
         skill: activeSkill,
         remainingSec,
         serverTime: new Date().toISOString(),
-        expired: remainingSec === 0,
+        expired: remainingSec === 0 && !paused,
+        paused,
+        suspended: false,
         redisBacked: true,
       };
     }
@@ -559,6 +841,8 @@ export class ExamSessionsService {
       remainingSec,
       serverTime: new Date().toISOString(),
       expired: remainingSec === 0,
+      paused: false,
+      suspended: false,
       redisBacked: false,
     };
   }
@@ -656,6 +940,9 @@ export class ExamSessionsService {
       skill: activeSkill?.toLowerCase() ?? null,
       sectionStartedAt: attempt?.startedAt?.toISOString() ?? null,
       enrollmentCode: session.enrollment.enrollmentCode,
+      suspended: Boolean(session.suspendedAt),
+      suspendReason: session.suspendReason,
+      suspendedAt: session.suspendedAt?.toISOString() ?? null,
     };
   }
 
@@ -946,6 +1233,46 @@ export class ExamSessionsService {
     return session;
   }
 
+  private assertNotSuspended(
+    session: { suspendedAt: Date | null },
+  ): void {
+    if (session.suspendedAt) {
+      throw new ConflictException('Session suspended');
+    }
+  }
+
+  private async computeRemainingSec(
+    session: Prisma.ExamSessionGetPayload<{
+      include: ReturnType<ExamSessionsService['sessionInclude']>;
+    }>,
+    activeSkill: ExamSkill,
+  ): Promise<number> {
+    const durations = await this.settings.getSectionDurationsSec();
+    const duration = durations[activeSkill];
+
+    const redisTimer = await this.examTimer.getSectionTimer(
+      session.id,
+      activeSkill,
+    );
+    if (redisTimer) {
+      return this.examTimer.remainingSeconds(redisTimer);
+    }
+
+    const attempt = session.sectionAttempts.find(
+      (a) => a.skill === activeSkill,
+    );
+    if (attempt?.timeRemaining != null) {
+      return attempt.timeRemaining;
+    }
+    if (attempt?.startedAt) {
+      const elapsed = Math.floor(
+        (Date.now() - attempt.startedAt.getTime()) / 1000,
+      );
+      return Math.max(0, duration - elapsed);
+    }
+    return duration;
+  }
+
   private async assertSessionAccess(studentId: string, user: RequestUser) {
     if (user.role === 'ADMIN') return;
     if (user.role === 'STUDENT' && user.studentProfileId === studentId) return;
@@ -984,6 +1311,8 @@ export class ExamSessionsService {
       state: session.state.toLowerCase(),
       integrity: session.integrity.toLowerCase(),
       checkInAt: session.checkInAt,
+      suspendedAt: session.suspendedAt,
+      suspendReason: session.suspendReason,
       sectionTimers: session.sectionTimers,
       enrollment: {
         id: session.enrollment.id,

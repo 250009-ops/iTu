@@ -16,6 +16,7 @@ export function useServerTimer(
   const [remaining, setRemaining] = useState<number | null>(null);
   const [expired, setExpired] = useState(false);
   const [started, setStarted] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -32,12 +33,14 @@ export function useServerTimer(
           setStarted(false);
           setRemaining(null);
           setExpired(false);
+          setPaused(false);
           return;
         }
 
         setStarted(true);
         setRemaining(timer.remainingSec);
-        setExpired(Boolean(timer.expired));
+        setPaused(Boolean(timer.paused || timer.suspended));
+        setExpired(Boolean(timer.expired) && !timer.paused && !timer.suspended);
       } catch {
         // keep last known value
       }
@@ -48,7 +51,7 @@ export function useServerTimer(
 
     const tickId = window.setInterval(() => {
       setRemaining((prev) => {
-        if (prev === null || prev <= 0) return prev;
+        if (paused || prev === null || prev <= 0) return prev;
         return prev - 1;
       });
     }, 1000);
@@ -58,17 +61,7 @@ export function useServerTimer(
       if (intervalId) window.clearInterval(intervalId);
       window.clearInterval(tickId);
     };
-  }, [sessionCode, pollMs, enabled]);
+  }, [sessionCode, enabled, pollMs, paused]);
 
-  useEffect(() => {
-    if (started && remaining === 0) {
-      setExpired(true);
-    }
-  }, [started, remaining]);
-
-  return {
-    remaining,
-    expired: started && expired,
-    started,
-  };
+  return { remaining, expired, started, paused };
 }

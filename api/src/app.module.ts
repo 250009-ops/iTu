@@ -21,6 +21,7 @@ import { MarketingModule } from './modules/marketing/marketing.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ResultsModule } from './modules/results/results.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
+import { ReleasesModule } from './modules/releases/releases.module';
 import { SearchModule } from './modules/search/search.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { SupportModule } from './modules/support/support.module';
@@ -88,6 +89,7 @@ import { StorageModule } from './common/storage/storage.module';
     SpeakingModule,
     SearchModule,
     RealtimeModule,
+    ReleasesModule,
   ],
   controllers: [AppController],
   providers: [

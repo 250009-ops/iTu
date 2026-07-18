@@ -17,6 +17,9 @@ import { useServerTimer } from "@/hooks/use-server-timer";
 import { useWritingAutosave } from "@/hooks/use-writing-autosave";
 import { useExamIntegrity, exitExamFullscreen } from "@/hooks/use-exam-integrity";
 import { useExamSectionSync } from "@/hooks/use-exam-section-sync";
+import { useExamProgressHydration } from "@/hooks/use-exam-progress-hydration";
+import { useExamPresence } from "@/hooks/use-exam-presence";
+import { ExamSuspendedView } from "@/components/exam/shell/exam-suspended-view";
 import { EssayEditor } from "@/components/exam/writing/essay-editor";
 import { startSection, submitSection, submitWriting, getExamSession } from "@/lib/api/exam";
 import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
@@ -51,6 +54,16 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   const task1Text = task1 ? (essays[task1.id] ?? "") : "";
   const task2Text = task2 ? (essays[task2.id] ?? "") : "";
   const saveStatus = useWritingAutosave(sessionId, task1Text, task2Text);
+  const hydration = useExamProgressHydration(sessionId, "writing", started);
+  const presence = useExamPresence(sessionId, { enabled: started });
+
+  useEffect(() => {
+    if (hydration.loading || !hydration.hydratedWriting || !content) return;
+    const next: Record<string, string> = {};
+    if (task1) next[task1.id] = hydration.hydratedWriting.task1Text;
+    if (task2) next[task2.id] = hydration.hydratedWriting.task2Text;
+    setEssays((prev) => ({ ...prev, ...next }));
+  }, [hydration.loading, hydration.hydratedWriting, content, task1, task2]);
 
   useEffect(() => {
     if (!content || started) return;
@@ -109,7 +122,17 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   );
 
   if (loading || !content || !activeTask) {
-    return <ApiDataShell loading={loading} error={error} />;
+    return <ApiDataShell loading={loading || hydration.loading} error={error} />;
+  }
+
+  if (presence.suspended || hydration.progress?.suspended) {
+    return (
+      <ExamSuspendedView
+        sessionCode={sessionId}
+        reason={presence.suspendReason ?? hydration.progress?.suspendReason}
+        onResumed={() => router.refresh()}
+      />
+    );
   }
 
   async function handleSubmit() {

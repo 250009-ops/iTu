@@ -14,6 +14,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useInstitutionNavBadges } from "@/contexts/institution-nav-badges-context";
 import { institutionNavGroups } from "@/lib/institution/nav";
 import { cn } from "@/lib/utils";
@@ -110,6 +111,7 @@ export function InstitutionSidebar() {
           </div>
         ))}
       </nav>
+      <PortalSidebarDownload collapsed={collapsed} />
     </aside>
   );
 }

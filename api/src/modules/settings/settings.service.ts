@@ -68,6 +68,27 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     slackConfigured: false,
     mediaStorageConfigured: false,
   },
+  desktop_releases: {
+    version: '1.0.0',
+    releasedAt: new Date(0).toISOString(),
+    platforms: {
+      windows: {
+        url: 'https://itestu.uz/releases/desktop/iTestU_1.0.0_x64-setup.exe',
+        sha256: '',
+        size: 0,
+      },
+      macos: {
+        url: 'https://itestu.uz/releases/desktop/iTestU_1.0.0_universal.dmg',
+        sha256: '',
+        size: 0,
+      },
+      linux: {
+        url: 'https://itestu.uz/releases/desktop/iTestU_1.0.0_amd64.AppImage',
+        sha256: '',
+        size: 0,
+      },
+    },
+  },
 };
 
 @Injectable()

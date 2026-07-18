@@ -222,6 +222,27 @@ async function main() {
     console.log('Exam session suspend columns ready.');
   }
 
+  const hasLastHeartbeatAt = await columnExists(
+    'exam_sessions',
+    'last_heartbeat_at',
+  );
+  if (!hasLastHeartbeatAt) {
+    console.log('Adding exam_sessions.last_heartbeat_at...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE exam_sessions
+      ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMP(3);
+    `);
+  }
+
+  const hasClientState = await columnExists('section_attempts', 'client_state');
+  if (!hasClientState) {
+    console.log('Adding section_attempts.client_state...');
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE section_attempts
+      ADD COLUMN IF NOT EXISTS client_state JSONB;
+    `);
+  }
+
   const hasEmailVerifiedAt = await columnExists('users', 'email_verified_at');
   const hasEmailVerificationToken = await columnExists(
     'users',
