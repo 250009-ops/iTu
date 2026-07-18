@@ -1,15 +1,29 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "iTestU",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "uz.itestu.desktop",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "frontendDist": "../../web/public"
+    "frontendDist": "../shell"
   },
   "app": {
-    "windows": [],
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "iTestU",
+        "url": "index.html",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 1024,
+        "minHeight": 700,
+        "resizable": true,
+        "center": true,
+        "visible": true
+      }
+    ],
     "security": {
       "csp": null
     }

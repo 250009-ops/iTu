@@ -76,7 +76,11 @@ export function DownloadPageContent() {
                       <p className="font-semibold text-navy">{platformLabel(p)}</p>
                       {artifact?.url ? (
                         <a
-                          href={artifact.url}
+                          href={
+                            artifact.sha256
+                              ? `${artifact.url}?v=${artifact.sha256.slice(0, 12)}`
+                              : artifact.url
+                          }
                           className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-navy hover:underline"
                         >
                           <Download className="h-3.5 w-3.5" />

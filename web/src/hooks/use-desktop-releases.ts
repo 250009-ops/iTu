@@ -45,7 +45,10 @@ export function useDesktopReleases() {
     error,
     platform,
     platformLabel: platformLabel(platform),
-    primaryUrl: primary?.url ?? null,
+    primaryUrl:
+      primary?.url && primary?.sha256
+        ? `${primary.url}?v=${primary.sha256.slice(0, 12)}`
+        : primary?.url ?? null,
     version: releases?.version ?? null,
     hasDownload,
   };

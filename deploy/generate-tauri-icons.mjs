@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate app-icon.png and Tauri icon set from web/public/favicon.svg.
+ * Generate app-icon.png and Tauri icon set from desktop/brand-icon.svg.
  */
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const desktopDir = path.join(root, 'desktop');
-const svgPath = path.join(root, 'web', 'public', 'favicon.svg');
+const svgPath = path.join(desktopDir, 'brand-icon.svg');
 const pngPath = path.join(desktopDir, 'app-icon.png');
 const sharpCandidates = [
   path.join(root, 'web', 'node_modules', 'sharp'),
@@ -40,7 +40,7 @@ mkdirSync(desktopDir, { recursive: true });
 
 console.log('Rasterizing brand icon from', svgPath);
 await sharp(svgPath, { density: 384 })
-  .resize(1024, 1024, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  .resize(1024, 1024)
   .png()
   .toFile(pngPath);
 

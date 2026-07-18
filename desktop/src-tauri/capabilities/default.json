@@ -4,12 +4,10 @@
   "description": "Default iTestU desktop capabilities",
   "windows": ["main"],
   "remote": {
-    "urls": ["https://www.itestu.uz", "https://itestu.uz"]
+    "urls": ["https://www.itestu.uz/*", "https://itestu.uz/*"]
   },
   "permissions": [
     "core:default",
-    "core:webview:allow-create-webview-window",
-    "core:window:allow-create",
     "shell:allow-open"
   ]
 }

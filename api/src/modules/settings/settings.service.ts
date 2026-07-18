@@ -69,7 +69,7 @@ const DEFAULT_SETTINGS: Record<string, object> = {
     mediaStorageConfigured: false,
   },
   desktop_releases: {
-    version: '1.0.0',
+    version: '1.0.1',
     releasedAt: new Date(0).toISOString(),
     platforms: {
       windows: {
