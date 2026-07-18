@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Download, Monitor, Shield, Wifi } from "lucide-react";
+import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading } from "@/components/marketing/ui/primitives";
 import { Reveal } from "@/components/marketing/motion/reveal";
@@ -29,9 +30,7 @@ export function DownloadPageContent() {
           <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
             <div className="border-b border-border bg-slate-50 px-6 py-5">
               <div className="flex items-center gap-3">
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-navy text-white">
-                  <Monitor className="h-6 w-6" />
-                </span>
+                <BrandMarkIcon size="lg" className="shadow-lg shadow-brand-red/30" />
                 <div>
                   <h2 className="text-lg font-bold text-navy">
                     Recommended for {osLabel}

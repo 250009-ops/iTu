@@ -29,10 +29,8 @@ if (!existsSync(path.join(desktopDir, 'node_modules'))) {
   run('npm', ['install'], { cwd: desktopDir });
 }
 
-if (!existsSync(path.join(desktopDir, 'src-tauri', 'icons', 'icon.ico'))) {
-  console.log('Generating Tauri icons…');
-  run('node', ['deploy/generate-tauri-icons.mjs'], { cwd: root });
-}
+console.log('Generating Tauri icons from brand favicon…');
+run('node', ['deploy/generate-tauri-icons.mjs'], { cwd: root });
 
 const script =
   process.platform === 'win32'

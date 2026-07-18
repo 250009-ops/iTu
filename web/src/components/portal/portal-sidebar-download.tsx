@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Download, Monitor } from "lucide-react";
+import { Download } from "lucide-react";
+import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { useDesktopReleases } from "@/hooks/use-desktop-releases";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,7 @@ export function PortalSidebarDownload({ collapsed, className }: Props) {
           title="Download desktop app"
           className="flex h-10 w-full items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/15"
         >
-          <Monitor className="h-4 w-4" />
+          <BrandMarkIcon size="sm" className="shadow-none" />
         </Link>
       </div>
     );
@@ -38,9 +39,7 @@ export function PortalSidebarDownload({ collapsed, className }: Props) {
     >
       <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
         <div className="flex items-start gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-red/90 text-white">
-            <Monitor className="h-4 w-4" />
-          </span>
+          <BrandMarkIcon size="sm" className="shadow-none" />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white">Desktop app</p>
             <p className="mt-0.5 text-[11px] leading-snug text-slate-400">

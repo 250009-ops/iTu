@@ -3,6 +3,9 @@
   "identifier": "default",
   "description": "Default iTestU desktop capabilities",
   "windows": ["main"],
+  "remote": {
+    "urls": ["https://www.itestu.uz", "https://itestu.uz"]
+  },
   "permissions": [
     "core:default",
     "shell:allow-open"

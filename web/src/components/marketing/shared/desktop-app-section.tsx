@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Download, Monitor, Shield, Wifi } from "lucide-react";
+import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { Reveal } from "@/components/marketing/motion/reveal";
 import { Glow, Pill, Section } from "@/components/marketing/ui/primitives";
 import {
@@ -49,7 +50,7 @@ export function MarketingDesktopAppSection({
       <Reveal className="relative mx-auto grid max-w-6xl gap-12 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div>
           <Pill tone="navy">
-            <Monitor className="h-3.5 w-3.5" /> Desktop app
+            <BrandMarkIcon size="sm" className="shadow-none" /> Desktop app
           </Pill>
           <h2 className="mt-5 text-3xl font-bold tracking-tight text-navy sm:text-4xl">
             Sit your mock in the iTestU desktop app

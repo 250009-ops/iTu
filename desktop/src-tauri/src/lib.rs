@@ -1,24 +1,13 @@
-use std::env;
-use tauri::{Emitter, WebviewUrl, WebviewWindowBuilder};
-
-const DEFAULT_WEB_URL: &str = "https://www.itestu.uz";
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let web_url = env::var("WEB_APP_URL").unwrap_or_else(|_| DEFAULT_WEB_URL.to_string());
-
-            let window = WebviewWindowBuilder::new(
-                app,
-                "main",
-                WebviewUrl::External(web_url.parse().expect("invalid WEB_APP_URL")),
-            )
-            .title("iTestU")
-            .inner_size(1280.0, 860.0)
-            .min_inner_size(1024.0, 700.0)
-            .build()?;
+            let window = app
+                .get_webview_window("main")
+                .expect("main window not found in tauri.conf.json");
 
             let handle = app.handle().clone();
             window.on_window_event(move |event| {
