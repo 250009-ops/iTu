@@ -163,7 +163,7 @@ export function claimWelcomePromo(body: {
     status: string;
   }>("/students/welcome-promo/claim", {
     method: "POST",
-    body: JSON.stringify(body),
+    body,
   });
 }
 
