@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set "APP_URL=https://www.itestu.uz"
+set "APP_URL=https://www.itestu.uz/login"
 
 where msedge >nul 2>&1 && (
   start "" msedge --app=%APP_URL% --window-size=1280,860

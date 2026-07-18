@@ -1,6 +1,6 @@
 {
   "name": "itestu-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "iTestU unified desktop shell for all ERP roles",
   "scripts": {

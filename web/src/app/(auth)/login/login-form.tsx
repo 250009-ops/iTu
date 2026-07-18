@@ -15,11 +15,11 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { getMe, isTwoFactorChallenge, login as apiLogin } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/errors";
 import { getErrorMessage } from "@/lib/api/errors";
-import {
-  getDashboardPath,
+import { getDashboardPath,
   normalizeRole,
   setSession,
 } from "@/lib/auth/session";
+import { isDesktopShell } from "@/lib/desktop/shim";
 import { loginSchema, type LoginFormValues } from "@/lib/validations/auth";
 
 const SESSION_MESSAGES: Record<string, string> = {
@@ -31,6 +31,7 @@ export default function LoginForm() {
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered") === "1";
   const sessionReason = searchParams.get("reason");
+  const desktop = isDesktopShell();
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [twoFactorStep, setTwoFactorStep] = useState(false);
@@ -159,12 +160,14 @@ export default function LoginForm() {
     <div className="space-y-8">
       <div className="flex items-center justify-between lg:hidden">
         <Logo />
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-navy"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Link>
+        {!desktop ? (
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-navy"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-2">
