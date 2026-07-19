@@ -140,7 +140,7 @@ export function InstitutionPackagesPanel() {
       await activateInstitutionPackage(pkg.id);
       await refresh();
       toast("Package activated", {
-        description: `${pkg.title} is now available in the Enroll wizard (no credit cost).`,
+        description: `${pkg.title} is now available in the Enroll wizard.`,
         variant: "success",
       });
     } catch (err) {
@@ -168,8 +168,8 @@ export function InstitutionPackagesPanel() {
         <div>
           <h2 className="text-xl font-bold text-navy">Private mock packages</h2>
           <p className="mt-1 text-sm text-muted">
-            Build centre-only packages from your published tests. Enrolling students on
-            these packages does not spend credits.
+            Build centre-only packages from your published tests. These appear alongside
+            granted platform mocks in the Enroll wizard.
           </p>
         </div>
         <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>

@@ -14,6 +14,7 @@ import { PracticeWalletService } from '../../common/practice/practice-wallet.ser
 import { PrismaService } from '../../prisma/prisma.service';
 import { UzumCheckoutService } from '../payments/uzum-checkout.service';
 import { RequestUser } from '../../common/types/request-user';
+import { PracticePackageContentService } from './practice-package-content.service';
 
 const CHECKOUT_HOLD_MINUTES = 15;
 
@@ -23,6 +24,7 @@ export class PracticeCommerceService {
     private prisma: PrismaService,
     private wallet: PracticeWalletService,
     private uzum: UzumCheckoutService,
+    private content: PracticePackageContentService,
   ) {}
 
   async listPackages(activeOnly = true) {
@@ -37,7 +39,7 @@ export class PracticeCommerceService {
     const packages = await this.prisma.practiceProductPackage.findMany({
       orderBy: { updatedAt: 'desc' },
     });
-    return packages.map((p) => this.formatPackage(p));
+    return Promise.all(packages.map((p) => this.formatAdminPackage(p)));
   }
 
   async getPackage(id: string) {
@@ -45,7 +47,7 @@ export class PracticeCommerceService {
       where: { id },
     });
     if (!pkg) throw new NotFoundException('Practice package not found');
-    return this.formatPackage(pkg);
+    return this.formatAdminPackage(pkg);
   }
 
   async suggestPackagePrice(bundle: PracticeBundle) {
@@ -59,30 +61,26 @@ export class PracticeCommerceService {
     description?: string;
     price: number;
     currency?: string;
-    bundle: PracticeBundle;
+    unitIds: string[];
+    promptIds: string[];
     displayPrices?: PracticeDisplayPrices;
     isActive?: boolean;
     mostPopular?: boolean;
   }) {
-    const bundle = normalizeBundle(body.bundle);
-    if (Object.keys(bundle).length === 0) {
-      throw new BadRequestException('Bundle must include at least one credit type');
-    }
-    return this.prisma.practiceProductPackage.create({
-      data: {
-        slug: body.slug.trim(),
-        title: body.title.trim(),
-        description: body.description ?? null,
+    return this.content.createPackageWithContent(
+      {
+        slug: body.slug,
+        title: body.title,
+        description: body.description,
         price: body.price,
-        currency: body.currency ?? 'UZS',
-        bundle: bundle as object,
-        displayPrices: body.displayPrices
-          ? (body.displayPrices as Prisma.InputJsonValue)
-          : undefined,
-        isActive: body.isActive ?? false,
-        mostPopular: body.mostPopular ?? false,
+        currency: body.currency,
+        displayPrices: body.displayPrices,
+        isActive: body.isActive,
+        mostPopular: body.mostPopular,
       },
-    });
+      body.unitIds ?? [],
+      body.promptIds ?? [],
+    );
   }
 
   async updatePackage(
@@ -91,21 +89,33 @@ export class PracticeCommerceService {
       title?: string;
       description?: string;
       price?: number;
-      bundle?: PracticeBundle;
+      unitIds?: string[];
+      promptIds?: string[];
       displayPrices?: PracticeDisplayPrices;
       isActive?: boolean;
       mostPopular?: boolean;
     },
   ) {
     await this.getPackage(id);
-    const bundle = body.bundle ? normalizeBundle(body.bundle) : undefined;
+
+    const hasContentUpdate =
+      body.unitIds !== undefined || body.promptIds !== undefined;
+
+    if (hasContentUpdate) {
+      const current = await this.content.getPackageContent(id);
+      await this.content.syncPackageContent(
+        id,
+        body.unitIds ?? current.unitIds,
+        body.promptIds ?? current.promptIds,
+      );
+    }
+
     return this.prisma.practiceProductPackage.update({
       where: { id },
       data: {
         ...(body.title ? { title: body.title.trim() } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.price !== undefined ? { price: body.price } : {}),
-        ...(bundle ? { bundle: bundle as object } : {}),
         ...(body.displayPrices !== undefined
           ? { displayPrices: body.displayPrices }
           : {}),
@@ -121,16 +131,28 @@ export class PracticeCommerceService {
     return { deleted: true };
   }
 
-  async initiateCheckout(packageId: string, user: RequestUser) {
+  async initiateCheckout(
+    packageId: string,
+    user: RequestUser,
+    portalBasePath = '/student/practice',
+  ) {
     if (!user.studentProfileId) {
       throw new BadRequestException('Student profile required');
     }
 
     const pkg = await this.prisma.practiceProductPackage.findUnique({
       where: { id: packageId },
+      include: {
+        unitLinks: true,
+        promptLinks: true,
+      },
     });
     if (!pkg || !pkg.isActive) {
       throw new NotFoundException('Practice package not available');
+    }
+
+    if (pkg.unitLinks.length === 0 && pkg.promptLinks.length === 0) {
+      throw new BadRequestException('Practice package has no content assigned');
     }
 
     const orderCode = await this.generateCode('PRA-ORD');
@@ -178,8 +200,8 @@ export class PracticeCommerceService {
       packageTitle: pkg.title,
       clientId: user.id,
       sessionTimeoutSecs: CHECKOUT_HOLD_MINUTES * 60,
-      successPath: '/student/practice/shop?paid=1',
-      failurePath: '/student/practice/shop?paid=0',
+      successPath: `${portalBasePath}/shop?paid=1`,
+      failurePath: `${portalBasePath}/shop?paid=0`,
     });
 
     await this.prisma.order.update({
@@ -230,6 +252,12 @@ export class PracticeCommerceService {
       order.orderCode,
     );
 
+    await this.content.grantAccessFromOrder(
+      order.studentId,
+      order.id,
+      order.practicePackage.id,
+    );
+
     await this.prisma.order.update({
       where: { id: order.id },
       data: { status: OrderStatus.PAID },
@@ -250,6 +278,7 @@ export class PracticeCommerceService {
     createdAt: Date;
     updatedAt: Date;
   }) {
+    const bundle = normalizeBundle(pkg.bundle);
     return {
       id: pkg.id,
       slug: pkg.slug,
@@ -257,12 +286,34 @@ export class PracticeCommerceService {
       description: pkg.description,
       price: pkg.price,
       currency: pkg.currency,
-      bundle: normalizeBundle(pkg.bundle),
+      bundle,
       displayPrices: (pkg.displayPrices as PracticeDisplayPrices) ?? {},
       isActive: pkg.isActive,
       mostPopular: pkg.mostPopular,
+      contentSummary: this.content.formatContentSummary(bundle),
       createdAt: pkg.createdAt,
       updatedAt: pkg.updatedAt,
+    };
+  }
+
+  private async formatAdminPackage(pkg: {
+    id: string;
+    slug: string;
+    title: string;
+    description: string | null;
+    price: number;
+    currency: string;
+    bundle: unknown;
+    displayPrices: unknown;
+    isActive: boolean;
+    mostPopular: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    const contentLocked = await this.content.isContentLocked(pkg.id);
+    return {
+      ...this.formatPackage(pkg),
+      contentLocked,
     };
   }
 

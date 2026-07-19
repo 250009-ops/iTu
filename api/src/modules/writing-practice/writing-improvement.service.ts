@@ -14,6 +14,7 @@ import {
 import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { countWords } from '../grading/writing-word-count';
+import { PracticeAccessService } from '../practice-commerce/practice-access.service';
 
 export type WritingSections = {
   introduction: string;
@@ -44,13 +45,16 @@ export class WritingImprovementService {
     private prisma: PrismaService,
     private config: ConfigService,
     private wallet: PracticeWalletService,
+    private access: PracticeAccessService,
   ) {}
 
   isConfigured(): boolean {
     return Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim());
   }
 
-  async listPublishedPrompts(taskNumber?: number) {
+  async listPublishedPrompts(studentId: string, taskNumber?: number) {
+    const accessibleIds = await this.access.getAccessiblePromptIds(studentId);
+
     const prompts = await this.prisma.writingPracticePrompt.findMany({
       where: {
         status: ContentTestStatus.PUBLISHED,
@@ -67,7 +71,7 @@ export class WritingImprovementService {
         imageUrl: true,
       },
     });
-    return prompts;
+    return prompts.filter((p) => accessibleIds.has(p.id));
   }
 
   async createSession(
@@ -80,6 +84,13 @@ export class WritingImprovementService {
     });
     if (!prompt || prompt.status !== ContentTestStatus.PUBLISHED) {
       throw new NotFoundException('Writing prompt not available');
+    }
+
+    const hasAccess = await this.access.hasPromptAccess(studentId, promptId);
+    if (!hasAccess) {
+      throw new BadRequestException(
+        'You do not have access to this writing prompt. Purchase a package to unlock it.',
+      );
     }
 
     const sessionCode = await this.generateCode('WPR');
@@ -167,6 +178,7 @@ export class WritingImprovementService {
       );
     }
 
+    await this.access.consumePromptAccess(studentId, session.promptId);
     await this.wallet.consumeCredit(
       studentId,
       PracticeCreditType.AI_WRITING_ESSAY,
@@ -219,6 +231,11 @@ export class WritingImprovementService {
         PracticeCreditType.AI_WRITING_ESSAY,
         session.sessionCode,
       );
+      try {
+        await this.access.refundPromptAccess(studentId, session.promptId);
+      } catch {
+        // ignore
+      }
       await this.prisma.writingPracticeSession.update({
         where: { id: sessionId },
         data: { status: WritingPracticeSessionStatus.FAILED },

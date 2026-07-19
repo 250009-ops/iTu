@@ -12,6 +12,7 @@ export interface AdminInstitution {
   wholesalePrice: number;
   currency: string;
   creditBalance: number;
+  grantedSetCount: number;
   students: number;
   examiners: number;
   enrollments: number;

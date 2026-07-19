@@ -2,8 +2,12 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ContentTestStatus, ExamType } from '@prisma/client';
 import { InstitutionPackagesService } from './institution-packages.service';
 
-function makeService(prisma: object) {
-  return new InstitutionPackagesService(prisma as never, { log: jest.fn() } as never);
+function makeService(prisma: object, mockSets?: object) {
+  return new InstitutionPackagesService(
+    prisma as never,
+    { log: jest.fn() } as never,
+    (mockSets ?? { listGrantedPackageIds: jest.fn(async () => []) }) as never,
+  );
 }
 
 const user = { id: 'user-1', institutionId: 'centre-a' } as never;
@@ -50,9 +54,6 @@ describe('InstitutionPackagesService', () => {
 
   it('returns 404 when student belongs to another centre', async () => {
     const prisma = {
-      institution: {
-        findUnique: () => Promise.resolve({ creditBalance: 5 }),
-      },
       studentProfile: {
         findUnique: () =>
           Promise.resolve({ id: 'student-1', institutionId: 'centre-b' }),
@@ -65,22 +66,27 @@ describe('InstitutionPackagesService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('returns empty platform list when credit balance is zero', async () => {
+  it('returns empty platform list when no granted sets', async () => {
     const prisma = {
-      institution: {
-        findUnique: () => Promise.resolve({ creditBalance: 0 }),
-      },
       studentProfile: {
         findUnique: () =>
           Promise.resolve({ id: 'student-1', institutionId: 'centre-a' }),
       },
       mockTestPackage: {
-        findMany: jest.fn(async ({ where }: { where: { institutionId: string | null } }) => {
+        findMany: jest.fn(async ({ where }: { where: { institutionId?: string | null; id?: { in: string[] } } }) => {
           if (where.institutionId === 'centre-a') {
             return [
               {
+                id: 'own-1',
                 packageKind: 'listening+reading+writing+speaking',
                 examType: ExamType.ACADEMIC,
+                title: 'Centre mock',
+                mockNumber: 1,
+                skills: ['listening', 'reading', 'writing', 'speaking'],
+                listeningTestId: null,
+                readingTestId: null,
+                writingTestId: null,
+                speakingBankId: null,
               },
             ];
           }
@@ -92,17 +98,14 @@ describe('InstitutionPackagesService', () => {
       sectionAttempt: { findMany: jest.fn(async () => []) },
       enrollment: { findFirst: jest.fn(async () => null) },
     };
-    const service = makeService(prisma);
+    const mockSets = {
+      listGrantedPackageIds: jest.fn(async () => []),
+    };
+    const service = makeService(prisma, mockSets);
 
     const result = await service.listEnrollmentPackages(user, 'student-1');
 
-    expect(result.creditBalance).toBe(0);
     expect(result.platform).toEqual([]);
-    expect(result.platformBlockedReason).toContain('No credits');
-    expect(prisma.mockTestPackage.findMany).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ institutionId: null }),
-      }),
-    );
+    expect(mockSets.listGrantedPackageIds).toHaveBeenCalledWith('centre-a');
   });
 });

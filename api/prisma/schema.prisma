@@ -300,6 +300,8 @@ model StudentProfile {
   practiceCreditTxns    PracticeCreditTxn[]
   practiceAttempts      PracticeAttempt[]
   writingPracticeSessions WritingPracticeSession[]
+  practiceUnitAccess    StudentPracticeUnitAccess[]
+  practicePromptAccess  StudentPracticePromptAccess[]
 
   @@index([institutionId])
   @@map("student_profiles")
@@ -417,6 +419,7 @@ model MockTestPackage {
   enrollments   Enrollment[]
   orders        Order[]
   reviews       Review[]
+  mockSetItem   InstitutionMockSetItem?
 
   @@unique([scopeKey, packageKind, mockNumber])
   @@index([institutionId])
@@ -582,6 +585,8 @@ model Order {
   package         MockTestPackage?        @relation(fields: [packageId], references: [id])
   practicePackage PracticeProductPackage? @relation(fields: [practicePackageId], references: [id])
   refunds         Refund[]
+  practiceUnitAccess   StudentPracticeUnitAccess[]
+  practicePromptAccess StudentPracticePromptAccess[]
 
   @@index([institutionId])
   @@map("orders")
@@ -611,6 +616,8 @@ model PracticeUnit {
   sourceContentTest ContentTest?   @relation(fields: [sourceContentTestId], references: [id], onDelete: SetNull)
   mediaAssets       MediaAsset[]
   attempts          PracticeAttempt[]
+  packageLinks      PracticePackageUnit[]
+  studentAccess     StudentPracticeUnitAccess[]
 
   @@index([type, status])
   @@index([skill, questionType])
@@ -631,7 +638,9 @@ model WritingPracticePrompt {
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
-  sessions WritingPracticeSession[]
+  sessions     WritingPracticeSession[]
+  packageLinks PracticePackageWritingPrompt[]
+  studentAccess StudentPracticePromptAccess[]
 
   @@map("writing_practice_prompts")
 }
@@ -652,9 +661,71 @@ model PracticeProductPackage {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  orders Order[]
+  orders      Order[]
+  unitLinks   PracticePackageUnit[]
+  promptLinks PracticePackageWritingPrompt[]
 
   @@map("practice_product_packages")
+}
+
+model PracticePackageUnit {
+  id        String @id @default(cuid())
+  packageId String @map("package_id")
+  unitId    String @unique @map("unit_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  package PracticeProductPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  unit    PracticeUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, unitId])
+  @@map("practice_package_units")
+}
+
+model PracticePackageWritingPrompt {
+  id        String @id @default(cuid())
+  packageId String @map("package_id")
+  promptId  String @unique @map("prompt_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  package PracticeProductPackage  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  prompt  WritingPracticePrompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, promptId])
+  @@map("practice_package_writing_prompts")
+}
+
+model StudentPracticeUnitAccess {
+  id        String @id @default(cuid())
+  studentId String @map("student_id")
+  unitId    String @map("unit_id")
+  orderId   String @map("order_id")
+  remaining Int    @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  unit    PracticeUnit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, unitId, orderId])
+  @@index([studentId, unitId])
+  @@map("student_practice_unit_access")
+}
+
+model StudentPracticePromptAccess {
+  id        String @id @default(cuid())
+  studentId String @map("student_id")
+  promptId  String @map("prompt_id")
+  orderId   String @map("order_id")
+  remaining Int    @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  student StudentProfile        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  prompt  WritingPracticePrompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  order   Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, promptId, orderId])
+  @@index([studentId, promptId])
+  @@map("student_practice_prompt_access")
 }
 
 model StudentPracticeWallet {
@@ -777,8 +848,53 @@ model Institution {
   supportTickets SupportTicket[]
   contentTests   ContentTest[]
   mockPackages   MockTestPackage[]
+  mockSetGrants  InstitutionMockSetGrant[]
 
   @@map("institutions")
+}
+
+model InstitutionMockSet {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  items  InstitutionMockSetItem[]
+  grants InstitutionMockSetGrant[]
+
+  @@map("institution_mock_sets")
+}
+
+model InstitutionMockSetItem {
+  id        String @id @default(cuid())
+  setId     String @map("set_id")
+  packageId String @unique @map("package_id")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  set     InstitutionMockSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  package MockTestPackage  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([setId, packageId])
+  @@map("institution_mock_set_items")
+}
+
+model InstitutionMockSetGrant {
+  id            String   @id @default(cuid())
+  setId         String   @map("set_id")
+  institutionId String   @map("institution_id")
+  grantedById   String?  @map("granted_by_id")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  set         InstitutionMockSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  institution Institution        @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([institutionId, setId])
+  @@index([institutionId])
+  @@map("institution_mock_set_grants")
 }
 
 model InstitutionCreditTxn {

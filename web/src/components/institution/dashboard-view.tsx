@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, ArrowRight, Coins, UserPlus } from "lucide-react";
+import { AlertCircle, ArrowRight, FileText, UserPlus } from "lucide-react";
 import { getInstitutionOverview } from "@/lib/api/institution";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { Button } from "@/components/ui/button";
@@ -24,13 +24,13 @@ export function InstitutionDashboardView() {
       <PageHeader
         breadcrumb="Institution &gt; Dashboard"
         title={data?.centerName ? `Welcome, ${data.centerName}` : "Dashboard"}
-        description="Overview of your center's credits, students and mock activity."
+        description="Overview of your centre's granted mocks, students, and mock activity."
         actions={
           <>
-            <Link href="/institution/credits">
+            <Link href="/institution/mocks">
               <Button variant="secondary" size="sm">
-                <Coins className="h-4 w-4" />
-                Buy credits
+                <FileText className="h-4 w-4" />
+                Browse mocks
               </Button>
             </Link>
             <Link href="/institution/students">
@@ -59,9 +59,9 @@ export function InstitutionDashboardView() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Credit balance"
-          value={data?.creditBalance ?? "—"}
-          hint="1 credit = 1 mock enrollment"
+          label="Granted mock sets"
+          value={data?.grantedSetCount ?? "—"}
+          hint="Platform bundles from iTestU admin"
           accent="red"
         />
         <StatCard

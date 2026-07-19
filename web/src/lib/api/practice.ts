@@ -27,6 +27,16 @@ export type PracticeProductPackage = {
   displayPrices: Partial<Record<keyof PracticeBundle, number>>;
   isActive: boolean;
   mostPopular: boolean;
+  contentSummary?: string;
+};
+
+export type PracticeAllowance = {
+  readingPassages: number;
+  readingQuestionTypes: number;
+  listeningSections: number;
+  listeningQuestionTypes: number;
+  aiWritingEssays: number;
+  wallet: PracticeWallet | null;
 };
 
 export type PracticeLibraryUnit = {
@@ -98,11 +108,18 @@ export function getPracticeWallet() {
   return apiFetch<PracticeWallet>("/practice/wallet");
 }
 
+export function getPracticeAllowance() {
+  return apiFetch<PracticeAllowance>("/practice/allowance");
+}
+
 export function getPracticePackages() {
   return apiFetch<PracticeProductPackage[]>("/practice/packages");
 }
 
-export function checkoutPracticePackage(packageId: string) {
+export function checkoutPracticePackage(
+  packageId: string,
+  portalBasePath?: string,
+) {
   return apiFetch<{
     orderId: string;
     orderCode: string;
@@ -111,7 +128,10 @@ export function checkoutPracticePackage(packageId: string) {
     checkoutExpiresAt: string | null;
     amount: number;
     currency: string;
-  }>("/practice/checkout", { method: "POST", body: { packageId } });
+  }>("/practice/checkout", {
+    method: "POST",
+    body: { packageId, portalBasePath },
+  });
 }
 
 export function getPracticeLibrary(params?: {

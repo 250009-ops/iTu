@@ -18,6 +18,7 @@ import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
 import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { AdjustCreditsDto } from './dto/adjust-credits.dto';
 import { PatchInstitutionDto } from './dto/patch-institution.dto';
@@ -34,6 +35,7 @@ export class AdminInstitutionsService implements OnModuleInit {
     private audit: AuditService,
     private config: ConfigService,
     private telegram: TelegramService,
+    private mockSets: InstitutionMockSetsService,
   ) {}
 
   /** One-time fix: rejected applications were previously stored as SUSPENDED. */
@@ -66,7 +68,14 @@ export class AdminInstitutionsService implements OnModuleInit {
     const inst = await this.prisma.institution.findUnique({
       where: { id: institutionId },
       include: {
-        _count: { select: { students: true, teachers: true, enrollments: true } },
+        _count: {
+          select: {
+            students: true,
+            teachers: true,
+            enrollments: true,
+            mockSetGrants: true,
+          },
+        },
         admins: { select: { id: true, name: true, email: true, emailVerifiedAt: true } },
       },
     });
@@ -83,6 +92,7 @@ export class AdminInstitutionsService implements OnModuleInit {
       wholesalePrice: inst.wholesalePrice,
       currency: inst.currency,
       creditBalance: inst.creditBalance,
+      grantedSetCount: inst._count.mockSetGrants,
       students: inst._count.students,
       examiners: inst._count.teachers,
       enrollments: inst._count.enrollments,
@@ -381,5 +391,26 @@ export class AdminInstitutionsService implements OnModuleInit {
     });
 
     return this.mapRow(id);
+  }
+
+  listMockSetGrants(id: string) {
+    return this.mockSets.listGrants(id);
+  }
+
+  listGrantableMockSets(id: string) {
+    return this.mockSets.listAvailableSetsForGrant(id);
+  }
+
+  grantMockSet(
+    id: string,
+    setId: string,
+    actorId: string,
+    note?: string,
+  ) {
+    return this.mockSets.grantSet(id, setId, actorId, note);
+  }
+
+  revokeMockSetGrant(id: string, setId: string, actorId: string) {
+    return this.mockSets.revokeGrant(id, setId, actorId);
   }
 }

@@ -55,6 +55,7 @@ export const adminNavGroups: AdminNavGroup[] = [
         children: [
           { label: "Mock Packages", href: "/admin/packages" },
           { label: "Practice & AI Packages", href: "/admin/packages/practice" },
+          { label: "Institution Mock Sets", href: "/admin/packages/institution-sets" },
         ],
       },
     ],

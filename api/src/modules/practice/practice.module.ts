@@ -3,7 +3,9 @@ import { PracticeWalletService } from '../../common/practice/practice-wallet.ser
 import { ExamSessionsModule } from '../exam-sessions/exam-sessions.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { PracticeContentModule } from '../practice-content/practice-content.module';
+import { PracticeAccessService } from '../practice-commerce/practice-access.service';
 import { PracticeCommerceService } from '../practice-commerce/practice-commerce.service';
+import { PracticePackageContentService } from '../practice-commerce/practice-package-content.service';
 import { PracticeSessionsService } from '../practice-sessions/practice-sessions.service';
 import { WritingImprovementService } from '../writing-practice/writing-improvement.service';
 import {
@@ -16,6 +18,8 @@ import {
   controllers: [PracticeAdminCommerceController, PracticeStudentController],
   providers: [
     PracticeCommerceService,
+    PracticePackageContentService,
+    PracticeAccessService,
     PracticeSessionsService,
     WritingImprovementService,
   ],

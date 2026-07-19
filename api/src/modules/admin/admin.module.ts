@@ -8,6 +8,7 @@ import { SettingsModule } from '../settings/settings.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { InstitutionMockSetsModule } from '../institution-mock-sets/institution-mock-sets.module';
 import { AdminInstitutionsController } from './admin-institutions.controller';
 import { AdminInstitutionsService } from './admin-institutions.service';
 
@@ -20,6 +21,7 @@ import { AdminInstitutionsService } from './admin-institutions.service';
     GradingModule,
     SettingsModule,
     BookingsModule,
+    InstitutionMockSetsModule,
   ],
   controllers: [AdminController, AdminInstitutionsController],
   providers: [AdminService, AdminInstitutionsService],

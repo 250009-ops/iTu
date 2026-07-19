@@ -44,6 +44,7 @@ import { StorageService } from '../../common/storage/storage.service';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { evaluatePackageAvailability } from '../content/content-assignment';
+import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { UzumCheckoutService } from '../payments/uzum-checkout.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -108,6 +109,7 @@ export class InstitutionService {
     private notifications: NotificationsService,
     private config: ConfigService,
     private storage: StorageService,
+    private mockSets: InstitutionMockSetsService,
   ) {}
 
   private appUrl(): string {
@@ -156,12 +158,16 @@ export class InstitutionService {
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const [activeStudents, pendingStudents, upcoming, recent] = await Promise.all([
+    const [activeStudents, pendingStudents, grantedSetCount, upcoming, recent] =
+      await Promise.all([
       this.prisma.studentProfile.count({
         where: { institutionId, institutionStatus: InstitutionMemberStatus.ACTIVE },
       }),
       this.prisma.studentProfile.count({
         where: { institutionId, institutionStatus: InstitutionMemberStatus.PENDING },
+      }),
+      this.prisma.institutionMockSetGrant.count({
+        where: { institutionId, set: { isActive: true } },
       }),
       this.prisma.enrollment.findMany({
         where: {
@@ -197,7 +203,7 @@ export class InstitutionService {
 
     return {
       centerName: institution.name,
-      creditBalance: institution.creditBalance,
+      grantedSetCount,
       wholesalePrice: institution.wholesalePrice,
       currency: institution.currency,
       activeStudents,
@@ -287,6 +293,11 @@ export class InstitutionService {
         date: t.createdAt,
       })),
     };
+  }
+
+  async getMocks(user: RequestUser) {
+    const institution = await this.getInstitutionOrThrow(user);
+    return this.mockSets.listMocksForInstitution(institution.id);
   }
 
   async createCreditCheckout(user: RequestUser, dto: CreateCreditCheckoutDto) {
@@ -612,10 +623,16 @@ export class InstitutionService {
     }
 
     const isOwnPackage = pkg.institutionId === institutionId;
-    if (!isOwnPackage && institution.creditBalance < 1) {
-      throw new BadRequestException(
-        'Not enough credits: buy credits to enroll on platform mocks.',
+    if (!isOwnPackage) {
+      const granted = await this.mockSets.hasGrantedSetPackage(
+        institutionId,
+        pkg.id,
       );
+      if (!granted) {
+        throw new BadRequestException(
+          'Package not included in your granted mock sets',
+        );
+      }
     }
 
     // Validate examiners belong to this institution when provided.
@@ -655,18 +672,7 @@ export class InstitutionService {
         continue;
       }
 
-      // Reserve one credit for platform catalog packages only.
-      if (!isOwnPackage) {
-        const reserved = await this.prisma.institution.updateMany({
-          where: { id: institutionId, creditBalance: { gte: 1 } },
-          data: { creditBalance: { decrement: 1 } },
-        });
-        if (reserved.count === 0) {
-          results.push({ studentId, error: 'Insufficient credits' });
-          break;
-        }
-      }
-
+      // Platform catalog packages require a granted mock set (no credit debit).
       try {
         const enrollment = await this.bookings.provisionEnrollment({
           studentProfileId: student.id,
@@ -680,46 +686,16 @@ export class InstitutionService {
           auditAction: AuditAction.INSTITUTION_ENROLL,
         });
 
-        if (!isOwnPackage) {
-          const fresh = await this.prisma.institution.findUnique({
-            where: { id: institutionId },
-            select: { creditBalance: true },
-          });
-          await this.prisma.institutionCreditTxn.create({
-            data: {
-              institutionId,
-              type: CreditTxnType.CONSUME,
-              delta: -1,
-              balanceAfter: fresh?.creditBalance ?? 0,
-              enrollmentId: enrollment.enrollmentId,
-              reference: enrollment.enrollmentCode,
-              note: `Enrolled ${student.user.name}`,
-            },
-          });
-        }
         results.push({ studentId, enrollmentCode: enrollment.enrollmentCode });
       } catch (err) {
-        if (!isOwnPackage) {
-          // Compensate: return the reserved credit.
-          await this.prisma.institution.update({
-            where: { id: institutionId },
-            data: { creditBalance: { increment: 1 } },
-          });
-        }
         const message = err instanceof Error ? err.message : 'Enrollment failed';
         results.push({ studentId, error: message });
       }
     }
 
-    const fresh = await this.prisma.institution.findUnique({
-      where: { id: institutionId },
-      select: { creditBalance: true },
-    });
-
     return {
       enrolled: results.filter((r) => r.enrollmentCode).length,
       failed: results.filter((r) => r.error),
-      creditBalance: fresh?.creditBalance ?? 0,
     };
   }
 

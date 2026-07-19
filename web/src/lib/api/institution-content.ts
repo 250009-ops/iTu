@@ -167,22 +167,19 @@ export function getInstitutionPackagesMine() {
 
 export function getInstitutionEnrollmentPackages(studentId: string) {
   return apiFetch<{
-    creditBalance: number;
     studentId: string;
-    platformBlockedReason?: string;
     platform: {
       id: string;
       title: string;
       packageKind: string;
       mockNumber: number;
-      costsCredit: boolean;
     }[];
     own: {
       id: string;
       title: string;
       packageKind: string;
       mockNumber: number;
-      costsCredit: boolean;
+      costsCredit?: boolean;
     }[];
   }>(`/institution/enrollment-packages?studentId=${encodeURIComponent(studentId)}`);
 }

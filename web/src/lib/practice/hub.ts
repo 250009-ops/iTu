@@ -6,31 +6,36 @@ export type PracticeCreditKey = keyof PracticeWallet;
 
 export const PRACTICE_CREDIT_META: Record<
   PracticeCreditKey,
-  { label: string; shortLabel: string; color: string }
+  { label: string; shortLabel: string; color: string; remainingLabel: string }
 > = {
   readingPassages: {
     label: "Reading passages",
     shortLabel: "Passages",
+    remainingLabel: "reading passages remaining",
     color: "#10b981",
   },
   readingQuestionTypes: {
-    label: "Reading question types",
+    label: "Reading question-type drills",
     shortLabel: "Q-type drills",
+    remainingLabel: "reading drills remaining",
     color: "#059669",
   },
   listeningSections: {
     label: "Listening sections",
     shortLabel: "Sections",
+    remainingLabel: "listening sections remaining",
     color: "#0ea5e9",
   },
   listeningQuestionTypes: {
-    label: "Listening question types",
+    label: "Listening question-type drills",
     shortLabel: "Q-type drills",
+    remainingLabel: "listening drills remaining",
     color: "#0284c7",
   },
   aiWritingEssays: {
     label: "AI writing reviews",
-    shortLabel: "Essay credits",
+    shortLabel: "Essay reviews",
+    remainingLabel: "AI writing reviews remaining",
     color: "#8b5cf6",
   },
 };
@@ -48,7 +53,7 @@ export const PRACTICE_LIBRARY_SECTIONS: PracticeLibrarySection[] = [
   {
     id: "reading-passages",
     title: "Reading passages",
-    description: "Full passages with mixed question types — 1 passage credit each.",
+    description: "Full passages with mixed question types — uses 1 reading passage each.",
     tab: "reading",
     creditKey: "readingPassages",
     unitTypes: ["READING_PASSAGE"],
@@ -56,7 +61,7 @@ export const PRACTICE_LIBRARY_SECTIONS: PracticeLibrarySection[] = [
   {
     id: "reading-drills",
     title: "Reading question-type drills",
-    description: "Focused drills on one question format — 1 drill credit each.",
+    description: "Focused drills on one question format — uses 1 reading drill each.",
     tab: "reading",
     creditKey: "readingQuestionTypes",
     unitTypes: ["READING_QUESTION_TYPE"],
@@ -64,7 +69,7 @@ export const PRACTICE_LIBRARY_SECTIONS: PracticeLibrarySection[] = [
   {
     id: "listening-sections",
     title: "Listening sections",
-    description: "Audio sections with mixed questions — 1 section credit each.",
+    description: "Audio sections with mixed questions — uses 1 listening section each.",
     tab: "listening",
     creditKey: "listeningSections",
     unitTypes: ["LISTENING_SECTION"],
@@ -72,7 +77,7 @@ export const PRACTICE_LIBRARY_SECTIONS: PracticeLibrarySection[] = [
   {
     id: "listening-drills",
     title: "Listening question-type drills",
-    description: "Single-format listening drills — 1 drill credit each.",
+    description: "Single-format listening drills — uses 1 listening drill each.",
     tab: "listening",
     creditKey: "listeningQuestionTypes",
     unitTypes: ["LISTENING_QUESTION_TYPE"],
@@ -107,14 +112,27 @@ export function hasCreditsForUnit(
   return wallet[walletKeyForUnit(unit)] > 0;
 }
 
-export function totalPracticeCredits(wallet: PracticeWallet): number {
+export function totalPracticeAllowance(
+  allowance: Pick<
+    PracticeWallet,
+    | "readingPassages"
+    | "readingQuestionTypes"
+    | "listeningSections"
+    | "listeningQuestionTypes"
+    | "aiWritingEssays"
+  >,
+): number {
   return (
-    wallet.readingPassages +
-    wallet.readingQuestionTypes +
-    wallet.listeningSections +
-    wallet.listeningQuestionTypes +
-    wallet.aiWritingEssays
+    allowance.readingPassages +
+    allowance.readingQuestionTypes +
+    allowance.listeningSections +
+    allowance.listeningQuestionTypes +
+    allowance.aiWritingEssays
   );
+}
+
+export function totalPracticeCredits(wallet: PracticeWallet): number {
+  return totalPracticeAllowance(wallet);
 }
 
 export function groupLibraryBySection(

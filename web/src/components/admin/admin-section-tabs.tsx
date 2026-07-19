@@ -54,7 +54,7 @@ export function AdminContentSectionTabs({
 export function AdminPackagesSectionTabs({
   active,
 }: {
-  active: "mock" | "practice";
+  active: "mock" | "practice" | "institution-sets";
 }) {
   return (
     <AdminSectionTabs
@@ -68,6 +68,11 @@ export function AdminPackagesSectionTabs({
           label: "Practice & AI Packages",
           href: "/admin/packages/practice",
           active: active === "practice",
+        },
+        {
+          label: "Institution Mock Sets",
+          href: "/admin/packages/institution-sets",
+          active: active === "institution-sets",
         },
       ]}
     />

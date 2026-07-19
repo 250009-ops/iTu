@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -31,6 +32,16 @@ export class AdminInstitutionsController {
   @Get('applications')
   applications() {
     return this.service.applications();
+  }
+
+  @Get(':id/mock-set-grants/available')
+  listGrantableMockSets(@Param('id') id: string) {
+    return this.service.listGrantableMockSets(id);
+  }
+
+  @Get(':id/mock-set-grants')
+  listMockSetGrants(@Param('id') id: string) {
+    return this.service.listMockSetGrants(id);
   }
 
   @Get(':id')
@@ -64,5 +75,23 @@ export class AdminInstitutionsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.service.adjustCredits(id, dto, user.id);
+  }
+
+  @Post(':id/mock-set-grants')
+  grantMockSet(
+    @Param('id') id: string,
+    @Body() body: { setId: string; note?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.grantMockSet(id, body.setId, user.id, body.note);
+  }
+
+  @Delete(':id/mock-set-grants/:setId')
+  revokeMockSetGrant(
+    @Param('id') id: string,
+    @Param('setId') setId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.revokeMockSetGrant(id, setId, user.id);
   }
 }

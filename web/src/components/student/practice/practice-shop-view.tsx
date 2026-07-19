@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
+import { Check, ShoppingBag } from "lucide-react";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/practice";
 import { PRACTICE_CREDIT_META } from "@/lib/practice/hub";
 import { formatPrice } from "@/lib/format-price";
+import { cn } from "@/lib/utils";
 
 type Props = {
   basePath: string;
@@ -33,7 +34,7 @@ export function PracticeShopView({ basePath }: Props) {
   async function handleBuy(packageId: string) {
     setCheckingOut(packageId);
     try {
-      const result = await checkoutPracticePackage(packageId);
+      const result = await checkoutPracticePackage(packageId, basePath);
       if (result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
         return;
@@ -46,85 +47,90 @@ export function PracticeShopView({ basePath }: Props) {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="mx-auto max-w-3xl space-y-6 p-4 lg:p-8">
+      <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
         <div>
           <Link href={basePath} className="text-sm text-muted hover:text-navy">
             ← Back to Practice Hub
           </Link>
-          <h1 className="mt-2 text-2xl font-bold text-navy">Buy practice credits</h1>
+          <h1 className="mt-2 text-2xl font-bold text-navy">Practice packages</h1>
           <p className="mt-1 text-sm text-muted">
-            Bundles add credits to your wallet for reading, listening, and AI writing
-            practice.
+            Choose a package to unlock specific reading, listening, and AI writing
+            practice included in your plan.
           </p>
         </div>
 
         {packages.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-muted">
-            No practice bundles are available yet. Check back soon.
+            No practice packages are available yet. Check back soon.
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {packages.map((pkg) => (
-              <div
+              <article
                 key={pkg.id}
-                className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                className={cn(
+                  "relative flex h-full flex-col rounded-2xl border bg-white p-6 shadow-sm",
+                  pkg.mostPopular
+                    ? "border-brand-red ring-1 ring-brand-red/30"
+                    : "border-slate-200",
+                )}
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold text-navy">{pkg.title}</h2>
-                      {pkg.mostPopular && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
-                          Popular
-                        </span>
-                      )}
-                    </div>
-                    {pkg.description && (
-                      <p className="mt-1 text-sm text-muted">{pkg.description}</p>
-                    )}
-                    <ul className="mt-4 space-y-2">
-                      {Object.entries(pkg.bundle)
-                        .filter(([, value]) => (value ?? 0) > 0)
-                        .map(([key, value]) => {
-                          const meta =
-                            PRACTICE_CREDIT_META[
-                              key as keyof typeof PRACTICE_CREDIT_META
-                            ];
-                          return (
-                            <li
-                              key={key}
-                              className="flex items-center gap-2 text-sm text-navy"
-                            >
-                              <span
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: meta?.color ?? "#64748b" }}
-                              />
-                              <span className="font-medium">{value}×</span>
-                              <span className="text-muted">
-                                {meta?.label ?? key}
-                              </span>
-                            </li>
-                          );
-                        })}
-                    </ul>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-navy">
-                      {formatPrice(pkg.price, pkg.currency)}
-                    </p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="mt-3"
-                      disabled={checkingOut === pkg.id}
-                      onClick={() => void handleBuy(pkg.id)}
-                    >
-                      <ShoppingBag className="h-4 w-4" />
-                      Buy bundle
-                    </Button>
-                  </div>
+                {pkg.mostPopular && (
+                  <span className="absolute -top-3 left-6 rounded-full bg-brand-red px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-md">
+                    Most popular
+                  </span>
+                )}
+
+                <div>
+                  <h2 className="text-lg font-bold text-navy">{pkg.title}</h2>
+                  {pkg.description && (
+                    <p className="mt-1 text-sm text-muted">{pkg.description}</p>
+                  )}
                 </div>
-              </div>
+
+                <p className="mt-4 text-3xl font-extrabold text-navy">
+                  {formatPrice(pkg.price, pkg.currency)}
+                </p>
+
+                <ul className="mt-5 flex-1 space-y-2.5">
+                  {Object.entries(pkg.bundle)
+                    .filter(([, value]) => (value ?? 0) > 0)
+                    .map(([key, value]) => {
+                      const meta =
+                        PRACTICE_CREDIT_META[
+                          key as keyof typeof PRACTICE_CREDIT_META
+                        ];
+                      return (
+                        <li
+                          key={key}
+                          className="flex gap-2.5 text-sm text-muted"
+                        >
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                          <span>
+                            <span className="font-semibold text-navy">
+                              {value}
+                            </span>{" "}
+                            {meta?.label?.toLowerCase() ?? key}
+                          </span>
+                        </li>
+                      );
+                    })}
+                </ul>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className={cn(
+                    "mt-6 w-full",
+                    pkg.mostPopular && "bg-brand-red hover:bg-brand-red-hover",
+                  )}
+                  disabled={checkingOut === pkg.id}
+                  onClick={() => void handleBuy(pkg.id)}
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  Get {pkg.title}
+                </Button>
+              </article>
             ))}
           </div>
         )}

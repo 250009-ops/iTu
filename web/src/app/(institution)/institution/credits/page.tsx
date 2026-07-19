@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { InstitutionCreditsView } from "@/components/institution/credits-view";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Credits" };
-
-export default function InstitutionCreditsPage() {
-  return <InstitutionCreditsView />;
+export default function InstitutionCreditsRedirectPage() {
+  redirect("/institution/mocks");
 }

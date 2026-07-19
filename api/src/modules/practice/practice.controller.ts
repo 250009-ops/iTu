@@ -8,11 +8,13 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { PracticeCreditType, UserRole } from '@prisma/client';
+import { PracticeCreditType, PracticeUnitType, UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { PracticeAccessService } from '../practice-commerce/practice-access.service';
 import { PracticeCommerceService } from '../practice-commerce/practice-commerce.service';
+import { PracticePackageContentService } from '../practice-commerce/practice-package-content.service';
 import { PracticeSessionsService } from '../practice-sessions/practice-sessions.service';
 import {
   WritingImprovementService,
@@ -28,12 +30,31 @@ import { PracticeBundle } from '../../common/practice/practice.types';
 export class PracticeAdminCommerceController {
   constructor(
     private commerce: PracticeCommerceService,
+    private content: PracticePackageContentService,
     private wallet: PracticeWalletService,
   ) {}
 
   @Get('packages')
   listPackages() {
     return this.commerce.listAdminPackages();
+  }
+
+  @Get('packages/content-options')
+  listContentOptions(
+    @Query('type') type?: string,
+    @Query('taskNumber') taskNumber?: string,
+    @Query('excludePackageId') excludePackageId?: string,
+  ) {
+    return this.content.listContentOptions({
+      type: type?.trim().toUpperCase() as PracticeUnitType,
+      taskNumber: taskNumber ? Number(taskNumber) : undefined,
+      excludePackageId: excludePackageId?.trim(),
+    });
+  }
+
+  @Get('packages/:id/content')
+  getPackageContent(@Param('id') id: string) {
+    return this.content.getPackageContent(id);
   }
 
   @Post('packages/suggest-price')
@@ -50,7 +71,8 @@ export class PracticeAdminCommerceController {
       description?: string;
       price: number;
       currency?: string;
-      bundle: PracticeBundle;
+      unitIds: string[];
+      promptIds: string[];
       displayPrices?: Record<string, number>;
       isActive?: boolean;
       mostPopular?: boolean;
@@ -67,7 +89,8 @@ export class PracticeAdminCommerceController {
       title?: string;
       description?: string;
       price?: number;
-      bundle?: PracticeBundle;
+      unitIds?: string[];
+      promptIds?: string[];
       displayPrices?: Record<string, number>;
       isActive?: boolean;
       mostPopular?: boolean;
@@ -117,11 +140,17 @@ export class PracticeStudentController {
     private sessions: PracticeSessionsService,
     private writing: WritingImprovementService,
     private wallet: PracticeWalletService,
+    private access: PracticeAccessService,
   ) {}
 
   @Get('wallet')
   getWallet(@CurrentUser() user: RequestUser) {
     return this.wallet.getWalletBalances(user.studentProfileId!);
+  }
+
+  @Get('allowance')
+  getAllowance(@CurrentUser() user: RequestUser) {
+    return this.access.getAllowanceSummary(user.studentProfileId!);
   }
 
   @Get('packages')
@@ -131,21 +160,26 @@ export class PracticeStudentController {
 
   @Post('checkout')
   checkout(
-    @Body() body: { packageId: string },
+    @Body() body: { packageId: string; portalBasePath?: string },
     @CurrentUser() user: RequestUser,
   ) {
-    return this.commerce.initiateCheckout(body.packageId, user);
+    return this.commerce.initiateCheckout(
+      body.packageId,
+      user,
+      body.portalBasePath ?? '/student/practice',
+    );
   }
 
   @Get('library')
   listLibrary(
+    @CurrentUser() user: RequestUser,
     @Query('skill') skill?: string,
     @Query('type') type?: string,
     @Query('questionType') questionType?: string,
   ) {
-    return this.sessions.listPublishedLibrary({
+    return this.sessions.listPublishedLibrary(user.studentProfileId!, {
       skill: skill?.trim().toUpperCase() as import('@prisma/client').ExamSkill,
-      type: type?.trim().toUpperCase() as import('@prisma/client').PracticeUnitType,
+      type: type?.trim().toUpperCase() as PracticeUnitType,
       questionType,
     });
   }
@@ -187,9 +221,12 @@ export class PracticeStudentController {
   }
 
   @Get('writing/prompts')
-  listWritingPrompts(@Query('taskNumber') taskNumber?: string) {
+  listWritingPrompts(
+    @CurrentUser() user: RequestUser,
+    @Query('taskNumber') taskNumber?: string,
+  ) {
     const n = taskNumber ? Number(taskNumber) : undefined;
-    return this.writing.listPublishedPrompts(n);
+    return this.writing.listPublishedPrompts(user.studentProfileId!, n);
   }
 
   @Get('writing/sessions')

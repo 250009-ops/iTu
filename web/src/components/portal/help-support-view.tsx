@@ -374,7 +374,7 @@ export function HelpSupportView({ role }: { role: HelpRole }) {
                   {isCentreMember
                     ? "Your request goes to your edu centre — not iTestU platform support."
                     : role === "institution"
-                      ? "Platform support for credits, tools, and portal issues."
+                      ? "Platform support for mock sets, tools, and portal issues."
                       : "Category sets ticket type and SLA priority for Admin."}
                 </p>
               </div>

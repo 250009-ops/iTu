@@ -14,6 +14,41 @@ export function getInstitutionOverview() {
   return apiFetch<OverviewData>("/institution/overview");
 }
 
+export function getInstitutionMocks() {
+  return apiFetch<{
+    tabs: {
+      tabId: string;
+      label: string;
+      packageKind: string;
+      examType: string;
+    }[];
+    packages: {
+      id: string;
+      slug: string;
+      title: string;
+      description: string | null;
+      price: number;
+      currency: string;
+      examType: string;
+      packageKind: string;
+      mockNumber: number;
+      mostPopular: boolean;
+      rating: number | null;
+      reviewCount: number;
+      skills: unknown;
+      included: unknown;
+      rules: unknown;
+      grantSetId: string;
+      grantSetTitle: string;
+    }[];
+    grants: {
+      setId: string;
+      setTitle: string;
+      grantedAt: string;
+    }[];
+  }>("/institution/mocks");
+}
+
 export function getInstitutionCredits() {
   return apiFetch<CreditsData>("/institution/credits");
 }
@@ -161,7 +196,6 @@ export function enrollStudents(body: {
   return apiFetch<{
     enrolled: number;
     failed: { studentId: string; error?: string }[];
-    creditBalance: number;
   }>("/institution/enroll", { method: "POST", body });
 }
 
@@ -255,13 +289,11 @@ export interface EnrollmentPackageOption {
   title: string;
   packageKind: string;
   mockNumber: number;
-  costsCredit: boolean;
+  costsCredit?: boolean;
 }
 
 export interface EnrollmentPackagesGrouped {
-  creditBalance: number;
   studentId: string;
-  platformBlockedReason?: string;
   platform: EnrollmentPackageOption[];
   own: EnrollmentPackageOption[];
 }
@@ -273,7 +305,6 @@ export function getInstitutionEnrollmentPackages(studentId: string) {
 /** @deprecated Use getInstitutionEnrollmentPackages(studentId) */
 export function getInstitutionPackages() {
   return getInstitutionEnrollmentPackages("").catch(() => ({
-    creditBalance: 0,
     studentId: "",
     platform: [],
     own: [],

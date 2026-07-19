@@ -998,6 +998,43 @@ export type AdminPracticePackage = {
   displayPrices: Record<string, number>;
   isActive: boolean;
   mostPopular: boolean;
+  contentSummary?: string;
+  contentLocked?: boolean;
+};
+
+export type PracticeContentOptionUnit = {
+  id: string;
+  code: string;
+  title: string;
+  type: string;
+  skill: string;
+  questionType: string | null;
+  questionCount: number;
+  status: string;
+  isAssigned: boolean;
+  assignedPackageId: string | null;
+  assignedPackageTitle: string | null;
+};
+
+export type PracticeContentOptionPrompt = {
+  id: string;
+  code: string;
+  title: string;
+  taskNumber: number;
+  status: string;
+  isAssigned: boolean;
+  assignedPackageId: string | null;
+  assignedPackageTitle: string | null;
+};
+
+export type PracticePackageContentOptions = {
+  units: PracticeContentOptionUnit[];
+  prompts: PracticeContentOptionPrompt[];
+};
+
+export type PracticePackageContent = {
+  unitIds: string[];
+  promptIds: string[];
 };
 
 export function getAdminPracticeUnits(params?: { type?: string; skill?: string }) {
@@ -1115,6 +1152,21 @@ export function getAdminPracticePackages() {
   return apiFetch<AdminPracticePackage[]>("/admin/practice/packages");
 }
 
+export function getPracticePackageContentOptions(excludePackageId?: string) {
+  const q = excludePackageId
+    ? `?excludePackageId=${encodeURIComponent(excludePackageId)}`
+    : "";
+  return apiFetch<PracticePackageContentOptions>(
+    `/admin/practice/packages/content-options${q}`,
+  );
+}
+
+export function getPracticePackageContent(packageId: string) {
+  return apiFetch<PracticePackageContent>(
+    `/admin/practice/packages/${packageId}/content`,
+  );
+}
+
 export function suggestPracticePackagePrice(bundle: Record<string, number>) {
   return apiFetch<{ suggestedPrice: number; bundle: Record<string, number> }>(
     "/admin/practice/packages/suggest-price",
@@ -1127,7 +1179,8 @@ export function createPracticePackage(payload: {
   title: string;
   description?: string;
   price: number;
-  bundle: Record<string, number>;
+  unitIds: string[];
+  promptIds: string[];
   displayPrices?: Record<string, number>;
   isActive?: boolean;
   mostPopular?: boolean;
@@ -1141,7 +1194,8 @@ export function updatePracticePackage(
     title: string;
     description: string;
     price: number;
-    bundle: Record<string, number>;
+    unitIds: string[];
+    promptIds: string[];
     displayPrices: Record<string, number>;
     isActive: boolean;
     mostPopular: boolean;

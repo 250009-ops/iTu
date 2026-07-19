@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import {
   enrollStudents,
@@ -19,12 +19,14 @@ export function EnrollWizard({
   open,
   studentId,
   studentName,
+  initialPackageId,
   onClose,
   onEnrolled,
 }: {
   open: boolean;
   studentId: string;
   studentName?: string;
+  initialPackageId?: string;
   onClose: () => void;
   onEnrolled: () => void;
 }) {
@@ -40,7 +42,7 @@ export function EnrollWizard({
 
   useEffect(() => {
     if (!open || !studentId) return;
-    setPackageId("");
+    setPackageId(initialPackageId ?? "");
     setLoadingPackages(true);
     void getInstitutionEnrollmentPackages(studentId)
       .then(setData)
@@ -49,20 +51,11 @@ export function EnrollWizard({
     void getInstitutionExaminers()
       .then((res) => setExaminers(res.examiners.filter((e) => e.status === "active")))
       .catch(() => setExaminers([]));
-  }, [open, studentId]);
+  }, [open, studentId, initialPackageId]);
 
-  const selectedPackage = useMemo(() => {
-    if (!data) return null;
-    return (
-      data.platform.find((p) => p.id === packageId) ??
-      data.own.find((p) => p.id === packageId) ??
-      null
-    );
-  }, [data, packageId]);
-
-  const costsCredits = selectedPackage?.costsCredit ?? false;
-  const creditBalance = data?.creditBalance ?? 0;
-  const platformBlocked = Boolean(data?.platformBlockedReason);
+  const isGrantedPlatform = Boolean(
+    packageId && data?.platform.some((p) => p.id === packageId),
+  );
   const hasOwnPackages = (data?.own.length ?? 0) > 0;
   const hasPlatformPackages = (data?.platform.length ?? 0) > 0;
 
@@ -73,21 +66,12 @@ export function EnrollWizard({
     (e) => e.speciality === "speaking" || e.speciality === "both",
   );
 
-  const canSubmit =
-    Boolean(packageId && mockDate) &&
-    (!costsCredits || creditBalance >= 1);
+  const canSubmit = Boolean(packageId && mockDate);
 
   async function handleSubmit() {
     if (!packageId || !mockDate) {
       toast("Missing details", {
         description: "Choose a package and mock date.",
-        variant: "warning",
-      });
-      return;
-    }
-    if (costsCredits && creditBalance < 1) {
-      toast("Not enough credits", {
-        description: "Buy credits to enroll on platform mocks.",
         variant: "warning",
       });
       return;
@@ -106,9 +90,9 @@ export function EnrollWizard({
           description:
             res.failed.length > 0
               ? `${res.failed.length} could not be enrolled.`
-              : costsCredits
-                ? `Credit balance: ${res.creditBalance}`
-                : "No credits spent — centre-owned package.",
+              : isGrantedPlatform
+                ? "Granted platform mock — no credits required."
+                : "Centre-owned mock enrolled.",
           variant: res.failed.length > 0 ? "warning" : "success",
         });
         onEnrolled();
@@ -148,15 +132,10 @@ export function EnrollWizard({
       </div>
 
       <div className="space-y-4 overflow-y-auto p-5">
-        {costsCredits ? (
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-            Platform mock: spends <strong>1</strong> credit for this student.
-            {creditBalance > 0 && (
-              <>
-                {" "}
-                Balance: <strong>{creditBalance}</strong>.
-              </>
-            )}
+        {isGrantedPlatform ? (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+            Granted platform mock from your admin-assigned sets —{" "}
+            <strong>no credit cost</strong>.
           </p>
         ) : packageId ? (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
@@ -164,16 +143,18 @@ export function EnrollWizard({
           </p>
         ) : (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-            Choose a platform mock (uses credits) or your centre&apos;s own mock (free).
+            Choose a granted platform mock or your centre&apos;s own mock.
           </p>
         )}
 
-        {platformBlocked && !hasPlatformPackages && (
+        {!hasPlatformPackages && !hasOwnPackages && !loadingPackages && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            {data?.platformBlockedReason ?? "Platform mocks require credits."}{" "}
-            <Link href="/institution/credits" className="font-semibold underline">
-              Buy credits
-            </Link>
+            No mocks available for this student. Open{" "}
+            <Link href="/institution/mocks" className="font-semibold underline">
+              Mocks
+            </Link>{" "}
+            to see your granted sets, or create centre-owned packages in Content
+            Studio.
           </p>
         )}
 
@@ -192,7 +173,7 @@ export function EnrollWizard({
             >
               <option value="">Select a package…</option>
               {hasPlatformPackages && (
-                <optgroup label="Platform mocks (1 credit each)">
+                <optgroup label="Granted platform mocks">
                   {data!.platform.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.title}
@@ -201,7 +182,7 @@ export function EnrollWizard({
                 </optgroup>
               )}
               {hasOwnPackages && (
-                <optgroup label="Your centre's mocks (no credit)">
+                <optgroup label="Your centre's mocks">
                   {data!.own.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.title}

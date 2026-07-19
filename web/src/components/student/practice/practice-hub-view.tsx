@@ -15,12 +15,13 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
   createWritingSession,
+  getPracticeAllowance,
   getPracticeAttempts,
   getPracticeLibrary,
-  getPracticeWallet,
   getWritingPrompts,
   getWritingSessions,
   startPracticeAttempt,
+  type PracticeAllowance,
   type PracticeAttemptSummary,
   type PracticeLibraryUnit,
   type PracticeWallet,
@@ -33,7 +34,7 @@ import {
   hasCreditsForUnit,
   PRACTICE_CREDIT_META,
   PRACTICE_LIBRARY_SECTIONS,
-  totalPracticeCredits,
+  totalPracticeAllowance,
   type PracticeHubTab,
 } from "@/lib/practice/hub";
 import { cn } from "@/lib/utils";
@@ -53,7 +54,7 @@ export function PracticeHubView({ basePath }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<PracticeHubTab>("reading");
-  const [wallet, setWallet] = useState<PracticeWallet | null>(null);
+  const [allowance, setAllowance] = useState<PracticeAllowance | null>(null);
   const [library, setLibrary] = useState<PracticeLibraryUnit[]>([]);
   const [attempts, setAttempts] = useState<PracticeAttemptSummary[]>([]);
   const [prompts, setPrompts] = useState<Awaited<ReturnType<typeof getWritingPrompts>>>(
@@ -67,14 +68,14 @@ export function PracticeHubView({ basePath }: Props) {
 
   useEffect(() => {
     void Promise.all([
-      getPracticeWallet(),
+      getPracticeAllowance(),
       getPracticeLibrary(),
       getPracticeAttempts(),
       getWritingPrompts(),
       getWritingSessions(),
     ])
-      .then(([w, lib, att, pr, sessions]) => {
-        setWallet(w);
+      .then(([a, lib, att, pr, sessions]) => {
+        setAllowance(a);
         setLibrary(lib);
         setAttempts(att);
         setPrompts(pr);
@@ -84,7 +85,7 @@ export function PracticeHubView({ basePath }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
-  const totalCredits = wallet ? totalPracticeCredits(wallet) : 0;
+  const totalRemaining = allowance ? totalPracticeAllowance(allowance) : 0;
   const tabSections = useMemo(
     () => PRACTICE_LIBRARY_SECTIONS.filter((section) => section.tab === activeTab),
     [activeTab],
@@ -99,9 +100,9 @@ export function PracticeHubView({ basePath }: Props) {
   );
 
   async function handleStartUnit(unit: PracticeLibraryUnit) {
-    if (wallet && !hasCreditsForUnit(wallet, unit)) {
-      toast("Not enough credits", {
-        description: "Buy a practice bundle to start this unit.",
+    if (allowance && !hasCreditsForUnit(allowance, unit)) {
+      toast("No attempts remaining", {
+        description: "Purchase a practice package to unlock more.",
         variant: "warning",
       });
       return;
@@ -144,7 +145,7 @@ export function PracticeHubView({ basePath }: Props) {
             <h1 className="text-2xl font-bold text-navy">Practice Hub</h1>
             <p className="mt-1 max-w-xl text-sm text-muted">
               Build skills with reading and listening practice, or get AI feedback on
-              your writing. Each activity uses one credit from your wallet.
+              your writing. Each activity uses one included attempt from your package.
             </p>
           </div>
           <Link
@@ -152,27 +153,29 @@ export function PracticeHubView({ basePath }: Props) {
             className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5 text-sm font-medium text-white hover:bg-navy/90"
           >
             <ShoppingBag className="h-4 w-4" />
-            Buy credits
+            View packages
           </Link>
         </header>
 
-        {wallet && (
+        {allowance && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-navy">Your wallet</h2>
+                <h2 className="text-sm font-semibold text-navy">
+                  Your practice allowance
+                </h2>
                 <p className="text-xs text-muted">
-                  {totalCredits > 0
-                    ? `${totalCredits} credit${totalCredits === 1 ? "" : "s"} available`
-                    : "No credits yet — purchase a bundle to get started"}
+                  {totalRemaining > 0
+                    ? `${totalRemaining} practice attempt${totalRemaining === 1 ? "" : "s"} remaining`
+                    : "No practice attempts yet — purchase a package to get started"}
                 </p>
               </div>
-              {totalCredits === 0 && (
+              {totalRemaining === 0 && (
                 <Link
                   href={`${basePath}/shop`}
                   className="text-sm font-medium text-brand-red hover:underline"
                 >
-                  View bundles
+                  View packages
                 </Link>
               )}
             </div>
@@ -180,7 +183,7 @@ export function PracticeHubView({ basePath }: Props) {
               {(Object.keys(PRACTICE_CREDIT_META) as (keyof PracticeWallet)[]).map(
                 (key) => {
                   const meta = PRACTICE_CREDIT_META[key];
-                  const balance = wallet[key];
+                  const balance = allowance[key];
                   return (
                     <div
                       key={key}
@@ -194,7 +197,9 @@ export function PracticeHubView({ basePath }: Props) {
                         <p className="text-xs font-medium text-muted">{meta.shortLabel}</p>
                       </div>
                       <p className="mt-2 text-2xl font-bold text-navy">{balance}</p>
-                      <p className="mt-0.5 text-[11px] text-muted">{meta.label}</p>
+                      <p className="mt-0.5 text-[11px] text-muted">
+                        {meta.remainingLabel}
+                      </p>
                     </div>
                   );
                 },
@@ -228,7 +233,7 @@ export function PracticeHubView({ basePath }: Props) {
         {activeTab === "writing" ? (
           <WritingTabContent
             basePath={basePath}
-            wallet={wallet}
+            allowance={allowance}
             task1Prompts={task1Prompts}
             task2Prompts={task2Prompts}
             sessions={writingSessions}
@@ -242,7 +247,7 @@ export function PracticeHubView({ basePath }: Props) {
                 key={section.id}
                 section={section}
                 units={groupLibraryBySection(library, section)}
-                wallet={wallet}
+                allowance={allowance}
                 startingId={startingId}
                 shopHref={`${basePath}/shop`}
                 onStart={handleStartUnit}
@@ -260,19 +265,19 @@ export function PracticeHubView({ basePath }: Props) {
 function LibrarySection({
   section,
   units,
-  wallet,
+  allowance,
   startingId,
   shopHref,
   onStart,
 }: {
   section: (typeof PRACTICE_LIBRARY_SECTIONS)[number];
   units: PracticeLibraryUnit[];
-  wallet: PracticeWallet | null;
+  allowance: PracticeAllowance | null;
   startingId: string | null;
   shopHref: string;
   onStart: (unit: PracticeLibraryUnit) => void;
 }) {
-  const credits = wallet?.[section.creditKey] ?? 0;
+  const remaining = allowance?.[section.creditKey] ?? 0;
 
   return (
     <section className="space-y-3">
@@ -281,13 +286,13 @@ function LibrarySection({
         <p className="mt-0.5 text-sm text-muted">{section.description}</p>
         <p className="mt-1 text-xs text-muted">
           You have{" "}
-          <span className="font-semibold text-navy">{credits}</span> credit
-          {credits === 1 ? "" : "s"} for this category.
+          <span className="font-semibold text-navy">{remaining}</span>{" "}
+          {PRACTICE_CREDIT_META[section.creditKey].remainingLabel}.
         </p>
       </div>
 
       {units.length === 0 ? (
-        <EmptyPanel message="No published content in this category yet. Your centre admin can publish practice units from Content Studio." />
+        <EmptyPanel message="No practice included in your packages for this category yet. Purchase a package to unlock content." />
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
@@ -302,7 +307,9 @@ function LibrarySection({
             </thead>
             <tbody>
               {units.map((unit) => {
-                const canStart = wallet ? hasCreditsForUnit(wallet, unit) : false;
+                const canStart = allowance
+                  ? hasCreditsForUnit(allowance, unit)
+                  : false;
                 return (
                   <tr key={unit.id} className="border-t border-slate-100">
                     <td className="px-4 py-3">
@@ -334,7 +341,7 @@ function LibrarySection({
                           href={shopHref}
                           className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-navy hover:bg-slate-50"
                         >
-                          Get credits
+                          View packages
                         </Link>
                       )}
                     </td>
@@ -351,7 +358,7 @@ function LibrarySection({
 
 function WritingTabContent({
   basePath,
-  wallet,
+  allowance,
   task1Prompts,
   task2Prompts,
   sessions,
@@ -359,14 +366,14 @@ function WritingTabContent({
   onStartPrompt,
 }: {
   basePath: string;
-  wallet: PracticeWallet | null;
+  allowance: PracticeAllowance | null;
   task1Prompts: Awaited<ReturnType<typeof getWritingPrompts>>;
   task2Prompts: Awaited<ReturnType<typeof getWritingPrompts>>;
   sessions: WritingPracticeSession[];
   startingPromptId: string | null;
   onStartPrompt: (promptId: string) => void;
 }) {
-  const writingCredits = wallet?.aiWritingEssays ?? 0;
+  const writingRemaining = allowance?.aiWritingEssays ?? 0;
   const shopHref = `${basePath}/shop`;
 
   return (
@@ -380,12 +387,13 @@ function WritingTabContent({
             <h2 className="text-lg font-semibold text-navy">AI Writing Coach</h2>
             <p className="mt-1 text-sm text-muted">
               Write Task 1 or Task 2 essays section by section, then get instant AI
-              improvements. One essay review uses 1 writing credit.
+              improvements. Each AI review uses one included attempt.
             </p>
             <p className="mt-2 text-xs text-muted">
-              AI feedback credits:{" "}
-              <span className="font-semibold text-navy">{writingCredits}</span>
-              {writingCredits === 0 && " — you can still draft essays; buy credits before requesting feedback"}
+              AI reviews remaining:{" "}
+              <span className="font-semibold text-navy">{writingRemaining}</span>
+              {writingRemaining === 0 &&
+                " — purchase a package to unlock writing prompts and AI feedback"}
             </p>
           </div>
         </div>
@@ -397,13 +405,13 @@ function WritingTabContent({
             <PenLine className="h-4 w-4" />
             Open writing coach
           </Link>
-          {writingCredits === 0 && (
+          {writingRemaining === 0 && (
             <Link
               href={shopHref}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-navy hover:bg-slate-50"
             >
               <ShoppingBag className="h-4 w-4" />
-              Buy writing credits
+              View packages
             </Link>
           )}
         </div>

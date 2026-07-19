@@ -89,13 +89,13 @@ export const ADMIN_HELP_CATEGORIES: HelpCategory[] = [
 export const INSTITUTION_HELP_CATEGORIES: HelpCategory[] = [
   {
     value: "payment_dispute",
-    label: "Credits & billing",
-    hint: "Credit packs, checkout, or wholesale pricing",
+    label: "Mock sets & billing",
+    hint: "Granted mock sets or wholesale pricing",
   },
   {
     value: "technical_issue",
     label: "Student enrollment",
-    hint: "Enroll wizard, credit consumption, or student access",
+    hint: "Enroll wizard, granted mocks, or student access",
   },
   {
     value: "technical_issue",
@@ -244,8 +244,8 @@ export const INSTITUTION_HELP_FAQS: HelpFaq[] = [
     a: "Open Centre requests in the sidebar. That inbox is separate from this page, which is for contacting iTestU platform support.",
   },
   {
-    q: "How do credit packs work?",
-    a: "Purchase credits from the Credits page. Each student enrollment consumes credits at your wholesale rate. Credits are deducted when you enroll students in a mock.",
+    q: "How do granted mock sets work?",
+    a: "iTestU admin assigns mock sets to your centre. Open the Mocks page to see listening, reading, and writing section mocks included in your grants, then enroll students from there or the Students page.",
   },
   {
     q: "A student is stuck in pending — what should I do?",
@@ -380,7 +380,7 @@ export function helpDescriptionForRole(role: HelpRole): string {
     case "admin":
       return "Internal tickets and billing follow-ups. Student and teacher requests already appear on Disputes — use this only when you need a tracked note.";
     case "institution":
-      return "Contact iTestU platform support for credits, enrollment tools, and portal issues. Use Centre requests in the sidebar for messages from your students and examiners.";
+      return "Contact iTestU platform support for mock set grants, enrollment tools, and portal issues. Use Centre requests in the sidebar for messages from your students and examiners.";
     case "inst_student":
       return "Send requests to your edu centre first — approval, scheduling, results, and exam-day issues. Your centre coordinator receives and responds to each ticket.";
     case "inst_examiner":

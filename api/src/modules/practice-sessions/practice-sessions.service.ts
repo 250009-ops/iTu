@@ -13,20 +13,27 @@ import { unitTypeToCreditType } from '../../common/practice/practice.types';
 import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AutoScoringService } from '../exam-sessions/auto-scoring.service';
+import { PracticeAccessService } from '../practice-commerce/practice-access.service';
 
 @Injectable()
 export class PracticeSessionsService {
   constructor(
     private prisma: PrismaService,
     private wallet: PracticeWalletService,
+    private access: PracticeAccessService,
     private autoScoring: AutoScoringService,
   ) {}
 
-  async listPublishedLibrary(filters?: {
-    skill?: ExamSkill;
-    type?: PracticeUnitType;
-    questionType?: string;
-  }) {
+  async listPublishedLibrary(
+    studentId: string,
+    filters?: {
+      skill?: ExamSkill;
+      type?: PracticeUnitType;
+      questionType?: string;
+    },
+  ) {
+    const accessibleIds = await this.access.getAccessibleUnitIds(studentId);
+
     const units = await this.prisma.practiceUnit.findMany({
       where: {
         status: ContentTestStatus.PUBLISHED,
@@ -47,11 +54,15 @@ export class PracticeSessionsService {
         publishedAt: true,
       },
     });
-    return units.map((u) => ({
-      ...u,
-      skill: u.skill.toLowerCase(),
-      creditType: unitTypeToCreditType(u.type),
-    }));
+
+    return units
+      .filter((u) => accessibleIds.has(u.id))
+      .map((u) => ({
+        ...u,
+        skill: u.skill.toLowerCase(),
+        creditType: unitTypeToCreditType(u.type),
+        entitled: true,
+      }));
   }
 
   async listAttempts(studentId: string) {
@@ -99,6 +110,7 @@ export class PracticeSessionsService {
 
     let attemptId: string | null = null;
     try {
+      await this.access.consumeUnitAccess(studentId, unitId);
       await this.wallet.consumeCredit(studentId, creditType, {
         reference: attemptCode,
       });
@@ -134,6 +146,12 @@ export class PracticeSessionsService {
     } catch (err) {
       if (attemptId) {
         await this.prisma.practiceAttempt.delete({ where: { id: attemptId } });
+      } else {
+        try {
+          await this.access.refundUnitAccess(studentId, unitId);
+        } catch {
+          // access may not have been consumed yet
+        }
       }
       throw err;
     }

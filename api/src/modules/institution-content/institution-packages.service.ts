@@ -26,7 +26,11 @@ import {
   assertPackageScopeMatch,
   packageScopeKey,
 } from '../content/content-scope';
-import { resolveNextPackageForStudent } from '../content/content-assignment';
+import {
+  filterPackagesAvailableToStudent,
+  resolveNextPackageForStudent,
+} from '../content/content-assignment';
+import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import { packageExamSkills } from '../content/package-skills';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -56,6 +60,7 @@ export class InstitutionPackagesService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private mockSets: InstitutionMockSetsService,
   ) {}
 
   async listMine(user: RequestUser) {
@@ -76,33 +81,39 @@ export class InstitutionPackagesService {
       throw new BadRequestException('Query parameter "studentId" is required');
     }
 
-    const [institution, student] = await Promise.all([
-      this.prisma.institution.findUnique({
-        where: { id: institutionId },
-        select: { creditBalance: true },
-      }),
+    const [student, grantedPackageIds] = await Promise.all([
       this.prisma.studentProfile.findUnique({
         where: { id: studentId.trim() },
         select: { id: true, institutionId: true },
       }),
+      this.mockSets.listGrantedPackageIds(institutionId),
     ]);
 
     if (!student || student.institutionId !== institutionId) {
       throw new NotFoundException('Student not found for this institution');
     }
 
-    const creditBalance = institution?.creditBalance ?? 0;
-    let platformBlockedReason: string | undefined;
-    let platform: Awaited<
-      ReturnType<InstitutionPackagesService['resolveNextPackagesForStudent']>
-    > = [];
+    const grantedPackages =
+      grantedPackageIds.length > 0
+        ? await this.prisma.mockTestPackage.findMany({
+            where: { id: { in: grantedPackageIds }, isActive: true },
+          })
+        : [];
 
-    if (creditBalance < 1) {
-      platformBlockedReason =
-        'No credits — buy credits to use platform mocks';
-    } else {
-      platform = await this.resolveNextPackagesForStudent(student.id, null);
-    }
+    const availableGranted = await filterPackagesAvailableToStudent(
+      this.prisma,
+      student.id,
+      grantedPackages,
+    );
+
+    const platform = availableGranted
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        packageKind: p.packageKind,
+        mockNumber: p.mockNumber,
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title));
 
     const own = await this.resolveNextPackagesForStudent(
       student.id,
@@ -110,11 +121,9 @@ export class InstitutionPackagesService {
     );
 
     return {
-      creditBalance,
       studentId: student.id,
-      platform: platform.map((p) => ({ ...p, costsCredit: true })),
+      platform,
       own: own.map((p) => ({ ...p, costsCredit: false })),
-      ...(platformBlockedReason ? { platformBlockedReason } : {}),
     };
   }
 

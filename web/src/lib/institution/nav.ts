@@ -32,7 +32,7 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
   {
     label: "Manage",
     items: [
-      { label: "Credits", href: "/institution/credits", icon: "coins" },
+      { label: "Mocks", href: "/institution/mocks", icon: "file-text" },
       {
         label: "Students",
         href: "/institution/students",

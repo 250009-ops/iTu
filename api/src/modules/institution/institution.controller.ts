@@ -48,6 +48,11 @@ export class InstitutionController {
     return this.institution.getCredits(user);
   }
 
+  @Get('mocks')
+  getMocks(@CurrentUser() user: RequestUser) {
+    return this.institution.getMocks(user);
+  }
+
   @Post('credits/checkout')
   createCreditCheckout(
     @CurrentUser() user: RequestUser,

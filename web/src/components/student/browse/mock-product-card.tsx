@@ -88,14 +88,21 @@ export function MockProductCard({
   onBookingOpened,
   initialWritingTeacherId,
   initialSpeakingTeacherId,
+  mode = "student",
+  grantSetTitle,
+  onEnrollClick,
 }: {
   product: BrowseProduct;
   autoOpenBooking?: boolean;
   onBookingOpened?: () => void;
   initialWritingTeacherId?: string | null;
   initialSpeakingTeacherId?: string | null;
+  mode?: "student" | "institution";
+  grantSetTitle?: string;
+  onEnrollClick?: () => void;
 }) {
   const [wizardOpen, setWizardOpen] = useState(false);
+  const isInstitution = mode === "institution";
 
   useEffect(() => {
     if (autoOpenBooking) {
@@ -118,35 +125,51 @@ export function MockProductCard({
               <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-medium text-slate-200">
                 {product.delivery}
               </span>
-              {product.reviewCount > 0 && product.rating != null && (
-                <div className="flex items-center gap-1 text-amber-400">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={cn(
-                        "h-3.5 w-3.5",
-                        i < Math.round(product.rating) ? "fill-current" : "fill-none opacity-40",
-                      )}
-                    />
-                  ))}
-                  <span className="ml-1 text-xs font-medium text-slate-300">
-                    {product.rating.toFixed(1)} ({product.reviewCount} reviews)
-                  </span>
-                </div>
+              {product.mostPopular && !isInstitution && (
+                <span className="rounded-full bg-amber-500/90 px-3 py-0.5 text-xs font-semibold text-white">
+                  Most popular
+                </span>
               )}
+              {isInstitution && grantSetTitle && (
+                <span className="rounded-full bg-emerald-500/90 px-3 py-0.5 text-xs font-semibold">
+                  Granted set: {grantSetTitle}
+                </span>
+              )}
+              {!isInstitution &&
+                product.reviewCount > 0 &&
+                product.rating != null && (
+                  <div className="flex items-center gap-1 text-amber-400">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          i < Math.round(product.rating)
+                            ? "fill-current"
+                            : "fill-none opacity-40",
+                        )}
+                      />
+                    ))}
+                    <span className="ml-1 text-xs font-medium text-slate-300">
+                      {product.rating.toFixed(1)} ({product.reviewCount} reviews)
+                    </span>
+                  </div>
+                )}
             </div>
             <div>
               <h2 className="text-xl font-bold sm:text-2xl">{product.title}</h2>
               <p className="mt-1.5 text-sm text-slate-400">{product.description}</p>
             </div>
           </div>
-          <div className="shrink-0 text-left lg:text-right">
-            <p className="text-3xl font-bold">
-              {formatPrice(product.price, product.currency)}
-            </p>
-            <p className="text-sm text-slate-400">per attempt</p>
-            <p className="mt-0.5 text-xs text-slate-500">No hidden fees</p>
-          </div>
+          {!isInstitution && (
+            <div className="shrink-0 text-left lg:text-right">
+              <p className="text-3xl font-bold">
+                {formatPrice(product.price, product.currency)}
+              </p>
+              <p className="text-sm text-slate-400">per attempt</p>
+              <p className="mt-0.5 text-xs text-slate-500">No hidden fees</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -225,19 +248,23 @@ export function MockProductCard({
           variant="danger"
           size="lg"
           className="flex-1 sm:max-w-md"
-          onClick={() => setWizardOpen(true)}
+          onClick={() =>
+            isInstitution ? onEnrollClick?.() : setWizardOpen(true)
+          }
         >
-          {product.bookCta}
+          {isInstitution ? "Enroll students" : product.bookCta}
           <ArrowRight className="h-4 w-4" />
         </Button>
-        <p className="flex items-center justify-center gap-1.5 text-xs text-muted sm:justify-start">
-          <Lock className="h-3.5 w-3.5" />
-          Pay securely with international Visa cards (including Uzum Bank Visa)
-        </p>
+        {!isInstitution && (
+          <p className="flex items-center justify-center gap-1.5 text-xs text-muted sm:justify-start">
+            <Lock className="h-3.5 w-3.5" />
+            Pay securely with international Visa cards (including Uzum Bank Visa)
+          </p>
+        )}
       </div>
 
     </div>
-    {wizardOpen && (
+    {!isInstitution && wizardOpen && (
       <BookingWizard
         product={product}
         onClose={() => setWizardOpen(false)}

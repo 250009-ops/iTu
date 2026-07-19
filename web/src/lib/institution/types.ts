@@ -23,7 +23,7 @@ export interface EnrollmentRow {
 
 export interface OverviewData {
   centerName: string;
-  creditBalance: number;
+  grantedSetCount: number;
   wholesalePrice: number;
   currency: string;
   activeStudents: number;

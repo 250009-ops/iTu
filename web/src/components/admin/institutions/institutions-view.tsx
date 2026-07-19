@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Coins, Pencil, X } from "lucide-react";
+import { Check, Gift, Pencil, X } from "lucide-react";
 import {
-  adjustInstitutionCredits,
   approveInstitution,
   getAdminInstitutions,
   patchInstitution,
   rejectInstitution,
   type AdminInstitution,
 } from "@/lib/api/admin-institutions";
+import { InstitutionGrantSetDialog } from "@/components/admin/institutions/institution-grant-set-dialog";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -44,17 +44,17 @@ export function AdminInstitutionsView() {
   const { data: allData } = useApiQuery(() => getAdminInstitutions("all"), []);
   const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [creditTarget, setCreditTarget] = useState<AdminInstitution | null>(null);
+  const [grantTarget, setGrantTarget] = useState<AdminInstitution | null>(null);
   const [editTarget, setEditTarget] = useState<AdminInstitution | null>(null);
 
   const summary = {
     total: allData?.length ?? 0,
     pending: allData?.filter((i) => i.status === "pending").length ?? 0,
     active: allData?.filter((i) => i.status === "active").length ?? 0,
-    credits:
+    totalGrants:
       allData
         ?.filter((i) => i.status === "active")
-        .reduce((a, i) => a + i.creditBalance, 0) ?? 0,
+        .reduce((a, i) => a + i.grantedSetCount, 0) ?? 0,
   };
 
   async function handleApprove(id: string) {
@@ -97,14 +97,14 @@ export function AdminInstitutionsView() {
       <PageHeader
         breadcrumb="Admin &gt; Institutions"
         title="Institutions"
-        description="Review partner applications, manage credits and wholesale pricing."
+        description="Review partner applications, grant mock sets, and manage wholesale pricing."
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total centers" value={summary.total} />
         <StatCard label="Applications" value={summary.pending} accent="amber" />
         <StatCard label="Active" value={summary.active} accent="emerald" />
-        <StatCard label="Credits in circulation" value={summary.credits} accent="red" />
+        <StatCard label="Total set grants" value={summary.totalGrants} accent="red" />
       </div>
 
       <SectionCard>
@@ -138,7 +138,7 @@ export function AdminInstitutionsView() {
                   <th className="px-5 py-3 font-medium">Source</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Students</th>
-                  <th className="px-5 py-3 font-medium">Credits</th>
+                  <th className="px-5 py-3 font-medium">Granted sets</th>
                   <th className="px-5 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
@@ -164,7 +164,7 @@ export function AdminInstitutionsView() {
                     </td>
                     <td className="px-5 py-3 text-muted">{inst.students}</td>
                     <td className="px-5 py-3 font-semibold text-navy">
-                      {inst.creditBalance}
+                      {inst.grantedSetCount}
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-2">
@@ -210,10 +210,10 @@ export function AdminInstitutionsView() {
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => setCreditTarget(inst)}
+                            onClick={() => setGrantTarget(inst)}
                           >
-                            <Coins className="h-4 w-4" />
-                            Credits
+                            <Gift className="h-4 w-4" />
+                            Grant mock set
                           </Button>
                         ) : (
                           <span className="px-2 text-xs text-muted">—</span>
@@ -228,10 +228,11 @@ export function AdminInstitutionsView() {
         )}
       </SectionCard>
 
-      <AdjustCreditsModal
-        institution={creditTarget}
-        onClose={() => setCreditTarget(null)}
-        onAdjusted={() => void refresh({ silent: true })}
+      <InstitutionGrantSetDialog
+        open={grantTarget != null}
+        institution={grantTarget}
+        onClose={() => setGrantTarget(null)}
+        onGranted={() => void refresh({ silent: true })}
       />
 
       <EditOwnerModal
@@ -358,107 +359,6 @@ function EditOwnerModal({
         </Button>
         <Button variant="primary" size="sm" loading={saving} onClick={handleSubmit}>
           Save changes
-        </Button>
-      </div>
-    </Modal>
-  );
-}
-
-function AdjustCreditsModal({
-  institution,
-  onClose,
-  onAdjusted,
-}: {
-  institution: AdminInstitution | null;
-  onClose: () => void;
-  onAdjusted: () => void;
-}) {
-  const { toast } = useToast();
-  const [delta, setDelta] = useState("");
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function handleSubmit() {
-    if (!institution) return;
-    const value = parseInt(delta, 10);
-    if (!Number.isFinite(value) || value === 0) {
-      toast("Invalid amount", {
-        description: "Enter a non-zero number (negative to deduct).",
-        variant: "warning",
-      });
-      return;
-    }
-    setSaving(true);
-    try {
-      await adjustInstitutionCredits(institution.id, value, note || undefined);
-      toast("Credits adjusted", { variant: "success" });
-      setDelta("");
-      setNote("");
-      onAdjusted();
-      onClose();
-    } catch (err) {
-      toast("Adjustment failed", {
-        description: getErrorMessage(err, "Could not adjust credits."),
-        variant: "error",
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open={institution != null}
-      onClose={onClose}
-      ariaLabel="Adjust credits"
-      className="max-w-md"
-    >
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="text-base font-bold text-navy">
-          Adjust credits · {institution?.name}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg p-1 text-muted hover:bg-slate-100"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="space-y-4 p-5">
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-          Current balance:{" "}
-          <strong className="text-navy">{institution?.creditBalance}</strong>
-        </p>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-navy">
-            Adjustment (+ grant / − deduct)
-          </span>
-          <input
-            type="number"
-            value={delta}
-            onChange={(e) => setDelta(e.target.value)}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
-            placeholder="e.g. 10 or -5"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-navy">
-            Note (optional)
-          </span>
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
-          />
-        </label>
-      </div>
-      <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-        <Button variant="secondary" size="sm" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button variant="primary" size="sm" loading={saving} onClick={handleSubmit}>
-          Apply adjustment
         </Button>
       </div>
     </Modal>
