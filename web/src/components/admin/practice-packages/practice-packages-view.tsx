@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { AdminPackagesSectionTabs } from "@/components/admin/admin-section-tabs";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { PracticePackageEditorDialog } from "@/components/admin/practice-packages/practice-package-editor-dialog";
 import { Button } from "@/components/ui/button";
@@ -33,9 +32,7 @@ export function PracticePackagesView() {
   }, [refresh]);
 
   return (
-    <>
-      <AdminPackagesSectionTabs active="practice" />
-      <ApiDataShell loading={loading} error={error}>
+    <ApiDataShell loading={loading} error={error}>
       <div className="p-4 lg:p-6 xl:p-8">
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-start justify-between gap-4">
@@ -130,6 +127,5 @@ export function PracticePackagesView() {
         }}
       />
     </ApiDataShell>
-    </>
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { AdminPackagesSectionTabs } from "@/components/admin/admin-section-tabs";
 import { PackageEditorDialog } from "@/components/admin/packages/package-editor-dialog";
 import { PackagesHeader } from "@/components/admin/packages/packages-header";
 import { PackagesSummaryCards } from "@/components/admin/packages/packages-summary-cards";
@@ -47,11 +46,8 @@ function PackagesContent() {
 
 export function PackagesView() {
   return (
-    <>
-      <AdminPackagesSectionTabs active="mock" />
-      <AdminPackagesProvider>
-        <PackagesContent />
-      </AdminPackagesProvider>
-    </>
+    <AdminPackagesProvider>
+      <PackagesContent />
+    </AdminPackagesProvider>
   );
 }

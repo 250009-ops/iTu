@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { AdminPackagesSectionTabs } from "@/components/admin/admin-section-tabs";
 import { InstitutionMockSetEditorDialog } from "@/components/admin/institution-mock-sets/institution-mock-set-editor-dialog";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { Button } from "@/components/ui/button";
@@ -35,9 +34,7 @@ export function InstitutionMockSetsView() {
   }, [refresh]);
 
   return (
-    <>
-      <AdminPackagesSectionTabs active="institution-sets" />
-      <ApiDataShell loading={loading} error={error}>
+    <ApiDataShell loading={loading} error={error}>
         <div className="p-4 lg:p-6 xl:p-8">
           <div className="mx-auto max-w-7xl space-y-6">
             <div className="flex items-start justify-between gap-4">
@@ -135,6 +132,5 @@ export function InstitutionMockSetsView() {
           }}
         />
       </ApiDataShell>
-    </>
   );
 }
