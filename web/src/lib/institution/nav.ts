@@ -7,14 +7,15 @@ export type InstitutionNavIcon =
   | "bar-chart"
   | "settings"
   | "message-square"
-  | "file-text";
+  | "file-text"
+  | "radio";
 
 export type InstitutionNavItem = {
   label: string;
   href: string;
   icon: InstitutionNavIcon;
   /** Shows the pending-students count badge. */
-  badge?: "pendingStudents";
+  badge?: "pendingStudents" | "flaggedSessions";
 };
 
 export type InstitutionNavGroup = {
@@ -43,6 +44,12 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
         label: "Mock Schedule",
         href: "/institution/schedule",
         icon: "calendar",
+      },
+      {
+        label: "Live Monitor",
+        href: "/institution/monitor",
+        icon: "radio",
+        badge: "flaggedSessions",
       },
       {
         label: "Content Studio",

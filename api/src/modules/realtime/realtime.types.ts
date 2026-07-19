@@ -1,5 +1,6 @@
 export type RealtimeEvent =
   | { type: 'admin:live-monitor'; reason: string }
+  | { type: 'institution:live-monitor'; institutionId: string; reason: string }
   | { type: 'teacher:badges'; teacherId: string }
   | {
       type: 'exam:section-submitted';

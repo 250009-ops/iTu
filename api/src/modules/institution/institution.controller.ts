@@ -20,17 +20,23 @@ import { RequestUser } from '../../common/types/request-user';
 import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
+import { InviteStudentDto } from './dto/invite-student.dto';
+import { ReviewIntegrityDto } from './dto/review-integrity.dto';
 import { UpdateExaminerDto } from './dto/update-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
 import { UpdateInstitutionSupportTicketDto } from './dto/update-institution-support-ticket.dto';
 import { InstitutionService } from './institution.service';
+import { ExamSessionsService } from '../exam-sessions/exam-sessions.service';
 
 @ApiTags('institution')
 @ApiBearerAuth()
 @Controller('institution')
 @Roles(UserRole.INSTITUTION)
 export class InstitutionController {
-  constructor(private readonly institution: InstitutionService) {}
+  constructor(
+    private readonly institution: InstitutionService,
+    private readonly examSessions: ExamSessionsService,
+  ) {}
 
   @Get('overview')
   getOverview(@CurrentUser() user: RequestUser) {
@@ -64,6 +70,14 @@ export class InstitutionController {
     @Query('status') status?: string,
   ) {
     return this.institution.listStudents(user, status);
+  }
+
+  @Post('students/invite')
+  inviteStudent(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: InviteStudentDto,
+  ) {
+    return this.institution.inviteStudent(user, dto);
   }
 
   @Post('students/:id/approve')
@@ -117,6 +131,67 @@ export class InstitutionController {
   @Get('enrollments')
   listEnrollments(@CurrentUser() user: RequestUser) {
     return this.institution.listEnrollments(user);
+  }
+
+  @Get('nav-badges')
+  getNavBadges(@CurrentUser() user: RequestUser) {
+    return this.institution.getMonitorNavBadges(user);
+  }
+
+  @Get('sessions/live')
+  getLiveSessions(@CurrentUser() user: RequestUser) {
+    return this.institution.getLiveSessions(user);
+  }
+
+  @Get('sessions/:sessionCode')
+  getSessionDetail(
+    @CurrentUser() user: RequestUser,
+    @Param('sessionCode') sessionCode: string,
+  ) {
+    return this.examSessions.getMonitorSessionDetail(sessionCode, user);
+  }
+
+  @Post('sessions/:sessionCode/force-submit')
+  forceSubmit(
+    @Param('sessionCode') sessionCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.adminForceSubmit(sessionCode, user);
+  }
+
+  @Post('sessions/:sessionCode/resume')
+  resumeSession(
+    @Param('sessionCode') sessionCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.resumeSession(sessionCode, user);
+  }
+
+  @Post('sessions/:sessionCode/suspend')
+  suspendSession(
+    @Param('sessionCode') sessionCode: string,
+    @Body() body: { reason?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.suspendSession(
+      sessionCode,
+      body.reason ?? 'centre_hold',
+      user,
+    );
+  }
+
+  @Post('sessions/:sessionCode/integrity/review')
+  reviewIntegrity(
+    @Param('sessionCode') sessionCode: string,
+    @Body() dto: ReviewIntegrityDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.adminReviewIntegrity(
+      sessionCode,
+      dto.decision,
+      dto.note,
+      user,
+    );
   }
 
   @Get('reports/cohort')

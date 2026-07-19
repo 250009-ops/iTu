@@ -7,11 +7,12 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { getInstitutionOverview } from "@/lib/api/institution";
+import { getInstitutionNavBadges, getInstitutionOverview } from "@/lib/api/institution";
 import { useApiQuery } from "@/hooks/use-api-query";
 
 type InstitutionNavBadgesValue = {
   pendingStudents: number;
+  flaggedSessions: number;
   centerName: string | null;
   loading: boolean;
 };
@@ -25,21 +26,26 @@ export function InstitutionNavBadgesProvider({
   children: ReactNode;
 }) {
   const { data, loading, refresh } = useApiQuery(getInstitutionOverview);
+  const { data: monitorBadges, refresh: refreshMonitorBadges } = useApiQuery(
+    getInstitutionNavBadges,
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       void refresh({ silent: true });
+      void refreshMonitorBadges({ silent: true });
     }, 30_000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [refresh, refreshMonitorBadges]);
 
   const value = useMemo<InstitutionNavBadgesValue>(
     () => ({
       pendingStudents: data?.pendingStudents ?? 0,
+      flaggedSessions: monitorBadges?.flaggedSessions ?? 0,
       centerName: data?.centerName ?? null,
       loading,
     }),
-    [data, loading],
+    [data, monitorBadges, loading],
   );
 
   return (

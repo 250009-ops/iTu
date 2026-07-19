@@ -355,8 +355,11 @@ export class AdminController {
   }
 
   @Get('sessions/:sessionCode')
-  getSessionDetail(@Param('sessionCode') sessionCode: string) {
-    return this.examSessions.getAdminSessionDetail(sessionCode);
+  getSessionDetail(
+    @Param('sessionCode') sessionCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.examSessions.getMonitorSessionDetail(sessionCode, user);
   }
 
   @Post('sessions/:sessionCode/force-submit')

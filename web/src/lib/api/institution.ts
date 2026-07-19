@@ -56,6 +56,101 @@ export function rejectStudent(id: string) {
   });
 }
 
+export function inviteStudent(body: { name: string; email: string }) {
+  return apiFetch<{
+    invited: boolean;
+    studentId?: string;
+    email: string;
+    name: string;
+  }>("/institution/students/invite", { method: "POST", body });
+}
+
+export function getInstitutionNavBadges() {
+  return apiFetch<{ liveSessions: number; flaggedSessions: number }>(
+    "/institution/nav-badges",
+  );
+}
+
+export type InstitutionSessionDetail = {
+  id: string;
+  sessionCode: string;
+  state: string;
+  integrity: string;
+  integrityLog: {
+    event: string;
+    metadata?: Record<string, unknown>;
+    at: string;
+    userId?: string;
+  }[];
+  studentName: string;
+  country: string;
+  skill: string | null;
+  sectionStartedAt: string | null;
+  enrollmentCode: string;
+  suspended?: boolean;
+  suspendReason?: string | null;
+  suspendedAt?: string | null;
+};
+
+export function getInstitutionLiveSessions() {
+  return apiFetch<
+    {
+      sessionCode: string;
+      studentName: string;
+      country: string;
+      skill: string;
+      progress: number;
+      timeLeft: string;
+      remainingSec?: number;
+      examiner?: string;
+      integrity: string;
+      flags: number;
+      suspended?: boolean;
+      suspendReason?: string | null;
+      suspendedAt?: string | null;
+    }[]
+  >("/institution/sessions/live");
+}
+
+export function getInstitutionSessionDetail(sessionCode: string) {
+  return apiFetch<InstitutionSessionDetail>(
+    `/institution/sessions/${sessionCode}`,
+  );
+}
+
+export function forceSubmitInstitutionSession(sessionCode: string) {
+  return apiFetch(`/institution/sessions/${sessionCode}/force-submit`, {
+    method: "POST",
+  });
+}
+
+export function resumeInstitutionSession(sessionCode: string) {
+  return apiFetch(`/institution/sessions/${sessionCode}/resume`, {
+    method: "POST",
+  });
+}
+
+export function suspendInstitutionSession(
+  sessionCode: string,
+  reason = "centre_hold",
+) {
+  return apiFetch(`/institution/sessions/${sessionCode}/suspend`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+export function reviewInstitutionSessionIntegrity(
+  sessionCode: string,
+  decision: "clear" | "uphold",
+  note?: string,
+) {
+  return apiFetch(`/institution/sessions/${sessionCode}/integrity/review`, {
+    method: "POST",
+    body: { decision, note },
+  });
+}
+
 export function enrollStudents(body: {
   studentIds: string[];
   packageId: string;

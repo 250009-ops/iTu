@@ -11,6 +11,7 @@ import {
   ExamSkill,
   NotificationType,
   Prisma,
+  UserRole,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import { AuditAction } from '../../common/audit/audit.actions';
@@ -57,13 +58,13 @@ export class ExamSessionsService {
 
   async getByCode(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
     return this.toSessionResponse(session);
   }
 
   async checkIn(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
 
     // Idempotent: a refresh or double-click on "Begin" must not fail when the
     // student already completed check-in (CHECK_IN_OPEN → CHECK_IN_OPEN).
@@ -115,7 +116,7 @@ export class ExamSessionsService {
     });
 
     this.realtime.notifyExamState(sessionCode, updated.state.toLowerCase());
-    this.realtime.notifyAdminLiveMonitor('check-in');
+    this.notifyLiveMonitors(session.enrollment.institutionId, 'check-in');
 
     return this.toSessionResponse(updated);
   }
@@ -123,7 +124,7 @@ export class ExamSessionsService {
   async startSection(sessionCode: string, skill: ExamSkill, user: RequestUser) {
     return this.examTimer.withSessionLock(sessionCode, async () => {
       const session = await this.findSessionOrThrow(sessionCode);
-      await this.assertSessionAccess(session.enrollment.studentId, user);
+      await this.assertSessionAccess(session.enrollment, user);
 
       const nextState = getActiveStateForSkill(skill);
 
@@ -206,7 +207,7 @@ export class ExamSessionsService {
       });
 
       this.realtime.notifyExamState(sessionCode, updated.state.toLowerCase());
-      this.realtime.notifyAdminLiveMonitor('section-start');
+      this.notifyLiveMonitors(session.enrollment.institutionId, 'section-start');
 
       await this.prisma.examSession.update({
         where: { id: session.id },
@@ -223,7 +224,7 @@ export class ExamSessionsService {
     user: RequestUser,
   ) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
     this.assertNotSuspended(session);
 
     const activeSkill = skillForActiveState(session.state);
@@ -272,7 +273,7 @@ export class ExamSessionsService {
   ) {
     return this.examTimer.withSessionLock(sessionCode, async () => {
       const session = await this.findSessionOrThrow(sessionCode);
-      await this.assertSessionAccess(session.enrollment.studentId, user);
+      await this.assertSessionAccess(session.enrollment, user);
       this.assertNotSuspended(session);
 
       const submittedState = getSubmittedStateForSkill(dto.skill);
@@ -443,6 +444,7 @@ export class ExamSessionsService {
         dto.skill.toLowerCase(),
       );
       this.realtime.notifyExamState(sessionCode, updated.state.toLowerCase());
+      this.notifyLiveMonitors(session.enrollment.institutionId, 'section-submitted');
       if (session.enrollment.speakingTeacherId && dto.skill === ExamSkill.SPEAKING) {
         this.realtime.notifyTeacherBadges(session.enrollment.speakingTeacherId);
       }
@@ -458,7 +460,7 @@ export class ExamSessionsService {
     user: RequestUser,
   ) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
     this.assertNotSuspended(session);
 
     if (session.state !== ExamSessionState.WRITING_ACTIVE) {
@@ -502,7 +504,7 @@ export class ExamSessionsService {
 
   async heartbeat(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
 
     const activeSkill = skillForActiveState(session.state);
     if (!activeSkill) {
@@ -537,7 +539,11 @@ export class ExamSessionsService {
     return this.examTimer.withSessionLock(sessionCode, async () => {
       const session = await this.findSessionOrThrow(sessionCode);
       if (user) {
-        await this.assertSessionAccess(session.enrollment.studentId, user);
+        if (user.role === UserRole.STUDENT) {
+          this.assertSessionAccess(session.enrollment, user);
+        } else {
+          this.assertMonitorAccess(session, user);
+        }
       }
 
       if (session.suspendedAt) {
@@ -589,7 +595,7 @@ export class ExamSessionsService {
       }
 
       this.realtime.notifyExamSuspended(sessionCode, reason);
-      this.realtime.notifyAdminLiveMonitor('session-suspended');
+      this.notifyLiveMonitors(session.enrollment.institutionId, 'session-suspended');
 
       return { suspended: true, reason, remainingSec };
     });
@@ -598,6 +604,7 @@ export class ExamSessionsService {
   async resumeSession(sessionCode: string, user: RequestUser) {
     return this.examTimer.withSessionLock(sessionCode, async () => {
       const session = await this.findSessionOrThrow(sessionCode);
+      this.assertMonitorAccess(session, user);
       if (!session.suspendedAt) {
         return this.toSessionResponse(session);
       }
@@ -644,7 +651,7 @@ export class ExamSessionsService {
       });
 
       this.realtime.notifyExamResumed(sessionCode);
-      this.realtime.notifyAdminLiveMonitor('session-resumed');
+      this.notifyLiveMonitors(session.enrollment.institutionId, 'session-resumed');
 
       return this.toSessionResponse(updated);
     });
@@ -652,7 +659,7 @@ export class ExamSessionsService {
 
   async getProgress(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
 
     const activeSkill = skillForActiveState(session.state);
     const attempt = activeSkill
@@ -695,7 +702,7 @@ export class ExamSessionsService {
     user: RequestUser,
   ) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
     this.assertNotSuspended(session);
 
     const activeSkill = skillForActiveState(session.state);
@@ -752,7 +759,7 @@ export class ExamSessionsService {
 
   async getTimer(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
 
     const activeSkill = skillForActiveState(session.state);
     if (!activeSkill) {
@@ -854,7 +861,7 @@ export class ExamSessionsService {
     user: RequestUser,
   ) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
 
     const integritySettings = (await this.settings.getSection(
       'exam_integrity',
@@ -918,12 +925,14 @@ export class ExamSessionsService {
     }
 
     this.realtime.notifyExamIntegrity(sessionCode, integrity.toLowerCase());
+    this.notifyLiveMonitors(session.enrollment.institutionId, 'integrity');
 
     return { logged: true, integrity: integrity.toLowerCase(), offenseCount };
   }
 
-  async getAdminSessionDetail(sessionCode: string) {
+  async getMonitorSessionDetail(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
+    this.assertMonitorAccess(session, user);
     const activeSkill = skillForActiveState(session.state);
     const attempt = activeSkill
       ? session.sectionAttempts.find((a) => a.skill === activeSkill)
@@ -948,6 +957,7 @@ export class ExamSessionsService {
 
   async adminForceSubmit(sessionCode: string, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
+    this.assertMonitorAccess(session, user);
     const activeSkill = skillForActiveState(session.state);
     if (!activeSkill) {
       throw new BadRequestException('No active section to force submit');
@@ -977,6 +987,7 @@ export class ExamSessionsService {
     user: RequestUser,
   ) {
     const session = await this.findSessionOrThrow(sessionCode);
+    this.assertMonitorAccess(session, user);
     const log = (session.integrityLog as unknown[]) ?? [];
     log.push({
       event: 'admin_review',
@@ -1004,13 +1015,14 @@ export class ExamSessionsService {
     });
 
     this.realtime.notifyExamIntegrity(sessionCode, integrity.toLowerCase());
+    this.notifyLiveMonitors(session.enrollment.institutionId, 'integrity-review');
 
     return { integrity: integrity.toLowerCase(), reviewed: true };
   }
 
   async getExamContent(sessionCode: string, skill: ExamSkill, user: RequestUser) {
     const session = await this.findSessionOrThrow(sessionCode);
-    await this.assertSessionAccess(session.enrollment.studentId, user);
+    await this.assertSessionAccess(session.enrollment, user);
 
     const pkg = session.enrollment.package;
     if (!packageIncludesExamSkill(pkg.skills, skill)) {
@@ -1273,10 +1285,55 @@ export class ExamSessionsService {
     return duration;
   }
 
-  private async assertSessionAccess(studentId: string, user: RequestUser) {
-    if (user.role === 'ADMIN') return;
-    if (user.role === 'STUDENT' && user.studentProfileId === studentId) return;
+  private assertSessionAccess(
+    enrollment: { studentId: string; institutionId: string | null },
+    user: RequestUser,
+  ) {
+    if (user.role === UserRole.ADMIN) return;
+    if (user.role === UserRole.STUDENT && user.studentProfileId === enrollment.studentId) {
+      return;
+    }
+    if (
+      user.role === UserRole.INSTITUTION &&
+      user.institutionId &&
+      enrollment.institutionId === user.institutionId
+    ) {
+      return;
+    }
     throw new ForbiddenException('Access denied to this exam session');
+  }
+
+  private assertMonitorAccess(
+    session: { enrollment: { institutionId: string | null } },
+    user: RequestUser,
+  ) {
+    const institutionId = session.enrollment.institutionId;
+    if (user.role === UserRole.ADMIN) {
+      if (institutionId != null) {
+        throw new ForbiddenException(
+          'Centre exams are monitored by the institution',
+        );
+      }
+      return;
+    }
+    if (user.role === UserRole.INSTITUTION) {
+      if (!user.institutionId || institutionId !== user.institutionId) {
+        throw new ForbiddenException('Access denied to this exam session');
+      }
+      return;
+    }
+    throw new ForbiddenException('Access denied to this exam session');
+  }
+
+  private notifyLiveMonitors(
+    institutionId: string | null | undefined,
+    reason: string,
+  ) {
+    if (institutionId) {
+      this.realtime.notifyInstitutionLiveMonitor(institutionId, reason);
+    } else {
+      this.realtime.notifyAdminLiveMonitor(reason);
+    }
   }
 
   private sessionInclude() {

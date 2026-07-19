@@ -19,7 +19,7 @@ export function MonitorHeader() {
           Live Sessions Monitor
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Real-time oversight of all active exams and integrity alerts.
+          Real-time oversight of platform students&apos; active exams and integrity alerts.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">

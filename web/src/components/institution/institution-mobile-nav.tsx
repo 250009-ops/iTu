@@ -10,6 +10,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   MessageSquare,
+  Radio,
   Settings,
   UserCheck,
 } from "lucide-react";
@@ -27,11 +28,12 @@ const iconMap = {
   "bar-chart": BarChart3,
   settings: Settings,
   "message-square": MessageSquare,
+  radio: Radio,
 } as const;
 
 export function InstitutionMobileNav() {
   const pathname = usePathname();
-  const { pendingStudents } = useInstitutionNavBadges();
+  const { pendingStudents, flaggedSessions } = useInstitutionNavBadges();
 
   return (
     <nav className="flex gap-1 overflow-x-auto border-b border-border bg-white px-2 py-2 md:hidden">
@@ -40,7 +42,9 @@ export function InstitutionMobileNav() {
         const badge =
           item.badge === "pendingStudents" && pendingStudents > 0
             ? pendingStudents
-            : null;
+            : item.badge === "flaggedSessions" && flaggedSessions > 0
+              ? flaggedSessions
+              : null;
         const active =
           item.href === "/institution"
             ? pathname === "/institution"

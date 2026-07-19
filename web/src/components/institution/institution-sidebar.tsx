@@ -10,6 +10,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   MessageSquare,
+  Radio,
   Settings,
   UserCheck,
 } from "lucide-react";
@@ -29,12 +30,13 @@ const iconMap = {
   "bar-chart": BarChart3,
   settings: Settings,
   "message-square": MessageSquare,
+  radio: Radio,
 } as const;
 
 export function InstitutionSidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
-  const { pendingStudents } = useInstitutionNavBadges();
+  const { pendingStudents, flaggedSessions } = useInstitutionNavBadges();
 
   return (
     <aside
@@ -57,7 +59,9 @@ export function InstitutionSidebar() {
                 const badge =
                   item.badge === "pendingStudents" && pendingStudents > 0
                     ? pendingStudents
-                    : null;
+                    : item.badge === "flaggedSessions" && flaggedSessions > 0
+                      ? flaggedSessions
+                      : null;
                 const active =
                   item.href === "/institution"
                     ? pathname === "/institution"

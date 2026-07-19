@@ -102,32 +102,31 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     this.publish({ type: 'admin:live-monitor', reason });
   }
 
+  notifyInstitutionLiveMonitor(institutionId: string, reason: string) {
+    this.publish({ type: 'institution:live-monitor', institutionId, reason });
+  }
+
   notifyTeacherBadges(teacherId: string) {
     this.publish({ type: 'teacher:badges', teacherId });
   }
 
   notifyExamSectionSubmitted(sessionCode: string, skill: string) {
     this.publish({ type: 'exam:section-submitted', sessionCode, skill });
-    this.notifyAdminLiveMonitor('section-submitted');
   }
 
   notifyExamIntegrity(sessionCode: string, integrity: string) {
     this.publish({ type: 'exam:integrity', sessionCode, integrity });
-    this.notifyAdminLiveMonitor('integrity');
   }
 
   notifyExamState(sessionCode: string, state: string) {
     this.publish({ type: 'exam:state', sessionCode, state });
-    this.notifyAdminLiveMonitor('state-change');
   }
 
   notifyExamSuspended(sessionCode: string, reason: string) {
     this.publish({ type: 'exam:suspended', sessionCode, reason });
-    this.notifyAdminLiveMonitor('session-suspended');
   }
 
   notifyExamResumed(sessionCode: string) {
     this.publish({ type: 'exam:resumed', sessionCode });
-    this.notifyAdminLiveMonitor('session-resumed');
   }
 }

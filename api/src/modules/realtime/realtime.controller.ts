@@ -15,6 +15,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminService } from '../admin/admin.service';
+import { InstitutionService } from '../institution/institution.service';
 import { TeachersService } from '../teachers/teachers.service';
 import { RealtimeService } from './realtime.service';
 import type { RealtimeEvent } from './realtime.types';
@@ -30,6 +31,7 @@ export class RealtimeController {
   constructor(
     private realtime: RealtimeService,
     private admin: AdminService,
+    private institution: InstitutionService,
     private teachers: TeachersService,
     private prisma: PrismaService,
   ) {}
@@ -59,6 +61,65 @@ export class RealtimeController {
       void pushSnapshot('connect');
       const unsubEvents = this.realtime.subscribe((event: RealtimeEvent) => {
         if (event.type === 'admin:live-monitor') {
+          void pushSnapshot(event.reason);
+        }
+      });
+      const tick = setInterval(() => void pushSnapshot('tick'), 5_000);
+
+      const releaseSlot = this.realtime.claimStreamSlot(slotKey, () => {
+        clearInterval(tick);
+        unsubEvents();
+        subscriber.complete();
+      });
+
+      return () => {
+        clearInterval(tick);
+        unsubEvents();
+        releaseSlot();
+      };
+    });
+
+    return merge(
+      event$,
+      interval(25_000).pipe(map(() => sse({ type: 'heartbeat' }))),
+    );
+  }
+
+  @Sse('institution/sessions/live/stream')
+  @Roles(UserRole.INSTITUTION)
+  institutionLiveMonitorStream(
+    @CurrentUser() user: RequestUser,
+  ): Observable<MessageEvent> {
+    const institutionId = user.institutionId;
+    if (!institutionId) {
+      throw new ForbiddenException('Institution profile required');
+    }
+
+    const slotKey = `institution:live:${user.id}`;
+
+    const event$ = new Observable<MessageEvent>((subscriber) => {
+      const pushSnapshot = async (reason: string) => {
+        try {
+          const sessions = await this.institution.getLiveSessions(user);
+          subscriber.next(
+            sse({
+              type: 'snapshot',
+              reason,
+              serverTime: new Date().toISOString(),
+              sessions,
+            }),
+          );
+        } catch {
+          subscriber.next(sse({ type: 'error', message: 'snapshot_failed' }));
+        }
+      };
+
+      void pushSnapshot('connect');
+      const unsubEvents = this.realtime.subscribe((event: RealtimeEvent) => {
+        if (
+          event.type === 'institution:live-monitor' &&
+          event.institutionId === institutionId
+        ) {
           void pushSnapshot(event.reason);
         }
       });

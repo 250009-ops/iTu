@@ -46,9 +46,10 @@ import {
 import { WRITING_MIN_WORDS } from '../grading/writing-word-count';
 import { ResultsPdfService } from '../results/results-pdf.service';
 import {
-  SECTION_DURATIONS_SEC,
-  skillForActiveState,
-} from '../exam-sessions/exam-state-machine';
+  ACTIVE_EXAM_STATES,
+  mapLiveSessionRows,
+} from '../../common/exam/live-monitor';
+import { skillForActiveState } from '../exam-sessions/exam-state-machine';
 import { UpdateBandTableDto } from './dto/band-table.dto';
 import { GrantEnrollmentDto } from './dto/grant-enrollment.dto';
 import { ReappointEnrollmentDto } from './dto/reappoint-enrollment.dto';
@@ -85,20 +86,6 @@ const SKILL_ACCENTS = [
 
 /** Canonical skill ids stored on packages — never use SKILL_ACCENTS objects here. */
 const DEFAULT_PACKAGE_SKILLS = ['listening', 'reading', 'writing', 'speaking'];
-
-const INTEGRITY_FLAG_EVENTS = new Set([
-  'tab_switch',
-  'paste_attempt',
-  'fullscreen_exit',
-  'audio_seek_attempt',
-]);
-
-const ACTIVE_EXAM_STATES = [
-  'LISTENING_ACTIVE',
-  'READING_ACTIVE',
-  'WRITING_ACTIVE',
-  'SPEAKING_ACTIVE',
-] as const;
 
 const DASHBOARD_SKILLS: {
   skill: ExamSkill;
@@ -246,12 +233,6 @@ const SEED_DEMO_TEACHER_EMAILS = [
 ] as const;
 const SEED_DEMO_PAYOUT_AMOUNTS = [325, 210, 890] as const;
 
-function formatTimeLeft(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -278,7 +259,10 @@ export class AdminService {
   async getNavBadges() {
     const [liveSessions, openTickets] = await Promise.all([
       this.prisma.examSession.count({
-        where: { state: { in: [...ACTIVE_EXAM_STATES] } },
+        where: {
+          state: { in: [...ACTIVE_EXAM_STATES] },
+          enrollment: { institutionId: null },
+        },
       }),
       this.prisma.supportTicket.count({
         where: {
@@ -503,6 +487,7 @@ export class AdminService {
     const sessions = await this.prisma.examSession.findMany({
       where: {
         state: { in: [...ACTIVE_EXAM_STATES] },
+        enrollment: { institutionId: null },
       },
       include: {
         enrollment: {
@@ -516,47 +501,7 @@ export class AdminService {
       take: 20,
     });
 
-    return sessions.map((s) => {
-      const activeSkill = skillForActiveState(s.state);
-      const skill = activeSkill?.toLowerCase() ?? 'listening';
-      const attempt = activeSkill
-        ? s.sectionAttempts.find((a) => a.skill === activeSkill)
-        : undefined;
-      const duration = activeSkill ? SECTION_DURATIONS_SEC[activeSkill] : 0;
-      let remainingSec = 0;
-      if (s.suspendedAt && attempt?.timeRemaining != null) {
-        remainingSec = attempt.timeRemaining;
-      } else if (attempt?.startedAt && !attempt.submittedAt && duration > 0) {
-        const elapsed = Math.floor(
-          (Date.now() - attempt.startedAt.getTime()) / 1000,
-        );
-        remainingSec = Math.max(0, duration - elapsed);
-      }
-      const progress =
-        duration > 0
-          ? Math.round(((duration - remainingSec) / duration) * 100)
-          : 0;
-      const log = (s.integrityLog as { event?: string }[]) ?? [];
-      const flags = log.filter((entry) =>
-        INTEGRITY_FLAG_EVENTS.has(entry.event ?? ''),
-      ).length;
-
-      return {
-        sessionCode: s.sessionCode,
-        studentName: s.enrollment.student.user.name,
-        country: s.enrollment.student.country ?? '—',
-        skill,
-        progress,
-        timeLeft: formatTimeLeft(remainingSec),
-        remainingSec,
-        examiner: s.enrollment.speakingTeacher?.user.name,
-        integrity: s.integrity.toLowerCase(),
-        flags,
-        suspended: Boolean(s.suspendedAt),
-        suspendReason: s.suspendReason,
-        suspendedAt: s.suspendedAt?.toISOString() ?? null,
-      };
-    });
+    return mapLiveSessionRows(sessions);
   }
 
   async getEnrollments() {

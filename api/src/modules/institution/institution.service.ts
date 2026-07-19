@@ -35,6 +35,10 @@ import {
   teacherCanAccessWriting,
 } from '../../common/teacher-speciality';
 import { helpPathForReporter } from '../../common/support/support-routing';
+import {
+  ACTIVE_EXAM_STATES,
+  mapLiveSessionRows,
+} from '../../common/exam/live-monitor';
 import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { RequestUser } from '../../common/types/request-user';
@@ -46,6 +50,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
+import { InviteStudentDto } from './dto/invite-student.dto';
 import { UpdateExaminerDto } from './dto/update-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
 import { UpdateInstitutionSupportTicketDto } from './dto/update-institution-support-ticket.dto';
@@ -481,6 +486,109 @@ export class InstitutionService {
     });
 
     return { status: 'rejected' };
+  }
+
+  async inviteStudent(user: RequestUser, dto: InviteStudentDto) {
+    const institution = await this.getInstitutionOrThrow(user);
+    const email = dto.email.trim().toLowerCase();
+    const name = dto.name.trim();
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'This email is already registered on iTestU. Ask the student to sign in instead.',
+      );
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const passwordResetToken = createHash('sha256').update(rawToken).digest('hex');
+    const passwordResetExpires = new Date(Date.now() + SETUP_TOKEN_TTL_MS);
+    const passwordHash = await bcrypt.hash(randomBytes(16).toString('hex'), 12);
+
+    const created = await this.prisma.user.create({
+      data: {
+        email,
+        name,
+        passwordHash,
+        role: UserRole.STUDENT,
+        institutionId: institution.id,
+        passwordResetToken,
+        passwordResetExpires,
+        studentProfile: {
+          create: {
+            institutionId: institution.id,
+            institutionStatus: InstitutionMemberStatus.PENDING,
+          },
+        },
+      },
+      include: { studentProfile: true },
+    });
+
+    const setupUrl = `${this.appUrl()}/reset-password?token=${rawToken}`;
+    void this.mail
+      .sendInstitutionStudentInviteEmail(email, name, institution.name, setupUrl)
+      .catch(() => undefined);
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_STUDENT_JOIN,
+      entity: 'user',
+      entityId: created.id,
+      metadata: { source: 'panel', institutionId: institution.id },
+    });
+
+    return {
+      invited: true,
+      studentId: created.studentProfile?.id,
+      email,
+      name,
+    };
+  }
+
+  async getLiveSessions(user: RequestUser) {
+    const institution = await this.getInstitutionOrThrow(user);
+    const sessions = await this.prisma.examSession.findMany({
+      where: {
+        state: { in: [...ACTIVE_EXAM_STATES] },
+        enrollment: { institutionId: institution.id },
+      },
+      include: {
+        enrollment: {
+          include: {
+            student: { include: { user: true } },
+            speakingTeacher: { include: { user: true } },
+          },
+        },
+        sectionAttempts: true,
+      },
+      take: 20,
+    });
+
+    return mapLiveSessionRows(sessions);
+  }
+
+  async getMonitorNavBadges(user: RequestUser) {
+    const institution = await this.getInstitutionOrThrow(user);
+    const [liveSessions, flaggedSessions] = await Promise.all([
+      this.prisma.examSession.count({
+        where: {
+          state: { in: [...ACTIVE_EXAM_STATES] },
+          enrollment: { institutionId: institution.id },
+        },
+      }),
+      this.prisma.examSession.count({
+        where: {
+          state: { in: [...ACTIVE_EXAM_STATES] },
+          integrity: 'FLAGGED',
+          enrollment: { institutionId: institution.id },
+        },
+      }),
+    ]);
+
+    return { liveSessions, flaggedSessions };
   }
 
   // ─── Enroll (spend credits) ──────────────────────────────────────────────
