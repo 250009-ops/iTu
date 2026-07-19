@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { Bell, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useProfilePortal } from "@/contexts/profile-portal-context";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
 import { EditProfileDialog } from "@/components/teacher/profile/edit-profile-dialog";
 import { NotificationPrefsDialog } from "@/components/teacher/profile/notification-prefs-dialog";
 
 export function ProfileHeader() {
   const { raw, refresh } = useTeacherProfile();
+  const { variant, centerName } = useProfilePortal();
+  const isCentre = variant === "centre";
   const [editOpen, setEditOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
 
@@ -16,13 +19,17 @@ export function ProfileHeader() {
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p className="text-xs font-medium text-muted">
-          Teacher Portal &gt; My Profile
+          {isCentre
+            ? "Examiner Portal › Examiner Profile"
+            : "Teacher Portal › My Profile"}
         </p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-navy sm:text-3xl">
-          My Profile
+          {isCentre ? "Examiner Profile" : "My Profile"}
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Manage your examiner credentials and account settings.
+          {isCentre
+            ? `Manage your examiner profile scoped to ${centerName ?? "your centre"}.`
+            : "Manage your examiner credentials and account settings."}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -45,6 +52,7 @@ export function ProfileHeader() {
           initialName={raw.name}
           initialBio={raw.bio}
           initialSpeciality={raw.speciality}
+          lockSpeciality={isCentre}
           onClose={() => setEditOpen(false)}
           onDone={refresh}
         />

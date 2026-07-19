@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { getMe } from "@/lib/api/auth";
-import { getInstExaminerOverview } from "@/lib/api/inst-examiner";
+import { getWritingGradingHub } from "@/lib/api/grading";
 import { getTeacherSpeakingSessions } from "@/lib/api/teachers";
 import {
   canAccessSpeaking,
@@ -76,10 +76,9 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
           }
           if (canAccessWriting(examinerSpeciality)) {
             badgeRequests.push(
-              getInstExaminerOverview().then((res) => ({
+              getWritingGradingHub().then((res) => ({
                 area: "writing" as const,
-                count: res.writingQueue.filter((item) => item.readyToGrade)
-                  .length,
+                count: res.counts.pending,
               })),
             );
           }

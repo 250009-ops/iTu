@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
+import { useProfilePortal } from "@/contexts/profile-portal-context";
 import {
   CHART_AXIS_TICK,
   CHART_GRID_STROKE,
@@ -19,7 +20,9 @@ import {
 
 export function SessionActivityChart() {
   const { profile } = useTeacherProfile();
+  const { variant } = useProfilePortal();
   const { sessionActivity } = profile;
+  const isCentre = variant === "centre";
 
   return (
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
@@ -67,7 +70,9 @@ export function SessionActivityChart() {
           </ResponsiveContainer>
         ) : (
           <div className="flex h-[180px] items-center justify-center rounded-xl border border-dashed border-border bg-slate-50/60 px-6 text-center text-sm text-muted">
-            Graded sessions will appear here once you complete Writing or Speaking work.
+            {isCentre
+              ? "Graded centre sessions will appear here once you complete Writing or Speaking work."
+              : "Graded sessions will appear here once you complete Writing or Speaking work."}
           </div>
         )}
       </div>

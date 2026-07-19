@@ -21,12 +21,14 @@ export function EditProfileDialog({
   initialName,
   initialBio,
   initialSpeciality,
+  lockSpeciality = false,
   onClose,
   onDone,
 }: {
   initialName: string;
   initialBio: string | null;
   initialSpeciality: string;
+  lockSpeciality?: boolean;
   onClose: () => void;
   onDone: () => Promise<void> | void;
 }) {
@@ -52,7 +54,7 @@ export function EditProfileDialog({
       await updateTeacherProfile({
         name: name.trim(),
         bio: bio.trim(),
-        speciality,
+        ...(lockSpeciality ? {} : { speciality }),
       });
       toast("Profile updated", {
         description: "Your examiner profile has been saved.",
@@ -105,23 +107,33 @@ export function EditProfileDialog({
             <label className="mb-1.5 block text-sm font-semibold text-navy">
               Specialisation
             </label>
-            <div className="flex flex-wrap gap-2">
-              {SPECIALITIES.map((s) => (
-                <button
-                  key={s.value}
-                  type="button"
-                  onClick={() => setSpeciality(s.value)}
-                  className={cn(
-                    "rounded-lg border px-4 py-2 text-sm font-semibold",
-                    speciality === s.value
-                      ? "border-navy bg-navy text-white"
-                      : "border-border bg-white text-foreground hover:bg-slate-50",
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+            {lockSpeciality ? (
+              <p className="rounded-lg border border-border bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
+                {SPECIALITIES.find((s) => s.value === speciality)?.label ??
+                  speciality}
+                <span className="mt-1 block text-xs text-muted">
+                  Assigned by your centre. Contact them to change this.
+                </span>
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {SPECIALITIES.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setSpeciality(s.value)}
+                    className={cn(
+                      "rounded-lg border px-4 py-2 text-sm font-semibold",
+                      speciality === s.value
+                        ? "border-navy bg-navy text-white"
+                        : "border-border bg-white text-foreground hover:bg-slate-50",
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

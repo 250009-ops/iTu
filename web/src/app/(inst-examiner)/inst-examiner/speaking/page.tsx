@@ -5,13 +5,18 @@ import { useSearchParams } from "next/navigation";
 import { InstExaminerSpeakingView } from "@/components/inst-examiner/speaking-sessions-view";
 import { InstExaminerSpecialityGuard } from "@/components/inst-examiner/speciality-guard";
 import { SpeakingConsoleView } from "@/components/teacher/speaking/speaking-console-view";
+import { TeacherSpeakingProvider } from "@/contexts/teacher-speaking-context";
 
 function InstExaminerSpeakingContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
 
   if (sessionId) {
-    return <SpeakingConsoleView />;
+    return (
+      <TeacherSpeakingProvider>
+        <SpeakingConsoleView />
+      </TeacherSpeakingProvider>
+    );
   }
 
   return <InstExaminerSpeakingView />;

@@ -27,9 +27,14 @@ function cnCount(active: boolean) {
   ].join(" ");
 }
 
-export function SpeakingHubView() {
+export function SpeakingHubView({
+  variant = "marketplace",
+}: {
+  variant?: "marketplace" | "centre";
+}) {
   const { hub, hubLoading, hubError, refreshHub } = useTeacherSpeaking();
   const [tab, setTab] = useState<SpeakingTab>("today");
+  const isCentre = variant === "centre";
 
   useEffect(() => {
     void refreshHub();
@@ -76,8 +81,9 @@ export function SpeakingHubView() {
               Speaking Examiner Console
             </h1>
             <p className="mt-1 text-sm text-muted">
-              IELTS Speaking Parts 1–3 · FC / LEX / GRA / PRON · 20-minute
-              sessions
+              {isCentre
+                ? "Centre-enrolled students only · IELTS Speaking Parts 1–3 · 20-minute sessions"
+                : "IELTS Speaking Parts 1–3 · FC / LEX / GRA / PRON · 20-minute sessions"}
             </p>
           </div>
           {hub.minutesUntilNext != null && hub.nextSession && (
@@ -114,13 +120,24 @@ export function SpeakingHubView() {
               title="Today's Sessions"
               sessions={hub.today}
               emptyTitle="No sessions today"
-              emptyDescription="When students book your speaking slots for today, they appear here with quick access to the live console."
+              emptyDescription={
+                isCentre
+                  ? "When your centre's students have speaking sessions scheduled for today, they appear here with quick access to the live console."
+                  : "When students book your speaking slots for today, they appear here with quick access to the live console."
+              }
             />
           </div>
         )}
 
         {tab === "upcoming" && (
-          <SpeakingUpcomingList sessions={hub.upcoming} />
+          <SpeakingUpcomingList
+            sessions={hub.upcoming}
+            emptyDescription={
+              isCentre
+                ? "Upcoming speaking sessions for your centre's enrolled students appear here once scheduled."
+                : undefined
+            }
+          />
         )}
 
         {tab === "completed" && (

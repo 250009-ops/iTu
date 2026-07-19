@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import type {
   MappedSpeakingSessionItem,
   SpeakingSessionUiStatus,
@@ -65,9 +66,11 @@ function StatusBadge({
 }
 
 function SessionAction({ session }: { session: MappedSpeakingSessionItem }) {
+  const { speaking } = useExaminerPaths();
+
   if (session.uiStatus === "graded") {
     return (
-      <Link href={`/teacher/speaking?session=${session.id}`}>
+      <Link href={speaking(session.id)}>
         <Button variant="secondary" size="sm">
           Review
         </Button>
@@ -85,7 +88,7 @@ function SessionAction({ session }: { session: MappedSpeakingSessionItem }) {
 
   if (session.uiStatus === "awaiting_grade") {
     return (
-      <Link href={`/teacher/speaking?session=${session.id}`}>
+      <Link href={speaking(session.id)}>
         <Button variant="danger" size="sm">
           Score now
         </Button>
@@ -95,8 +98,8 @@ function SessionAction({ session }: { session: MappedSpeakingSessionItem }) {
 
   const href =
     session.uiStatus === "live"
-      ? `/teacher/speaking?session=${session.id}&live=1`
-      : `/teacher/speaking?session=${session.id}`;
+      ? speaking(session.id, { live: true })
+      : speaking(session.id);
   const slotAccess = speakingJoinAccess(session.scheduledAt);
   const canOpenLive =
     session.uiStatus === "live" ? slotAccess.allowed : true;
@@ -183,9 +186,13 @@ export function SpeakingSessionsList({
 
 export function SpeakingUpcomingList({
   sessions,
+  emptyDescription = "Future speaking bookings appear here once students reserve your availability.",
 }: {
   sessions: MappedSpeakingSessionItem[];
+  emptyDescription?: string;
 }) {
+  const { speaking } = useExaminerPaths();
+
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="border-b border-border px-5 py-4">
@@ -196,8 +203,7 @@ export function SpeakingUpcomingList({
         <div className="px-5 py-10 text-center">
           <p className="font-medium text-navy">No upcoming sessions</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
-            Future speaking bookings appear here once students reserve your
-            availability.
+            {emptyDescription}
           </p>
         </div>
       ) : (
@@ -227,7 +233,7 @@ export function SpeakingUpcomingList({
 
               <div className="flex items-center gap-3 sm:shrink-0">
                 <StatusBadge uiStatus="upcoming" overallBand={null} />
-                <Link href={`/teacher/speaking?session=${session.id}`}>
+                <Link href={speaking(session.id)}>
                   <Button variant="danger" size="sm">
                     <Play className="h-3.5 w-3.5 fill-current" />
                     Open console

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MappedSpeakingSessionItem } from "@/lib/api/mappers/teacher";
 import { Button } from "@/components/ui/button";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import { cn } from "@/lib/utils";
 
 function CriteriaPill({
@@ -40,6 +41,8 @@ export function SpeakingCompletedTable({
 }: {
   sessions: MappedSpeakingSessionItem[];
 }) {
+  const { speaking } = useExaminerPaths();
+
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="border-b border-border px-5 py-4 sm:px-6">
@@ -137,7 +140,7 @@ export function SpeakingCompletedTable({
                     )}
                   </td>
                   <td className="px-5 py-4 text-right sm:px-6">
-                    <Link href={`/teacher/speaking?session=${session.id}`}>
+                    <Link href={speaking(session.id)}>
                       <Button variant="secondary" size="sm">
                         Review
                       </Button>

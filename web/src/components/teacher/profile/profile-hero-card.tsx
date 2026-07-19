@@ -7,9 +7,11 @@ import {
   Camera,
   Loader2,
   Mail,
+  ShieldCheck,
   Star,
 } from "lucide-react";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
+import { useProfilePortal } from "@/contexts/profile-portal-context";
 import { useToast } from "@/components/ui/toast";
 import { updateTeacherProfile } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -20,9 +22,13 @@ function StarRating({
   rating,
   reviewCount,
 }: {
-  rating: number;
+  rating: number | null;
   reviewCount: number;
 }) {
+  if (rating == null || reviewCount === 0) {
+    return <p className="text-sm text-muted">No reviews yet</p>;
+  }
+
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: 5 }).map((_, i) => (
@@ -47,6 +53,8 @@ function StarRating({
 
 export function ProfileHeroCard() {
   const { profile, refresh } = useTeacherProfile();
+  const { variant, centerName } = useProfilePortal();
+  const isCentre = variant === "centre";
   const {
     name,
     initials,
@@ -154,10 +162,20 @@ export function ProfileHeroCard() {
               Verified
             </span>
           )}
+          {isCentre && (
+            <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
+              <ShieldCheck className="h-3 w-3" />
+              Scoped Examiner
+            </span>
+          )}
         </div>
 
         <h2 className="mt-3 text-lg font-bold text-navy">{name}</h2>
-        <p className="text-sm text-muted">{title}</p>
+        <p className="text-sm text-muted">
+          {isCentre && centerName
+            ? `Centre Examiner · ${title.replace(/^IELTS Examiner · /, "")}`
+            : title}
+        </p>
         <div className="mt-2">
           <StarRating rating={rating} reviewCount={reviewCount} />
         </div>
@@ -170,7 +188,9 @@ export function ProfileHeroCard() {
           {memberSince ? (
             <li className="flex items-center gap-2">
               <Calendar className="h-4 w-4 shrink-0" />
-              Member since {memberSince}
+              {isCentre && centerName
+                ? `Joined ${centerName} · ${memberSince}`
+                : `Member since ${memberSince}`}
             </li>
           ) : null}
         </ul>

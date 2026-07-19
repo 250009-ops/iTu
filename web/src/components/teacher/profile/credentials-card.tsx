@@ -2,16 +2,21 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
+import { useProfilePortal } from "@/contexts/profile-portal-context";
 
 export function CredentialsCard() {
   const { profile } = useTeacherProfile();
+  const { variant, centerName } = useProfilePortal();
+  const isCentre = variant === "centre";
 
   return (
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
       <div>
         <h2 className="font-semibold text-navy">Professional Credentials</h2>
         <p className="mt-0.5 text-sm text-muted">
-          Qualifications verified by IELTS Mock platform
+          {isCentre
+            ? `Qualifications on file for your ${centerName ?? "centre"} examiner role`
+            : "Qualifications verified by IELTS Mock platform"}
         </p>
       </div>
 

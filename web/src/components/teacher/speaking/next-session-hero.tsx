@@ -9,6 +9,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import type { MappedSpeakingSessionItem } from "@/lib/api/mappers/teacher";
 import {
   formatJoinOpensAt,
@@ -23,6 +24,7 @@ export function NextSessionHero({
   session: MappedSpeakingSessionItem;
   minutesUntilNext: number | null;
 }) {
+  const { speaking } = useExaminerPaths();
   const slotAccess = speakingJoinAccess(session.scheduledAt);
   const isAwaitingGrade = session.uiStatus === "awaiting_grade";
   const isLive = session.uiStatus === "live";
@@ -80,7 +82,7 @@ export function NextSessionHero({
 
           {isAwaitingGrade ? (
             <Link
-              href={`/teacher/speaking?session=${session.id}`}
+              href={speaking(session.id)}
               className="mt-5 inline-block"
             >
               <Button variant="danger" size="lg" className="shadow-md">
@@ -92,7 +94,7 @@ export function NextSessionHero({
             <Link
               href={
                 canEnterLive
-                  ? `/teacher/speaking?session=${session.id}&live=1`
+                  ? speaking(session.id, { live: true })
                   : "#"
               }
               className="mt-5 inline-block"

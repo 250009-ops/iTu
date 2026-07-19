@@ -891,7 +891,7 @@ export function mapTeacherProfile(data: Profile) {
     initials: initialsFromName(data.name),
     avatarUrl: data.avatarUrl,
     title: `IELTS Examiner · ${specialityLabel}`,
-    rating: data.rating ?? 0,
+    rating: data.rating,
     reviewCount,
     email: data.email,
     memberSince,

@@ -17,12 +17,15 @@ import {
   TeacherProfileProvider,
   useTeacherProfile,
 } from "@/contexts/teacher-profile-context";
+import { ProfilePortalProvider } from "@/contexts/profile-portal-context";
 
 export function TeacherProfileView() {
   return (
-    <TeacherProfileProvider>
-      <ProfileContent />
-    </TeacherProfileProvider>
+    <ProfilePortalProvider variant="marketplace">
+      <TeacherProfileProvider>
+        <ProfileContent />
+      </TeacherProfileProvider>
+    </ProfilePortalProvider>
   );
 }
 

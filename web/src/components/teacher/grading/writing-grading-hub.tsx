@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WritingStatsCards } from "@/components/teacher/grading/writing-stats-cards";
 import { useTeacherGrading } from "@/contexts/teacher-grading-context";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import type {
   GradingStatus,
   MappedWritingSubmission,
@@ -72,10 +73,12 @@ function ActiveQueueTable({
   rows,
   emptyTitle,
   emptyDescription,
+  gradePath,
 }: {
   rows: MappedWritingSubmission[];
   emptyTitle: string;
   emptyDescription: string;
+  gradePath: (id: string) => string;
 }) {
   const router = useRouter();
 
@@ -150,7 +153,7 @@ function ActiveQueueTable({
                   <Button
                     variant="danger"
                     size="sm"
-                    onClick={() => router.push(`/teacher/grading/${row.id}`)}
+                    onClick={() => router.push(gradePath(row.id))}
                   >
                     Grade now
                   </Button>
@@ -164,7 +167,13 @@ function ActiveQueueTable({
   );
 }
 
-function CompletedTable({ rows }: { rows: MappedWritingSubmission[] }) {
+function CompletedTable({
+  rows,
+  gradePath,
+}: {
+  rows: MappedWritingSubmission[];
+  gradePath: (id: string) => string;
+}) {
   const router = useRouter();
 
   if (rows.length === 0) {
@@ -247,7 +256,7 @@ function CompletedTable({ rows }: { rows: MappedWritingSubmission[] }) {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => router.push(`/teacher/grading/${row.id}`)}
+                  onClick={() => router.push(gradePath(row.id))}
                 >
                   Review
                 </Button>
@@ -260,8 +269,13 @@ function CompletedTable({ rows }: { rows: MappedWritingSubmission[] }) {
   );
 }
 
-export function WritingGradingHub() {
+export function WritingGradingHub({
+  variant = "marketplace",
+}: {
+  variant?: "marketplace" | "centre";
+}) {
   const { hub } = useTeacherGrading();
+  const { gradingDetail } = useExaminerPaths();
   const [tab, setTab] = useState<WritingTab>("pending");
   const [search, setSearch] = useState("");
   const [sortSlaAsc, setSortSlaAsc] = useState(true);
@@ -292,6 +306,8 @@ export function WritingGradingHub() {
     { id: "completed", label: "Completed", count: hub.counts.completed },
   ];
 
+  const isCentre = variant === "centre";
+
   return (
     <div className="space-y-6">
       <header>
@@ -299,8 +315,9 @@ export function WritingGradingHub() {
           Writing Grading Queue
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Grade Task 1 and Task 2 independently. Results released after Speaking
-          is graded.
+          {isCentre
+            ? "Grade Task 1 and Task 2 for centre-enrolled students. Results release after Speaking is graded."
+            : "Grade Task 1 and Task 2 independently. Results released after Speaking is graded."}
         </p>
       </header>
 
@@ -362,16 +379,19 @@ export function WritingGradingHub() {
         </div>
 
         {tab === "completed" ? (
-          <CompletedTable rows={filteredRows} />
+          <CompletedTable rows={filteredRows} gradePath={gradingDetail} />
         ) : (
           <ActiveQueueTable
             rows={filteredRows}
+            gradePath={gradingDetail}
             emptyTitle={
               tab === "pending" ? "No pending submissions" : "Nothing in review"
             }
             emptyDescription={
               tab === "pending"
-                ? "Writing submissions appear here after students complete the Writing section on mock day."
+                ? isCentre
+                  ? "When your centre's students complete the Writing section on mock day, submissions appear here for grading."
+                  : "Writing submissions appear here after students complete the Writing section on mock day."
                 : "Submissions you have opened for grading appear here until you submit a band score."
             }
           />

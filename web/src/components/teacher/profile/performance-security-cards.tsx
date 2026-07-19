@@ -2,17 +2,49 @@
 
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import { useTeacherProfile } from "@/contexts/teacher-profile-context";
+import { useProfilePortal } from "@/contexts/profile-portal-context";
 import { cn } from "@/lib/utils";
 
 export function PerformanceCard() {
   const { profile } = useTeacherProfile();
+  const { variant, overview } = useProfilePortal();
+  const isCentre = variant === "centre";
+
+  const totalSessions =
+    profile.performance.find((m) => m.label === "Total Sessions")?.value ?? "0";
+
+  const metrics = isCentre
+    ? [
+        {
+          label: "Centre Students",
+          value: String(overview?.stats.centreStudents ?? 0),
+        },
+        {
+          label: "Active Mocks",
+          value: String(overview?.stats.activeMocks ?? 0),
+        },
+        {
+          label: "Avg Band Given",
+          value:
+            overview?.stats.avgBandGiven != null
+              ? overview.stats.avgBandGiven.toFixed(1)
+              : "—",
+        },
+        {
+          label: "Total Sessions",
+          value: totalSessions,
+        },
+      ]
+    : profile.performance;
 
   return (
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="font-semibold text-navy">Performance Overview</h2>
+      <h2 className="font-semibold text-navy">
+        {isCentre ? "Centre Performance" : "Performance Overview"}
+      </h2>
 
       <ul className="mt-5 grid gap-4 sm:grid-cols-2">
-        {profile.performance.map((metric) => (
+        {metrics.map((metric) => (
           <li
             key={metric.label}
             className="rounded-lg border border-border bg-slate-50/60 px-4 py-3"
