@@ -47,6 +47,7 @@ import { evaluatePackageAvailability } from '../content/content-assignment';
 import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { UzumCheckoutService } from '../payments/uzum-checkout.service';
+import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
@@ -110,6 +111,7 @@ export class InstitutionService {
     private config: ConfigService,
     private storage: StorageService,
     private mockSets: InstitutionMockSetsService,
+    private payments: PaymentsService,
   ) {}
 
   private appUrl(): string {
@@ -298,6 +300,109 @@ export class InstitutionService {
   async getMocks(user: RequestUser) {
     const institution = await this.getInstitutionOrThrow(user);
     return this.mockSets.listMocksForInstitution(institution.id);
+  }
+
+  async getMockShop(user: RequestUser) {
+    const institution = await this.getInstitutionOrThrow(user);
+    return this.mockSets.listShopForInstitution(
+      institution.id,
+      institution.currency,
+    );
+  }
+
+  async createMockSetCheckout(user: RequestUser, setId: string) {
+    const institution = await this.getInstitutionOrThrow(user);
+    const set = await this.mockSets.getSetForCheckout(setId, institution.id);
+    const amount = set.listPrice;
+    const orderCode = `IMS-${randomBytes(4).toString('hex').toUpperCase()}`;
+
+    const order = await this.prisma.order.create({
+      data: {
+        orderCode,
+        orderType: OrderType.INSTITUTION_MOCK_SET,
+        institutionId: institution.id,
+        institutionMockSetId: set.id,
+        amount,
+        currency: institution.currency,
+        status: OrderStatus.PENDING,
+      },
+    });
+
+    if (!this.uzum.isConfigured()) {
+      throw new BadRequestException(
+        'Online payment is not configured. Contact the platform to purchase mock sets.',
+      );
+    }
+
+    const checkout = await this.uzum.createCheckout({
+      orderId: order.id,
+      orderCode: order.orderCode,
+      email: institution.contactEmail,
+      name: institution.name,
+      amount,
+      currency: institution.currency,
+      packageTitle: set.title,
+      clientId: institution.id,
+      successPath: '/institution/mocks?payment=success',
+      failurePath: '/institution/mocks?payment=failed',
+      sessionTimeoutSecs: 1800,
+    });
+
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        uzumCheckoutId: checkout.checkoutId,
+        checkoutUrl: checkout.checkoutUrl,
+        checkoutExpiresAt: expiresAt,
+      },
+    });
+
+    return {
+      orderCode: order.orderCode,
+      checkoutUrl: checkout.checkoutUrl,
+      setId: set.id,
+      setTitle: set.title,
+      amount,
+    };
+  }
+
+  async getMockSetOrderStatus(user: RequestUser, orderCode: string) {
+    const institutionId = requireInstitutionId(user);
+    const order = await this.prisma.order.findFirst({
+      where: {
+        orderCode,
+        institutionId,
+        orderType: OrderType.INSTITUTION_MOCK_SET,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.status === OrderStatus.PENDING && order.uzumCheckoutId) {
+      await this.payments.reconcilePendingOrder(order.id);
+      const refreshed = await this.prisma.order.findFirst({
+        where: {
+          orderCode,
+          institutionId,
+          orderType: OrderType.INSTITUTION_MOCK_SET,
+        },
+      });
+      if (refreshed) {
+        return {
+          orderCode: refreshed.orderCode,
+          status: refreshed.status.toLowerCase(),
+          setId: refreshed.institutionMockSetId,
+          checkoutUrl: refreshed.checkoutUrl,
+        };
+      }
+    }
+
+    return {
+      orderCode: order.orderCode,
+      status: order.status.toLowerCase(),
+      setId: order.institutionMockSetId,
+      checkoutUrl: order.checkoutUrl,
+    };
   }
 
   async createCreditCheckout(user: RequestUser, dto: CreateCreditCheckoutDto) {

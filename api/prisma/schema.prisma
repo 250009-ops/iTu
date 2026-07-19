@@ -35,6 +35,12 @@ enum OrderType {
   ENROLLMENT
   CREDIT_PACK
   PRACTICE_BUNDLE
+  INSTITUTION_MOCK_SET
+}
+
+enum InstitutionMockSetGrantSource {
+  ADMIN_GRANT
+  PURCHASE
 }
 
 enum PracticeUnitType {
@@ -565,9 +571,10 @@ model Order {
   institutionId     String?       @map("institution_id")
   creditQuantity    Int?          @map("credit_quantity")
   enrollmentId      String?       @unique @map("enrollment_id")
-  packageId         String?       @map("package_id")
-  practicePackageId String?       @map("practice_package_id")
-  amount            Float
+  packageId             String? @map("package_id")
+  practicePackageId     String? @map("practice_package_id")
+  institutionMockSetId  String? @map("institution_mock_set_id")
+  amount                Float
   currency          String        @default("UZS")
   paymentMethod     PaymentMethod @default(CARD) @map("payment_method")
   status            OrderStatus   @default(PENDING)
@@ -582,11 +589,13 @@ model Order {
   student     StudentProfile?  @relation(fields: [studentId], references: [id])
   institution Institution?     @relation(fields: [institutionId], references: [id])
   enrollment  Enrollment?      @relation(fields: [enrollmentId], references: [id])
-  package         MockTestPackage?        @relation(fields: [packageId], references: [id])
-  practicePackage PracticeProductPackage? @relation(fields: [practicePackageId], references: [id])
-  refunds         Refund[]
+  package            MockTestPackage?        @relation(fields: [packageId], references: [id])
+  practicePackage    PracticeProductPackage? @relation(fields: [practicePackageId], references: [id])
+  institutionMockSet InstitutionMockSet?     @relation(fields: [institutionMockSetId], references: [id])
+  refunds            Refund[]
   practiceUnitAccess   StudentPracticeUnitAccess[]
   practicePromptAccess StudentPracticePromptAccess[]
+  mockSetGrant         InstitutionMockSetGrant?
 
   @@index([institutionId])
   @@map("orders")
@@ -858,12 +867,15 @@ model InstitutionMockSet {
   slug        String   @unique
   title       String
   description String?
+  listPrice   Float    @default(0) @map("list_price")
+  isListed    Boolean  @default(true) @map("is_listed")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   items  InstitutionMockSetItem[]
   grants InstitutionMockSetGrant[]
+  orders Order[]
 
   @@map("institution_mock_sets")
 }
@@ -882,15 +894,18 @@ model InstitutionMockSetItem {
 }
 
 model InstitutionMockSetGrant {
-  id            String   @id @default(cuid())
-  setId         String   @map("set_id")
-  institutionId String   @map("institution_id")
-  grantedById   String?  @map("granted_by_id")
+  id            String                        @id @default(cuid())
+  setId         String                        @map("set_id")
+  institutionId String                        @map("institution_id")
+  grantedById   String?                       @map("granted_by_id")
+  source        InstitutionMockSetGrantSource @default(ADMIN_GRANT)
+  orderId       String?                       @unique @map("order_id")
   note          String?
-  createdAt     DateTime @default(now()) @map("created_at")
+  createdAt     DateTime                      @default(now()) @map("created_at")
 
   set         InstitutionMockSet @relation(fields: [setId], references: [id], onDelete: Cascade)
   institution Institution        @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  order       Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@unique([institutionId, setId])
   @@index([institutionId])

@@ -143,18 +143,21 @@ export function EnrollWizard({
           </p>
         ) : (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-            Choose a granted platform mock or your centre&apos;s own mock.
+            Choose an owned platform mock set or your centre&apos;s own mock.
           </p>
         )}
 
         {!hasPlatformPackages && !hasOwnPackages && !loadingPackages && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             No mocks available for this student. Open{" "}
+            <Link href="/institution/mocks/shop" className="font-semibold underline">
+              Buy mock sets
+            </Link>{" "}
+            or{" "}
             <Link href="/institution/mocks" className="font-semibold underline">
               Mocks
             </Link>{" "}
-            to see your granted sets, or create centre-owned packages in Content
-            Studio.
+            to see owned sets, or create centre-owned packages in Content Studio.
           </p>
         )}
 

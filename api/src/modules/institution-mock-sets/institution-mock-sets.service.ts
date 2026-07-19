@@ -9,6 +9,7 @@ import {
   ContentTestType,
   ExamSkill,
   ExamType,
+  InstitutionMockSetGrantSource,
   Prisma,
 } from '@prisma/client';
 import {
@@ -46,6 +47,30 @@ const TYPE_FOR_KIND: Record<SectionKind, ContentTestType> = {
   listening: ContentTestType.LISTENING,
   reading: ContentTestType.READING,
   writing: ContentTestType.WRITING,
+};
+
+const SECTION_SKILL_META: Record<
+  SectionKind,
+  { name: string; detail: string; badge: string; color: 'sky' | 'emerald' | 'violet' }
+> = {
+  listening: {
+    name: 'Listening',
+    detail: '40 questions · 40 min',
+    badge: 'Auto scored',
+    color: 'sky',
+  },
+  reading: {
+    name: 'Reading',
+    detail: '40 questions · 60 min',
+    badge: 'Auto scored',
+    color: 'emerald',
+  },
+  writing: {
+    name: 'Writing',
+    detail: '2 tasks · 60 min',
+    badge: 'Human graded',
+    color: 'violet',
+  },
 };
 
 export type MockSetContentOptionPackage = {
@@ -106,6 +131,8 @@ export class InstitutionMockSetsService {
       slug: set.slug,
       title: set.title,
       description: set.description,
+      listPrice: set.listPrice,
+      isListed: set.isListed,
       isActive: set.isActive,
       grantCount: set._count.grants,
       contentSummary: this.formatContentSummary(set.items),
@@ -129,6 +156,8 @@ export class InstitutionMockSetsService {
       slug: set.slug,
       title: set.title,
       description: set.description,
+      listPrice: set.listPrice,
+      isListed: set.isListed,
       isActive: set.isActive,
       packageIds: set.items.map((i) => i.packageId),
       grantCount: set._count.grants,
@@ -259,6 +288,8 @@ export class InstitutionMockSetsService {
       slug: string;
       title: string;
       description?: string;
+      listPrice?: number;
+      isListed?: boolean;
       isActive?: boolean;
     },
     selection: MockSetSelectionInput,
@@ -272,6 +303,10 @@ export class InstitutionMockSetsService {
       throw new ConflictException('A set with this slug already exists');
     }
 
+    const isListed = data.isListed ?? true;
+    const listPrice = data.listPrice ?? 0;
+    this.assertValidListingPrice(isListed, listPrice);
+
     const packageIds = await this.resolveSelectionToPackageIds(selection);
 
     const created = await this.prisma.institutionMockSet.create({
@@ -279,6 +314,8 @@ export class InstitutionMockSetsService {
         slug,
         title: data.title.trim(),
         description: data.description?.trim() || null,
+        listPrice,
+        isListed,
         isActive: data.isActive ?? true,
       },
     });
@@ -302,6 +339,8 @@ export class InstitutionMockSetsService {
       slug?: string;
       title?: string;
       description?: string | null;
+      listPrice?: number;
+      isListed?: boolean;
       isActive?: boolean;
     },
     selection: MockSetSelectionInput | undefined,
@@ -319,6 +358,10 @@ export class InstitutionMockSetsService {
       );
     }
 
+    const nextIsListed = data.isListed ?? set.isListed;
+    const nextListPrice = data.listPrice ?? set.listPrice;
+    this.assertValidListingPrice(nextIsListed, nextListPrice);
+
     if (data.slug && data.slug.trim() !== set.slug) {
       const clash = await this.prisma.institutionMockSet.findUnique({
         where: { slug: data.slug.trim() },
@@ -332,6 +375,8 @@ export class InstitutionMockSetsService {
         slug: data.slug?.trim(),
         title: data.title?.trim(),
         description: data.description === undefined ? undefined : data.description,
+        listPrice: data.listPrice,
+        isListed: data.isListed,
         isActive: data.isActive,
       },
     });
@@ -457,6 +502,7 @@ export class InstitutionMockSetsService {
         institutionId,
         setId,
         grantedById: actorId,
+        source: InstitutionMockSetGrantSource.ADMIN_GRANT,
         note: note?.trim() || null,
       },
     });
@@ -548,6 +594,8 @@ export class InstitutionMockSetsService {
       },
     });
 
+    const grantBySetId = new Map(grants.map((g) => [g.setId, g]));
+
     const activeGrantSetIds = grants
       .filter((g) => g.set.isActive)
       .map((g) => g.setId);
@@ -569,15 +617,20 @@ export class InstitutionMockSetsService {
       setId: g.setId,
       setTitle: g.set.title,
       grantedAt: g.createdAt,
+      source: g.source,
     }));
 
     const packages = items
       .filter((item) => item.package.isActive)
-      .map((item) => ({
-        ...this.toCatalogPackage(item.package),
-        grantSetId: item.set.id,
-        grantSetTitle: item.set.title,
-      }));
+      .map((item) => {
+        const grant = grantBySetId.get(item.set.id);
+        return {
+          ...this.toCatalogPackage(item.package),
+          grantSetId: item.set.id,
+          grantSetTitle: item.set.title,
+          grantSource: grant?.source ?? InstitutionMockSetGrantSource.ADMIN_GRANT,
+        };
+      });
 
     const seen = new Map<string, OfferGroup>();
     for (const pkg of packages) {
@@ -598,6 +651,229 @@ export class InstitutionMockSetsService {
     }));
 
     return { tabs, packages, grants: grantMeta };
+  }
+
+  async listShopForInstitution(institutionId: string, currency: string) {
+    const owned = await this.prisma.institutionMockSetGrant.findMany({
+      where: { institutionId },
+      select: { setId: true },
+    });
+    const ownedSetIds = new Set(owned.map((g) => g.setId));
+
+    const sets = await this.prisma.institutionMockSet.findMany({
+      where: {
+        isActive: true,
+        isListed: true,
+        listPrice: { gt: 0 },
+        id: { notIn: [...ownedSetIds] },
+      },
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+          include: { package: true },
+        },
+      },
+      orderBy: { title: 'asc' },
+    });
+
+    return {
+      sets: sets
+        .filter((set) => set.items.some((item) => item.package.isActive))
+        .map((set) => this.buildSetShopOffer(set, currency)),
+    };
+  }
+
+  async getSetForCheckout(setId: string, institutionId: string) {
+    const set = await this.prisma.institutionMockSet.findUnique({
+      where: { id: setId },
+    });
+    if (!set || !set.isActive || !set.isListed || set.listPrice <= 0) {
+      throw new NotFoundException('Mock set not available for purchase');
+    }
+
+    const existing = await this.prisma.institutionMockSetGrant.findUnique({
+      where: { institutionId_setId: { institutionId, setId } },
+    });
+    if (existing) {
+      throw new ConflictException('Your centre already owns this mock set');
+    }
+
+    return set;
+  }
+
+  async grantSetFromPurchase(
+    institutionId: string,
+    setId: string,
+    orderId: string,
+  ) {
+    const byOrder = await this.prisma.institutionMockSetGrant.findUnique({
+      where: { orderId },
+    });
+    if (byOrder) return byOrder;
+
+    const existing = await this.prisma.institutionMockSetGrant.findUnique({
+      where: { institutionId_setId: { institutionId, setId } },
+    });
+    if (existing) return existing;
+
+    const set = await this.prisma.institutionMockSet.findUnique({
+      where: { id: setId },
+    });
+    if (!set || !set.isActive) {
+      throw new NotFoundException('Institution mock set not found');
+    }
+
+    return this.prisma.institutionMockSetGrant.create({
+      data: {
+        institutionId,
+        setId,
+        orderId,
+        source: InstitutionMockSetGrantSource.PURCHASE,
+        note: 'Purchased via institution shop',
+      },
+    });
+  }
+
+  private assertValidListingPrice(isListed: boolean, listPrice: number) {
+    if (isListed && listPrice <= 0) {
+      throw new BadRequestException(
+        'List price must be greater than zero when the set is listed for sale',
+      );
+    }
+  }
+
+  private buildSetShopOffer(
+    set: {
+      id: string;
+      slug: string;
+      title: string;
+      description: string | null;
+      listPrice: number;
+      items: { package: {
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        price: number;
+        currency: string;
+        examType: ExamType;
+        packageKind: string;
+        mockNumber: number;
+        mostPopular: boolean;
+        rating: number | null;
+        reviewCount: number;
+        skills: unknown;
+        included: unknown;
+        rules: unknown;
+        isActive: boolean;
+      } }[];
+    },
+    currency: string,
+  ) {
+    const activePackages = set.items
+      .map((item) => item.package)
+      .filter((pkg) => pkg.isActive);
+
+    const product = this.buildSetShopProduct(set, activePackages, currency);
+
+    return {
+      setId: set.id,
+      slug: set.slug,
+      title: set.title,
+      description: set.description,
+      listPrice: set.listPrice,
+      currency,
+      contentSummary: this.formatContentSummary(
+        activePackages.map((pkg) => ({ package: { packageKind: pkg.packageKind } })),
+      ),
+      product,
+    };
+  }
+
+  private buildSetShopProduct(
+    set: {
+      id: string;
+      slug: string;
+      title: string;
+      description: string | null;
+      listPrice: number;
+    },
+    packages: {
+      packageKind: string;
+      examType: ExamType;
+      included: unknown;
+      rules: unknown;
+    }[],
+    currency: string,
+  ) {
+    const sectionOrder = ['listening', 'reading', 'writing'] as const;
+    const kindsPresent = new Set(packages.map((p) => p.packageKind));
+    const skills = sectionOrder
+      .filter((kind) => kindsPresent.has(kind))
+      .map((kind) => ({
+        id: kind,
+        ...SECTION_SKILL_META[kind],
+      }));
+
+    const included = this.mergeStringLists(
+      packages.flatMap((p) => this.normalizeStringList(p.included)),
+      [
+        'Enroll unlimited students on included section mocks',
+        'No per-enrollment credit charges',
+        'Official computer-delivered IELTS format',
+      ],
+    );
+
+    const rules = this.mergeStringLists(
+      packages.flatMap((p) => this.normalizeStringList(p.rules)),
+      ['Set content locked after purchase', 'One purchase per centre'],
+    );
+
+    const examType = packages[0]?.examType ?? ExamType.ACADEMIC;
+
+    return {
+      id: set.id,
+      slug: set.slug,
+      title: set.title,
+      description:
+        set.description?.trim() ||
+        `B2B mock set with ${skills.length} section mock${skills.length === 1 ? '' : 's'} for your centre.`,
+      examType: examType === ExamType.GENERAL_TRAINING ? 'General Training' : 'Academic',
+      delivery: 'Computer-Based',
+      bookCta: 'Buy mock set',
+      price: set.listPrice,
+      currency,
+      mostPopular: false,
+      rating: null,
+      reviewCount: 0,
+      skills,
+      included,
+      rules,
+      highlights: [
+        { icon: 'check', label: `${skills.length} section mocks included` },
+        { icon: 'user', label: 'Unlimited student enrollments' },
+        { icon: 'globe', label: 'Official CBT format' },
+      ],
+    };
+  }
+
+  private normalizeStringList(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  private mergeStringLists(...lists: string[][]): string[] {
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const list of lists) {
+      for (const item of list) {
+        const trimmed = item.trim();
+        if (!trimmed || seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        merged.push(trimmed);
+      }
+    }
+    return merged;
   }
 
   private toCatalogPackage(pkg: {

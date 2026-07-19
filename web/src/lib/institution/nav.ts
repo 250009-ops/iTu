@@ -34,6 +34,11 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
     items: [
       { label: "Mocks", href: "/institution/mocks", icon: "file-text" },
       {
+        label: "Buy mock sets",
+        href: "/institution/mocks/shop",
+        icon: "coins",
+      },
+      {
         label: "Students",
         href: "/institution/students",
         icon: "graduation-cap",

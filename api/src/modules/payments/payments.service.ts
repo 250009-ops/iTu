@@ -16,6 +16,7 @@ import { normalizeBundle } from '../../common/practice/practice.types';
 import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingsService } from '../bookings/bookings.service';
+import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import {
   UzumCallbackPayload,
   UzumCheckoutService,
@@ -31,6 +32,7 @@ export class PaymentsService {
     private practiceWallet: PracticeWalletService,
     @Inject(forwardRef(() => BookingsService))
     private bookings: BookingsService,
+    private mockSets: InstitutionMockSetsService,
   ) {}
 
   isConfigured(): boolean {
@@ -100,6 +102,17 @@ export class PaymentsService {
       return;
     }
     if (order.status === OrderStatus.PAID) {
+      if (
+        order.orderType === OrderType.INSTITUTION_MOCK_SET &&
+        order.institutionId &&
+        order.institutionMockSetId
+      ) {
+        await this.fulfillInstitutionMockSet(
+          order.institutionId,
+          order.institutionMockSetId,
+          order.id,
+        );
+      }
       return;
     }
 
@@ -130,7 +143,35 @@ export class PaymentsService {
       return;
     }
 
+    if (
+      order.orderType === OrderType.INSTITUTION_MOCK_SET &&
+      order.institutionId &&
+      order.institutionMockSetId
+    ) {
+      await this.fulfillInstitutionMockSet(
+        order.institutionId,
+        order.institutionMockSetId,
+        order.id,
+      );
+      return;
+    }
+
     await this.bookings.fulfillPendingPayment(order.id);
+  }
+
+  private async fulfillInstitutionMockSet(
+    institutionId: string,
+    setId: string,
+    orderId: string,
+  ) {
+    const grant = await this.mockSets.grantSetFromPurchase(
+      institutionId,
+      setId,
+      orderId,
+    );
+    this.logger.log(
+      `Fulfilled institution mock set ${setId} for centre ${institutionId} (grant ${grant.id})`,
+    );
   }
 
   /** Credits practice wallet from a paid practice bundle order. */

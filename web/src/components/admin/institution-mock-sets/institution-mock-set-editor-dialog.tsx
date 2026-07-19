@@ -43,6 +43,8 @@ export function InstitutionMockSetEditorDialog({
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [listPrice, setListPrice] = useState("");
+  const [isListed, setIsListed] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [selectedPackageIds, setSelectedPackageIds] = useState<Set<string>>(
     new Set(),
@@ -59,6 +61,8 @@ export function InstitutionMockSetEditorDialog({
     setTitle(set?.title ?? "");
     setSlug(set?.slug ?? "");
     setDescription(set?.description ?? "");
+    setListPrice(set?.listPrice != null ? String(set.listPrice) : "");
+    setIsListed(set?.isListed ?? true);
     setIsActive(set?.isActive ?? true);
     setContentLocked(set?.contentLocked ?? false);
     setSelectedPackageIds(new Set());
@@ -81,6 +85,10 @@ export function InstitutionMockSetEditorDialog({
         if (detail) {
           setSelectedPackageIds(new Set(detail.packageIds));
           setContentLocked(detail.contentLocked);
+          setListPrice(
+            detail.listPrice != null ? String(detail.listPrice) : "",
+          );
+          setIsListed(detail.isListed ?? true);
         }
       })
       .catch(() => {
@@ -130,8 +138,20 @@ export function InstitutionMockSetEditorDialog({
       return;
     }
 
+    const parsedListPrice = listPrice.trim() ? Number(listPrice) : 0;
+    if (isListed && (!Number.isFinite(parsedListPrice) || parsedListPrice <= 0)) {
+      toast("Enter a list price greater than zero when listed for sale", {
+        variant: "warning",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
+      const pricingPayload = {
+        listPrice: parsedListPrice,
+        isListed,
+      };
       const contentPayload = contentLocked
         ? {}
         : {
@@ -147,6 +167,7 @@ export function InstitutionMockSetEditorDialog({
           slug,
           description: description.trim() || null,
           isActive,
+          ...pricingPayload,
           ...contentPayload,
         });
       } else {
@@ -155,6 +176,7 @@ export function InstitutionMockSetEditorDialog({
           title,
           description: description.trim() || undefined,
           isActive,
+          ...pricingPayload,
           packageIds: [...selectedPackageIds],
           listeningIds: [...selectedTestIds.listening],
           readingIds: [...selectedTestIds.reading],
@@ -218,6 +240,20 @@ export function InstitutionMockSetEditorDialog({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional note for admins"
                 />
+              </div>
+              <div>
+                <Label>List price (UZS)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={listPrice}
+                  onChange={(e) => setListPrice(e.target.value)}
+                  placeholder="B2B price for centres"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={isListed} onChange={setIsListed} />
+                <Label>Listed for sale</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Switch checked={isActive} onChange={setIsActive} />

@@ -47,13 +47,15 @@ export class InstitutionMockSetsAdminController {
       slug: string;
       title: string;
       description?: string;
+      listPrice?: number;
+      isListed?: boolean;
       isActive?: boolean;
     } & MockSetSelectionInput,
     @CurrentUser() user: RequestUser,
   ) {
-    const { slug, title, description, isActive, ...selection } = body;
+    const { slug, title, description, listPrice, isListed, isActive, ...selection } = body;
     return this.service.createSet(
-      { slug, title, description, isActive },
+      { slug, title, description, listPrice, isListed, isActive },
       selection,
       user.id,
     );
@@ -67,6 +69,8 @@ export class InstitutionMockSetsAdminController {
       slug?: string;
       title?: string;
       description?: string | null;
+      listPrice?: number;
+      isListed?: boolean;
       isActive?: boolean;
     } & MockSetSelectionInput,
     @CurrentUser() user: RequestUser,
@@ -75,6 +79,8 @@ export class InstitutionMockSetsAdminController {
       slug,
       title,
       description,
+      listPrice,
+      isListed,
       isActive,
       packageIds,
       listeningIds,
@@ -88,7 +94,7 @@ export class InstitutionMockSetsAdminController {
       writingIds != null;
     return this.service.updateSet(
       id,
-      { slug, title, description, isActive },
+      { slug, title, description, listPrice, isListed, isActive },
       hasSelection
         ? { packageIds, listeningIds, readingIds, writingIds }
         : undefined,

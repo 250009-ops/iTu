@@ -69,6 +69,8 @@ export function InstitutionMockSetsView() {
                   <tr>
                     <th className="px-4 py-3">Title</th>
                     <th className="px-4 py-3">Contents</th>
+                    <th className="px-4 py-3">List price</th>
+                    <th className="px-4 py-3">Listed</th>
                     <th className="px-4 py-3">Grants</th>
                     <th className="px-4 py-3">Active</th>
                     <th className="px-4 py-3" />
@@ -83,6 +85,18 @@ export function InstitutionMockSetsView() {
                       </td>
                       <td className="px-4 py-3 text-muted">
                         {set.contentSummary}
+                      </td>
+                      <td className="px-4 py-3">
+                        {set.listPrice > 0
+                          ? `${set.listPrice.toLocaleString()} UZS`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {set.isListed ? (
+                          <span className="text-emerald-700">Yes</span>
+                        ) : (
+                          <span className="text-muted">No</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">{set.grantCount}</td>
                       <td className="px-4 py-3">
@@ -109,7 +123,7 @@ export function InstitutionMockSetsView() {
                   {sets.length === 0 && (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={7}
                         className="px-4 py-8 text-center text-muted"
                       >
                         No institution mock sets yet.

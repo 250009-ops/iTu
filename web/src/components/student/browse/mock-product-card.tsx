@@ -90,19 +90,27 @@ export function MockProductCard({
   initialSpeakingTeacherId,
   mode = "student",
   grantSetTitle,
+  grantSource,
   onEnrollClick,
+  onBuyClick,
+  buying = false,
 }: {
   product: BrowseProduct;
   autoOpenBooking?: boolean;
   onBookingOpened?: () => void;
   initialWritingTeacherId?: string | null;
   initialSpeakingTeacherId?: string | null;
-  mode?: "student" | "institution";
+  mode?: "student" | "institution" | "institutionShop";
   grantSetTitle?: string;
+  grantSource?: "ADMIN_GRANT" | "PURCHASE";
   onEnrollClick?: () => void;
+  onBuyClick?: () => void;
+  buying?: boolean;
 }) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const isInstitution = mode === "institution";
+  const isInstitutionShop = mode === "institutionShop";
+  const showPrice = mode === "student" || isInstitutionShop;
 
   useEffect(() => {
     if (autoOpenBooking) {
@@ -125,17 +133,32 @@ export function MockProductCard({
               <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-medium text-slate-200">
                 {product.delivery}
               </span>
-              {product.mostPopular && !isInstitution && (
+              {product.mostPopular && mode === "student" && (
                 <span className="rounded-full bg-amber-500/90 px-3 py-0.5 text-xs font-semibold text-white">
                   Most popular
                 </span>
               )}
-              {isInstitution && grantSetTitle && (
+              {isInstitutionShop && (
                 <span className="rounded-full bg-emerald-500/90 px-3 py-0.5 text-xs font-semibold">
-                  Granted set: {grantSetTitle}
+                  B2B mock set
                 </span>
               )}
-              {!isInstitution &&
+              {isInstitution && grantSetTitle && (
+                <span className="rounded-full bg-emerald-500/90 px-3 py-0.5 text-xs font-semibold">
+                  Set: {grantSetTitle}
+                </span>
+              )}
+              {isInstitution && grantSource === "PURCHASE" && (
+                <span className="rounded-full bg-sky-500/90 px-3 py-0.5 text-xs font-semibold">
+                  Purchased
+                </span>
+              )}
+              {isInstitution && grantSource === "ADMIN_GRANT" && (
+                <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-medium text-slate-200">
+                  Granted by iTestU
+                </span>
+              )}
+              {mode === "student" &&
                 product.reviewCount > 0 &&
                 product.rating != null && (
                   <div className="flex items-center gap-1 text-amber-400">
@@ -161,13 +184,19 @@ export function MockProductCard({
               <p className="mt-1.5 text-sm text-slate-400">{product.description}</p>
             </div>
           </div>
-          {!isInstitution && (
+          {showPrice && (
             <div className="shrink-0 text-left lg:text-right">
               <p className="text-3xl font-bold">
                 {formatPrice(product.price, product.currency)}
               </p>
-              <p className="text-sm text-slate-400">per attempt</p>
-              <p className="mt-0.5 text-xs text-slate-500">No hidden fees</p>
+              <p className="text-sm text-slate-400">
+                {isInstitutionShop ? "per set" : "per attempt"}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {isInstitutionShop
+                  ? "Unlimited student enrollments"
+                  : "No hidden fees"}
+              </p>
             </div>
           )}
         </div>
@@ -248,14 +277,21 @@ export function MockProductCard({
           variant="danger"
           size="lg"
           className="flex-1 sm:max-w-md"
-          onClick={() =>
-            isInstitution ? onEnrollClick?.() : setWizardOpen(true)
-          }
+          loading={buying}
+          onClick={() => {
+            if (isInstitutionShop) onBuyClick?.();
+            else if (isInstitution) onEnrollClick?.();
+            else setWizardOpen(true);
+          }}
         >
-          {isInstitution ? "Enroll students" : product.bookCta}
+          {isInstitutionShop
+            ? "Buy mock set"
+            : isInstitution
+              ? "Enroll students"
+              : product.bookCta}
           <ArrowRight className="h-4 w-4" />
         </Button>
-        {!isInstitution && (
+        {(mode === "student" || isInstitutionShop) && (
           <p className="flex items-center justify-center gap-1.5 text-xs text-muted sm:justify-start">
             <Lock className="h-3.5 w-3.5" />
             Pay securely with international Visa cards (including Uzum Bank Visa)
@@ -264,7 +300,7 @@ export function MockProductCard({
       </div>
 
     </div>
-    {!isInstitution && wizardOpen && (
+    {!isInstitution && !isInstitutionShop && wizardOpen && (
       <BookingWizard
         product={product}
         onClose={() => setWizardOpen(false)}

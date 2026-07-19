@@ -5,6 +5,8 @@ export type AdminInstitutionMockSet = {
   slug: string;
   title: string;
   description: string | null;
+  listPrice: number;
+  isListed: boolean;
   isActive: boolean;
   grantCount: number;
   contentSummary: string;
@@ -17,6 +19,8 @@ export type AdminInstitutionMockSetDetail = {
   slug: string;
   title: string;
   description: string | null;
+  listPrice: number;
+  isListed: boolean;
   isActive: boolean;
   packageIds: string[];
   grantCount: number;
@@ -101,6 +105,8 @@ export function createInstitutionMockSet(body: {
   slug: string;
   title: string;
   description?: string;
+  listPrice?: number;
+  isListed?: boolean;
   isActive?: boolean;
   packageIds?: string[];
   listeningIds?: string[];
@@ -119,6 +125,8 @@ export function updateInstitutionMockSet(
     slug?: string;
     title?: string;
     description?: string | null;
+    listPrice?: number;
+    isListed?: boolean;
     isActive?: boolean;
     packageIds?: string[];
     listeningIds?: string[];

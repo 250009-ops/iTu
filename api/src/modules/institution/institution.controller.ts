@@ -53,6 +53,27 @@ export class InstitutionController {
     return this.institution.getMocks(user);
   }
 
+  @Get('mocks/shop')
+  getMockShop(@CurrentUser() user: RequestUser) {
+    return this.institution.getMockShop(user);
+  }
+
+  @Post('mocks/shop/:setId/checkout')
+  createMockSetCheckout(
+    @CurrentUser() user: RequestUser,
+    @Param('setId') setId: string,
+  ) {
+    return this.institution.createMockSetCheckout(user, setId);
+  }
+
+  @Get('mocks/orders/:orderCode/status')
+  getMockSetOrderStatus(
+    @CurrentUser() user: RequestUser,
+    @Param('orderCode') orderCode: string,
+  ) {
+    return this.institution.getMockSetOrderStatus(user, orderCode);
+  }
+
   @Post('credits/checkout')
   createCreditCheckout(
     @CurrentUser() user: RequestUser,

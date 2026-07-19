@@ -40,13 +40,72 @@ export function getInstitutionMocks() {
       rules: unknown;
       grantSetId: string;
       grantSetTitle: string;
+      grantSource: "ADMIN_GRANT" | "PURCHASE";
     }[];
     grants: {
       setId: string;
       setTitle: string;
       grantedAt: string;
+      source: "ADMIN_GRANT" | "PURCHASE";
     }[];
   }>("/institution/mocks");
+}
+
+export type InstitutionMockShopOffer = {
+  setId: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  listPrice: number;
+  currency: string;
+  contentSummary: string;
+  product: {
+    id: string;
+    slug: string;
+    title: string;
+    description: string;
+    examType: string;
+    delivery: string;
+    bookCta: string;
+    price: number;
+    currency: string;
+    mostPopular: boolean;
+    rating: number | null;
+    reviewCount: number;
+    skills: {
+      id: string;
+      name: string;
+      detail: string;
+      badge: string;
+      color: "sky" | "emerald" | "violet" | "rose";
+    }[];
+    included: string[];
+    rules: string[];
+    highlights: { icon: "clock" | "user" | "check" | "globe" | "chart"; label: string }[];
+  };
+};
+
+export function getInstitutionMockShop() {
+  return apiFetch<{ sets: InstitutionMockShopOffer[] }>("/institution/mocks/shop");
+}
+
+export function createMockSetCheckout(setId: string) {
+  return apiFetch<{
+    orderCode: string;
+    checkoutUrl: string;
+    setId: string;
+    setTitle: string;
+    amount: number;
+  }>(`/institution/mocks/shop/${setId}/checkout`, { method: "POST" });
+}
+
+export function getMockSetOrderStatus(orderCode: string) {
+  return apiFetch<{
+    orderCode: string;
+    status: string;
+    setId: string | null;
+    checkoutUrl: string | null;
+  }>(`/institution/mocks/orders/${orderCode}/status`);
 }
 
 export function getInstitutionCredits() {
