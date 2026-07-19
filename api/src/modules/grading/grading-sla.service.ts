@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { NotificationType, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  examinerSpeakingPath,
+  examinerWritingGradingHubPath,
+} from '../../common/examiner/examiner-routing';
 import { NotificationsService } from '../notifications/notifications.service';
 
 const SPEAKING_SLA_MS = 48 * 60 * 60 * 1000;
@@ -37,7 +41,7 @@ export class GradingSlaService {
         status: { in: ['PENDING', 'IN_REVIEW'] },
         slaDueAt: { lt: now },
       },
-      include: { teacher: { select: { userId: true } } },
+      include: { teacher: { select: { userId: true, institutionId: true } } },
     });
 
     for (const submission of overdueWriting) {
@@ -48,7 +52,7 @@ export class GradingSlaService {
           'Writing grading overdue',
           'A writing submission has passed its grading SLA. Please grade it as soon as possible.',
           NotificationType.GRADING,
-          '/teacher/writing',
+          examinerWritingGradingHubPath(submission.teacher.institutionId),
         );
       }
       await this.alertAdmins(
@@ -67,7 +71,7 @@ export class GradingSlaService {
         status: 'COMPLETED',
         endedAt: { lt: new Date(now.getTime() - SPEAKING_SLA_MS) },
       },
-      include: { teacher: { select: { userId: true } } },
+      include: { teacher: { select: { userId: true, institutionId: true } } },
     });
 
     for (const session of overdueSpeaking) {
@@ -78,7 +82,7 @@ export class GradingSlaService {
           'Speaking grading overdue',
           'A speaking session has passed its grading SLA. Please submit your assessment.',
           NotificationType.GRADING,
-          '/teacher/speaking',
+          examinerSpeakingPath(session.teacher.institutionId),
         );
       }
       await this.alertAdmins(

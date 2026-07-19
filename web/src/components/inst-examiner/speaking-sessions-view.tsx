@@ -81,7 +81,7 @@ function SessionRow({
         </div>
       ) : (
         <Link
-          href={`/teacher/speaking?session=${session.id}`}
+          href={`/inst-examiner/speaking?session=${session.id}`}
           className="inline-flex items-center gap-2 rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-red/90"
         >
           <Mic className="h-4 w-4" /> Start Grading

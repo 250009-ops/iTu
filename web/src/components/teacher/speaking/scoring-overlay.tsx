@@ -16,6 +16,7 @@ import {
 import { scoreSpeaking } from "@/lib/api/grading";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import { useSpeakingRoom } from "@/contexts/speaking-room-context";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,7 @@ function ScoreRow({
 
 export function ScoringSidebar() {
   const router = useRouter();
+  const { speaking } = useExaminerPaths();
   const { session, sessionId, refreshSession, refreshHub } = useTeacherSpeaking();
   const [scores, setScores] = useState(
     session?.defaultScores ?? {
@@ -126,7 +128,7 @@ export function ScoringSidebar() {
       }
       await refreshSession();
       await refreshHub();
-      router.push(`/teacher/speaking?session=${sessionId}`);
+      router.push(speaking(sessionId ?? undefined));
     } catch (err) {
       toast("Could not submit grade", {
         description: getErrorMessage(err, "Please try again."),

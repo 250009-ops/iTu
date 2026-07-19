@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useToast } from "@/components/ui/toast";
 import { notificationsPath } from "@/lib/portal/links";
+import { resolveExaminerNotificationHref } from "@/lib/examiner/paths";
 import { cn } from "@/lib/utils";
 
 type UiNotification = {
@@ -155,7 +156,7 @@ export function NotificationMenu() {
       }
     }
     if (item.href) {
-      router.push(item.href);
+      router.push(resolveExaminerNotificationHref(item.href, pathname));
     } else {
       router.push(notificationsPath(session?.role, pathname));
     }

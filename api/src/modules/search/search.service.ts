@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { formatMoney } from '../../common/format-money';
+import {
+  examinerSpeakingPath,
+  examinerWritingGradingDetailPath,
+} from '../../common/examiner/examiner-routing';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -135,6 +139,12 @@ export class SearchService {
   ): Promise<SearchResultItem[]> {
     if (!user.teacherProfileId) return [];
 
+    const teacher = await this.prisma.teacherProfile.findUnique({
+      where: { id: user.teacherProfileId },
+      select: { institutionId: true },
+    });
+    const institutionId = teacher?.institutionId ?? null;
+
     const [writing, speaking] = await Promise.all([
       this.prisma.writingSubmission.findMany({
         where: {
@@ -204,14 +214,14 @@ export class SearchService {
         id: w.id,
         label: w.sectionAttempt.session.enrollment.student.user.name,
         subtitle: `Writing · ${w.status}`,
-        href: `/teacher/grading/${w.id}`,
+        href: examinerWritingGradingDetailPath(institutionId, w.id),
       })),
       ...speaking.map((s) => ({
         type: 'speaking',
         id: s.id,
         label: s.sectionAttempt.session.enrollment.student.user.name,
         subtitle: `Speaking · ${s.status}`,
-        href: '/teacher/speaking',
+        href: examinerSpeakingPath(institutionId, s.id),
       })),
     ].slice(0, 10);
   }

@@ -33,6 +33,10 @@ import {
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  examinerSpeakingPath,
+  examinerWritingGradingHubPath,
+} from '../../common/examiner/examiner-routing';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import { ScheduleSpeakingSlotDto } from './dto/schedule-speaking-slot.dto';
@@ -497,7 +501,7 @@ export class BookingsService {
         'Writing submission incoming',
         `A new writing submission will be assigned after the student's exam.`,
         NotificationType.GRADING,
-        '/teacher/grading',
+        examinerWritingGradingHubPath(writingTeacher.institutionId),
       );
     }
 
@@ -507,7 +511,10 @@ export class BookingsService {
         'Speaking session scheduled',
         `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
         NotificationType.REMINDER,
-        `/teacher/speaking?session=${result.speakingSession.id}`,
+        examinerSpeakingPath(
+          speakingTeacher.institutionId,
+          result.speakingSession.id,
+        ),
       );
     }
 
@@ -1025,7 +1032,10 @@ export class BookingsService {
         'Speaking session rescheduled',
         `Session moved to ${result.slot.startsAt.toLocaleString()}.`,
         NotificationType.REMINDER,
-        `/teacher/speaking?session=${result.speakingSessionId}`,
+        examinerSpeakingPath(
+          speakingTeacher.institutionId,
+          result.speakingSessionId,
+        ),
       );
     }
 
@@ -1213,7 +1223,10 @@ export class BookingsService {
         'Speaking session scheduled',
         `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
         NotificationType.REMINDER,
-        `/teacher/speaking?session=${result.speakingSessionId}`,
+        examinerSpeakingPath(
+          speakingTeacher.institutionId,
+          result.speakingSessionId,
+        ),
       );
     }
 
@@ -1488,7 +1501,7 @@ export class BookingsService {
           'Writing submission incoming',
           `A new writing submission will be assigned after the student's exam.`,
           NotificationType.GRADING,
-          '/teacher/grading',
+          examinerWritingGradingHubPath(writingTeacher.institutionId),
         );
       }
     }
@@ -1504,7 +1517,10 @@ export class BookingsService {
           'Speaking session scheduled',
           `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
           NotificationType.REMINDER,
-          `/teacher/speaking?session=${result.speakingSession.id}`,
+          examinerSpeakingPath(
+          speakingTeacher.institutionId,
+          result.speakingSession.id,
+        ),
         );
       }
     }

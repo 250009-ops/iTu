@@ -23,6 +23,7 @@ import {
   mockDayPreviewSchedule,
   mockDayPreviewSections,
 } from "@/lib/student/mock-day-preview";
+import type { StudentPortal } from "@/lib/student/portal";
 
 const navyGradient =
   "linear-gradient(135deg, #0a1628 0%, #1B2A4A 60%, #1e3a70 100%)";
@@ -39,10 +40,26 @@ const sectionIcons = {
   speaking: Mic,
 } as const;
 
-export function MockDayEmptyState() {
+export function MockDayEmptyState({
+  portal = "marketplace",
+  institutionLabel = "your centre",
+}: {
+  portal?: StudentPortal;
+  institutionLabel?: string;
+}) {
+  const isInstitution = portal === "institution";
+  const centerName = institutionLabel;
+
   return (
     <div>
-      <MockDayShellHeader subtitle="Your exam-day command center — book a mock to activate" />
+      <MockDayShellHeader
+        portal={portal}
+        subtitle={
+          isInstitution
+            ? `Waiting for ${centerName} to assign your mock`
+            : "Your exam-day command center — book a mock to activate"
+        }
+      />
 
       <div className="relative text-white" style={{ background: navyGradient }}>
         <div className="absolute inset-0 opacity-[0.04]" style={dotTexture} />
@@ -53,28 +70,32 @@ export function MockDayEmptyState() {
                 className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-sky-200"
               >
                 <CalendarDays size={14} />
-                No mock scheduled
+                {isInstitution ? "No mock assigned yet" : "No mock scheduled"}
               </span>
               <h2
                 className="mt-4 font-black tracking-tight"
                 style={{ fontSize: "26px", letterSpacing: "-0.02em" }}
               >
-                Book a mock to unlock your exam day
+                {isInstitution
+                  ? "Your centre will schedule your mock"
+                  : "Book a mock to unlock your exam day"}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-blue-200/90">
-                Once booked, this hub becomes your live control centre — section
-                progress, check-in, speaking countdown, and examiner details all
-                appear here on mock day.
+                {isInstitution
+                  ? `${centerName} hasn't assigned you a mock exam yet. You'll get an email with your exam date and section times once it's scheduled.`
+                  : "Once booked, this hub becomes your live control centre — section progress, check-in, speaking countdown, and examiner details all appear here on mock day."}
               </p>
-              <Link href="/student/browse" className="mt-6 inline-block">
-                <Button
-                  size="lg"
-                  className="bg-white text-navy hover:bg-slate-100"
-                >
-                  Browse &amp; Book a Mock
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              {!isInstitution && (
+                <Link href="/student/browse" className="mt-6 inline-block">
+                  <Button
+                    size="lg"
+                    className="bg-white text-navy hover:bg-slate-100"
+                  >
+                    Browse &amp; Book a Mock
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-md">
@@ -240,15 +261,18 @@ export function MockDayEmptyState() {
                     Ready to start?
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                    Full Academic Mock includes all four skills on one calendar
-                    day with certified examiner grading.
+                    {isInstitution
+                      ? "Your centre assigns mocks and releases results — you'll be notified by email."
+                      : "Full Academic Mock includes all four skills on one calendar day with certified examiner grading."}
                   </p>
-                  <Link href="/student/browse" className="mt-3 inline-block">
-                    <Button variant="danger" size="sm">
-                      Book Full Mock
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
+                  {!isInstitution && (
+                    <Link href="/student/browse" className="mt-3 inline-block">
+                      <Button variant="danger" size="sm">
+                        Book Full Mock
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>

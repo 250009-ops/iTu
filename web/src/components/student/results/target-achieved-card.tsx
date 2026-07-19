@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { Target, Trophy } from "lucide-react";
 import { useStudentResultsData } from "@/contexts/student-results-context";
 import { formatBandDisplay } from "@/lib/api/mappers/student";
+import type { StudentPortal } from "@/lib/student/portal";
+import { studentPracticeHref } from "@/lib/student/portal";
 
-export function TargetAchievedCard() {
+export function TargetAchievedCard({ portal = "marketplace" }: { portal?: StudentPortal }) {
   const router = useRouter();
   const { data } = useStudentResultsData();
   if (!data?.released || !data.targetAchieved || data.targetBand == null) return null;
@@ -32,12 +34,18 @@ export function TargetAchievedCard() {
       </p>
       <button
         type="button"
-        onClick={() => router.push("/student/browse")}
+        onClick={() =>
+          router.push(
+            portal === "institution" ? studentPracticeHref(portal) : "/student/browse",
+          )
+        }
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1B2A4A] px-4 py-2.5 font-semibold text-white transition-colors hover:bg-[#243660]"
         style={{ fontSize: "13px" }}
       >
         <Target size={15} />
-        Book Next Mock (Target {formatBandDisplay(nextTarget)})
+        {portal === "institution"
+          ? "Practice for your next mock"
+          : `Book Next Mock (Target ${formatBandDisplay(nextTarget)})`}
       </button>
     </div>
   );

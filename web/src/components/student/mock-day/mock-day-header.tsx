@@ -3,8 +3,9 @@
 import { Headphones } from "lucide-react";
 import { MockDayShellHeader } from "@/components/student/mock-day/mock-day-shell-header";
 import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
+import type { StudentPortal } from "@/lib/student/portal";
 
-export function MockDayHeader() {
+export function MockDayHeader({ portal = "marketplace" }: { portal?: StudentPortal }) {
   const { data } = useStudentMockDayData();
   if (!data) return null;
   const { dateLabel, examTitle, mockId } = data;
@@ -12,6 +13,7 @@ export function MockDayHeader() {
   return (
     <div className="bg-white">
       <MockDayShellHeader
+        portal={portal}
         subtitle={`${dateLabel} · ${examTitle} · ${mockId}`}
         showSupport={false}
       />

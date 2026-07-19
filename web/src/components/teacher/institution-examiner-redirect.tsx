@@ -9,8 +9,8 @@ import { getMe } from "@/lib/api/auth";
  * institution belongs to the center-scoped `/inst-examiner` portal. Logins
  * already route correctly, so this catches manual navigation to `/teacher`.
  *
- * The actual grading consoles (`/teacher/speaking`, `/teacher/grading/<id>`)
- * are reused by the scoped portal via deep links, so those routes are exempt.
+ * Legacy deep links to `/teacher/grading/*` and `/teacher/speaking` still work
+ * but new centre flows should use `/inst-examiner/*` routes.
  */
 export function InstitutionExaminerRedirect() {
   const router = useRouter();

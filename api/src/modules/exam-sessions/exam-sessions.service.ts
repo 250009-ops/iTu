@@ -16,6 +16,7 @@ import {
 import { RequestUser } from '../../common/types/request-user';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { examinerWritingGradingDetailPath } from '../../common/examiner/examiner-routing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AutoScoringService } from './auto-scoring.service';
 import {
@@ -405,7 +406,9 @@ export class ExamSessionsService {
       if (dto.skill === ExamSkill.WRITING) {
         const writingSubmission = await this.prisma.writingSubmission.findUnique({
           where: { sectionAttemptId: attempt.id },
-          include: { teacher: { include: { user: true } } },
+          include: {
+            teacher: { select: { userId: true, institutionId: true, user: true } },
+          },
         });
         if (writingSubmission) {
           if (this.writingAi.isConfigured()) {
@@ -416,7 +419,10 @@ export class ExamSessionsService {
               'Writing ready to grade',
               'A student writing submission is now in your queue.',
               NotificationType.GRADING,
-              `/teacher/grading/${writingSubmission.id}`,
+              examinerWritingGradingDetailPath(
+                writingSubmission.teacher.institutionId,
+                writingSubmission.id,
+              ),
             );
             if (session.enrollment.writingTeacherId) {
               this.realtime.notifyTeacherBadges(session.enrollment.writingTeacherId);

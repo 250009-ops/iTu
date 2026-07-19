@@ -9,6 +9,7 @@ import { WritingScorePanel } from "@/components/teacher/grading/writing-score-pa
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { useToast } from "@/components/ui/toast";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import {
   getWritingSubmission,
   scoreWriting,
@@ -84,6 +85,7 @@ function PromptCard({
 export function WritingGradingView({ submissionId }: { submissionId: string }) {
   const router = useRouter();
   const { toast } = useToast();
+  const { gradingHub } = useExaminerPaths();
 
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
@@ -243,7 +245,7 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
       if (alreadyGraded) {
         await load();
       } else {
-        router.push("/teacher/grading");
+        router.push(gradingHub);
       }
     } catch (err) {
       toast("Could not submit grade", {
@@ -294,7 +296,7 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
             <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <Link
-                  href="/teacher/grading"
+                  href={gradingHub}
                   className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-navy"
                 >
                   <ArrowLeft className="h-4 w-4" />

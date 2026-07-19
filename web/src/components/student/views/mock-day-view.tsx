@@ -17,30 +17,45 @@ import {
   StudentMockDayProvider,
   useStudentMockDayData,
 } from "@/contexts/student-mock-day-context";
+import type { StudentPortal } from "@/lib/student/portal";
 
-export function MockDayView() {
+type MockDayViewProps = {
+  portal?: StudentPortal;
+  institutionLabel?: string;
+};
+
+export function MockDayView({
+  portal = "marketplace",
+  institutionLabel = "your centre",
+}: MockDayViewProps) {
   return (
     <StudentMockDayProvider>
-      <MockDayContent />
+      <MockDayContent portal={portal} institutionLabel={institutionLabel} />
     </StudentMockDayProvider>
   );
 }
 
-function MockDayContent() {
+function MockDayContent({
+  portal,
+  institutionLabel,
+}: Required<MockDayViewProps>) {
   const { data, loading, error } = useStudentMockDayData();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const isInstitution = portal === "institution";
   const welcomeSkill = searchParams.get("welcome");
   const showWelcomeBanner =
-    welcomeSkill === "listening" || welcomeSkill === "reading";
+    !isInstitution &&
+    (welcomeSkill === "listening" || welcomeSkill === "reading");
 
   useEffect(() => {
-    if (searchParams.get("payment") !== "success") return;
+    if (isInstitution || searchParams.get("payment") !== "success") return;
     toast("Payment confirmed", {
-      description: "Your mock is booked. Mock Day Hub is ready when exam day arrives.",
+      description:
+        "Your mock is booked. Mock Day Hub is ready when exam day arrives.",
       variant: "success",
     });
-  }, [searchParams, toast]);
+  }, [searchParams, toast, isInstitution]);
 
   useEffect(() => {
     if (!showWelcomeBanner) return;
@@ -52,13 +67,20 @@ function MockDayContent() {
   }, [showWelcomeBanner, welcomeSkill, toast]);
 
   if (loading) {
-    return <MockDayLoadingSkeleton />;
+    return <MockDayLoadingSkeleton portal={portal} />;
   }
 
   if (error) {
     return (
       <div>
-        <MockDayShellHeader subtitle="Your exam-day command center" />
+        <MockDayShellHeader
+          portal={portal}
+          subtitle={
+            isInstitution
+              ? "Your centre-assigned mock exam"
+              : "Your exam-day command center"
+          }
+        />
         <div className="p-8">
           <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-800">
             <p className="font-semibold">Could not load session details</p>
@@ -70,19 +92,21 @@ function MockDayContent() {
   }
 
   if (!data) {
-    return <MockDayEmptyState />;
+    return (
+      <MockDayEmptyState portal={portal} institutionLabel={institutionLabel} />
+    );
   }
 
   return (
     <div>
-      <MockDayHeader />
-      {searchParams.get("payment") === "success" ? (
+      <MockDayHeader portal={portal} />
+      {!isInstitution && searchParams.get("payment") === "success" ? (
         <div className="border-b border-emerald-200 bg-emerald-50 px-6 py-3 text-sm text-emerald-900">
           <div className="mx-auto flex max-w-7xl items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>
-              <strong>Payment successful.</strong> Your mock is confirmed — use this
-              hub on exam day to check in and start each section.
+              <strong>Payment successful.</strong> Your mock is confirmed — use
+              this hub on exam day to check in and start each section.
             </span>
           </div>
         </div>
@@ -110,7 +134,7 @@ function MockDayContent() {
 
           <div className="space-y-4 lg:col-span-4">
             <ScheduleTimeline />
-            <MockDaySidebar />
+            <MockDaySidebar portal={portal} />
           </div>
         </div>
       </div>

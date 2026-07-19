@@ -25,6 +25,8 @@ import {
   type SkillId,
   type StudentResultsData,
 } from "@/lib/api/mappers/student";
+import type { StudentPortal } from "@/lib/student/portal";
+import { studentMockDayHref } from "@/lib/student/portal";
 
 const skillIcons = {
   listening: Headphones,
@@ -43,7 +45,14 @@ const skillColumns: { key: SkillId; label: string }[] = [
   { key: "speaking", label: "S" },
 ];
 
-export function ResultsPendingState({ data }: { data: StudentResultsData }) {
+export function ResultsPendingState({
+  data,
+  portal = "marketplace",
+}: {
+  data: StudentResultsData;
+  portal?: StudentPortal;
+}) {
+  const mockDayHref = studentMockDayHref(portal);
   const previewSkills =
     data.packageSkills.length > 0
       ? resultsPreviewSkills.filter((skill) =>
@@ -57,12 +66,13 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
   return (
     <div className="min-h-full bg-gray-50/60">
       <ResultsShellHeader
+        portal={portal}
         title={data.title}
         subtitle={data.subtitle}
         actions={
-          <Link href="/student/mock-day">
+          <Link href={mockDayHref}>
             <Button variant="secondary" size="sm">
-              Open Mock Day Hub
+              {portal === "institution" ? "Open My Mock" : "Open Mock Day Hub"}
             </Button>
           </Link>
         }
@@ -90,7 +100,7 @@ export function ResultsPendingState({ data }: { data: StudentResultsData }) {
                   "Your results will appear here once all sections are graded and released together — typically within 24 hours of your Speaking test."}
               </p>
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link href="/student/mock-day" className="inline-block">
+                <Link href={mockDayHref} className="inline-block">
                   <Button
                     size="lg"
                     className="bg-white text-navy hover:bg-slate-100"

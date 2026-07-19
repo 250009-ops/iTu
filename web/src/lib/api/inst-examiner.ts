@@ -27,6 +27,7 @@ export type InstExaminerWritingItem = {
   wordCount: number;
   priority: "urgent" | "normal";
   aiEstimate: number | null;
+  readyToGrade: boolean;
 };
 
 export type InstExaminerRecentGrade = {

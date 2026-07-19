@@ -20,6 +20,7 @@ import {
   resultsPreviewSkills,
   resultsWhatYouGet,
 } from "@/lib/student/results-preview";
+import type { StudentPortal } from "@/lib/student/portal";
 
 const skillIcons = {
   listening: Headphones,
@@ -31,18 +32,34 @@ const skillIcons = {
 const navyGradient =
   "linear-gradient(135deg, #0a1628 0%, #1B2A4A 55%, #1e3a70 100%)";
 
-export function ResultsEmptyState() {
+export function ResultsEmptyState({
+  portal = "marketplace",
+  institutionLabel = "your centre",
+}: {
+  portal?: StudentPortal;
+  institutionLabel?: string;
+}) {
+  const isInstitution = portal === "institution";
+  const centerName = institutionLabel;
+
   return (
     <div className="min-h-full bg-gray-50/60">
       <ResultsShellHeader
-        subtitle="Track your band scores, progression, and examiner feedback"
+        portal={portal}
+        subtitle={
+          isInstitution
+            ? `All mocks completed through ${centerName}`
+            : "Track your band scores, progression, and examiner feedback"
+        }
         actions={
-          <Link href="/student/browse">
-            <Button variant="danger" size="sm">
-              Book a Mock
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
+          !isInstitution ? (
+            <Link href="/student/browse">
+              <Button variant="danger" size="sm">
+                Book a Mock
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          ) : undefined
         }
       />
 
@@ -61,21 +78,26 @@ export function ResultsEmptyState() {
                 className="mt-4 font-black tracking-tight text-white"
                 style={{ fontSize: "26px", letterSpacing: "-0.02em" }}
               >
-                Your band report will appear here
+                {isInstitution
+                  ? "Your band report will appear here"
+                  : "Your band report will appear here"}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-blue-200/90">
-                Complete a full mock exam to unlock your overall band score,
-                per-module breakdown, examiner feedback, and downloadable report.
+                {isInstitution
+                  ? `Once you complete a mock and ${centerName} releases your bands, they'll appear here with a full breakdown.`
+                  : "Complete a full mock exam to unlock your overall band score, per-module breakdown, examiner feedback, and downloadable report."}
               </p>
-              <Link href="/student/browse" className="mt-5 inline-block">
-                <Button
-                  size="lg"
-                  className="bg-white text-navy hover:bg-slate-100"
-                >
-                  Browse &amp; Book a Mock
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              {!isInstitution && (
+                <Link href="/student/browse" className="mt-5 inline-block">
+                  <Button
+                    size="lg"
+                    className="bg-white text-navy hover:bg-slate-100"
+                  >
+                    Browse &amp; Book a Mock
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
             </div>
 
             <div className="flex h-32 w-32 shrink-0 flex-col items-center justify-center self-center rounded-full border-4 border-dashed border-white/20 bg-white/5">

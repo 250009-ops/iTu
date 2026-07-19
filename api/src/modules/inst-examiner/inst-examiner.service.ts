@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { RequestUser } from '../../common/types/request-user';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
+import { isWritingReadyForTeacherQueue } from '../../common/grading/writing-queue-visibility';
 import {
   teacherCanAccessSpeaking,
   teacherCanAccessWriting,
@@ -308,6 +309,7 @@ export class InstExaminerService {
           wordCount: w.task1WordCount + w.task2WordCount,
           priority: urgent ? 'urgent' : 'normal',
           aiEstimate: suggested,
+          readyToGrade: isWritingReadyForTeacherQueue(w.aiEvaluation),
         };
       }),
       recentlyGraded: recentGrades.map((g) => {

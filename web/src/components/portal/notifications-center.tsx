@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   CalendarDays,
@@ -26,6 +26,7 @@ import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { resolveExaminerNotificationHref } from "@/lib/examiner/paths";
 
 const iconMap: Record<
   NotificationType,
@@ -96,6 +97,7 @@ function toUiNotification(n: ApiNotification): NotificationItem {
 export function NotificationsCenter() {
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated, session } = useAuth();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,7 +160,7 @@ export function NotificationsCenter() {
       }
     }
     if (item.href) {
-      router.push(item.href);
+      router.push(resolveExaminerNotificationHref(item.href, pathname));
     }
   }
 

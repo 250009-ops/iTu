@@ -12,6 +12,7 @@ import {
 } from './writing-band-validation';
 import { WritingAiEvaluationService } from './writing-ai-evaluation.service';
 import { RequestUser } from '../../common/types/request-user';
+import { isWritingReadyForTeacherQueue } from '../../common/grading/writing-queue-visibility';
 import { assertTeacherSkillAccess } from '../../common/teacher-speciality';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -86,7 +87,7 @@ export class GradingService {
 
     const isQueueVisible = (s: (typeof submissions)[number]) =>
       s.status === 'IN_REVIEW' ||
-      this.writingAi.isReadyForTeacherQueue(s.aiEvaluation);
+      isWritingReadyForTeacherQueue(s.aiEvaluation);
 
     const pending = submissions
       .filter((s) => s.status === 'PENDING')
@@ -205,7 +206,7 @@ export class GradingService {
 
     if (
       submission.status !== 'GRADED' &&
-      !this.writingAi.isReadyForTeacherQueue(submission.aiEvaluation)
+      !isWritingReadyForTeacherQueue(submission.aiEvaluation)
     ) {
       throw new NotFoundException('Submission is not ready for grading yet');
     }

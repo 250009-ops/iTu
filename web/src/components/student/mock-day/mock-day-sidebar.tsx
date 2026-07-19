@@ -12,6 +12,7 @@ import {
 import { useStudentMockDayData } from "@/contexts/student-mock-day-context";
 import { useToast } from "@/components/ui/toast";
 import { RescheduleDialog } from "@/components/student/mock-day/reschedule-dialog";
+import type { StudentPortal } from "@/lib/student/portal";
 
 const navyGradient =
   "linear-gradient(135deg, #0a1628 0%, #1B2A4A 60%, #1e3a70 100%)";
@@ -24,7 +25,7 @@ const dotTexture = {
 
 const PROCTOR_EMAIL = "support@itestu.uz";
 
-export function MockDaySidebar() {
+export function MockDaySidebar({ portal = "marketplace" }: { portal?: StudentPortal }) {
   const { data, refresh } = useStudentMockDayData();
   const { toast } = useToast();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
@@ -32,7 +33,9 @@ export function MockDaySidebar() {
   const { checkIn, speakingTip, sessionCode, hasSpeaking, checkInCompleted } = data;
   const isMissed = data.status === "missed";
   const examLocked = isMissed || data.mockDayClosed;
-  const canReschedule = !examLocked && data.canReschedule && data.state === "enrolled";
+  const isInstitution = portal === "institution";
+  const canReschedule =
+    !isInstitution && !examLocked && data.canReschedule && data.state === "enrolled";
   const speakingDone = data.speaking.status === "completed";
   const showCheckIn =
     !examLocked && (!checkInCompleted || (hasSpeaking && !speakingDone));

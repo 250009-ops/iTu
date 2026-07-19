@@ -18,37 +18,60 @@ import {
   StudentResultsProvider,
   useStudentResultsData,
 } from "@/contexts/student-results-context";
+import type { StudentPortal } from "@/lib/student/portal";
 
-export function ResultsView() {
+type ResultsViewProps = {
+  portal?: StudentPortal;
+  institutionLabel?: string;
+};
+
+export function ResultsView({
+  portal = "marketplace",
+  institutionLabel = "your centre",
+}: ResultsViewProps) {
   return (
-    <Suspense fallback={<ResultsLoadingSkeleton />}>
-      <ResultsViewWithParams />
+    <Suspense fallback={<ResultsLoadingSkeleton portal={portal} />}>
+      <ResultsViewWithParams portal={portal} institutionLabel={institutionLabel} />
     </Suspense>
   );
 }
 
-function ResultsViewWithParams() {
+function ResultsViewWithParams({
+  portal,
+  institutionLabel,
+}: Required<ResultsViewProps>) {
   const searchParams = useSearchParams();
   const enrollmentCode = searchParams.get("enrollment");
 
   return (
     <StudentResultsProvider initialEnrollmentCode={enrollmentCode}>
-      <ResultsContent />
+      <ResultsContent portal={portal} institutionLabel={institutionLabel} />
     </StudentResultsProvider>
   );
 }
 
-function ResultsContent() {
+function ResultsContent({
+  portal,
+  institutionLabel,
+}: Required<ResultsViewProps>) {
   const { data, loading, error } = useStudentResultsData();
+  const isInstitution = portal === "institution";
 
   if (loading) {
-    return <ResultsLoadingSkeleton />;
+    return <ResultsLoadingSkeleton portal={portal} />;
   }
 
   if (error) {
     return (
       <div className="min-h-full bg-gray-50/60">
-        <ResultsShellHeader subtitle="Track your band scores and progression" />
+        <ResultsShellHeader
+          portal={portal}
+          subtitle={
+            isInstitution
+              ? `All mocks completed through ${institutionLabel}`
+              : "Track your band scores and progression"
+          }
+        />
         <div className="p-8">
           <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-800">
             <p className="font-semibold">Could not load results</p>
@@ -60,16 +83,18 @@ function ResultsContent() {
   }
 
   if (!data) {
-    return <ResultsEmptyState />;
+    return (
+      <ResultsEmptyState portal={portal} institutionLabel={institutionLabel} />
+    );
   }
 
   if (!data.released) {
-    return <ResultsPendingState data={data} />;
+    return <ResultsPendingState data={data} portal={portal} />;
   }
 
   return (
     <div className="min-h-full bg-gray-50/60 print:bg-white">
-      <ResultsHeader />
+      <ResultsHeader portal={portal} />
 
       <div className="mx-auto max-w-7xl space-y-6 px-6 py-6 lg:px-8 lg:py-8 print:max-w-none print:px-0 print:py-0">
         <OverallScoreCard />
@@ -82,7 +107,7 @@ function ResultsContent() {
           <div className="space-y-6">
             <ScoreProgressionChart />
             <ImprovementOpportunities />
-            <TargetAchievedCard />
+            <TargetAchievedCard portal={portal} />
             <NextSteps />
           </div>
         </div>

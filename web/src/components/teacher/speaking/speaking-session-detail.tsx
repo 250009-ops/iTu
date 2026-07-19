@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Play } from "lucide-react";
 import { LiveScoringPanel } from "@/components/teacher/speaking/live-scoring-panel";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
 import {
   formatJoinOpensAt,
@@ -13,11 +14,12 @@ import { Button } from "@/components/ui/button";
 
 export function SpeakingSessionDetail() {
   const router = useRouter();
+  const { speaking } = useExaminerPaths();
   const { session, sessionId, sessionLoading, sessionError } =
     useTeacherSpeaking();
 
   function backToSessions() {
-    router.push("/teacher/speaking");
+    router.push(speaking());
   }
 
   if (sessionLoading) {
@@ -145,7 +147,7 @@ export function SpeakingSessionDetail() {
               <Link
                 href={
                   slotAccess.allowed
-                    ? `/teacher/speaking?session=${sessionId}&live=1`
+                    ? speaking(sessionId ?? undefined, { live: true })
                     : "#"
                 }
                 className="mt-4 inline-block"

@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, PenLine } from "lucide-react";
+import { Download, Loader2, PenLine } from "lucide-react";
 import { useInstExaminer } from "@/contexts/inst-examiner-context";
-import { getWritingGradingHub, type WritingHubRow } from "@/lib/api/grading";
+import {
+  getInstExaminerOverview,
+  type InstExaminerWritingItem,
+} from "@/lib/api/inst-examiner";
 import { getErrorMessage } from "@/lib/api/errors";
 import { PageHeader, EmptyState } from "@/components/institution/ui";
 import { ScopedBanner } from "@/components/inst-examiner/scoped-banner";
 import { cn } from "@/lib/utils";
-
-type HubData = Awaited<ReturnType<typeof getWritingGradingHub>>;
 
 function initials(name: string): string {
   return name
@@ -29,26 +30,20 @@ function relativeTime(iso: string): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function taskLabel(row: WritingHubRow): string {
-  const both = row.task1WordCount > 0 && row.task2WordCount > 0;
-  if (both) return "T1 + T2";
-  if (row.task2WordCount > 0) return "T2 only";
-  return "T1 only";
+function isUrgent(row: InstExaminerWritingItem): boolean {
+  return row.priority === "urgent";
 }
 
-function isUrgent(row: WritingHubRow): boolean {
-  return row.slaMinutesRemaining != null && row.slaMinutesRemaining < 120;
-}
-
-function exportCsv(rows: WritingHubRow[]) {
-  const header = ["Student", "Tasks", "Words", "Submitted", "Priority"];
+function exportCsv(rows: InstExaminerWritingItem[]) {
+  const header = ["Student", "Tasks", "Words", "Submitted", "Priority", "Ready"];
   const lines = rows.map((r) =>
     [
       r.studentName,
-      taskLabel(r),
-      r.task1WordCount + r.task2WordCount,
+      r.taskLabel,
+      r.wordCount,
       new Date(r.submittedAt).toISOString(),
       isUrgent(r) ? "URGENT" : "NORMAL",
+      r.readyToGrade ? "YES" : "PROCESSING",
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(","),
@@ -64,8 +59,7 @@ function exportCsv(rows: WritingHubRow[]) {
   URL.revokeObjectURL(url);
 }
 
-function SubmissionRow({ row }: { row: WritingHubRow }) {
-  const words = row.task1WordCount + row.task2WordCount;
+function SubmissionRow({ row }: { row: InstExaminerWritingItem }) {
   return (
     <div className="flex items-center gap-4 rounded-xl border border-border bg-white px-5 py-4 shadow-sm">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-600">
@@ -76,8 +70,9 @@ function SubmissionRow({ row }: { row: WritingHubRow }) {
           {row.studentName}
         </p>
         <p className="text-xs text-muted">
-          Academic {taskLabel(row)} · Submitted {relativeTime(row.submittedAt)} ·{" "}
-          {words} words
+          {row.examType} {row.taskLabel} · Submitted {relativeTime(row.submittedAt)} ·{" "}
+          {row.wordCount} words
+          {!row.readyToGrade ? " · AI analysis in progress" : ""}
         </p>
       </div>
       <span
@@ -90,28 +85,34 @@ function SubmissionRow({ row }: { row: WritingHubRow }) {
       >
         {isUrgent(row) ? "Urgent" : "Normal"}
       </span>
-      <Link
-        href={`/teacher/grading/${row.id}`}
-        className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy/90"
-      >
-        <PenLine className="h-4 w-4" /> Grade
-      </Link>
+      {row.readyToGrade ? (
+        <Link
+          href={`/inst-examiner/grading/${row.id}`}
+          className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy/90"
+        >
+          <PenLine className="h-4 w-4" /> Grade
+        </Link>
+      ) : (
+        <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-slate-50 px-4 py-2 text-sm font-semibold text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" /> Processing
+        </span>
+      )}
     </div>
   );
 }
 
 export function InstExaminerWritingView() {
   const { info } = useInstExaminer();
-  const [data, setData] = useState<HubData | null>(null);
+  const [pending, setPending] = useState<InstExaminerWritingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getWritingGradingHub()
+    getInstExaminerOverview()
       .then((res) => {
-        if (!cancelled) setData(res);
+        if (!cancelled) setPending(res.writingQueue);
       })
       .catch((err) => {
         if (!cancelled)
@@ -135,17 +136,15 @@ export function InstExaminerWritingView() {
     );
   }
 
-  if (error || !data) {
+  if (error) {
     return (
       <div className="p-6">
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error ?? "Something went wrong."}
+          {error}
         </div>
       </div>
     );
   }
-
-  const pending = data.pending;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">

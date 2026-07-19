@@ -26,6 +26,10 @@ import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
 import { helpPathForReporter } from '../../common/support/support-routing';
 import {
+  examinerSpeakingPath,
+  examinerWritingGradingHubPath,
+} from '../../common/examiner/examiner-routing';
+import {
   lookupBandFromRawScore,
   overallBandFromSkillBands,
   resolveAttemptBand,
@@ -2963,7 +2967,7 @@ export class AdminService {
       'Writing submission assigned',
       'You have been assigned a writing submission to grade.',
       NotificationType.GRADING,
-      '/teacher/writing',
+      examinerWritingGradingHubPath(teacher.institutionId),
     );
 
     await this.audit.log({
@@ -3013,10 +3017,13 @@ export class AdminService {
     if (!attempt) throw new BadRequestException(`No ${skill} section to regrade`);
 
     let teacherUserId: string | null = null;
+    let teacherInstitutionId: string | null = null;
 
     await this.prisma.$transaction(async (tx) => {
       if (skill === 'writing' && attempt.writingSubmission) {
         teacherUserId = attempt.writingSubmission.teacher?.userId ?? null;
+        teacherInstitutionId =
+          attempt.writingSubmission.teacher?.institutionId ?? null;
         if (attempt.writingSubmission.grade) {
           await tx.grade.delete({
             where: { id: attempt.writingSubmission.grade.id },
@@ -3031,6 +3038,8 @@ export class AdminService {
         });
       } else if (skill === 'speaking' && attempt.speakingSession) {
         teacherUserId = attempt.speakingSession.teacher?.userId ?? null;
+        teacherInstitutionId =
+          attempt.speakingSession.teacher?.institutionId ?? null;
         if (attempt.speakingSession.grade) {
           await tx.grade.delete({
             where: { id: attempt.speakingSession.grade.id },
@@ -3060,7 +3069,9 @@ export class AdminService {
         'Re-grade requested',
         `A ${skill} section must be re-graded${reason ? `: ${reason}` : '.'}`,
         NotificationType.GRADING,
-        skill === 'writing' ? '/teacher/writing' : '/teacher/speaking',
+        skill === 'writing'
+          ? examinerWritingGradingHubPath(teacherInstitutionId)
+          : examinerSpeakingPath(teacherInstitutionId),
       );
     }
 

@@ -6,6 +6,8 @@ import {
   WritingAiEvaluationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isWritingReadyForTeacherQueue } from '../../common/grading/writing-queue-visibility';
+import { examinerWritingGradingDetailPath } from '../../common/examiner/examiner-routing';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import {
@@ -80,12 +82,7 @@ export class WritingAiEvaluationService {
   isReadyForTeacherQueue(
     aiEvaluation: { status: WritingAiEvaluationStatus } | null | undefined,
   ): boolean {
-    if (!this.isConfigured()) return true;
-    if (!aiEvaluation) return false;
-    return (
-      aiEvaluation.status === WritingAiEvaluationStatus.READY ||
-      aiEvaluation.status === WritingAiEvaluationStatus.FAILED
-    );
+    return isWritingReadyForTeacherQueue(aiEvaluation);
   }
 
   async getOrTriggerEvaluation(submissionId: string): Promise<void> {
@@ -338,7 +335,7 @@ export class WritingAiEvaluationService {
         id: true,
         status: true,
         teacherId: true,
-        teacher: { select: { userId: true } },
+        teacher: { select: { userId: true, institutionId: true } },
       },
     });
     if (
@@ -356,7 +353,10 @@ export class WritingAiEvaluationService {
         ? 'A student writing submission is now in your queue with AI highlights ready.'
         : 'A student writing submission is now in your queue.',
       NotificationType.GRADING,
-      `/teacher/grading/${submission.id}`,
+      examinerWritingGradingDetailPath(
+        submission.teacher.institutionId,
+        submission.id,
+      ),
     );
     this.realtime.notifyTeacherBadges(submission.teacherId);
   }

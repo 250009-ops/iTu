@@ -17,6 +17,7 @@ import {
   useSpeakingRoom,
 } from "@/contexts/speaking-room-context";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
+import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import {
   SpeakingControlBar,
   SpeakingVideoLayout,
@@ -44,6 +45,7 @@ import { cn } from "@/lib/utils";
 export function SpeakingLiveConsole() {
   const router = useRouter();
   const { toast } = useToast();
+  const { speaking } = useExaminerPaths();
   const {
     session,
     sessionId,
@@ -122,7 +124,7 @@ export function SpeakingLiveConsole() {
               description: `${next.studentName} · ${next.timeRange}`,
               variant: "success",
             });
-            router.push(`/teacher/speaking?session=${next.id}&live=1`);
+            router.push(speaking(next.id, { live: true }));
             return;
           }
           toast("Session time ended", {
@@ -135,7 +137,7 @@ export function SpeakingLiveConsole() {
             variant: "success",
           });
         }
-        router.push(`/teacher/speaking?session=${sessionId}`);
+        router.push(speaking(sessionId ?? undefined));
       } catch (err) {
         toast("Could not end session", {
           description: getErrorMessage(err, "Please try again."),
@@ -218,7 +220,7 @@ export function SpeakingLiveConsole() {
   if (!session || !sessionId) return null;
 
   function prepUrl() {
-    return `/teacher/speaking?session=${sessionId}`;
+    return speaking(sessionId ?? undefined);
   }
 
   async function handleExit() {
