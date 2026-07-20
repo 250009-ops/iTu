@@ -14,6 +14,7 @@ import {
   type InstitutionMockShopOffer,
 } from "@/lib/api/institution";
 import { PageHeader } from "@/components/institution/ui";
+import { INSTITUTION_MOCK_SHOP_PLACEHOLDER } from "@/lib/institution/mock-set-shop-placeholder";
 
 function mapShopProduct(
   product: InstitutionMockShopOffer["product"],
@@ -66,6 +67,9 @@ export function InstitutionMockShopView() {
     }
   }
 
+  const displayOffers =
+    sets.length > 0 ? sets : [INSTITUTION_MOCK_SHOP_PLACEHOLDER];
+
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-4 lg:p-6">
       <PageHeader
@@ -83,7 +87,7 @@ export function InstitutionMockShopView() {
 
       <ApiDataShell loading={loading} error={error}>
         <div className="grid gap-6">
-          {sets.map((offer) => (
+          {displayOffers.map((offer) => (
             <MockProductCard
               key={offer.setId ?? offer.slug}
               mode="institutionShop"
