@@ -2,6 +2,8 @@
 // Field names mirror the production ERP model (TeacherProfile, MockTestPackage,
 // Grade, StudentProfile) so design and data stay 1:1.
 
+import { formatPrice } from "@/lib/format-price";
+
 export type SkillId = "listening" | "reading" | "writing" | "speaking";
 export type AccentColor = "sky" | "emerald" | "violet" | "rose";
 
@@ -12,10 +14,41 @@ export const SITE = {
   domain: "https://www.itestu.uz",
   tagline: "Real examiners. Real feedback. Real bands.",
   description:
-    "iTestU (iTu) — sit a realistic, computer-delivered IELTS mock exam. Listening, Reading, Writing and Speaking in one day, graded by certified examiners with results within 24 hours.",
+    "iTestU (iTu) — realistic computer-delivered IELTS mocks with certified examiner feedback, plus Reading, Listening, and AI Writing practice packages you can buy anytime.",
   foundedYear: 2026,
   fullMockPrice: 56_000,
   currency: "UZS",
+  supportEmail: "support@itestu.uz",
+} as const;
+
+/** Shared legal / policy copy — keep pages in sync via these constants. */
+export const LEGAL = {
+  supportEmail: SITE.supportEmail,
+  refundWindowHours: 48,
+  refundPolicy:
+    "You may reschedule an upcoming mock from your account before check-in. Refund requests are handled by our support team — email support@itestu.uz with your booking reference.",
+  cookiesSection:
+    "iTestU does not use analytics or advertising cookies. When you sign in with Remember me checked, we store your session in local storage so you stay signed in across browser restarts. Without Remember me, the session is kept in session storage for the current browser session only. During exams, we also use session storage for in-exam settings such as accessibility preferences. You can clear this data anytime through your browser settings or by signing out.",
+  privacyIntroRights:
+    "Depending on your location, you may have rights to access, correct, or delete your personal data. Contact us to exercise these rights.",
+} as const;
+
+/** Product claims used across marketing pages — must match shipped features. */
+export const PRODUCT_CLAIMS = {
+  resultsTiming:
+    "Listening and Reading are auto-scored instantly. Writing and Speaking are graded by your examiner — all four bands release together once Speaking is submitted, typically the same day.",
+  examinerChoice:
+    "When you book, browse certified examiners, see their ratings, and select who grades your Writing and conducts your Speaking session.",
+  academicOnlyNote:
+    "Full Academic mocks and single-skill modules (Listening, Reading, Writing, Speaking) are available now. General Training is coming soon.",
+  checkInIdentity:
+    "Confirm your identity and complete a device check at check-in before your first section.",
+  desktopOptional:
+    "Optional desktop app for exam day — book and prepare in your browser; download only if you want the dedicated app.",
+  practice:
+    "Self-paced practice packages for Reading passages, Listening sections, question-type drills, and AI Writing essay reviews — buy credits anytime from your student account. No examiner booking required.",
+  practiceVsMock:
+    "Mocks are full exam-day simulations with human-graded Writing and Speaking. Practice packages are flexible drills you complete on your own schedule — ideal between mocks.",
 } as const;
 
 /** Brand + product terms for meta keywords across marketing pages. */
@@ -37,6 +70,7 @@ export const SITE_KEYWORDS = [
 
 export const NAV_LINKS = [
   { label: "Mock Exams", href: "/mock-exams" },
+  { label: "Practice", href: "/practice" },
   { label: "How It Works", href: "/how-it-works" },
   { label: "Teachers", href: "/teachers" },
   { label: "Pricing", href: "/pricing" },
@@ -48,10 +82,11 @@ export const FOOTER_COLUMNS = [
     title: "Product",
     links: [
       { label: "Mock Exams", href: "/mock-exams" },
+      { label: "Practice Tests", href: "/practice" },
       { label: "Pricing", href: "/pricing" },
       { label: "Results", href: "/results" },
       { label: "How It Works", href: "/how-it-works" },
-      { label: "Download app", href: "/download" },
+      { label: "Desktop app (optional)", href: "/download" },
     ],
   },
   {
@@ -67,14 +102,12 @@ export const FOOTER_COLUMNS = [
     links: [
       { label: "About Us", href: "/about" },
       { label: "Contact", href: "/contact" },
-      { label: "Careers", href: "/contact" },
     ],
   },
   {
     title: "Resources",
     links: [
       { label: "FAQ", href: "/faq" },
-      { label: "Download app", href: "/download" },
       { label: "Exam Rules", href: "/how-it-works" },
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
@@ -143,12 +176,12 @@ export const STATS = [
 
 export const JOURNEY_STEPS = [
   { id: "book", label: "Book", caption: "Pick package & examiner", accent: "emerald" as AccentColor, icon: "book" },
-  { id: "check-in", label: "Check-in", caption: "ID verify & system check", accent: "sky" as AccentColor, icon: "check" },
+  { id: "check-in", label: "Check-in", caption: "Identity confirm & device check", accent: "sky" as AccentColor, icon: "check" },
   { id: "listening", label: "Listening", caption: "~32 min · plays once", accent: "sky" as AccentColor, icon: "listening" },
   { id: "reading", label: "Reading", caption: "60 min · 3 passages", accent: "emerald" as AccentColor, icon: "reading" },
   { id: "writing", label: "Writing", caption: "60 min · Task 1 + 2", accent: "violet" as AccentColor, icon: "writing" },
   { id: "speaking", label: "Speaking", caption: "Live video · 11–14 min", accent: "rose" as AccentColor, icon: "speaking" },
-  { id: "results", label: "Results", caption: "Same-day band release", accent: "emerald" as AccentColor, icon: "results" },
+  { id: "results", label: "Results", caption: "Bands when all skills graded", accent: "emerald" as AccentColor, icon: "results" },
 ] as const;
 
 export interface TopStudent {
@@ -318,55 +351,8 @@ export interface MockPackage {
   rules: string[];
 }
 
-/** Static demo catalog — used only when the live API is unreachable. */
-export const PACKAGES: MockPackage[] = [
-  {
-    id: "p1",
-    slug: "full-academic-mock",
-    title: "Full Academic Mock",
-    examType: "ACADEMIC",
-    delivery: "Computer-delivered",
-    description: "All four skills in one day. IELTS Academic — for university, visa, and professional registration.",
-    price: 56_000,
-    currency: "UZS",
-    rating: 4.9,
-    reviewCount: 1240,
-    mostPopular: true,
-    skills: ["listening", "reading", "writing", "speaking"],
-    included: ["Pick your certified examiner", "Full band report within 24 hours", "Criteria-level written feedback", "Score progression tracking", "Secure exam environment"],
-    rules: ["No pause or rewind", "Server-authoritative timers", "Strict exam-day integrity", "All scores released together"],
-  },
-  {
-    id: "p3",
-    slug: "speaking-only",
-    title: "Speaking Only",
-    examType: "ACADEMIC",
-    delivery: "Live video",
-    description: "A single live Speaking session with a certified examiner. Score + criteria feedback.",
-    price: 16_000,
-    currency: "UZS",
-    rating: 4.9,
-    reviewCount: 430,
-    skills: ["speaking"],
-    included: ["Pick your certified examiner", "Speaking score within 24 hours", "Criteria-level speaking feedback", "Part 1, 2 & 3 transcript notes"],
-    rules: ["Live video session", "11–14 minutes", "Recorded for examiner reference"],
-  },
-  {
-    id: "p4",
-    slug: "writing-only",
-    title: "Writing Only",
-    examType: "ACADEMIC",
-    delivery: "Computer-delivered",
-    description: "Task 1 + Task 2 graded by a certified examiner with full criteria-level written feedback.",
-    price: 16_000,
-    currency: "UZS",
-    rating: 4.8,
-    reviewCount: 320,
-    skills: ["writing"],
-    included: ["Expert examiner grading", "Task 1 + Task 2 feedback", "Criteria-level breakdown", "Turnaround within 24 hours"],
-    rules: ["60-minute window", "Live word counter", "Spell-check disabled"],
-  },
-];
+/** Static fallback catalog — empty when API is unreachable (no fake social proof). */
+export const PACKAGES: MockPackage[] = [];
 
 export interface Testimonial {
   id: string;
@@ -388,18 +374,20 @@ export const MARKETING_TESTIMONIALS: Testimonial[] = [
 
 export interface MarketingFaq {
   id: string;
-  category: "The Exam" | "Results" | "Examiners" | "Technical" | "Booking";
+  category: "The Exam" | "Results" | "Examiners" | "Technical" | "Booking" | "Practice";
   question: string;
   answer: string;
 }
 
 export const MARKETING_FAQS: MarketingFaq[] = [
-  { id: "pause", category: "The Exam", question: "Can I pause or rewind during the test?", answer: "No. The exam is server-authoritative — audio plays once, timers run continuously, and there is no pause or rewind. This mirrors the exact computer-delivered IELTS format used on test day." },
-  { id: "results", category: "Results", question: "When do I get my results?", answer: "Listening and Reading are auto-scored instantly. Writing is typically graded within 12 hours. All four bands are released together once your Speaking examiner submits their grade — usually the same day." },
-  { id: "examiner", category: "Examiners", question: "Can I choose my examiner?", answer: "Yes. When you book, you browse certified examiners by speciality, rating, and availability, then select who grades your Writing and conducts your Speaking session." },
+  { id: "practice", category: "Practice", question: "What is the difference between a mock exam and practice packages?", answer: PRODUCT_CLAIMS.practiceVsMock },
+  { id: "practice-buy", category: "Practice", question: "How do I buy practice packages?", answer: "Create a free student account, open Practice in your dashboard, and choose a package in the shop. Credits are added to your wallet after checkout — use them whenever you want on Reading, Listening, or AI Writing drills." },
+  { id: "pause", category: "The Exam", question: "Can I pause or rewind during the test?", answer: "No. The exam is server-authoritative — audio plays once, timers run continuously, and there is no pause or rewind. This mirrors the computer-delivered IELTS format used on test day." },
+  { id: "results", category: "Results", question: "When do I get my results?", answer: PRODUCT_CLAIMS.resultsTiming },
+  { id: "examiner", category: "Examiners", question: "Can I choose my examiner?", answer: PRODUCT_CLAIMS.examinerChoice },
   { id: "devices", category: "Technical", question: "What devices are supported?", answer: "Any modern desktop or laptop browser (Chrome, Edge, Safari, Firefox). A webcam and microphone are required for the Speaking session. Mobile and tablet are not supported for exam delivery." },
-  { id: "refund", category: "Booking", question: "What is the refund policy?", answer: "Full refund if you cancel at least 24 hours before your mock date. Within 24 hours, you can reschedule once at no cost. Refunds are processed to your original payment method within 5 business days." },
-  { id: "academic-gt", category: "The Exam", question: "Academic or General Training?", answer: "Academic is required for university admission, professional registration, and certain visas. General Training is for secondary education, work experience, and migration. Listening and Speaking are identical; Reading and Writing differ." },
+  { id: "refund", category: "Booking", question: "What is the cancellation policy?", answer: LEGAL.refundPolicy },
+  { id: "academic-gt", category: "The Exam", question: "Academic or General Training?", answer: `${PRODUCT_CLAIMS.academicOnlyNote} Academic is required for university admission and professional registration. General Training is for migration and work experience — Reading and Writing differ from Academic.` },
   { id: "band", category: "Results", question: "How does the band scoring work?", answer: "Each skill is scored 0–9. Listening and Reading use official band conversion tables. Writing and Speaking are graded by examiners against the four official criteria. Your Overall Band is the mean of the four, rounded to the nearest 0.5." },
   { id: "real-examiners", category: "Examiners", question: "Are examiners real IELTS-qualified professionals?", answer: "Yes. All examiners hold CELTA or higher, and most are current or former certified IELTS examiners. Every examiner is verified and calibrated before going live." },
   { id: "internet", category: "Technical", question: "What internet speed do I need?", answer: "A minimum of 5 Mbps, wired connection preferred. The Speaking session uses live video, so a stable connection is essential. We run a system check at check-in." },
@@ -408,10 +396,70 @@ export const MARKETING_FAQS: MarketingFaq[] = [
   { id: "notes", category: "Results", question: "Can I see the examiner's notes after the exam?", answer: "Yes. Your Writing and Speaking examiner provides structured criteria-level written notes alongside your scores — this is the most valuable part of the report." },
 ];
 
+export const INSTITUTION_COPY = {
+  headline: "Mocks and practice — one platform for your students",
+  subtitle:
+    "Edu Centers purchase mock sets, schedule cohort mock days, and give enrolled students self-serve Reading, Listening, and AI Writing practice between test days.",
+  mockEnrolments:
+    "Buy B2B mock sets to unlock unlimited student enrolments on included section mocks. Schedule cohort mock days, monitor live sessions, and track every band from your centre dashboard.",
+  studentPractice:
+    "Students linked to your Edu Center sign in to their centre portal — My Mock for scheduled exams, Practice for subscription-style drills (Reading passages, Listening sections, question-type drills, and AI Writing reviews). They buy practice packages in the Practice shop when they need extra prep.",
+  partnerApply:
+    "Apply below for wholesale pricing, mock sets, and onboarding support. Email support@itestu.uz for custom cohort quotes.",
+} as const;
+
+export const PRACTICE_OFFERINGS = [
+  {
+    id: "reading-passages",
+    title: "Reading passages",
+    body: "Full passages with mixed question types — instant auto-scoring when you finish.",
+    accent: "bg-emerald-50 text-emerald-600",
+  },
+  {
+    id: "reading-drills",
+    title: "Reading question-type drills",
+    body: "Focused practice on one format (matching, T/F/NG, completion, and more).",
+    accent: "bg-emerald-50 text-emerald-700",
+  },
+  {
+    id: "listening-sections",
+    title: "Listening sections",
+    body: "Audio sections with mixed questions — same CBT-style delivery as mocks.",
+    accent: "bg-sky-50 text-sky-600",
+  },
+  {
+    id: "listening-drills",
+    title: "Listening question-type drills",
+    body: "Single-format listening drills to target weak question types.",
+    accent: "bg-sky-50 text-sky-700",
+  },
+  {
+    id: "ai-writing",
+    title: "AI Writing reviews",
+    body: "Submit Task 2 essays and receive structured improvement feedback between mocks.",
+    accent: "bg-violet-50 text-violet-600",
+  },
+] as const;
+
+export const DESKTOP_COPY = {
+  headline: "Optional desktop app for exam day",
+  subtitle: PRODUCT_CLAIMS.desktopOptional,
+} as const;
+
 export const COPY = {
   hero: { headline1: "Sit a real IELTS mock.", headline2: "Get your real band." },
 } as const;
 
 export function bookHref(slug?: string) {
-  return slug ? `/mock-exams?package=${slug}` : "/mock-exams";
+  return slug ? `/mock-exams?package=${encodeURIComponent(slug)}` : "/mock-exams";
+}
+
+/** Primary CTA label for full Academic mock — uses catalog price when available. */
+export function fullMockCtaLabel(packages?: MockPackage[]): string {
+  const full = packages?.find(
+    (p) => p.examType === "ACADEMIC" && p.skills.length === 4,
+  );
+  const price = full?.price ?? SITE.fullMockPrice;
+  const currency = full?.currency ?? SITE.currency;
+  return `Book a Full Mock — ${formatPrice(price, currency)}`;
 }

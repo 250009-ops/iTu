@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, Clock, Play, ArrowRight } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
-import { COPY, SITE } from "@/lib/marketing/data";
+import { COPY, fullMockCtaLabel } from "@/lib/marketing/data";
 import type { HeroStats } from "@/lib/marketing/server-data";
 import { Glow } from "@/components/marketing/ui/primitives";
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
@@ -53,7 +53,7 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
             variants={item}
             className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 ring-1 ring-white/15"
           >
-            <Check className="h-3.5 w-3.5 text-emerald-400" /> Official computer-delivered IELTS format
+            <Check className="h-3.5 w-3.5 text-emerald-400" /> Realistic computer-delivered mock
           </motion.span>
 
           <motion.h1
@@ -68,23 +68,29 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
           </motion.h1>
 
           <motion.p variants={item} className="mt-6 max-w-md text-lg leading-relaxed text-slate-300">
-            Full 4-skill mock in one day — Listening, Reading, Writing, Speaking. Human-graded by
-            certified examiners. Same-day band scores.
+            Full 4-skill mocks with certified examiners — plus Reading, Listening, and AI Writing
+            practice packages you can buy anytime.
           </motion.p>
 
-          <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link
               href="/mock-exams"
               className="group inline-flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
             >
-              Book a Full Mock — {SITE.fullMockPrice.toLocaleString()}&nbsp;so&apos;m
+              {fullMockCtaLabel()}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
-              href="/how-it-works"
+              href="/practice"
               className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-7 py-3.5 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
             >
-              <Play className="h-4 w-4" /> See how it works
+              Practice packages
+            </Link>
+            <Link
+              href="/how-it-works"
+              className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-white/10 px-7 py-3.5 text-base font-semibold text-slate-200 transition-colors hover:text-white"
+            >
+              <Play className="h-4 w-4" /> How mocks work
             </Link>
           </motion.div>
 
@@ -94,7 +100,7 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
             </motion.p>
           ) : (
             <motion.p variants={item} className="mt-8 text-sm text-slate-400">
-              Human-graded by certified examiners · Same-day band scores
+              Mocks with certified examiners · Practice subscriptions between test days
             </motion.p>
           )}
         </motion.div>

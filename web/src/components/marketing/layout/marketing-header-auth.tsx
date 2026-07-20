@@ -5,11 +5,9 @@ import { useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarCheck,
-  ChevronDown,
   CircleHelp,
   LayoutDashboard,
   LogOut,
-  Monitor,
   UserRound,
 } from "lucide-react";
 import { DASHBOARD_PATHS, type AuthSession, type UserRole } from "@/lib/auth/session";
@@ -75,13 +73,6 @@ function accountMenuItems(session: AuthSession, pathname: string): MenuItem[] {
     href: helpPath(session.role, pathname),
     label: "Help & support",
     icon: <CircleHelp className="h-4 w-4 text-slate-400" />,
-  });
-
-  items.push({
-    key: "download",
-    href: "/download",
-    label: "Download desktop app",
-    icon: <Monitor className="h-4 w-4 text-slate-400" />,
   });
 
   if (session.role === "student" || session.role === "teacher" || session.role === "admin") {
@@ -216,25 +207,15 @@ export function MarketingHeaderAuth({ className }: { className?: string }) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex max-w-[220px] items-center gap-2 rounded-xl border border-white/20 bg-white/5 py-1.5 pl-1.5 pr-2.5 backdrop-blur-sm transition-colors hover:bg-white/10 md:max-w-none md:gap-2.5 md:pr-3",
-          open && "bg-white/10",
+          "rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-navy",
+          open
+            ? "ring-2 ring-white/30 ring-offset-2 ring-offset-navy"
+            : "hover:ring-2 hover:ring-white/20 hover:ring-offset-2 hover:ring-offset-navy",
         )}
         aria-expanded={open}
         aria-label="Account menu"
       >
-        <Avatar name={session.name} size="sm" />
-        <div className="hidden min-w-0 text-left md:block">
-          <p className="truncate text-sm font-semibold leading-tight text-white">
-            {session.name.split(" ")[0]}
-          </p>
-          <p className="text-[11px] text-slate-400">{roleLabel(session.role)}</p>
-        </div>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 text-slate-300 transition-transform",
-            open && "rotate-180",
-          )}
-        />
+        <Avatar name={session.name} size="md" />
       </button>
 
       {open ? (

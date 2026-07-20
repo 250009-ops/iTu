@@ -1,4 +1,26 @@
-# IELTS Mock ERP — Marketing Website UI Architecture & Figma AI Brief
+# iTestU — Marketing Website UI Architecture & Figma AI Brief
+
+> **Brand:** **iTestU** (wordmark) · logo mark **iTu** (red rounded square) · domain **https://www.itestu.uz** · founded **2026** · support **support@itestu.uz**
+>
+> **Purpose.** Enterprise-grade architecture + design schema for the **public marketing site** of iTestU. Paste into Figma AI / Figma Make for page and component generation.
+>
+> **Product truth (must match shipped features):**
+> - Book **Full Academic** mock + **Listening / Reading / Writing / Speaking** single modules — **General Training coming soon**
+> - Choose examiner at booking; **see ratings** (no filter-by-rating UI)
+> - Check-in = **identity confirm + device check** (not government ID upload)
+> - Results release **when all skills graded** — typically same day once Speaking submitted
+> - **Reschedule** supported in account; refunds via **support@itestu.uz** (48h window in Terms)
+> - **No analytics cookies** — localStorage session + sessionStorage exam prefs
+> - **Desktop app optional** — footer + How It Works + home section only; **header CTA = Book a Mock**
+> - Do **not** claim official IELTS endorsement, verify.itestu.uz, or bulk 10+/50+/100+ student discounts
+
+> **Figma file (v2):** [iTestU Marketing Site v2](https://www.figma.com/design/cCJEEcBevlLPLxjsBBySW2) — Foundations, Components, and all route wireframes aligned to product truth.
+>
+> **Figma Make (platform):** [IELTS-Mock-Platform](https://www.figma.com/make/TW2GEVQyjU4r5RycLJ061y/IELTS-Mock-Platform) — initial AI-generated UI; marketing pages regenerated from this brief first, portal screens second.
+
+> **Post-deploy SEO checklist:** After deploy, verify `curl -I https://www.itestu.uz/favicon.ico` and `/logo/itestu3.svg` return 200. In Google Search Console (properties for both apex and www, preferred domain www), request re-index of `/` and favicon refresh.
+
+---
 
 > **Purpose of this document.** A complete, enterprise-grade architecture + design schema for the **public-facing marketing & product website** of the IELTS Mock Exam ERP. It is written to be pasted directly into **Figma AI / Figma Make (First Draft)** so the AI can imagine and generate the entire UI — pages, sections, components, content, motion — from a single source of truth.
 >
@@ -8,7 +30,7 @@
 
 ## 0. Master Prompt (paste this first into Figma AI)
 
-> Design a **premium, enterprise-grade marketing website** for **"IELTS Mock"** — a professional platform that delivers realistic, IDP-style computer-delivered IELTS mock exams (Listening → Reading → Writing → Speaking in one day) with **human expert grading** and **same-day band results**.
+> Design a **premium, enterprise-grade marketing website** for **"iTestU"** (logo mark **iTu**) — a professional platform that delivers realistic, computer-delivered IELTS mock exams (Listening → Reading → Writing → Speaking in one day) with **human expert grading** and **results when all skills are graded**.
 >
 > **Audience:** IELTS candidates targeting Band 7+, plus IELTS teachers who earn by grading, and institutions. **Tone:** trustworthy, exam-official, modern SaaS — like Apple/Linear/Stripe polish meets an exam authority. **Not** cartoonish, **not** generic edtech.
 >
@@ -128,7 +150,10 @@ Public Marketing Site
 ├── /pricing                Plans & pricing
 ├── /for-students           Audience landing
 ├── /for-teachers           Become an examiner (earn)
-├── /for-institutions       Bulk / B2B
+├── /practice               Practice packages funnel (buy in student portal)
+├── /centers                Edu Centers directory + partner apply (#partner)
+├── /for-institutions       → redirect /centers#partner (keep for SEO only)
+├── /download               Desktop app (optional exam-day delivery)
 ├── /about                  Mission, team, credibility
 ├── /faq                    Frequently asked questions
 ├── /contact                Contact / demo request
@@ -138,7 +163,11 @@ Public Marketing Site
 Persistent: Header (sticky, translucent) · Footer (mega)
 ```
 
-**Primary nav (header):** Logo · Mock Exams · How it works · Teachers · Pricing · Results · [Log in] · **[Book a Mock]** (red CTA). Mega-menu under "Mock Exams" showing the 4 skills with accent icons.
+**Primary nav (header):** Logo · Mock Exams · **Practice** · How It Works · Teachers · Pricing · Results · [Log in] · **[Book a Mock]** (red CTA → `/mock-exams`).
+
+**Footer "For" column:** Students · Teachers · **Edu Centers** (`/centers`) — not "Institutions".
+
+**Practice CTAs on marketing:** Link to `/practice` for product info; purchase happens inside the student portal (`/student/practice/shop` or `/inst-student/practice/shop`) after login — **no checkout on marketing site for practice**.
 
 ---
 
@@ -156,17 +185,18 @@ Persistent: Header (sticky, translucent) · Footer (mega)
 - **Eyebrow pill:** ✓ "Official computer-delivered IELTS format".
 - **Headline:** "Sit a real IELTS mock. Get your real band." (display size, 2 lines).
 - **Subcopy:** "Full 4-skill mock in one day — Listening, Reading, Writing, Speaking. Human-graded by certified examiners. Same-day band scores."
-- **CTAs:** primary red "Book a Full Mock — $XX", secondary ghost "See how it works".
+- **CTAs:** primary red "Book a Full Mock — 56,000 so'm" (or dynamic price from catalog), secondary ghost "See how it works".
 - **Trust row:** small avatars + "9,500+ candidates · 4.9★ · 320+ certified examiners".
 - **Background:** navy with two blurred gradient glow blobs (sky + violet), faint dot grid.
 - **Motion:** staggered word rise on headline; mockup floats + parallax tilt to cursor; glow blobs drift slowly.
 
-### 5.3 Logo / Trust marquee
-- "Trusted by candidates accepted to" + university/employer logos, infinite marquee, grayscale→color on hover.
+### 5.3 Partner Edu Centers marquee
+- "Partner Edu Centers" + centre logos from API (`/marketing/centers`), infinite marquee, grayscale→color on hover. Link each to `/centers/[slug]`. **Do not** use generic university logos unless API provides them.
 
 ### 5.4 Stats band (count-up)
-- 4 stat tiles on navy: **9,500+** mocks delivered · **4.9★** examiner rating · **48h** avg writing grading · **+1.5** avg band improvement.
+- 4 stat tiles on navy from API (`/marketing/stats`): mocks delivered · examiner rating · certified examiners · avg band improvement. Hide entire section when API returns fewer than 50 total (social proof threshold).
 - Motion: numbers count up on enter; subtle stagger.
+- **Do not** hardcode "48h avg writing grading" — use `PRODUCT_CLAIMS.resultsTiming` ("typically the same day once Speaking submitted").
 
 ### 5.5 The 4 Skills showcase ("A real exam, faithfully recreated")
 - 4 cards in a row, each in its skill accent (Sky/Emerald/Violet/Rose), skill icon, name, one-line realism claim, "Auto-scored" or "Teacher-graded" badge.
@@ -238,8 +268,11 @@ Persistent: Header (sticky, translucent) · Footer (mega)
 ### 6.4 /how-it-works
 - Long-form of §5.6 with section-by-section CBT screenshots (Listening player, Reading split view, Writing dual-task, Speaking live console), integrity rules, break rules, same-day timeline table.
 
-### 6.5 /for-students · /for-teachers · /for-institutions
-- Audience-tailored hero + benefits + proof + pricing/CTA. Teachers: earnings calculator + payout explanation. Institutions: bulk booking, reporting dashboards, contact-sales form.
+### 6.5 /for-students · /for-teachers · /centers
+- Audience-tailored hero + benefits + proof + pricing/CTA. Teachers: earnings calculator + payout on your schedule. **Edu Centers** (`/centers`): mock sets (B2B bundles), cohort scheduling, centre reporting, student practice hub between mock days, partner apply form at `#partner`.
+
+### 6.5b /practice
+- Explain 5 practice types (Reading passages, Reading Q-type drills, Listening sections, Listening Q-type drills, AI Writing reviews). Mock vs practice comparison table. 3-step flow: sign in → buy package in Practice shop → start drills. CTAs to `/register/student` or login — **not** direct checkout.
 
 ### 6.6 /pricing
 - Toggle Academic/GT; package comparison table (skills, grading SLA, examiner choice, retake); FAQ; trust + secure payment.
@@ -324,8 +357,8 @@ Use these JSON shapes to generate realistic content. Field names mirror the prod
   "description": "All four skills in one day, graded by certified examiners.",
   "examType": "ACADEMIC",
   "delivery": "Computer-delivered",
-  "price": 49,
-  "currency": "USD",
+  "price": 56000,
+  "currency": "UZS",
   "rating": 4.9,
   "reviewCount": 1240,
   "skills": [
@@ -383,8 +416,8 @@ Accessibility: WCAG AA contrast (navy/white passes; ensure red CTA text white), 
 4. /mock-exams + product detail.
 5. /teachers directory + profile.
 6. /results + sample report.
-7. Audience pages (/for-students, /for-teachers, /for-institutions).
-8. /pricing, /how-it-works, /about, /faq, /contact.
+7. Audience pages (/for-students, /for-teachers, /centers) + /practice.
+8. /pricing, /how-it-works, /download, /about, /faq, /contact.
 9. /login + /register.
 
 > **Per-section prompt pattern:** "Using the established design system and motion rules, design the **<section name>** for the **<page>**. Layout: <layout>. Content: <content>. Use the <DataShape> data. Apply: staggered scroll reveal, accent colors per skill, custom easing, glow background. Match brand: navy #1B2A4A, red CTA #E31837, emerald scores, Inter."
@@ -413,3 +446,63 @@ Accessibility: WCAG AA contrast (navy/white passes; ensure red CTA text white), 
 | How it works | `ExamSessionState` machine (CHECK_IN → … → RESULTS_RELEASED) |
 | Testimonials | reviews tied to `Enrollment` / examiner ratings |
 | For Teachers | `Payout`, `TeacherAvailability`, `TeacherSlot` |
+| Practice offerings | `PracticeProductPackage` (`bundle` JSON: 5 credit types) |
+| Edu Centers | `Institution`, `InstitutionMockSet`, `InstitutionMockSetGrant` |
+
+---
+
+## 11. Product truth delta (July 2026 — sync with shipped ERP)
+
+This section captures changes since the original brief. **Figma AI must follow these over any stale spec above.**
+
+### 11.1 Navigation & IA
+| Item | Current truth |
+|------|---------------|
+| Header nav | Mock Exams · **Practice** · How It Works · Teachers · Pricing · Results |
+| B2B audience | **Edu Centers** at `/centers` — `/for-institutions` redirects to `/centers#partner` |
+| Practice purchase | In student portal only (`PRACTICE_BUNDLE` order) — marketing links to `/practice` + register/login |
+| Desktop app | `/download` in footer; optional exam-day aid — not in header CTA |
+
+### 11.2 Pricing & currency
+- All live prices in **UZS** (e.g. full Academic mock **56,000 so'm** from `SITE.fullMockPrice` / catalog API).
+- Display via `formatPrice()` — do not show USD unless legacy row normalized.
+- **General Training:** coming soon — Academic only in catalog UI.
+
+### 11.3 Product lines to communicate
+| Line | Buyer | Marketing message |
+|------|-------|-------------------|
+| Full / single-skill mock | Student | Book at `/mock-exams` → login → `/student/browse?book=1` |
+| Practice bundle | Student (marketplace + centre-linked) | Self-serve drills + AI Writing — buy in Practice shop after login |
+| Institution mock set | Edu Center admin | B2B bundles; unlimited student enrollments on included section mocks |
+| Credit pack | Edu Center (legacy) | Superseded by mock sets in UI — do not lead with bulk credit packs |
+
+### 11.4 Home page — required sections (currently missing in code)
+- **§5.9 Packages / Pricing teaser** — 1–3 `MockPackage` cards from API, CTA to book.
+- **§5.10 Sample band report** — results dashboard mockup (also on `/results`).
+- **Practice teaser** — between journey and desktop app; link to `/practice`.
+
+### 11.5 Booking CTA consistency
+- All "Book a Mock" CTAs → `/mock-exams` or `/student/browse?tab=academic&book=1` (logged-in).
+- Deep link `/mock-exams?package={slug}` must scroll/highlight matching package when present.
+- Do **not** split between dead query params and browse paths.
+
+### 11.6 Copy alignment (single source: `PRODUCT_CLAIMS` in `web/src/lib/marketing/data.ts`)
+- Results timing: "typically the same day once Speaking submitted" — not "12 hours" or "48h avg writing".
+- Contact SLA: "< 1 business day" on contact page; FAQ can say "4 business hours" for urgent exam-day — pick one and sync.
+- Teacher payouts: "Request payout on your schedule" — not "weekly payments".
+- Edu Centers: lead with **mock sets**, not per-enrollment credit top-ups.
+
+### 11.7 Do-not-claim (unchanged)
+- No official IELTS / IDP / British Council endorsement.
+- No verify.itestu.uz certificate URL.
+- No bulk 10+/50+/100+ student discount tiers on marketing site.
+
+### 11.8 Dynamic sections — empty states
+- Leaderboard, teachers grid, testimonials, stats, partner marquee: **hidden** when API empty or below social-proof threshold (50).
+- Package grid: empty state "Packages loading from catalog" — no fake seed data.
+
+### 11.9 Figma generation order (marketing-first)
+1. Design system → Header/Footer → Home (incl. §5.9 + §5.10) → `/mock-exams` + `/pricing` + `/practice`
+2. Audience pages → `/how-it-works` + `/results` + `/teachers` + `/centers`
+3. `/faq` + `/contact` + `/download` + auth pages
+4. **Phase 2 (separate brief):** Portal screens — see `docs/PORTAL-UI-FIGMA-BRIEF.md`

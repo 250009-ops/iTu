@@ -72,12 +72,6 @@ export function SiteHeader() {
         <div className="flex items-center gap-3">
           <MarketingHeaderAuth />
           <Link
-            href="/download"
-            className="hidden rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10 md:inline-flex"
-          >
-            Desktop app
-          </Link>
-          <Link
             href="/mock-exams"
             className="hidden rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5 sm:inline-flex"
           >
@@ -109,13 +103,6 @@ export function SiteHeader() {
             ))}
             <div className="mt-2 space-y-3 border-t border-white/10 pt-4">
               <MarketingMobileAuth onNavigate={() => setMenuOpen(false)} />
-              <Link
-                href="/download"
-                onClick={() => setMenuOpen(false)}
-                className="block rounded-lg border border-white/15 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-white/5"
-              >
-                Download desktop app
-              </Link>
               <Link
                 href="/mock-exams"
                 onClick={() => setMenuOpen(false)}

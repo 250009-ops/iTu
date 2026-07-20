@@ -5,6 +5,7 @@ import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/pr
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { TestimonialCard } from "@/components/marketing/shared/testimonial-card";
 import { StatsBand } from "@/components/marketing/shared/stats-band";
+import { PracticeOfferingSection } from "@/components/marketing/shared/practice-offering-section";
 import { fetchStats, fetchTestimonials } from "@/lib/marketing/server-data";
 import { cn } from "@/lib/utils";
 
@@ -22,19 +23,19 @@ const WHY = [
 ];
 
 const COMPARE: Array<[string, boolean, boolean, boolean]> = [
-  ["Official CBT interface", true, false, false],
+  ["Computer-delivered mock interface", true, false, false],
   ["Server-authoritative timers", true, false, false],
   ["Certified examiner grading", true, false, true],
   ["Criteria-level feedback", true, false, true],
-  ["Same-day band results", true, false, false],
+  ["Results when all skills graded", true, false, false],
   ["Score progression tracking", true, false, false],
   ["Speaking via live video", true, false, true],
 ];
 
 const STEPS = [
-  { n: "01", title: "Book and choose your examiner", body: "Select Academic or General Training, pick your date, and browse certified examiners. Filter by speciality and rating. Secure checkout takes 60 seconds.", accent: "bg-sky-50 text-sky-600" },
+  { n: "01", title: "Book and choose your examiner", body: "Select an Academic package, pick your date, and browse certified examiners — see their speciality and ratings. Secure checkout takes 60 seconds.", accent: "bg-sky-50 text-sky-600" },
   { n: "02", title: "Sit the full mock on your chosen day", body: "Check in from home 30 minutes before. Sit Listening → Reading → Writing. Then join your live Speaking session with your chosen examiner.", accent: "bg-violet-50 text-violet-600" },
-  { n: "03", title: "Receive your band report same day", body: "All four bands released together once Speaking is graded. Read your examiner's written feedback. Focus your preparation on the areas flagged.", accent: "bg-emerald-50 text-emerald-600" },
+  { n: "03", title: "Receive your band report", body: "All four bands release together once Speaking is graded — typically the same day. Read your examiner's written feedback and focus preparation on flagged areas.", accent: "bg-emerald-50 text-emerald-600" },
 ];
 
 function Cmp({ v }: { v: boolean }) {
@@ -56,6 +57,9 @@ export default async function ForStudentsPage() {
       >
         <CtaButton href="/mock-exams" variant="primary" size="lg" withArrow className="mt-4">
           Book a Full Mock
+        </CtaButton>
+        <CtaButton href="/practice" variant="secondary" size="lg" className="mt-3 sm:ml-3 sm:mt-4">
+          Explore practice packages
         </CtaButton>
       </PageHero>
 
@@ -131,6 +135,8 @@ export default async function ForStudentsPage() {
           </CtaButton>
         </Reveal>
       </Section>
+
+      <PracticeOfferingSection />
 
       {testimonials.length > 0 && (
         <Section className="bg-white">

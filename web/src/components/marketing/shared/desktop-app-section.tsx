@@ -10,6 +10,7 @@ import {
   useDesktopReleases,
 } from "@/hooks/use-desktop-releases";
 import { platformLabel } from "@/lib/desktop/detect-platform";
+import { DESKTOP_COPY } from "@/lib/marketing/data";
 import { cn } from "@/lib/utils";
 
 const BENEFITS = [
@@ -50,16 +51,15 @@ export function MarketingDesktopAppSection({
       <Reveal className="relative mx-auto grid max-w-6xl gap-12 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div>
           <Pill tone="navy">
-            <BrandMarkIcon size="sm" className="shadow-none" /> Desktop app
+            <BrandMarkIcon size="sm" className="shadow-none" /> Optional
           </Pill>
           <h2 className="mt-5 text-3xl font-bold tracking-tight text-navy sm:text-4xl">
-            Sit your mock in the iTestU desktop app
+            {DESKTOP_COPY.headline}
           </h2>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
-            Download once for Windows, macOS, or Linux. Log in with your existing
-            account — no separate student or teacher installer. Ideal for mock
-            day when you want fewer browser surprises and stronger recovery if
-            something interrupts your session.
+            {DESKTOP_COPY.subtitle} Download once for Windows, macOS, or Linux — log in with your
+            existing account. Ideal for mock day when you want fewer browser surprises and stronger
+            recovery if something interrupts your session.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">

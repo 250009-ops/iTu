@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 import { Glow, Pill, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal } from "@/components/marketing/motion/reveal";
+import { PracticeCtaButton } from "@/components/marketing/shared/practice-cta-button";
 
 export function FinalCta({
   eyebrow = "Ready to test yourself?",
@@ -11,6 +12,8 @@ export function FinalCta({
   primaryLabel,
   secondaryHref,
   secondaryLabel,
+  /** When true, secondary CTA is role-aware practice (avoids GuestGuard → panel for staff). */
+  secondaryPractice = false,
 }: {
   eyebrow?: string;
   title: ReactNode;
@@ -19,6 +22,7 @@ export function FinalCta({
   primaryLabel: string;
   secondaryHref?: string;
   secondaryLabel?: string;
+  secondaryPractice?: boolean;
 }) {
   return (
     <section className="relative overflow-hidden bg-navy">
@@ -37,11 +41,18 @@ export function FinalCta({
           {subtitle ? (
             <p className="max-w-xl text-lg text-slate-300">{subtitle}</p>
           ) : null}
-          <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
             <CtaButton href={primaryHref} variant="primary" size="lg" withArrow>
               {primaryLabel}
             </CtaButton>
-            {secondaryHref && secondaryLabel ? (
+            {secondaryPractice ? (
+              <PracticeCtaButton
+                variant="ghost"
+                size="lg"
+                guestLabel={secondaryLabel ?? "Create account for practice"}
+                studentLabel="Open practice shop"
+              />
+            ) : secondaryHref && secondaryLabel ? (
               <CtaButton href={secondaryHref} variant="ghost" size="lg">
                 {secondaryLabel}
               </CtaButton>

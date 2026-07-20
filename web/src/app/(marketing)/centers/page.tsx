@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Building2, GraduationCap, Send, Users, BarChart3 } from "lucide-react";
+import { Building2, GraduationCap, Send, Users, BarChart3, BookOpen } from "lucide-react";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { CenterCard } from "@/components/marketing/shared/center-card";
 import { InstitutionForm } from "@/components/marketing/shared/institution-form";
+import { InstitutionStudentOfferingsSection } from "@/components/marketing/shared/institution-student-offerings";
 import { PartnerMarquee } from "@/components/marketing/shared/partner-marquee";
 import { fetchCenters, fetchPartnerOnboarding } from "@/lib/marketing/server-data";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Edu Centers — Find an iTestU Partner Near You",
   description:
-    "Browse official iTestU Edu Centers delivering real computer-delivered IELTS mocks with certified examiner feedback. Join your local centre or partner with us.",
+    "Browse iTestU Edu Centers for computer-delivered IELTS mocks and student practice subscriptions. Partner with us for bulk mock credits, reporting, and centre onboarding.",
   alternates: { canonical: "/centers" },
 };
 
@@ -30,6 +31,12 @@ const PARTNER_BENEFITS = [
     title: "Centre reporting",
     body: "Band distributions, skill breakdowns, and improvement trends for your students.",
     accent: "bg-violet-50 text-violet-600",
+  },
+  {
+    icon: BookOpen,
+    title: "Student practice hub",
+    body: "Enrolled students buy Reading, Listening, and AI Writing practice packages in their centre portal — between scheduled mock days.",
+    accent: "bg-amber-50 text-amber-700",
   },
   {
     icon: GraduationCap,
@@ -51,7 +58,7 @@ export default async function CentersPage() {
       <PageHero
         eyebrow="Edu Centers"
         title="Find your local Edu Center"
-        subtitle="Official education centres delivering real computer-delivered IELTS mocks with certified examiner feedback — join the one nearest you."
+        subtitle="Partner education centres delivering computer-delivered IELTS mocks with certified examiner feedback — join the one nearest you."
       />
 
       {centers.length > 0 ? <PartnerMarquee centers={centers} /> : null}
@@ -93,13 +100,15 @@ export default async function CentersPage() {
         )}
       </Section>
 
+      <InstitutionStudentOfferingsSection />
+
       <Section id="partner" className="scroll-mt-24 bg-white">
         <div className="grid items-start gap-12 lg:grid-cols-[1fr_1.1fr]">
           <Reveal>
             <SectionHeading
               eyebrow="Partner with iTestU"
               title="Run an Edu Center?"
-              subtitle="Buy mocks in bulk, manage students from one dashboard, and deliver the most realistic IELTS preparation available."
+              subtitle="Buy mock credits in bulk, offer practice subscriptions to enrolled students, and deliver the most realistic IELTS preparation available."
             />
             <Stagger className="mt-10 space-y-4">
               {PARTNER_BENEFITS.map((b) => (
@@ -125,10 +134,10 @@ export default async function CentersPage() {
             <p className="mt-8 text-sm text-muted">
               Prefer email?{" "}
               <a
-                href="mailto:institutions@itestu.uz"
+                href="mailto:support@itestu.uz"
                 className="font-semibold text-navy underline-offset-4 hover:underline"
               >
-                institutions@itestu.uz
+                support@itestu.uz
               </a>
             </p>
             {telegramApplyLink ? (

@@ -8,23 +8,25 @@ import { TestimonialCard } from "@/components/marketing/shared/testimonial-card"
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchPackages, fetchTestimonials } from "@/lib/marketing/server-data";
 
+import { PRODUCT_CLAIMS } from "@/lib/marketing/data";
+
 export const metadata: Metadata = {
-  title: "Mock Exams — iTestU IELTS Packages (Academic, GT & Single Skills)",
+  title: "Mock Exams — iTestU IELTS Packages (Academic & Single Skills)",
   description:
-    "Choose your IELTS mock exam package: full 4-skill Academic or General Training, or single Speaking and Writing modules. Real examiners, same-day results.",
+    "Choose your IELTS mock exam package: full 4-skill Academic or single Speaking, Writing, Listening, and Reading modules. Real examiners, results when all skills are graded.",
   alternates: { canonical: "/mock-exams" },
 };
 
 const INFO = [
   {
     icon: CalendarCheck,
-    title: "Academic vs GT",
-    body: "Academic is required for university admission, professional registration, and certain visas. General Training is for secondary education, work experience, and migration.",
+    title: "Academic now, GT soon",
+    body: PRODUCT_CLAIMS.academicOnlyNote,
   },
   {
     icon: UserCheck,
     title: "Examiner selection",
-    body: "All packages include examiner selection for Writing and Speaking modules. Browse by speciality, rating, and availability before you book.",
+    body: "All packages include examiner selection for Writing and Speaking modules. Browse by speciality and rating, then pick who grades you.",
   },
   {
     icon: Server,
@@ -44,7 +46,7 @@ export default async function MockExamsPage() {
       <PageHero
         eyebrow="Mock Exams"
         title="Choose your exam package"
-        subtitle="Academic or General Training. Full 4-skill or individual modules. Real examiners, same-day results."
+        subtitle="Academic full mocks and single-skill modules. Real examiners, results when all skills are graded."
       />
 
       <Section className="pt-12">
@@ -78,7 +80,7 @@ export default async function MockExamsPage() {
 
       <FinalCta
         title="Ready to sit your mock?"
-        subtitle="Book a full 4-skill mock with a certified examiner. Same-day results."
+        subtitle="Book a full 4-skill Academic mock with a certified examiner. Results release when all skills are graded."
         primaryLabel="Book a Full Mock — 56,000 so'm"
       />
     </>

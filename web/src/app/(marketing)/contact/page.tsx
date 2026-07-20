@@ -15,14 +15,14 @@ export const metadata: Metadata = {
 };
 
 const METHODS = [
-  { icon: Mail, title: "Email support", body: "support@itestu.uz — we aim to reply within 4 hours.", action: "Send email", href: "mailto:support@itestu.uz", accent: "bg-violet-50 text-violet-600", btn: "bg-violet-50 text-violet-700" },
-  { icon: Globe, title: "Help centre", body: "Self-service exam guides and answers to common questions.", action: "Browse FAQ", href: "/faq", accent: "bg-amber-50 text-amber-600", btn: "bg-amber-50 text-amber-700" },
+  { icon: Mail, title: "Email support", body: "support@itestu.uz — we aim to reply within one business day.", action: "Send email", href: "mailto:support@itestu.uz", accent: "bg-violet-50 text-violet-600", btn: "bg-violet-50 text-violet-700" },
+  { icon: Globe, title: "FAQ", body: "Answers to common questions about booking, exam day, and results.", action: "Browse FAQ", href: "/faq", accent: "bg-amber-50 text-amber-600", btn: "bg-amber-50 text-amber-700" },
 ];
 
 const RESPONSE = [
-  ["General support", "< 4 hours", "text-emerald-600"],
-  ["Technical issues", "< 2 hours", "text-emerald-600"],
-  ["Billing enquiries", "< 6 hours", "text-amber-600"],
+  ["General support", "< 1 business day", "text-emerald-600"],
+  ["Technical issues", "< 1 business day", "text-emerald-600"],
+  ["Billing enquiries", "< 1 business day", "text-amber-600"],
   ["Institution sales", "< 1 business day", "text-violet-600"],
   ["Press & media", "< 2 business days", "text-violet-600"],
 ];

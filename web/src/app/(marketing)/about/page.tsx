@@ -22,7 +22,7 @@ const VALUES = [
 ];
 
 const CREDIBILITY = [
-  ["Official CBT Format", "Computer-delivered interface tested against real exam conditions by certified examiners."],
+  ["Computer-delivered mock", "Realistic computer-delivered interface tested against real exam conditions by certified examiners."],
   ["Verified Examiners", "All credentials independently verified before onboarding. Ongoing calibration."],
   ["Secure Payments", "Encrypted checkout handled by our payment provider. No card data stored on our servers."],
 ];
@@ -104,7 +104,7 @@ export default async function AboutPage() {
 
       <Section className="bg-white">
         <Reveal>
-          <SectionHeading align="center" eyebrow="Credibility" title="Recognised and trusted" />
+          <SectionHeading align="center" eyebrow="Credibility" title="Built for exam-day realism" />
         </Reveal>
         <Stagger className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {CREDIBILITY.map(([title, body]) => (

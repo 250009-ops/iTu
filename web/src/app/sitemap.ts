@@ -8,6 +8,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticRoutes = [
     { path: "/", priority: 1, freq: "weekly" as const },
+    { path: "/practice", priority: 0.85, freq: "weekly" as const },
     { path: "/mock-exams", priority: 0.9, freq: "weekly" as const },
     { path: "/how-it-works", priority: 0.8, freq: "monthly" as const },
     { path: "/teachers", priority: 0.8, freq: "weekly" as const },
@@ -22,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/faq", priority: 0.6, freq: "monthly" as const },
     { path: "/terms", priority: 0.3, freq: "yearly" as const },
     { path: "/privacy", priority: 0.3, freq: "yearly" as const },
+    { path: "/download", priority: 0.5, freq: "monthly" as const },
   ];
 
   const teachers = await fetchTeachers().catch(() => []);

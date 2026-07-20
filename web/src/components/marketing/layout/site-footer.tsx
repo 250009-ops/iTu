@@ -45,7 +45,7 @@ export function SiteFooter() {
               <Lock className="h-3.5 w-3.5" /> SSL Secured
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5" /> Official CBT Format
+              <ShieldCheck className="h-3.5 w-3.5" /> Computer-delivered mock
             </span>
           </div>
         </div>

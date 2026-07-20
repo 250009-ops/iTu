@@ -1,7 +1,6 @@
 import { API_BASE_URL } from "@/lib/api/config";
 import { SPECIALITY_ACCENT } from "@/components/marketing/ui/accents";
 import {
-  PACKAGES,
   type AccentColor,
   type TopStudent,
   type TopTeacher,
@@ -226,7 +225,7 @@ type ApiPackage = {
 
 export async function fetchPackages(): Promise<MockPackage[]> {
   const data = await get<ApiPackage[]>("/catalog/packages");
-  if (data === null) return PACKAGES;
+  if (data === null) return [];
   if (data.length === 0) return [];
   return data.map((p) => ({
     id: p.id,

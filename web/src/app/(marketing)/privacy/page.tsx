@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { LegalDoc, type LegalSection } from "@/components/marketing/shared/legal-doc";
+import { LEGAL } from "@/lib/marketing/data";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "How iTestU collects, uses, stores, and protects your personal data — including exam recordings, payment information, and your rights under GDPR.",
+    "How iTestU collects, uses, stores, and protects your personal data — including exam recordings, payment information, and your privacy rights.",
   alternates: { canonical: "/privacy" },
 };
 
@@ -135,17 +136,12 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          Depending on your location, you have rights to access, correct, export, restrict, or delete
-          your personal data, and to object to certain processing. You may also withdraw consent for
-          marketing at any time.
-        </p>
-        <p>
-          To exercise any of these rights, contact us at{" "}
+          {LEGAL.privacyIntroRights} Contact us at{" "}
           <a
-            href="mailto:support@itestu.uz"
+            href={`mailto:${LEGAL.supportEmail}`}
             className="font-medium text-navy underline underline-offset-2 hover:text-brand-red"
           >
-            support@itestu.uz
+            {LEGAL.supportEmail}
           </a>
           .
         </p>
@@ -155,13 +151,7 @@ const SECTIONS: LegalSection[] = [
   {
     id: "cookies",
     heading: "Cookies",
-    body: (
-      <p>
-        We use essential cookies to keep you signed in and to secure the Service, and limited analytics
-        cookies to understand usage. You can control non-essential cookies through your browser
-        settings.
-      </p>
-    ),
+    body: <p>{LEGAL.cookiesSection}</p>,
   },
   {
     id: "contact",

@@ -5,6 +5,8 @@ export interface AuthSession {
   role: UserRole;
   email: string;
   name: string;
+  /** True when the student is linked to an Edu Center (inst-student portal). */
+  institutionLinked?: boolean;
 }
 
 const SESSION_KEY = "ielts_mock_session";
@@ -23,7 +25,7 @@ export const DASHBOARD_PATHS: Record<UserRole, string> = {
 
 function readRawSession(): string | null {
   if (typeof window === "undefined") return null;
-  // localStorage is shared across tabs; sessionStorage is a same-tab fallback.
+  // Prefer localStorage (Remember me). Fall back to sessionStorage (this browser session).
   return (
     localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY)
   );
@@ -73,6 +75,11 @@ function syncCacheFromStorage(): AuthSession | null {
   }
 }
 
+/**
+ * Persist the auth session.
+ * - rememberMe=true  → localStorage only (survives browser restart)
+ * - rememberMe=false → sessionStorage only (cleared when the browser session ends)
+ */
 export function setSession(
   session: AuthSession,
   options?: { rememberMe?: boolean },
@@ -85,13 +92,11 @@ export function setSession(
   sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_KEY);
 
-  // Always mirror to localStorage so marketing + portal tabs stay in sync.
-  localStorage.setItem(SESSION_KEY, raw);
-  sessionStorage.setItem(SESSION_KEY, raw);
-
   if (rememberMe) {
+    localStorage.setItem(SESSION_KEY, raw);
     localStorage.setItem(REMEMBER_KEY, "1");
   } else {
+    sessionStorage.setItem(SESSION_KEY, raw);
     localStorage.removeItem(REMEMBER_KEY);
   }
 
@@ -135,4 +140,10 @@ export function normalizeRole(role: string): UserRole {
     return lower;
   }
   return "student";
+}
+
+/** Practice shop path for the current student session (marketplace vs centre). */
+export function studentPracticeShopPath(session: AuthSession): string {
+  if (session.institutionLinked) return "/inst-student/practice/shop";
+  return "/student/practice/shop";
 }

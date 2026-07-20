@@ -75,6 +75,7 @@ export default function LoginForm() {
         role,
         email: verified.email,
         name: verified.name,
+        institutionLinked: verified.institution != null,
       },
       { rememberMe },
     );

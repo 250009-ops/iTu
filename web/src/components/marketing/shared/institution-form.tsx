@@ -129,10 +129,10 @@ export function InstitutionForm() {
       <p className="mt-3 text-center text-xs text-muted">
         Or email us directly at{" "}
         <a
-          href="mailto:institutions@itestu.uz"
+          href="mailto:support@itestu.uz"
           className="font-semibold text-navy hover:underline"
         >
-          institutions@itestu.uz
+          support@itestu.uz
         </a>
       </p>
     </form>

@@ -12,15 +12,15 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "Become an IELTS Examiner — Earn From Remote Grading",
   description:
-    "Certified examiner? Join a network of professionals earning from flexible, fully remote IELTS Writing grading and live Speaking sessions. Set your own schedule, get paid weekly.",
+    "Certified examiner? Join a network of professionals earning from flexible, fully remote IELTS Writing grading and live Speaking sessions. Set your own schedule and request payout on your terms.",
   alternates: { canonical: "/for-teachers" },
 };
 
 const STEPS = [
   { n: "Step 01", icon: BadgeCheck, title: "Apply & verify", body: "Submit your CELTA/DELTA credentials and complete a short grading calibration. Our team verifies all examiners before they go live.", accent: "bg-sky-50 text-sky-600" },
   { n: "Step 02", icon: CalendarDays, title: "Set your availability", body: "Mark the days and times you're available. You control how many sessions you take — grade 5 tasks a week or 50.", accent: "bg-violet-50 text-violet-600" },
-  { n: "Step 03", icon: PenLine, title: "Grade & conduct", body: "Writing tasks arrive in your queue as PDFs. Speaking slots are booked by students who select you by name.", accent: "bg-rose-50 text-rose-600" },
-  { n: "Step 04", icon: DollarSign, title: "Get paid weekly", body: "Transparent earnings dashboard. Payments processed every Monday for the previous week's work.", accent: "bg-emerald-50 text-emerald-600" },
+  { n: "Step 03", icon: PenLine, title: "Grade & conduct", body: "Writing tasks arrive in your examiner queue in the platform. Speaking slots are booked by students who select you by name.", accent: "bg-rose-50 text-rose-600" },
+  { n: "Step 04", icon: DollarSign, title: "Request payout", body: "Transparent earnings dashboard. Request payout on your schedule — our team processes payments according to your examiner agreement.", accent: "bg-emerald-50 text-emerald-600" },
 ];
 
 const REQUIRED = [

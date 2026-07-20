@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { LegalDoc, type LegalSection } from "@/components/marketing/shared/legal-doc";
+import { LEGAL } from "@/lib/marketing/data";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -86,9 +87,14 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          You may cancel a booking for a full refund up to 48 hours before your scheduled session.
-          Cancellations within 48 hours are eligible for a 50% refund or a free reschedule, at your
-          choice.
+          You may reschedule an upcoming mock from your account before check-in. For refund requests,
+          contact {LEGAL.supportEmail} with your booking reference — our support team handles refunds
+          on a case-by-case basis.
+        </p>
+        <p>
+          Cancellations more than {LEGAL.refundWindowHours} hours before your scheduled session are
+          typically eligible for a full refund. Cancellations within {LEGAL.refundWindowHours} hours
+          may receive a partial refund or a free reschedule, at our discretion.
         </p>
         <p>
           If we cancel a session for reasons within our control, you are entitled to a full refund or a

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Check, ArrowRight, Lock } from "lucide-react";
-import { PACKAGES, SKILL_META, type MockPackage } from "@/lib/marketing/data";
+import { PACKAGES, SKILL_META, bookHref, type MockPackage } from "@/lib/marketing/data";
 import { formatPrice } from "@/lib/format-price";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import { SkillIcon, StarRating } from "@/components/marketing/ui/primitives";
@@ -14,7 +13,7 @@ type Props = {
 };
 
 export function PricingPlans({ packages = PACKAGES }: Props) {
-  const [examType, setExamType] = useState<"ACADEMIC" | "GENERAL_TRAINING">("ACADEMIC");
+  const examType = "ACADEMIC" as const;
 
   const full = packages.find(
     (p) => p.examType === examType && p.skills.length === 4,
@@ -31,27 +30,10 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
 
   return (
     <div>
-      {/* Toggle */}
-      <div className="mx-auto flex w-fit items-center gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-border">
-        {(
-          [
-            ["ACADEMIC", "Academic"],
-            ["GENERAL_TRAINING", "General Training"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setExamType(id)}
-            className={cn(
-              "rounded-full px-5 py-2 text-sm font-semibold transition-colors",
-              examType === id ? "bg-navy text-white" : "text-muted hover:text-navy",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <p className="mx-auto max-w-lg text-center text-sm text-muted">
+        Academic full mocks and single-skill modules are available now. General Training is coming
+        soon.
+      </p>
 
       <div className="mt-10 grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
         {full ? (
@@ -113,13 +95,13 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
             </ul>
 
             <Link
-              href={`/mock-exams?package=${encodeURIComponent(full.slug)}`}
+              href={bookHref(full.slug)}
               className="mt-7 flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
             >
               Book Full Mock Exam <ArrowRight className="h-4 w-4" />
             </Link>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
-              <Lock className="h-3 w-3" /> Secure Stripe checkout · Instant confirmation
+              <Lock className="h-3 w-3" /> Secure Uzum Checkout · Instant confirmation
             </p>
           </div>
         ) : (
@@ -152,7 +134,7 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                   ))}
                 </ul>
                 <Link
-                  href={`/mock-exams?package=${encodeURIComponent(pkg.slug)}`}
+                  href={bookHref(pkg.slug)}
                   className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-navy text-sm font-semibold text-white transition-colors hover:bg-navy-light"
                 >
                   Book <ArrowRight className="h-4 w-4" />

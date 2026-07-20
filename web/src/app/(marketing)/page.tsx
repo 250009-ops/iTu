@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { SITE, MARKETING_FAQS } from "@/lib/marketing/data";
+import { SITE, MARKETING_FAQS, fullMockCtaLabel } from "@/lib/marketing/data";
 import {
   fetchStats,
   fetchHeroStats,
@@ -15,6 +15,7 @@ import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/pr
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { HomeHero } from "@/components/marketing/home/home-hero";
 import { ExaminerBand } from "@/components/marketing/home/examiner-band";
+import { CentersTeaser } from "@/components/marketing/home/centers-teaser";
 import { PartnerMarquee } from "@/components/marketing/shared/partner-marquee";
 import { StatsBand } from "@/components/marketing/shared/stats-band";
 import { SkillsGrid } from "@/components/marketing/shared/skills-grid";
@@ -25,9 +26,10 @@ import { TestimonialCard } from "@/components/marketing/shared/testimonial-card"
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { MarketingDesktopAppSection } from "@/components/marketing/shared/desktop-app-section";
+import { PracticeOfferingSection } from "@/components/marketing/shared/practice-offering-section";
 
 export const metadata: Metadata = {
-  title: `${SITE.name} — Realistic IELTS Mock Exams with Real Examiners & Same-Day Results`,
+  title: `${SITE.name} — Realistic IELTS Mock Exams with Real Examiners`,
   description: SITE.description,
   alternates: { canonical: "/" },
 };
@@ -62,7 +64,7 @@ function buildJsonLd(rating: string | null) {
         name: SITE.name,
         alternateName: [...SITE.alternateNames],
         url: SITE.domain,
-        logo: `${SITE.domain}/logo/itestu3.svg`,
+        logo: `${SITE.domain}/icon-512.png`,
         foundingDate: String(SITE.foundedYear),
         description: SITE.description,
       },
@@ -150,6 +152,8 @@ export default async function HomePage() {
         </Reveal>
       </Section>
 
+      <PracticeOfferingSection className="bg-slate-50 pt-0" />
+
       <MarketingDesktopAppSection />
 
       {leaderboard.length > 0 ? (
@@ -214,6 +218,8 @@ export default async function HomePage() {
         </Section>
       ) : null}
 
+      <CentersTeaser />
+
       <ExaminerBand examiners={heroStats.examiners} />
 
       <Section className="bg-white">
@@ -233,7 +239,7 @@ export default async function HomePage() {
       <FinalCta
         title="Ready to find out your real band?"
         subtitle={candidatesCtaCopy(heroStats.candidates)}
-        primaryLabel="Book a Full Mock"
+        primaryLabel={fullMockCtaLabel()}
       />
     </>
   );
