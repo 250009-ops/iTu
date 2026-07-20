@@ -82,31 +82,23 @@ export function InstitutionMockShopView() {
       />
 
       <ApiDataShell loading={loading} error={error}>
-        {!sets.length ? (
-          <div className="rounded-xl border border-border bg-white px-6 py-12 text-center">
-            <p className="text-sm text-muted">
-              You already own all available mock sets, or none are listed for sale
-              right now.
-            </p>
-            <Link href="/institution/mocks" className="mt-4 inline-block">
-              <Button variant="primary" size="sm">
-                View my mocks
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-6">
-            {sets.map((offer) => (
-              <MockProductCard
-                key={offer.setId}
-                mode="institutionShop"
-                product={mapShopProduct(offer.product)}
-                buying={checkingOutSetId === offer.setId}
-                onBuyClick={() => void handleBuy(offer.setId)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="grid gap-6">
+          {sets.map((offer) => (
+            <MockProductCard
+              key={offer.setId ?? offer.slug}
+              mode="institutionShop"
+              product={mapShopProduct(offer.product)}
+              buying={checkingOutSetId === offer.setId}
+              purchaseDisabled={!offer.canPurchase}
+              purchaseDisabledReason={offer.disabledReason}
+              onBuyClick={
+                offer.canPurchase && offer.setId
+                  ? () => void handleBuy(offer.setId!)
+                  : undefined
+              }
+            />
+          ))}
+        </div>
       </ApiDataShell>
     </div>
   );

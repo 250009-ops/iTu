@@ -299,7 +299,10 @@ export class InstitutionService {
 
   async getMocks(user: RequestUser) {
     const institution = await this.getInstitutionOrThrow(user);
-    return this.mockSets.listMocksForInstitution(institution.id);
+    return this.mockSets.listMocksForInstitution(
+      institution.id,
+      institution.currency,
+    );
   }
 
   async getMockShop(user: RequestUser) {

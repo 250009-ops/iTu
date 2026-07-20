@@ -48,17 +48,56 @@ export function getInstitutionMocks() {
       grantedAt: string;
       source: "ADMIN_GRANT" | "PURCHASE";
     }[];
+    preview: {
+      tabs: {
+        tabId: string;
+        label: string;
+        packageKind: string;
+        examType: string;
+      }[];
+      packages: {
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        price: number;
+        currency: string;
+        examType: string;
+        packageKind: string;
+        mockNumber: number;
+        mostPopular: boolean;
+        rating: number | null;
+        reviewCount: number;
+        skills: unknown;
+        included: unknown;
+        rules: unknown;
+        grantSetId: string;
+        grantSetTitle: string;
+        grantSource: "ADMIN_GRANT" | "PURCHASE";
+      }[];
+      showcaseSetTitle: string;
+    } | null;
   }>("/institution/mocks");
 }
 
+export type InstitutionMockPackage = Awaited<
+  ReturnType<typeof getInstitutionMocks>
+>["packages"][number];
+
+export type InstitutionMockPreview = NonNullable<
+  Awaited<ReturnType<typeof getInstitutionMocks>>["preview"]
+>;
+
 export type InstitutionMockShopOffer = {
-  setId: string;
+  setId: string | null;
   slug: string;
   title: string;
   description: string | null;
   listPrice: number;
   currency: string;
   contentSummary: string;
+  canPurchase: boolean;
+  disabledReason?: string;
   product: {
     id: string;
     slug: string;

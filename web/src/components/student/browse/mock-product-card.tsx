@@ -94,6 +94,8 @@ export function MockProductCard({
   onEnrollClick,
   onBuyClick,
   buying = false,
+  purchaseDisabled = false,
+  purchaseDisabledReason,
 }: {
   product: BrowseProduct;
   autoOpenBooking?: boolean;
@@ -106,11 +108,14 @@ export function MockProductCard({
   onEnrollClick?: () => void;
   onBuyClick?: () => void;
   buying?: boolean;
+  purchaseDisabled?: boolean;
+  purchaseDisabledReason?: string;
 }) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const isInstitution = mode === "institution";
   const isInstitutionShop = mode === "institutionShop";
   const showPrice = mode === "student" || isInstitutionShop;
+  const buyDisabled = isInstitutionShop && (purchaseDisabled || !onBuyClick);
 
   useEffect(() => {
     if (autoOpenBooking) {
@@ -187,7 +192,9 @@ export function MockProductCard({
           {showPrice && (
             <div className="shrink-0 text-left lg:text-right">
               <p className="text-3xl font-bold">
-                {formatPrice(product.price, product.currency)}
+                {isInstitutionShop && purchaseDisabled && product.price <= 0
+                  ? "Price on request"
+                  : formatPrice(product.price, product.currency)}
               </p>
               <p className="text-sm text-slate-400">
                 {isInstitutionShop ? "per set" : "per attempt"}
@@ -278,8 +285,9 @@ export function MockProductCard({
           size="lg"
           className="flex-1 sm:max-w-md"
           loading={buying}
+          disabled={buyDisabled}
           onClick={() => {
-            if (isInstitutionShop) onBuyClick?.();
+            if (isInstitutionShop && !buyDisabled) onBuyClick?.();
             else if (isInstitution) onEnrollClick?.();
             else setWizardOpen(true);
           }}
@@ -291,7 +299,12 @@ export function MockProductCard({
               : product.bookCta}
           <ArrowRight className="h-4 w-4" />
         </Button>
-        {(mode === "student" || isInstitutionShop) && (
+        {isInstitutionShop && buyDisabled && purchaseDisabledReason && (
+          <p className="text-center text-xs text-muted sm:text-left">
+            {purchaseDisabledReason}
+          </p>
+        )}
+        {(mode === "student" || (isInstitutionShop && !buyDisabled)) && (
           <p className="flex items-center justify-center gap-1.5 text-xs text-muted sm:justify-start">
             <Lock className="h-3.5 w-3.5" />
             Pay securely with international Visa cards (including Uzum Bank Visa)

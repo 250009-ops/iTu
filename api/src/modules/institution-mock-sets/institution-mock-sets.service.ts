@@ -584,7 +584,7 @@ export class InstitutionMockSetsService {
     return items.map((i) => i.packageId);
   }
 
-  async listMocksForInstitution(institutionId: string) {
+  async listMocksForInstitution(institutionId: string, currency = 'UZS') {
     const grants = await this.prisma.institutionMockSetGrant.findMany({
       where: { institutionId },
       include: {
@@ -601,7 +601,8 @@ export class InstitutionMockSetsService {
       .map((g) => g.setId);
 
     if (activeGrantSetIds.length === 0) {
-      return { tabs: [], packages: [], grants: [] };
+      const preview = await this.buildMocksPreview(currency);
+      return { tabs: [], packages: [], grants: [], preview };
     }
 
     const items = await this.prisma.institutionMockSetItem.findMany({
@@ -650,7 +651,7 @@ export class InstitutionMockSetsService {
       examType: group.examType,
     }));
 
-    return { tabs, packages, grants: grantMeta };
+    return { tabs, packages, grants: grantMeta, preview: null };
   }
 
   async listShopForInstitution(institutionId: string, currency: string) {
@@ -661,12 +662,7 @@ export class InstitutionMockSetsService {
     const ownedSetIds = new Set(owned.map((g) => g.setId));
 
     const sets = await this.prisma.institutionMockSet.findMany({
-      where: {
-        isActive: true,
-        isListed: true,
-        listPrice: { gt: 0 },
-        id: { notIn: [...ownedSetIds] },
-      },
+      where: { isActive: true },
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
@@ -676,10 +672,20 @@ export class InstitutionMockSetsService {
       orderBy: { title: 'asc' },
     });
 
+    if (sets.length === 0) {
+      return { sets: [this.buildPlaceholderShopOffer(currency)] };
+    }
+
     return {
-      sets: sets
-        .filter((set) => set.items.some((item) => item.package.isActive))
-        .map((set) => this.buildSetShopOffer(set, currency)),
+      sets: sets.map((set) => {
+        const purchase = this.evaluateSetPurchase(set, ownedSetIds);
+        const offer = this.buildSetShopOffer(set, currency);
+        return {
+          ...offer,
+          canPurchase: purchase.canPurchase,
+          disabledReason: purchase.disabledReason,
+        };
+      }),
     };
   }
 
@@ -734,6 +740,208 @@ export class InstitutionMockSetsService {
     });
   }
 
+  private evaluateSetPurchase(
+    set: {
+      id: string;
+      isListed: boolean;
+      listPrice: number;
+      items: { package: { isActive: boolean } }[];
+    },
+    ownedSetIds: Set<string>,
+  ): { canPurchase: boolean; disabledReason?: string } {
+    if (ownedSetIds.has(set.id)) {
+      return { canPurchase: false, disabledReason: 'You already own this set' };
+    }
+    if (!set.isListed) {
+      return { canPurchase: false, disabledReason: 'Not listed for sale yet' };
+    }
+    if (set.listPrice <= 0) {
+      return { canPurchase: false, disabledReason: 'Price not configured' };
+    }
+    const hasActiveItems = set.items.some((item) => item.package.isActive);
+    if (!hasActiveItems) {
+      return { canPurchase: false, disabledReason: 'Set content not ready' };
+    }
+    return { canPurchase: true };
+  }
+
+  private async buildMocksPreview(currency: string) {
+    const showcase = await this.findShowcaseSet();
+    if (showcase) {
+      return this.buildPreviewFromSet(showcase, currency);
+    }
+    return this.buildPlaceholderPreview(currency);
+  }
+
+  private async findShowcaseSet() {
+    const listed = await this.prisma.institutionMockSet.findFirst({
+      where: {
+        isActive: true,
+        isListed: true,
+        items: { some: { package: { isActive: true } } },
+      },
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+          include: { package: true },
+        },
+      },
+      orderBy: { title: 'asc' },
+    });
+    if (listed) return listed;
+
+    return this.prisma.institutionMockSet.findFirst({
+      where: {
+        isActive: true,
+        items: { some: { package: { isActive: true } } },
+      },
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+          include: { package: true },
+        },
+      },
+      orderBy: { title: 'asc' },
+    });
+  }
+
+  private buildPreviewFromSet(
+    set: {
+      id: string;
+      title: string;
+      items: {
+        package: {
+          id: string;
+          slug: string;
+          title: string;
+          description: string | null;
+          price: number;
+          currency: string;
+          examType: ExamType;
+          packageKind: string;
+          mockNumber: number;
+          mostPopular: boolean;
+          rating: number | null;
+          reviewCount: number;
+          skills: unknown;
+          included: unknown;
+          rules: unknown;
+          isActive: boolean;
+        };
+      }[];
+    },
+    _currency: string,
+  ) {
+    const packages = set.items
+      .filter((item) => item.package.isActive)
+      .map((item) => ({
+        ...this.toCatalogPackage(item.package),
+        grantSetId: set.id,
+        grantSetTitle: set.title,
+        grantSource: InstitutionMockSetGrantSource.ADMIN_GRANT,
+      }));
+
+    const tabs = this.buildTabsFromPackages(packages);
+
+    return {
+      tabs,
+      packages,
+      showcaseSetTitle: set.title,
+    };
+  }
+
+  private buildPlaceholderPreview(currency: string) {
+    const showcaseSetTitle = 'Institution Mock Set';
+    const sectionOrder = ['listening', 'reading', 'writing'] as const;
+    const packages = sectionOrder.map((kind, index) => {
+      const template = getPackageContentTemplate(kind, ExamType.ACADEMIC);
+      const meta = SECTION_SKILL_META[kind];
+      return {
+        id: `preview-${kind}`,
+        slug: `preview-${kind}`,
+        title: `${meta.name} Mock`,
+        description: template.description || null,
+        price: 0,
+        currency,
+        examType: ExamType.ACADEMIC,
+        packageKind: kind,
+        mockNumber: index + 1,
+        mostPopular: false,
+        rating: null,
+        reviewCount: 0,
+        skills: [kind],
+        included: template.included,
+        rules: template.rules,
+        grantSetId: 'preview',
+        grantSetTitle: showcaseSetTitle,
+        grantSource: InstitutionMockSetGrantSource.ADMIN_GRANT,
+      };
+    });
+
+    return {
+      tabs: this.buildTabsFromPackages(packages),
+      packages,
+      showcaseSetTitle,
+    };
+  }
+
+  private buildTabsFromPackages(
+    packages: { packageKind: string; examType: ExamType | string }[],
+  ) {
+    const seen = new Map<string, OfferGroup>();
+    for (const pkg of packages) {
+      const key = groupKey(pkg.packageKind, pkg.examType as ExamType);
+      if (!seen.has(key)) {
+        seen.set(key, {
+          packageKind: pkg.packageKind,
+          examType: pkg.examType as ExamType,
+        });
+      }
+    }
+
+    return sortOfferGroups([...seen.values()]).map((group) => ({
+      tabId: buildTabId(group.packageKind, group.examType),
+      label: buildTabLabel(group.packageKind, group.examType),
+      packageKind: group.packageKind,
+      examType: group.examType,
+    }));
+  }
+
+  private buildPlaceholderShopOffer(currency: string) {
+    const title = 'Institution Mock Set';
+    const product = this.buildSetShopProduct(
+      {
+        id: 'placeholder',
+        slug: 'institution-mock-set',
+        title,
+        description:
+          'B2B bundle of platform section mocks — enroll unlimited students after purchase.',
+        listPrice: 0,
+      },
+      SECTION_KINDS.map((kind) => ({
+        packageKind: kind,
+        examType: ExamType.ACADEMIC,
+        included: getPackageContentTemplate(kind, ExamType.ACADEMIC).included,
+        rules: getPackageContentTemplate(kind, ExamType.ACADEMIC).rules,
+      })),
+      currency,
+    );
+
+    return {
+      setId: null as string | null,
+      slug: 'institution-mock-set',
+      title,
+      description: product.description,
+      listPrice: 0,
+      currency,
+      contentSummary: 'Listening · Reading · Writing',
+      canPurchase: false,
+      disabledReason:
+        'Mock sets are not available for purchase yet. Contact iTestU admin.',
+      product,
+    };
+  }
+
   private assertValidListingPrice(isListed: boolean, listPrice: number) {
     if (isListed && listPrice <= 0) {
       throw new BadRequestException(
@@ -774,7 +982,12 @@ export class InstitutionMockSetsService {
       .map((item) => item.package)
       .filter((pkg) => pkg.isActive);
 
-    const product = this.buildSetShopProduct(set, activePackages, currency);
+    const packagesForProduct =
+      activePackages.length > 0
+        ? activePackages
+        : set.items.map((item) => item.package);
+
+    const product = this.buildSetShopProduct(set, packagesForProduct, currency);
 
     return {
       setId: set.id,

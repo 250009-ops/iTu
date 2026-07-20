@@ -14,13 +14,22 @@ import {
   getInstitutionMocks,
   getInstitutionStudents,
   getMockSetOrderStatus,
+  type InstitutionMockPackage,
+  type InstitutionMockPreview,
 } from "@/lib/api/institution";
 import { mapBrowseProduct } from "@/lib/api/mappers/student";
 import { PageHeader } from "@/components/institution/ui";
 
-type InstitutionMockPackage = Awaited<
-  ReturnType<typeof getInstitutionMocks>
->["packages"][number];
+type MockPackageLike = InstitutionMockPackage | InstitutionMockPreview["packages"][number];
+
+function toBrowseProduct(pkg: MockPackageLike) {
+  return mapBrowseProduct({
+    ...pkg,
+    skills: (pkg.skills as string[]) ?? [],
+    included: (pkg.included as string[]) ?? [],
+    rules: (pkg.rules as string[]) ?? [],
+  });
+}
 
 export function InstitutionMocksView() {
   const searchParams = useSearchParams();
@@ -31,7 +40,9 @@ export function InstitutionMocksView() {
     Awaited<ReturnType<typeof getInstitutionMocks>>["tabs"]
   >([]);
   const [packages, setPackages] = useState<InstitutionMockPackage[]>([]);
+  const [preview, setPreview] = useState<InstitutionMockPreview | null>(null);
   const [activeTabId, setActiveTabId] = useState("");
+  const [previewTabId, setPreviewTabId] = useState("");
   const [pickStudentFor, setPickStudentFor] = useState<InstitutionMockPackage | null>(
     null,
   );
@@ -53,7 +64,9 @@ export function InstitutionMocksView() {
       .then((data) => {
         setTabs(data.tabs);
         setPackages(data.packages);
+        setPreview(data.preview);
         setActiveTabId(data.tabs[0]?.tabId ?? "");
+        setPreviewTabId(data.preview?.tabs[0]?.tabId ?? "");
         setError(null);
       })
       .catch(() => setError("Failed to load your mock sets"))
@@ -96,6 +109,17 @@ export function InstitutionMocksView() {
     );
   }, [packages, tabs, activeTabId]);
 
+  const previewTabPackages = useMemo(() => {
+    if (!preview) return [];
+    const tab = preview.tabs.find((t) => t.tabId === previewTabId);
+    if (!tab) return [];
+    return preview.packages.filter(
+      (pkg) =>
+        pkg.packageKind === tab.packageKind &&
+        pkg.examType === tab.examType,
+    );
+  }, [preview, previewTabId]);
+
   async function openStudentPicker(pkg: InstitutionMockPackage) {
     setPickStudentFor(pkg);
     setSelectedStudentId("");
@@ -124,6 +148,7 @@ export function InstitutionMocksView() {
   }
 
   const hasOwnedSets = tabs.length > 0;
+  const showLockedPreview = !hasOwnedSets && preview != null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-4 lg:p-6">
@@ -141,19 +166,46 @@ export function InstitutionMocksView() {
       />
 
       <ApiDataShell loading={loading} error={error}>
-        {!hasOwnedSets ? (
-          <div className="rounded-xl border border-border bg-white px-6 py-12 text-center">
-            <p className="text-sm text-muted">
-              You don&apos;t own any mock sets yet. Browse the shop to purchase a
-              bundle, or ask iTestU admin to grant one to your centre.
-            </p>
-            <Link href="/institution/mocks/shop" className="mt-4 inline-block">
-              <Button variant="primary" size="sm">
-                Browse mock sets
-              </Button>
-            </Link>
+        {showLockedPreview ? (
+          <div className="relative overflow-hidden rounded-xl">
+            <div className="pointer-events-none select-none space-y-8 blur-sm">
+              <BrowseTypeTabs
+                tabs={preview.tabs.map((tab) => ({
+                  tabId: tab.tabId,
+                  label: tab.label,
+                  available: preview.packages.some(
+                    (pkg) =>
+                      pkg.packageKind === tab.packageKind &&
+                      pkg.examType === tab.examType,
+                  ),
+                }))}
+                activeTabId={previewTabId}
+                onTabChange={setPreviewTabId}
+              />
+              <div className="grid gap-6">
+                {previewTabPackages.map((pkg) => (
+                  <MockProductCard
+                    key={pkg.id}
+                    mode="institution"
+                    grantSetTitle={pkg.grantSetTitle}
+                    product={toBrowseProduct(pkg)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 px-6">
+              <Link href="/institution/mocks/shop">
+                <Button variant="danger" size="lg">
+                  Buy Mocks
+                </Button>
+              </Link>
+              <p className="mt-3 max-w-sm text-center text-sm text-muted">
+                Purchase a mock set to unlock student enrollment for{" "}
+                {preview.showcaseSetTitle}.
+              </p>
+            </div>
           </div>
-        ) : (
+        ) : hasOwnedSets ? (
           <>
             <BrowseTypeTabs
               tabs={tabs.map((tab) => ({
@@ -176,12 +228,7 @@ export function InstitutionMocksView() {
                   mode="institution"
                   grantSetTitle={pkg.grantSetTitle}
                   grantSource={pkg.grantSource}
-                  product={mapBrowseProduct({
-                    ...pkg,
-                    skills: (pkg.skills as string[]) ?? [],
-                    included: (pkg.included as string[]) ?? [],
-                    rules: (pkg.rules as string[]) ?? [],
-                  })}
+                  product={toBrowseProduct(pkg)}
                   onEnrollClick={() => void openStudentPicker(pkg)}
                 />
               ))}
@@ -192,7 +239,7 @@ export function InstitutionMocksView() {
               )}
             </div>
           </>
-        )}
+        ) : null}
       </ApiDataShell>
 
       <Modal
@@ -205,14 +252,7 @@ export function InstitutionMocksView() {
           <h2 className="text-base font-bold text-navy">Enroll a student</h2>
           <p className="mt-1 text-sm text-muted">
             Choose an active student for{" "}
-            {pickStudentFor
-              ? mapBrowseProduct({
-                  ...pickStudentFor,
-                  skills: (pickStudentFor.skills as string[]) ?? [],
-                  included: (pickStudentFor.included as string[]) ?? [],
-                  rules: (pickStudentFor.rules as string[]) ?? [],
-                }).title
-              : "this mock"}
+            {pickStudentFor ? toBrowseProduct(pickStudentFor).title : "this mock"}
           </p>
         </div>
         <div className="space-y-4 p-5">
