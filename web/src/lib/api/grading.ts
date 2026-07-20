@@ -1,5 +1,12 @@
 import { apiFetch } from "./client";
 
+export type WritingTask1Visual = {
+  kind: "bar" | "line" | "pie" | "table" | "process" | "map";
+  caption: string;
+  imageUrl?: string;
+  alt?: string;
+};
+
 export function getWritingQueue() {
   return apiFetch<
     {
@@ -69,6 +76,7 @@ export function getWritingSubmission(id: string) {
     task2Text: string | null;
     task1Prompt: string | null;
     task2Prompt: string | null;
+    task1Visual: WritingTask1Visual | null;
     task1VisualCaption: string | null;
     task2VisualCaption: string | null;
     task1WordCount: number;

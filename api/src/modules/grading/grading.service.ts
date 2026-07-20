@@ -19,6 +19,14 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ResultsReleaseService } from '../results/results-release.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
+import { injectWritingTask1ImageUrl } from '../content/content.utils';
+
+type WritingTask1Visual = {
+  kind: 'bar' | 'line' | 'pie' | 'table' | 'process' | 'map';
+  caption: string;
+  imageUrl?: string;
+  alt?: string;
+};
 
 @Injectable()
 export class GradingService {
@@ -184,7 +192,14 @@ export class GradingService {
       include: {
         sectionAttempt: {
           include: {
-            contentTest: { select: { content: true } },
+            contentTest: {
+              select: {
+                content: true,
+                mediaAssets: {
+                  select: { key: true, url: true, sizeBytes: true },
+                },
+              },
+            },
             session: {
               include: {
                 enrollment: {
@@ -215,12 +230,22 @@ export class GradingService {
       void this.writingAi.getOrTriggerEvaluation(id);
     }
 
-    const content = submission.sectionAttempt.contentTest?.content as
-      | { tasks?: { taskNumber?: number; prompt?: string; visual?: { caption?: string } }[] }
+    const contentTest = submission.sectionAttempt.contentTest;
+    const rawContent = contentTest?.content;
+    const mediaAssets = contentTest?.mediaAssets ?? [];
+    const content = injectWritingTask1ImageUrl(rawContent, mediaAssets) as
+      | {
+          tasks?: {
+            taskNumber?: number;
+            prompt?: string;
+            visual?: WritingTask1Visual;
+          }[];
+        }
       | undefined;
     const tasks = content?.tasks ?? [];
     const task1 = tasks.find((t) => t.taskNumber === 1);
     const task2 = tasks.find((t) => t.taskNumber === 2);
+    const task1Visual = task1?.visual?.kind ? task1.visual : null;
 
     const slaMinutesRemaining = submission.slaDueAt
       ? Math.round((submission.slaDueAt.getTime() - Date.now()) / 60_000)
@@ -234,7 +259,8 @@ export class GradingService {
       task2Text: submission.task2Text,
       task1Prompt: task1?.prompt ?? null,
       task2Prompt: task2?.prompt ?? null,
-      task1VisualCaption: task1?.visual?.caption ?? null,
+      task1Visual,
+      task1VisualCaption: task1Visual?.caption ?? null,
       task2VisualCaption: task2?.visual?.caption ?? null,
       task1WordCount: submission.task1WordCount,
       task2WordCount: submission.task2WordCount,

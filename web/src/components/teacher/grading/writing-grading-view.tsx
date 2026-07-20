@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock } from "lucide-react";
 import { AnnotatedEssay } from "@/components/teacher/grading/annotated-essay";
 import { WritingScorePanel } from "@/components/teacher/grading/writing-score-panel";
+import { TaskVisual } from "@/components/exam/writing/task-visual";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { useToast } from "@/components/ui/toast";
@@ -13,6 +14,7 @@ import { useExaminerPaths } from "@/hooks/use-examiner-paths";
 import {
   getWritingSubmission,
   scoreWriting,
+  type WritingTask1Visual,
 } from "@/lib/api/grading";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
@@ -53,11 +55,11 @@ function parseAnnotations(raw: unknown): WritingAnnotation[] {
 function PromptCard({
   task,
   prompt,
-  visualCaption,
+  task1Visual,
 }: {
   task: WritingTaskKey;
   prompt: string | null;
-  visualCaption: string | null;
+  task1Visual?: WritingTask1Visual | null;
 }) {
   const label = task === "task1" ? "Task 1 Prompt" : "Task 2 Prompt";
   return (
@@ -70,14 +72,14 @@ function PromptCard({
       <p className="text-xs font-bold uppercase tracking-wide text-muted">
         {label}
       </p>
-      {visualCaption && (
-        <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-muted">
-          {visualCaption}
-        </p>
-      )}
       <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
         {prompt?.trim() || "Prompt unavailable for this submission."}
       </p>
+      {task === "task1" && task1Visual?.kind && (
+        <div className="mt-4">
+          <TaskVisual visual={task1Visual} />
+        </div>
+      )}
     </div>
   );
 }
@@ -207,10 +209,8 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
 
   const activePrompt =
     activeTask === "task1" ? submission?.task1Prompt : submission?.task2Prompt;
-  const activeVisual =
-    activeTask === "task1"
-      ? submission?.task1VisualCaption
-      : submission?.task2VisualCaption;
+  const activeTask1Visual =
+    activeTask === "task1" ? submission?.task1Visual : null;
   const activeText =
     activeTask === "task1" ? submission?.task1Text : submission?.task2Text;
   const activeWordCount =
@@ -374,7 +374,7 @@ export function WritingGradingView({ submissionId }: { submissionId: string }) {
                 <PromptCard
                   task={activeTask}
                   prompt={activePrompt ?? null}
-                  visualCaption={activeVisual ?? null}
+                  task1Visual={activeTask1Visual}
                 />
 
                 <AnnotatedEssay
