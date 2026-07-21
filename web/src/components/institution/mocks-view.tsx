@@ -168,46 +168,60 @@ export function InstitutionMocksView() {
       <ApiDataShell loading={loading} error={error}>
         {showLockedPreview ? (
           <div className="space-y-6">
-            <div className="rounded-xl border border-sky-200 bg-sky-50 px-6 py-5">
-              <h2 className="text-base font-semibold text-navy">
-                Purchase {preview.showcaseSetTitle} to enroll students
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-muted">
-                Preview the included section mocks below. After purchase, you can
-                enroll students directly from this page.
-              </p>
-              <Link href="/institution/mocks/shop" className="mt-4 inline-block">
-                <Button variant="danger" size="sm">
-                  Buy mock set
-                </Button>
-              </Link>
-            </div>
+            <p className="text-sm text-muted">
+              This is exactly what your Mocks page will look like after purchase —
+              section tabs and enroll cards from your chosen set.
+            </p>
 
-            <BrowseTypeTabs
-              tabs={preview.tabs.map((tab) => ({
-                tabId: tab.tabId,
-                label: tab.label,
-                available: preview.packages.some(
-                  (pkg) =>
-                    pkg.packageKind === tab.packageKind &&
-                    pkg.examType === tab.examType,
-                ),
-              }))}
-              activeTabId={previewTabId}
-              onTabChange={setPreviewTabId}
-            />
-
-            <div className="grid gap-6">
-              {previewTabPackages.map((pkg) => (
-                <MockProductCard
-                  key={pkg.id}
-                  mode="institution"
-                  grantSetTitle={pkg.grantSetTitle}
-                  product={toBrowseProduct(pkg)}
-                  purchaseDisabled
-                  purchaseDisabledReason="Purchase the mock set to enroll students"
+            <div className="relative overflow-hidden rounded-xl">
+              <div
+                className="pointer-events-none select-none space-y-6 blur-sm"
+                aria-hidden
+              >
+                <BrowseTypeTabs
+                  tabs={preview.tabs.map((tab) => ({
+                    tabId: tab.tabId,
+                    label: tab.label,
+                    available: preview.packages.some(
+                      (pkg) =>
+                        pkg.packageKind === tab.packageKind &&
+                        pkg.examType === tab.examType,
+                    ),
+                  }))}
+                  activeTabId={previewTabId}
+                  onTabChange={() => undefined}
                 />
-              ))}
+
+                <div className="grid gap-6">
+                  {previewTabPackages.map((pkg) => (
+                    <MockProductCard
+                      key={pkg.id}
+                      mode="institution"
+                      grantSetTitle={pkg.grantSetTitle}
+                      product={toBrowseProduct(pkg)}
+                      purchaseDisabled
+                      purchaseDisabledReason="Purchase the mock set to enroll students"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="absolute inset-0 flex items-center justify-center bg-white/70 px-6 py-10 backdrop-blur-[2px]">
+                <div className="max-w-md rounded-xl border border-sky-200 bg-white px-6 py-6 text-center shadow-lg">
+                  <h2 className="text-base font-semibold text-navy">
+                    Purchase {preview.showcaseSetTitle} to unlock
+                  </h2>
+                  <p className="mt-2 text-sm text-muted">
+                    After purchase you can enroll students on each section mock
+                    directly from this page — no extra setup.
+                  </p>
+                  <Link href="/institution/mocks/shop" className="mt-5 inline-block">
+                    <Button variant="danger" size="sm">
+                      Buy mock set
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         ) : hasOwnedSets ? (

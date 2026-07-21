@@ -7,6 +7,10 @@ import {
 import { ContentTestStatus, ContentTestType } from '@prisma/client';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import {
+  isUniqueConstraintError,
+  withUniqueRetry,
+} from '../../common/id-allocation';
 import { StorageService } from '../../common/storage/storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateContentTestDto } from './dto/update-content-test.dto';
@@ -192,18 +196,26 @@ export class ContentService {
 
     const content = syncContentTestId(data.content, code) as object;
 
-    const created = await this.prisma.contentTest.create({
-      data: {
-        code,
-        title,
-        type: data.type,
-        content,
-        answerKey: data.answerKey,
-        durationMin: data.durationMin ?? 60,
-        status: ContentTestStatus.DRAFT,
-        institutionId: scope.institutionId,
-      },
-    });
+    let created;
+    try {
+      created = await this.prisma.contentTest.create({
+        data: {
+          code,
+          title,
+          type: data.type,
+          content,
+          answerKey: data.answerKey,
+          durationMin: data.durationMin ?? 60,
+          status: ContentTestStatus.DRAFT,
+          institutionId: scope.institutionId,
+        },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new BadRequestException('Test code already exists');
+      }
+      throw error;
+    }
 
     await this.audit.log({
       userId: actorId,
@@ -523,20 +535,22 @@ export class ContentService {
     if (!source) throw new NotFoundException('Test not found');
     assertScopeMatch(source, scope);
 
-    const { code, title } = await this.allocateNextTestIdentity(source.type, scope);
-    const content = syncContentTestId(source.content, code) as object;
+    const cloned = await withUniqueRetry(async () => {
+      const identity = await this.allocateNextTestIdentity(source.type, scope);
+      const content = syncContentTestId(source.content, identity.code) as object;
 
-    const cloned = await this.prisma.contentTest.create({
-      data: {
-        code,
-        title,
-        type: source.type,
-        content,
-        answerKey: source.answerKey as object | undefined,
-        durationMin: source.durationMin,
-        status: ContentTestStatus.DRAFT,
-        institutionId: scope.institutionId,
-      },
+      return this.prisma.contentTest.create({
+        data: {
+          code: identity.code,
+          title: identity.title,
+          type: source.type,
+          content,
+          answerKey: source.answerKey as object | undefined,
+          durationMin: source.durationMin,
+          status: ContentTestStatus.DRAFT,
+          institutionId: scope.institutionId,
+        },
+      });
     });
 
     await this.copyTestMedia(source.id, cloned.id, source.mediaAssets, scope);

@@ -12,6 +12,7 @@ import {
   WritingPracticeSessionStatus,
 } from '@prisma/client';
 import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
+import { generateUniquePrefixedCode } from '../../common/id-allocation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { countWords } from '../grading/writing-word-count';
 import { PracticeAccessService } from '../practice-commerce/practice-access.service';
@@ -410,7 +411,12 @@ Do NOT assign band scores. Return valid JSON only.`;
   }
 
   private async generateCode(prefix: string): Promise<string> {
-    const num = Math.floor(1000 + Math.random() * 9000);
-    return `${prefix}-${num}`;
+    return generateUniquePrefixedCode(
+      (code) =>
+        this.prisma.writingPracticeSession
+          .findUnique({ where: { sessionCode: code } })
+          .then((row) => row != null),
+      { prefix },
+    );
   }
 }

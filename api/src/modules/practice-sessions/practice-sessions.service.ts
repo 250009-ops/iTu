@@ -10,6 +10,7 @@ import {
   PracticeUnitType,
 } from '@prisma/client';
 import { unitTypeToCreditType } from '../../common/practice/practice.types';
+import { generateUniquePrefixedCode } from '../../common/id-allocation';
 import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AutoScoringService } from '../exam-sessions/auto-scoring.service';
@@ -298,7 +299,12 @@ export class PracticeSessionsService {
   }
 
   private async generateCode(prefix: string): Promise<string> {
-    const num = Math.floor(1000 + Math.random() * 9000);
-    return `${prefix}-${num}`;
+    return generateUniquePrefixedCode(
+      (code) =>
+        this.prisma.practiceAttempt
+          .findUnique({ where: { attemptCode: code } })
+          .then((row) => row != null),
+      { prefix },
+    );
   }
 }

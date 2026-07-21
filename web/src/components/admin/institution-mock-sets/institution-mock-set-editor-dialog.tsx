@@ -3,13 +3,18 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { InstitutionMockSetPicker } from "@/components/admin/institution-mock-sets/institution-mock-set-picker";
+import { MockProductCard } from "@/components/student/browse/mock-product-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
-import { formatMockSetSelectionSummary } from "@/lib/admin/institution-mock-set-content";
+import {
+  buildInstitutionMockSetProductPreview,
+  formatMockSetSelectionSummary,
+  type MockSetPickerTab,
+} from "@/lib/admin/institution-mock-set-content";
 import {
   createInstitutionMockSet,
   getAdminInstitutionMockSet,
@@ -18,7 +23,7 @@ import {
   type AdminInstitutionMockSet,
   type MockSetContentOptions,
 } from "@/lib/api/admin-institution-mock-sets";
-import type { MockSetPickerTab } from "@/lib/admin/institution-mock-set-content";
+import type { BrowseProduct, SkillId } from "@/lib/api/mappers/student";
 
 type Props = {
   open: boolean;
@@ -119,12 +124,64 @@ export function InstitutionMockSetEditorDialog({
     selectedTestIds.reading.size +
     selectedTestIds.writing.size;
 
+  const listeningCount = selectedTestIds.listening.size + listeningInPackages;
+  const readingCount = selectedTestIds.reading.size + readingInPackages;
+  const writingCount = selectedTestIds.writing.size + writingInPackages;
+
   const summary = formatMockSetSelectionSummary(
-    selectedPackageIds.size,
-    selectedTestIds.listening.size + listeningInPackages,
-    selectedTestIds.reading.size + readingInPackages,
-    selectedTestIds.writing.size + writingInPackages,
+    listeningCount,
+    readingCount,
+    writingCount,
   );
+
+  const parsedPreviewPrice = listPrice.trim() ? Number(listPrice) : 0;
+  const previewListPrice = Number.isFinite(parsedPreviewPrice)
+    ? parsedPreviewPrice
+    : 0;
+
+  function sectionDetail(tab: MockSetPickerTab): string | undefined {
+    if (!options) return undefined;
+    const selectedPackage = options.packages[tab].find((pkg) =>
+      selectedPackageIds.has(pkg.id),
+    );
+    if (selectedPackage) return selectedPackage.title;
+    const selectedTest = options.tests[tab].find((test) =>
+      selectedTestIds[tab].has(test.id),
+    );
+    return selectedTest?.title;
+  }
+
+  const previewProduct: BrowseProduct = (() => {
+    const product = buildInstitutionMockSetProductPreview({
+      title,
+      description,
+      listPrice: previewListPrice,
+      sectionCounts: {
+        listening: listeningCount,
+        reading: readingCount,
+        writing: writingCount,
+      },
+      sectionDetails: {
+        listening: sectionDetail("listening"),
+        reading: sectionDetail("reading"),
+        writing: sectionDetail("writing"),
+      },
+    });
+    const skillIds = product.skills.map(
+      (skill) => skill.id as BrowseProduct["skillIds"][number],
+    );
+    return {
+      ...product,
+      rating: 0,
+      skillIds,
+      needsWriting: skillIds.includes("writing"),
+      needsSpeaking: false,
+      skills: product.skills.map((skill) => ({
+        ...skill,
+        id: skill.id as SkillId,
+      })),
+    };
+  })();
 
   function handleChangeTests(tab: MockSetPickerTab, ids: Set<string>) {
     setSelectedTestIds((prev) => ({ ...prev, [tab]: ids }));
@@ -196,7 +253,7 @@ export function InstitutionMockSetEditorDialog({
     <Modal
       open={open}
       onClose={onClose}
-      className="max-w-4xl"
+      className="max-w-5xl"
       ariaLabel={set ? "Edit institution mock set" : "New institution mock set"}
     >
       <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
@@ -284,13 +341,31 @@ export function InstitutionMockSetEditorDialog({
             )}
           </div>
 
-          <aside className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
-            <p className="font-semibold text-navy">Selection summary</p>
-            <p className="mt-2 text-muted">{summary}</p>
-            <p className="mt-4 text-xs text-muted">
-              {selectionCount} item{selectionCount === 1 ? "" : "s"} selected
-            </p>
+          <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+              <p className="font-semibold text-navy">Selection summary</p>
+              <p className="mt-2 text-muted">{summary}</p>
+              <p className="mt-4 text-xs text-muted">
+                {selectionCount} item{selectionCount === 1 ? "" : "s"} selected
+              </p>
+            </div>
           </aside>
+        </div>
+
+        <div className="mt-8 space-y-3 border-t border-slate-200 pt-6">
+          <div>
+            <h3 className="text-sm font-semibold text-navy">Shop card preview</h3>
+            <p className="mt-1 text-xs text-muted">
+              Counts start at 0 and update as you select mocks — this matches what
+              centres see when the set is listed.
+            </p>
+          </div>
+          <MockProductCard
+            mode="institutionShop"
+            product={previewProduct}
+            purchaseDisabled
+            purchaseDisabledReason="Preview only — save and list the set to sell it"
+          />
         </div>
       </div>
 

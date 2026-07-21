@@ -72,6 +72,10 @@ import {
 } from '../../common/package-kind';
 import { suggestPackageTitle } from '../../common/package-naming';
 import { getPackageContentTemplate } from '../../common/package-templates';
+import {
+  queryNextMockNumber,
+  withUniqueRetry,
+} from '../../common/id-allocation';
 import { packageExamSkills } from '../content/package-skills';
 import {
   findContentTestPackageAssignments,
@@ -2122,12 +2126,11 @@ export class AdminService {
 
   async getNextMockNumber(skills: unknown, examType: ExamType = 'ACADEMIC') {
     const packageKind = derivePackageKind(skills);
-    const latest = await this.prisma.mockTestPackage.findFirst({
-      where: { packageKind, institutionId: null },
-      orderBy: { mockNumber: 'desc' },
-      select: { mockNumber: true },
+    const mockNumber = await queryNextMockNumber(this.prisma, {
+      scopeKey: 'platform',
+      packageKind,
+      institutionId: null,
     });
-    const mockNumber = (latest?.mockNumber ?? 0) + 1;
     const template = getPackageContentTemplate(packageKind, examType);
     return {
       packageKind,
@@ -2160,7 +2163,6 @@ export class AdminService {
   async createPackage(dto: CreatePackageDto, actorId: string) {
     const skills = (dto.skills ?? DEFAULT_PACKAGE_SKILLS) as Prisma.InputJsonValue;
     const packageKind = derivePackageKind(skills);
-    const { mockNumber } = await this.getNextMockNumber(skills);
 
     const contentPool =
       dto.contentPool && dto.contentPool.length > 0
@@ -2174,32 +2176,39 @@ export class AdminService {
       await this.assertPackageContentLinks(skills, contentPool, null);
     }
 
-    const slug = await this.resolveSlug(dto.title, dto.slug);
-
-    const created = await this.prisma.mockTestPackage.create({
-      data: {
-        slug,
-        title: dto.title,
-        description: dto.description ?? null,
-        price: dto.price,
-        currency: dto.currency ?? CATALOG_CURRENCY,
-        examType: dto.examType ?? 'ACADEMIC',
-        packageKind,
-        mockNumber,
+    const created = await withUniqueRetry(async () => {
+      const mockNumber = await queryNextMockNumber(this.prisma, {
         scopeKey: 'platform',
+        packageKind,
         institutionId: null,
-        mostPopular: dto.mostPopular ?? false,
-        rating: null,
-        reviewCount: 0,
-        skills,
-        included: (dto.included ?? []) as Prisma.InputJsonValue,
-        rules: (dto.rules ?? []) as Prisma.InputJsonValue,
-        listeningTestId: dto.listeningTestId || null,
-        readingTestId: dto.readingTestId || null,
-        writingTestId: dto.writingTestId || null,
-        speakingBankId: dto.speakingBankId || null,
-        isActive: dto.isActive ?? true,
-      },
+      });
+      const slug = await this.resolveSlug(dto.title, dto.slug);
+
+      return this.prisma.mockTestPackage.create({
+        data: {
+          slug,
+          title: dto.title,
+          description: dto.description ?? null,
+          price: dto.price,
+          currency: dto.currency ?? CATALOG_CURRENCY,
+          examType: dto.examType ?? 'ACADEMIC',
+          packageKind,
+          mockNumber,
+          scopeKey: 'platform',
+          institutionId: null,
+          mostPopular: dto.mostPopular ?? false,
+          rating: null,
+          reviewCount: 0,
+          skills,
+          included: (dto.included ?? []) as Prisma.InputJsonValue,
+          rules: (dto.rules ?? []) as Prisma.InputJsonValue,
+          listeningTestId: dto.listeningTestId || null,
+          readingTestId: dto.readingTestId || null,
+          writingTestId: dto.writingTestId || null,
+          speakingBankId: dto.speakingBankId || null,
+          isActive: dto.isActive ?? true,
+        },
+      });
     });
 
     if (hasContentLinks) {
@@ -2214,7 +2223,7 @@ export class AdminService {
       metadata: {
         slug: created.slug,
         title: created.title,
-        mockLabel: formatMockNumber(packageKind, mockNumber),
+        mockLabel: formatMockNumber(packageKind, created.mockNumber),
       },
     });
 

@@ -21,6 +21,10 @@ import {
   SKILL_TO_TEST_FIELD,
 } from '../../common/package-kind';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
+import {
+  queryNextMockNumber,
+  withUniqueRetry,
+} from '../../common/id-allocation';
 import { RequestUser } from '../../common/types/request-user';
 import {
   assertPackageScopeMatch,
@@ -204,26 +208,34 @@ export class InstitutionPackagesService {
 
     const skills = (dto.skills ?? [...DEFAULT_SKILLS]) as Prisma.InputJsonValue;
     const packageKind = derivePackageKind(skills);
-    const mockNumber = await this.nextMockNumber(institutionId, packageKind);
-    const slug = await this.resolveSlug(institution.slug, dto.title);
+    const scopeKey = packageScopeKey(institutionId);
 
-    const created = await this.prisma.mockTestPackage.create({
-      data: {
-        slug,
-        title: dto.title.trim(),
-        description: dto.description?.trim() || null,
-        price: 0,
-        currency: 'UZS',
-        examType: dto.examType ?? ExamType.ACADEMIC,
+    const created = await withUniqueRetry(async () => {
+      const mockNumber = await queryNextMockNumber(this.prisma, {
+        scopeKey,
         packageKind,
-        mockNumber,
-        scopeKey: packageScopeKey(institutionId),
         institutionId,
-        skills,
-        included: [] as Prisma.InputJsonValue,
-        rules: [] as Prisma.InputJsonValue,
-        isActive: false,
-      },
+      });
+      const slug = await this.resolveSlug(institution.slug, dto.title);
+
+      return this.prisma.mockTestPackage.create({
+        data: {
+          slug,
+          title: dto.title.trim(),
+          description: dto.description?.trim() || null,
+          price: 0,
+          currency: 'UZS',
+          examType: dto.examType ?? ExamType.ACADEMIC,
+          packageKind,
+          mockNumber,
+          scopeKey,
+          institutionId,
+          skills,
+          included: [] as Prisma.InputJsonValue,
+          rules: [] as Prisma.InputJsonValue,
+          isActive: false,
+        },
+      });
     });
 
     await this.audit.log({
@@ -356,12 +368,11 @@ export class InstitutionPackagesService {
   }
 
   private async nextMockNumber(institutionId: string, packageKind: string) {
-    const latest = await this.prisma.mockTestPackage.findFirst({
-      where: { institutionId, packageKind },
-      orderBy: { mockNumber: 'desc' },
-      select: { mockNumber: true },
+    return queryNextMockNumber(this.prisma, {
+      scopeKey: packageScopeKey(institutionId),
+      packageKind,
+      institutionId,
     });
-    return (latest?.mockNumber ?? 0) + 1;
   }
 
   private async resolveSlug(institutionSlug: string, title: string) {

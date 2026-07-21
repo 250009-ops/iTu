@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import {
   normalizeBundle,
   PracticeBundle,
 } from '../../common/practice/practice.types';
+import { isUniqueConstraintError } from '../../common/id-allocation';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export type PracticeContentOptionUnit = {
@@ -181,21 +183,41 @@ export class PracticePackageContentService {
     unitIds: string[],
     promptIds: string[],
   ) {
-    const pkg = await this.prisma.practiceProductPackage.create({
-      data: {
-        slug: data.slug.trim(),
-        title: data.title.trim(),
-        description: data.description ?? null,
-        price: data.price,
-        currency: data.currency ?? 'UZS',
-        bundle: {} as object,
-        displayPrices: data.displayPrices
-          ? (data.displayPrices as Prisma.InputJsonValue)
-          : undefined,
-        isActive: data.isActive ?? false,
-        mostPopular: data.mostPopular ?? false,
-      },
+    const slug = data.slug.trim();
+    const existingSlug = await this.prisma.practiceProductPackage.findUnique({
+      where: { slug },
     });
+    if (existingSlug) {
+      throw new ConflictException(
+        'A practice package with this slug already exists.',
+      );
+    }
+
+    let pkg;
+    try {
+      pkg = await this.prisma.practiceProductPackage.create({
+        data: {
+          slug,
+          title: data.title.trim(),
+          description: data.description ?? null,
+          price: data.price,
+          currency: data.currency ?? 'UZS',
+          bundle: {} as object,
+          displayPrices: data.displayPrices
+            ? (data.displayPrices as Prisma.InputJsonValue)
+            : undefined,
+          isActive: data.isActive ?? false,
+          mostPopular: data.mostPopular ?? false,
+        },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'A practice package with this slug already exists.',
+        );
+      }
+      throw error;
+    }
 
     const bundle = await this.syncPackageContent(pkg.id, unitIds, promptIds);
     return { ...pkg, bundle };

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -12,9 +13,12 @@ import {
 } from '@prisma/client';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { isUniqueConstraintError } from '../../common/id-allocation';
 import { StorageService } from '../../common/storage/storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  assertPracticeUnitCode,
+  assertWritingPromptCode,
   countQuestionsInContent,
   nextPracticeUnitCode,
   nextWritingPromptCode,
@@ -114,26 +118,54 @@ export class PracticeContentService {
     },
     userId: string,
   ) {
+    const code = body.code.trim().toUpperCase();
+    try {
+      assertPracticeUnitCode(body.type, code);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Invalid practice unit code',
+      );
+    }
+
+    const existing = await this.prisma.practiceUnit.findUnique({
+      where: { code },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'That practice code is already in use. Refresh the suggested code and try again.',
+      );
+    }
+
     const skill = skillForUnitType(body.type);
     const content = this.normalizeUnitContent(body.type, body.content);
     const questionCount = countQuestionsInContent(skill, content);
 
-    const unit = await this.prisma.practiceUnit.create({
-      data: {
-        code: body.code.trim(),
-        title: body.title.trim(),
-        type: body.type,
-        skill,
-        questionType: body.questionType ?? null,
-        content: content as object,
-        answerKey: body.answerKey
-          ? (body.answerKey as Prisma.InputJsonValue)
-          : undefined,
-        durationMin: body.durationMin ?? (skill === ExamSkill.LISTENING ? 10 : 20),
-        questionCount,
-        status: ContentTestStatus.DRAFT,
-      },
-    });
+    let unit;
+    try {
+      unit = await this.prisma.practiceUnit.create({
+        data: {
+          code,
+          title: body.title.trim(),
+          type: body.type,
+          skill,
+          questionType: body.questionType ?? null,
+          content: content as object,
+          answerKey: body.answerKey
+            ? (body.answerKey as Prisma.InputJsonValue)
+            : undefined,
+          durationMin: body.durationMin ?? (skill === ExamSkill.LISTENING ? 10 : 20),
+          questionCount,
+          status: ContentTestStatus.DRAFT,
+        },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'That practice code was just taken. Refresh the suggested code and try again.',
+        );
+      }
+      throw error;
+    }
 
     await this.audit.log({
       userId,
@@ -348,17 +380,45 @@ export class PracticeContentService {
     },
     userId: string,
   ) {
-    const prompt = await this.prisma.writingPracticePrompt.create({
-      data: {
-        code: body.code.trim(),
-        title: body.title.trim(),
-        taskNumber: body.taskNumber,
-        instruction: body.instruction,
-        minWords: body.minWords ?? (body.taskNumber === 1 ? 150 : 250),
-        imageUrl: body.imageUrl ?? null,
-        status: ContentTestStatus.DRAFT,
-      },
+    const code = body.code.trim().toUpperCase();
+    try {
+      assertWritingPromptCode(code, body.taskNumber);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Invalid writing prompt code',
+      );
+    }
+
+    const existing = await this.prisma.writingPracticePrompt.findUnique({
+      where: { code },
     });
+    if (existing) {
+      throw new ConflictException(
+        'That prompt code is already in use. Refresh the suggested code and try again.',
+      );
+    }
+
+    let prompt;
+    try {
+      prompt = await this.prisma.writingPracticePrompt.create({
+        data: {
+          code,
+          title: body.title.trim(),
+          taskNumber: body.taskNumber,
+          instruction: body.instruction,
+          minWords: body.minWords ?? (body.taskNumber === 1 ? 150 : 250),
+          imageUrl: body.imageUrl ?? null,
+          status: ContentTestStatus.DRAFT,
+        },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'That prompt code was just taken. Refresh the suggested code and try again.',
+        );
+      }
+      throw error;
+    }
     await this.audit.log({
       userId,
       action: AuditAction.CONTENT_TEST_CREATE,

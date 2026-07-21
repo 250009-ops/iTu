@@ -1,4 +1,5 @@
 import { ExamSkill, PracticeUnitType } from '@prisma/client';
+import { nextSequentialCode } from '../../common/id-allocation';
 
 export function skillForUnitType(type: PracticeUnitType): ExamSkill {
   switch (type) {
@@ -36,15 +37,11 @@ export async function nextPracticeUnitCode(
   const existing = await prisma.practiceUnit.findMany({
     where: { code: { startsWith: prefix } },
     select: { code: true },
-    orderBy: { code: 'desc' },
-    take: 1,
   });
-  let next = 1;
-  if (existing[0]) {
-    const match = existing[0].code.match(/(\d+)$/);
-    if (match) next = Number(match[1]) + 1;
-  }
-  return `${prefix}${String(next).padStart(3, '0')}`;
+  return nextSequentialCode(
+    existing.map((row) => row.code),
+    prefix,
+  );
 }
 
 export async function nextWritingPromptCode(
@@ -55,15 +52,36 @@ export async function nextWritingPromptCode(
   const existing = await prisma.writingPracticePrompt.findMany({
     where: { code: { startsWith: prefix } },
     select: { code: true },
-    orderBy: { code: 'desc' },
-    take: 1,
   });
-  let next = 1;
-  if (existing[0]) {
-    const match = existing[0].code.match(/(\d+)$/);
-    if (match) next = Number(match[1]) + 1;
+  return nextSequentialCode(
+    existing.map((row) => row.code),
+    prefix,
+  );
+}
+
+export function assertPracticeUnitCode(
+  type: PracticeUnitType,
+  code: string,
+): void {
+  const prefix = prefixForUnitType(type);
+  const normalized = code.trim().toUpperCase();
+  const pattern = new RegExp(`^${prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\d{3,}$`);
+  if (!pattern.test(normalized)) {
+    throw new Error(
+      `Practice code must match ${prefix}### (e.g. ${prefix}001).`,
+    );
   }
-  return `${prefix}${String(next).padStart(3, '0')}`;
+}
+
+export function assertWritingPromptCode(code: string, taskNumber: number): void {
+  const prefix = `PRA-WRI-T${taskNumber}-`;
+  const normalized = code.trim().toUpperCase();
+  const pattern = new RegExp(`^${prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\d{3,}$`);
+  if (!pattern.test(normalized)) {
+    throw new Error(
+      `Writing prompt code must match ${prefix}### (e.g. ${prefix}001).`,
+    );
+  }
 }
 
 export function countQuestionsInContent(

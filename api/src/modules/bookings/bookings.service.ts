@@ -32,6 +32,7 @@ import {
   type AuditActionName,
 } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import { generateUniquePrefixedCode } from '../../common/id-allocation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
@@ -1807,7 +1808,30 @@ export class BookingsService {
   }
 
   private async generateCode(prefix: string): Promise<string> {
-    const num = Math.floor(1000 + Math.random() * 9000);
-    return `${prefix}-${num}`;
+    return generateUniquePrefixedCode(
+      async (code) => {
+        if (prefix === 'ENR') {
+          return Boolean(
+            await this.prisma.enrollment.findUnique({
+              where: { enrollmentCode: code },
+            }),
+          );
+        }
+        if (prefix === 'ORD') {
+          return Boolean(
+            await this.prisma.order.findUnique({ where: { orderCode: code } }),
+          );
+        }
+        if (prefix === 'MOCK') {
+          return Boolean(
+            await this.prisma.examSession.findUnique({
+              where: { sessionCode: code },
+            }),
+          );
+        }
+        return false;
+      },
+      { prefix },
+    );
   }
 }

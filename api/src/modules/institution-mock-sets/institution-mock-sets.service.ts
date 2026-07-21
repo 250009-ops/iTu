@@ -30,6 +30,10 @@ import {
 } from '../../common/package-kind';
 import { suggestPackageTitle } from '../../common/package-naming';
 import { getPackageContentTemplate } from '../../common/package-templates';
+import {
+  queryNextMockNumber,
+  withUniqueRetry,
+} from '../../common/id-allocation';
 import { findContentTestPackageAssignments } from '../content/content-package-assignments';
 import { packageExamSkills } from '../content/package-skills';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -51,24 +55,29 @@ const TYPE_FOR_KIND: Record<SectionKind, ContentTestType> = {
 
 const SECTION_SKILL_META: Record<
   SectionKind,
-  { name: string; detail: string; badge: string; color: 'sky' | 'emerald' | 'violet' }
+  {
+    name: string;
+    badge: string;
+    includedBadge: string;
+    color: 'sky' | 'emerald' | 'violet';
+  }
 > = {
   listening: {
     name: 'Listening',
-    detail: '40 questions · 40 min',
-    badge: 'Auto scored',
+    badge: 'Not included',
+    includedBadge: 'Auto scored',
     color: 'sky',
   },
   reading: {
     name: 'Reading',
-    detail: '40 questions · 60 min',
-    badge: 'Auto scored',
+    badge: 'Not included',
+    includedBadge: 'Auto scored',
     color: 'emerald',
   },
   writing: {
     name: 'Writing',
-    detail: '2 tasks · 60 min',
-    badge: 'Human graded',
+    badge: 'Not included',
+    includedBadge: 'Human graded',
     color: 'violet',
   },
 };
@@ -964,24 +973,46 @@ export class InstitutionMockSetsService {
     currency: string,
   ) {
     const sectionOrder = ['listening', 'reading', 'writing'] as const;
-    const packagesByKind = new Map(packages.map((p) => [p.packageKind, p]));
-    const skills = sectionOrder
-      .filter((kind) => packagesByKind.has(kind))
-      .map((kind) => {
-        const pkg = packagesByKind.get(kind)!;
-        const meta = SECTION_SKILL_META[kind];
-        const detail =
-          pkg.description?.trim() ||
-          pkg.title?.trim() ||
-          meta.detail;
-        return {
-          id: kind,
-          name: meta.name,
-          detail,
-          badge: meta.badge,
-          color: meta.color,
-        };
-      });
+    const countsByKind: Record<SectionKind, number> = {
+      listening: 0,
+      reading: 0,
+      writing: 0,
+    };
+    const packagesByKind = new Map<
+      SectionKind,
+      (typeof packages)[number]
+    >();
+
+    for (const pkg of packages) {
+      const kind = pkg.packageKind as SectionKind;
+      if (!SECTION_KINDS.includes(kind)) continue;
+      countsByKind[kind] += 1;
+      packagesByKind.set(kind, pkg);
+    }
+
+    const includedCount = sectionOrder.filter(
+      (kind) => countsByKind[kind] > 0,
+    ).length;
+
+    const skills = sectionOrder.map((kind) => {
+      const count = countsByKind[kind];
+      const meta = SECTION_SKILL_META[kind];
+      const pkg = packagesByKind.get(kind);
+      const detail =
+        count === 0
+          ? '0 mocks'
+          : pkg?.description?.trim() ||
+            pkg?.title?.trim() ||
+            `${count} mock${count === 1 ? '' : 's'}`;
+
+      return {
+        id: kind,
+        name: meta.name,
+        detail,
+        badge: count === 0 ? meta.badge : meta.includedBadge,
+        color: meta.color,
+      };
+    });
 
     const included = this.mergeStringLists(
       packages.flatMap((p) => this.normalizeStringList(p.included)),
@@ -998,7 +1029,9 @@ export class InstitutionMockSetsService {
       title: set.title,
       description:
         set.description?.trim() ||
-        `B2B mock set with ${skills.length} section mock${skills.length === 1 ? '' : 's'} for your centre.`,
+        (includedCount > 0
+          ? `B2B mock set with ${includedCount} section mock${includedCount === 1 ? '' : 's'} for your centre.`
+          : 'Set content not configured yet.'),
       examType: examType === ExamType.GENERAL_TRAINING ? 'General Training' : 'Academic',
       delivery: 'Computer-Based',
       bookCta: 'Buy mock set',
@@ -1011,7 +1044,10 @@ export class InstitutionMockSetsService {
       included,
       rules,
       highlights: [
-        { icon: 'check', label: `${skills.length} section mock${skills.length === 1 ? '' : 's'} included` },
+        {
+          icon: 'check',
+          label: `${includedCount} section mock${includedCount === 1 ? '' : 's'} included`,
+        },
         { icon: 'user', label: 'Unlimited student enrollments' },
         { icon: 'globe', label: 'Computer-delivered mock format' },
       ],
@@ -1076,13 +1112,20 @@ export class InstitutionMockSetsService {
   private formatContentSummary(
     items: { package: { packageKind: string } }[],
   ): string {
-    const counts: Record<string, number> = {};
+    const counts: Record<SectionKind, number> = {
+      listening: 0,
+      reading: 0,
+      writing: 0,
+    };
     for (const item of items) {
-      const label = packageKindLabel(item.package.packageKind);
-      counts[label] = (counts[label] ?? 0) + 1;
+      const kind = item.package.packageKind as SectionKind;
+      if (SECTION_KINDS.includes(kind)) {
+        counts[kind] += 1;
+      }
     }
-    const parts = Object.entries(counts).map(([label, n]) => `${n} ${label}`);
-    return parts.join(' · ') || '—';
+    return SECTION_KINDS.map(
+      (kind) => `${counts[kind]} ${packageKindLabel(kind)}`,
+    ).join(' · ');
   }
 
   private collectPackageTestIds(pkg: {
@@ -1172,45 +1215,47 @@ export class InstitutionMockSetsService {
 
     const skills = [kind];
     const packageKind = derivePackageKind(skills);
-    const latest = await this.prisma.mockTestPackage.findFirst({
-      where: { packageKind, institutionId: null },
-      orderBy: { mockNumber: 'desc' },
-      select: { mockNumber: true },
-    });
-    const mockNumber = (latest?.mockNumber ?? 0) + 1;
-    const template = getPackageContentTemplate(packageKind, ExamType.ACADEMIC);
-    const title = suggestPackageTitle(ExamType.ACADEMIC, packageKind, mockNumber);
-    const slug = await this.resolvePackageSlug(title);
 
-    const created = await this.prisma.mockTestPackage.create({
-      data: {
-        slug,
-        title,
-        description: template.description,
-        price: 0,
-        currency: 'UZS',
-        examType: ExamType.ACADEMIC,
-        packageKind,
-        mockNumber,
+    return withUniqueRetry(async () => {
+      const mockNumber = await queryNextMockNumber(this.prisma, {
         scopeKey: 'platform',
+        packageKind,
         institutionId: null,
-        skills: skills as Prisma.InputJsonValue,
-        included: template.included as Prisma.InputJsonValue,
-        rules: template.rules as Prisma.InputJsonValue,
-        isActive: true,
-        [fkField]: testId,
-      },
-    });
+      });
+      const template = getPackageContentTemplate(packageKind, ExamType.ACADEMIC);
+      const title = suggestPackageTitle(ExamType.ACADEMIC, packageKind, mockNumber);
+      const slug = await this.resolvePackageSlug(title);
 
-    await this.prisma.packageContentTest.create({
-      data: {
-        packageId: created.id,
-        testId,
-        skill: SKILL_FOR_KIND[kind],
-      },
-    });
+      const created = await this.prisma.mockTestPackage.create({
+        data: {
+          slug,
+          title,
+          description: template.description,
+          price: 0,
+          currency: 'UZS',
+          examType: ExamType.ACADEMIC,
+          packageKind,
+          mockNumber,
+          scopeKey: 'platform',
+          institutionId: null,
+          skills: skills as Prisma.InputJsonValue,
+          included: template.included as Prisma.InputJsonValue,
+          rules: template.rules as Prisma.InputJsonValue,
+          isActive: true,
+          [fkField]: testId,
+        },
+      });
 
-    return created.id;
+      await this.prisma.packageContentTest.create({
+        data: {
+          packageId: created.id,
+          testId,
+          skill: SKILL_FOR_KIND[kind],
+        },
+      });
+
+      return created.id;
+    });
   }
 
   private async resolvePackageSlug(title: string) {

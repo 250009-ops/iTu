@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { OrderStatus, OrderType, PaymentMethod, Prisma } from '@prisma/client';
 import { suggestBundlePrice } from '../../common/practice/practice-catalog-pricing';
+import { generateUniquePrefixedCode } from '../../common/id-allocation';
 import {
   normalizeBundle,
   PracticeBundle,
@@ -318,7 +319,12 @@ export class PracticeCommerceService {
   }
 
   private async generateCode(prefix: string): Promise<string> {
-    const num = Math.floor(1000 + Math.random() * 9000);
-    return `${prefix}-${num}`;
+    return generateUniquePrefixedCode(
+      (code) =>
+        this.prisma.order
+          .findUnique({ where: { orderCode: code } })
+          .then((row) => row != null),
+      { prefix },
+    );
   }
 }
