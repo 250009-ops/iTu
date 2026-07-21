@@ -13,6 +13,7 @@ import {
 import { ticketTypeLabel } from "@/lib/portal/help-config";
 import { cn } from "@/lib/utils";
 import { LoadingRow, PageHeader, SectionCard } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 
 function formatDate(iso: string) {
   try {
@@ -88,7 +89,7 @@ export function CentreRequestsView() {
   ).length;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Institution &gt; Centre requests"
         title="Centre requests"
@@ -177,6 +178,6 @@ export function CentreRequestsView() {
           </div>
         )}
       </SectionCard>
-    </div>
+    </PortalPage>
   );
 }

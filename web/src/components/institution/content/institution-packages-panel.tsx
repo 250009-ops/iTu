@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PortalPage } from "@/components/portal/portal-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
@@ -180,7 +181,7 @@ export function InstitutionPackagesPanel() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-6 xl:px-8">
+    <PortalPage>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-navy">Private mock packages</h2>
@@ -312,6 +313,6 @@ export function InstitutionPackagesPanel() {
           </div>
         </div>
       )}
-    </div>
+    </PortalPage>
   );
 }

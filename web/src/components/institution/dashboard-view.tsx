@@ -15,12 +15,13 @@ import {
   StatCard,
   StatusPill,
 } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 
 export function InstitutionDashboardView() {
   const { data, loading } = useApiQuery(getInstitutionOverview);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Institution &gt; Dashboard"
         title={data?.centerName ? `Welcome, ${data.centerName}` : "Dashboard"}
@@ -179,6 +180,6 @@ export function InstitutionDashboardView() {
           )}
         </SectionCard>
       </div>
-    </div>
+    </PortalPage>
   );
 }

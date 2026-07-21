@@ -7,6 +7,7 @@ import {
 } from "@/components/institution/monitor/institution-monitor-header";
 import { InstitutionMonitorSummaryCards } from "@/components/institution/monitor/institution-monitor-summary-cards";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   InstitutionLiveMonitorProvider,
   useInstitutionLiveMonitor,
@@ -17,14 +18,12 @@ function LiveMonitorContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <InstitutionMonitorHeader />
           <InstitutionIntegrityAlertBanner />
           <InstitutionMonitorSummaryCards />
           <InstitutionActiveExamsTable />
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

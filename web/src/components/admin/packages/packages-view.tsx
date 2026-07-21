@@ -5,6 +5,7 @@ import { PackagesHeader } from "@/components/admin/packages/packages-header";
 import { PackagesSummaryCards } from "@/components/admin/packages/packages-summary-cards";
 import { PackagesTable } from "@/components/admin/packages/packages-table";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import { useSessionFilter } from "@/hooks/use-session-filter";
 import {
   AdminPackagesProvider,
@@ -29,16 +30,14 @@ function PackagesContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <PackagesHeader typeFilter={typeFilter} />
           <PackagesSummaryCards />
           <PackagesTable
             typeFilter={typeFilter}
             onTypeFilterChange={setTypeFilter}
           />
-        </div>
-      </div>
+      </PortalPage>
       <PackageEditorDialog />
     </ApiDataShell>
   );

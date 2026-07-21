@@ -13,6 +13,7 @@ import { InstitutionSettingsNav } from "@/components/institution/settings/settin
 import { ProfilePanel } from "@/components/institution/settings/profile-panel";
 import { PublicPagePanel } from "@/components/institution/settings/public-page-panel";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
   countUnsavedChanges,
@@ -127,8 +128,7 @@ export function InstitutionSettingsView() {
   return (
     <ApiDataShell loading={loading} error={error}>
       {data && form ? (
-        <div className="p-4 lg:p-6 xl:p-8">
-          <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
             <InstitutionSettingsHeader
               unsavedChanges={unsavedChanges}
               saving={saving}
@@ -164,8 +164,7 @@ export function InstitutionSettingsView() {
                 />
               </div>
             </div>
-          </div>
-        </div>
+      </PortalPage>
       ) : null}
     </ApiDataShell>
   );

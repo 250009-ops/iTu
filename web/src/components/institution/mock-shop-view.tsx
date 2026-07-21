@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import { MockProductCard } from "@/components/student/browse/mock-product-card";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -68,7 +69,7 @@ export function InstitutionMockShopView() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 p-4 lg:p-6">
+    <PortalPage innerClassName="space-y-8">
       <PageHeader
         breadcrumb="Institution"
         title="Buy mock sets"
@@ -120,6 +121,6 @@ export function InstitutionMockShopView() {
           </div>
         )}
       </ApiDataShell>
-    </div>
+    </PortalPage>
   );
 }

@@ -7,6 +7,7 @@ import { BrowseTypeTabs } from "@/components/student/browse/browse-type-tabs";
 import { MockProductCard } from "@/components/student/browse/mock-product-card";
 import { EnrollWizard } from "@/components/institution/enroll-wizard";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -151,7 +152,7 @@ export function InstitutionMocksView() {
   const showLockedPreview = !hasOwnedSets && preview != null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 p-4 lg:p-6">
+    <PortalPage innerClassName="space-y-8">
       <PageHeader
         breadcrumb="Institution"
         title="Mocks"
@@ -324,6 +325,6 @@ export function InstitutionMocksView() {
         onClose={() => setEnrollOpen(false)}
         onEnrolled={() => setEnrollOpen(false)}
       />
-    </div>
+    </PortalPage>
   );
 }

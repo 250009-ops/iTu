@@ -7,6 +7,7 @@ import {
 } from "@/components/admin/monitor/monitor-header";
 import { MonitorSummaryCards } from "@/components/admin/monitor/monitor-summary-cards";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   AdminLiveMonitorProvider,
   useAdminLiveMonitor,
@@ -17,14 +18,12 @@ function LiveMonitorContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <MonitorHeader />
           <IntegrityAlertBanner />
           <MonitorSummaryCards />
           <ActiveExamsTable />
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

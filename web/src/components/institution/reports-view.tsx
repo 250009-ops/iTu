@@ -11,6 +11,7 @@ import {
   SectionCard,
   StatCard,
 } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 
 const RANGES = [
   { id: "3m", label: "3 months" },
@@ -35,7 +36,7 @@ export function InstitutionReportsView() {
     : [];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Institution &gt; Reports"
         title="Cohort Reports"
@@ -215,6 +216,6 @@ export function InstitutionReportsView() {
           </div>
         )}
       </SectionCard>
-    </div>
+    </PortalPage>
   );
 }

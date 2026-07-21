@@ -6,6 +6,7 @@ import { LiveSessionsTable } from "@/components/admin/dashboard/live-sessions-ta
 import { RevenueChart } from "@/components/admin/dashboard/revenue-chart";
 import { StatCards } from "@/components/admin/dashboard/stat-cards";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   AdminDashboardProvider,
   useAdminDashboard,
@@ -16,8 +17,7 @@ function AdminDashboardContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <DashboardHeader />
           <StatCards />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -29,8 +29,7 @@ function AdminDashboardContent() {
             </div>
           </div>
           <LiveSessionsTable />
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

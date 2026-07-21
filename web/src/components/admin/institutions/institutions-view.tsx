@@ -24,6 +24,7 @@ import {
   StatCard,
   StatusPill,
 } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 
 const TABS = [
   { id: "all", label: "All" },
@@ -93,7 +94,7 @@ export function AdminInstitutionsView() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Admin &gt; Institutions"
         title="Institutions"
@@ -240,7 +241,7 @@ export function AdminInstitutionsView() {
         onClose={() => setEditTarget(null)}
         onSaved={() => void refresh({ silent: true })}
       />
-    </div>
+    </PortalPage>
   );
 }
 

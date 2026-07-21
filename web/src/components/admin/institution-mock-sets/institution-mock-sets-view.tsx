@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { InstitutionMockSetEditorDialog } from "@/components/admin/institution-mock-sets/institution-mock-set-editor-dialog";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import { Button } from "@/components/ui/button";
 import {
   getAdminInstitutionMockSets,
@@ -35,8 +36,7 @@ export function InstitutionMockSetsView() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-        <div className="p-4 lg:p-6 xl:p-8">
-          <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-medium text-muted">
@@ -133,8 +133,6 @@ export function InstitutionMockSetsView() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
 
         <InstitutionMockSetEditorDialog
           open={editorOpen}
@@ -145,6 +143,7 @@ export function InstitutionMockSetsView() {
             void refresh();
           }}
         />
-      </ApiDataShell>
+      </PortalPage>
+    </ApiDataShell>
   );
 }

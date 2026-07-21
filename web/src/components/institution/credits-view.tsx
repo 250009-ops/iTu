@@ -20,6 +20,7 @@ import {
   StatusPill,
   formatUZS,
 } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 
 export function InstitutionCreditsView() {
   const { data, loading } = useApiQuery(getInstitutionCredits);
@@ -45,7 +46,7 @@ export function InstitutionCreditsView() {
   const currency = data?.currency ?? "UZS";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Institution &gt; Credits"
         title="Credits"
@@ -181,6 +182,6 @@ export function InstitutionCreditsView() {
           </div>
         )}
       </SectionCard>
-    </div>
+    </PortalPage>
   );
 }

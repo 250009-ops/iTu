@@ -6,6 +6,7 @@ import { PayoutsTable } from "@/components/admin/orders/payouts-table";
 import { RevenueTrendChart } from "@/components/admin/orders/revenue-trend-chart";
 import { TransactionLedgerTable } from "@/components/admin/orders/transaction-ledger-table";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   AdminOrdersProvider,
   useAdminOrders,
@@ -16,8 +17,7 @@ function OrdersContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <OrdersHeader />
           <OrdersSummaryCards />
           <RevenueTrendChart />
@@ -25,8 +25,7 @@ function OrdersContent() {
           <div id="payouts">
             <PayoutsTable />
           </div>
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

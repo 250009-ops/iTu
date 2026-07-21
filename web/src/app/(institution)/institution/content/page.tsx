@@ -14,7 +14,7 @@ function InstitutionContentPageInner() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b border-border bg-white">
-        <div className="mx-auto flex max-w-7xl gap-1 px-4 pt-4 lg:px-6 xl:px-8">
+        <div className="mx-auto flex w-full min-w-0 max-w-7xl gap-1 px-4 pt-4 lg:px-6 xl:px-8">
           {(
             [
               { id: "tests" as const, label: "Tests" },

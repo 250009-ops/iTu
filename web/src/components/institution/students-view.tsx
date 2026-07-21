@@ -24,6 +24,7 @@ import {
   StatCard,
   StatusPill,
 } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 import { EnrollWizard } from "@/components/institution/enroll-wizard";
 
 const TABS = [
@@ -86,7 +87,7 @@ export function InstitutionStudentsView() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Institution &gt; Students"
         title="Students"
@@ -234,7 +235,7 @@ export function InstitutionStudentsView() {
           void refresh({ silent: true });
         }}
       />
-    </div>
+    </PortalPage>
   );
 }
 

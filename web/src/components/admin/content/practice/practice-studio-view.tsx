@@ -7,6 +7,7 @@ import { PracticeWritingPromptsSection } from "@/components/admin/content/practi
 import { PracticeUnitEditor } from "@/components/admin/content/practice/practice-unit-editor";
 import { PracticeWritingPromptEditor } from "@/components/admin/content/practice/practice-writing-prompt-editor";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -189,7 +190,7 @@ function PracticeStudioInner() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 lg:px-8">
+      <PortalPage innerClassName="space-y-8">
         <div>
           <p className="text-xs font-medium text-muted">
             Admin &gt; Content Studio &gt; Practice Creation
@@ -394,7 +395,7 @@ function PracticeStudioInner() {
             />
           </div>
         )}
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

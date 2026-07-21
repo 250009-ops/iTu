@@ -22,6 +22,7 @@ import {
   StatCard,
   StatusPill,
 } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 
 type ExaminerSpeciality = "WRITING" | "SPEAKING" | "BOTH";
 
@@ -54,7 +55,7 @@ export function InstitutionExaminersView() {
   const [inviteOpen, setInviteOpen] = useState(false);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Institution &gt; Examiners"
         title="Examiners"
@@ -117,7 +118,7 @@ export function InstitutionExaminersView() {
         onClose={() => setInviteOpen(false)}
         onInvited={() => void refresh({ silent: true })}
       />
-    </div>
+    </PortalPage>
   );
 }
 

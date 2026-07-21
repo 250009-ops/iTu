@@ -11,6 +11,7 @@ import { SettingsFooter } from "@/components/admin/settings/settings-footer";
 import { SettingsHeader } from "@/components/admin/settings/settings-header";
 import { SettingsNav } from "@/components/admin/settings/settings-nav";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   AdminSettingsProvider,
   useAdminSettings,
@@ -33,8 +34,7 @@ function SettingsContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <SettingsHeader />
           <div className="flex flex-col gap-6 lg:flex-row">
             <aside className="w-full shrink-0 lg:w-56">
@@ -45,8 +45,7 @@ function SettingsContent() {
               <SettingsFooter />
             </div>
           </div>
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

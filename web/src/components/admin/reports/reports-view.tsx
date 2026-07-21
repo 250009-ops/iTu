@@ -8,6 +8,7 @@ import { ReportsSummaryCards } from "@/components/admin/reports/reports-summary-
 import { RevenueExamVolumeChart } from "@/components/admin/reports/revenue-exam-volume-chart";
 import { TeacherLeaderboardTable } from "@/components/admin/reports/teacher-leaderboard-table";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   AdminReportsProvider,
   useAdminReports,
@@ -18,8 +19,7 @@ function ReportsContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <ReportsHeader />
           <ReportsSummaryCards />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -35,8 +35,7 @@ function ReportsContent() {
             <ModulePerformanceTable />
           </div>
           <TeacherLeaderboardTable />
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

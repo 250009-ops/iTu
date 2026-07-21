@@ -4,6 +4,7 @@ import { StudentsHeader } from "@/components/admin/students/students-header";
 import { StudentsSummaryCards } from "@/components/admin/students/students-summary-cards";
 import { StudentsTable } from "@/components/admin/students/students-table";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   AdminStudentsProvider,
   useAdminStudents,
@@ -14,13 +15,11 @@ function StudentsContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <StudentsHeader />
           <StudentsSummaryCards />
           <StudentsTable />
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }

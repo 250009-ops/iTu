@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import { PracticePackageEditorDialog } from "@/components/admin/practice-packages/practice-package-editor-dialog";
 import { Button } from "@/components/ui/button";
 import { getAdminPracticePackages, type AdminPracticePackage } from "@/lib/api/admin";
@@ -33,8 +34,7 @@ export function PracticePackagesView() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-medium text-muted">
@@ -114,8 +114,7 @@ export function PracticePackagesView() {
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
+      </PortalPage>
 
       <PracticePackageEditorDialog
         open={editorOpen}

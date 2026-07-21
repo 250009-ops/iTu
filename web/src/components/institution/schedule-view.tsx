@@ -12,12 +12,13 @@ import {
   StatCard,
   StatusPill,
 } from "@/components/institution/ui";
+import { PortalPage } from "@/components/portal/portal-page";
 
 export function InstitutionScheduleView() {
   const { data, loading } = useApiQuery(getInstitutionEnrollments);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+    <PortalPage>
       <PageHeader
         breadcrumb="Institution &gt; Mock Schedule"
         title="Mock Schedule"
@@ -93,6 +94,6 @@ export function InstitutionScheduleView() {
           </div>
         )}
       </SectionCard>
-    </div>
+    </PortalPage>
   );
 }

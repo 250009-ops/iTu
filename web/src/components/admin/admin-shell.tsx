@@ -16,8 +16,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <AdminSidebar />
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <AdminMobileNav />
-              <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+              <main className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
+                <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+                  {children}
+                </div>
               </main>
             </div>
           </div>

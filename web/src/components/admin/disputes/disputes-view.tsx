@@ -5,6 +5,7 @@ import { DisputesSummaryCards } from "@/components/admin/disputes/disputes-summa
 import { DisputesTable } from "@/components/admin/disputes/disputes-table";
 import { SlaAlertBanner } from "@/components/admin/disputes/sla-alert-banner";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
+import { PortalPage } from "@/components/portal/portal-page";
 import {
   AdminDisputesProvider,
   useAdminDisputes,
@@ -15,14 +16,12 @@ function DisputesContent() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <div className="p-4 lg:p-6 xl:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <PortalPage>
           <DisputesHeader />
           <SlaAlertBanner />
           <DisputesSummaryCards />
           <DisputesTable />
-        </div>
-      </div>
+      </PortalPage>
     </ApiDataShell>
   );
 }
