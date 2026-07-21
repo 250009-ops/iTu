@@ -1,12 +1,11 @@
-import { readingAnswerKey } from "@/lib/mock/exam-answer-keys";
 import { getNextContentTestIdentity } from "@/lib/api/admin";
 import type { ContentModule } from "@/lib/admin/types";
-import { emptyListeningContent } from "@/lib/admin/content/factories";
 import {
-  readingContent,
-  speakingStudentContent,
-  writingContent,
-} from "@/lib/mock/exam-content";
+  emptyListeningContent,
+  emptyReadingContent,
+  emptySpeakingContent,
+  emptyWritingContent,
+} from "@/lib/admin/content/factories";
 
 const CODE_PREFIX: Record<ContentModule, string> = {
   listening: "LIS",
@@ -64,18 +63,18 @@ export function getContentTemplate(module: ContentModule): {
       };
     case "reading":
       return {
-        content: stripTestId(readingContent),
-        answerKey: { ...readingAnswerKey },
+        content: stripTestId(emptyReadingContent()),
+        answerKey: {},
         durationMin: DEFAULT_DURATION.reading,
       };
     case "writing":
       return {
-        content: stripTestId(writingContent),
+        content: stripTestId(emptyWritingContent()),
         durationMin: DEFAULT_DURATION.writing,
       };
     case "speaking":
       return {
-        content: stripTestId(speakingStudentContent),
+        content: stripTestId(emptySpeakingContent()),
         durationMin: DEFAULT_DURATION.speaking,
       };
   }

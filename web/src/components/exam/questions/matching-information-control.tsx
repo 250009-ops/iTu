@@ -2,6 +2,7 @@
 
 import { ExamSelect } from "@/components/exam/ui/exam-select";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
+import { usedMatchOptionIds } from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
   sectionLabels: string[];
   answers: Record<number, string>;
   current: number | null;
+  reuseOptions?: boolean;
   onAssign: (n: number, section: string | null) => void;
   onFocus: (n: number) => void;
 };
@@ -19,14 +21,33 @@ export function MatchingInformationControl({
   sectionLabels,
   answers,
   current,
+  reuseOptions = false,
   onAssign,
   onFocus,
 }: Props) {
+  function assign(n: number, section: string | null) {
+    if (!reuseOptions && section) {
+      for (const q of questions) {
+        if (q.n !== n && answers[q.n] === section) {
+          onAssign(q.n, null);
+        }
+      }
+    }
+    onAssign(n, section);
+  }
+
   return (
     <ol className="space-y-0 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
       {questions.map((q) => {
         const value = answers[q.n] ?? "";
         const isActive = current === q.n;
+        const usedElsewhere = reuseOptions
+          ? new Set<string>()
+          : usedMatchOptionIds(questions, answers, q.n);
+        const options = sectionLabels
+          .filter((label) => !usedElsewhere.has(label) || value === label)
+          .map((label) => ({ value: label, label }));
+
         return (
           <li
             key={q.n}
@@ -46,9 +67,9 @@ export function MatchingInformationControl({
               onFocus={() => onFocus(q.n)}
               onChange={(v) => {
                 onFocus(q.n);
-                onAssign(q.n, v || null);
+                assign(q.n, v || null);
               }}
-              options={sectionLabels.map((label) => ({ value: label, label }))}
+              options={options}
               aria-label={`Select section for question ${q.n}`}
             />
           </li>

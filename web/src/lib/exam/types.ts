@@ -119,6 +119,8 @@ export interface MatchingInformationGroup extends BaseGroup {
   questions: { n: number; prompt: string }[];
   /** Dropdown values; defaults to passage paragraph markers when omitted. */
   sectionLabels?: string[];
+  /** When true, the same section letter may be used for multiple questions (shows NB). */
+  reuseOptions?: boolean;
 }
 
 export interface TfngGroup extends BaseGroup {

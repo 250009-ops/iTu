@@ -7,6 +7,11 @@ import {
   sectionCountWord,
   sectionLetterRange,
 } from "@/lib/exam/matching-headings";
+import {
+  inferMatchingReuseOptions,
+  matchingHintWithReuse,
+  stripMatchingNbSuffix,
+} from "@/lib/exam/matching-options";
 
 /** Default Cambridge-style matching information instruction from section letters. */
 export function defaultMatchingInformationInstruction(
@@ -19,10 +24,15 @@ export function defaultMatchingInformationInstruction(
   return `The text has ${sectionCountWord(count)} sections. Which section contains the following information?`;
 }
 
-export function defaultMatchingInformationHint(sectionLetters: string[]): string {
+export function defaultMatchingInformationHint(
+  sectionLetters: string[],
+  reuseOptions = false,
+): string {
   const range = sectionLetterRange(sectionLetters);
-  if (!range) return "Choose the correct section for each question.";
-  return `Choose the correct section, ${range}, for each question.`;
+  const base = range
+    ? `Choose the correct section, ${range}, for each question.`
+    : "Choose the correct section for each question.";
+  return matchingHintWithReuse(base, reuseOptions);
 }
 
 export function isAutoMatchingInformationInstruction(
@@ -40,8 +50,9 @@ export function isAutoMatchingInformationInstruction(
 
 export function isAutoMatchingInformationHint(hint: string | undefined): boolean {
   if (!hint?.trim()) return true;
-  return /^Choose the correct section(, [A-Z](?:–[A-Z])?,)? for each question\.$/i.test(
-    hint.trim(),
+  const base = stripMatchingNbSuffix(hint);
+  return /^Choose the correct section(, [A-Z](?:–[A-Z])?,)? for each question\.?$/i.test(
+    base.trim(),
   );
 }
 
@@ -66,6 +77,7 @@ export function patchMatchingInformationGroup(
     passageParagraphs,
     patch.sectionLabels !== undefined ? patch.sectionLabels : group.sectionLabels,
   );
+  const reuseOptions = inferMatchingReuseOptions(merged);
 
   return {
     ...merged,
@@ -73,7 +85,7 @@ export function patchMatchingInformationGroup(
       ? defaultMatchingInformationInstruction(sections)
       : merged.instruction,
     hint: isAutoMatchingInformationHint(merged.hint)
-      ? defaultMatchingInformationHint(sections)
+      ? defaultMatchingInformationHint(sections, reuseOptions)
       : merged.hint,
   };
 }
@@ -98,7 +110,7 @@ export function syncMatchingInformationGroupsFromPassage(
         ? defaultMatchingInformationInstruction(sections)
         : group.instruction,
       hint: isAutoMatchingInformationHint(group.hint)
-        ? defaultMatchingInformationHint(sections)
+        ? defaultMatchingInformationHint(sections, inferMatchingReuseOptions(group))
         : group.hint,
       sectionLabels: syncLabels ? sections : group.sectionLabels,
     };

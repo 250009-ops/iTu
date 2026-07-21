@@ -82,6 +82,10 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "matching_information":
       return {
         ...g,
+        reuseOptions:
+          g.reuseOptions !== false &&
+          (g.reuseOptions === true ||
+            /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ""))),
         questions: asArray(g.questions),
         sectionLabels: asArray(g.sectionLabels),
       };

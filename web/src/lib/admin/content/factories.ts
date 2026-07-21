@@ -296,7 +296,8 @@ export function createQuestionGroup(
         from,
         to,
         instruction: defaultMatchingInformationInstruction(passageSections),
-        hint: defaultMatchingInformationHint(passageSections),
+        hint: defaultMatchingInformationHint(passageSections, false),
+        reuseOptions: false,
         sectionLabels: passageSections,
         questions: [{ n: from, prompt: "" }],
       };

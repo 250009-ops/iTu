@@ -698,6 +698,10 @@ function renderBody(
       };
       return (
         <div className="space-y-3">
+          <MatchingReuseOptionsField
+            group={miGroup}
+            onChange={(patch) => commitMatchingInformation(patch)}
+          />
           <div className="space-y-2">
             <Label className="text-xs">Section labels (dropdown options)</Label>
             <SectionLabelsInput
