@@ -1,11 +1,8 @@
-import {
-  listeningAnswerKey,
-  readingAnswerKey,
-} from "@/lib/mock/exam-answer-keys";
+import { readingAnswerKey } from "@/lib/mock/exam-answer-keys";
 import { getNextContentTestIdentity } from "@/lib/api/admin";
 import type { ContentModule } from "@/lib/admin/types";
+import { emptyListeningContent } from "@/lib/admin/content/factories";
 import {
-  listeningContent,
   readingContent,
   speakingStudentContent,
   writingContent,
@@ -61,8 +58,8 @@ export function getContentTemplate(module: ContentModule): {
   switch (module) {
     case "listening":
       return {
-        content: stripTestId(listeningContent),
-        answerKey: { ...listeningAnswerKey },
+        content: stripTestId(emptyListeningContent()),
+        answerKey: {},
         durationMin: DEFAULT_DURATION.listening,
       };
     case "reading":
