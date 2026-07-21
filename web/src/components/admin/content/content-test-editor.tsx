@@ -402,6 +402,136 @@ export function ContentTestEditor({
     { id: "visual", label: "Visual editor" },
     { id: "preview", label: "Preview" },
   ];
+  const visualLayout = focused ? "flow" : "pane";
+
+  const metaFields = (
+    <>
+      {isLocked && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          role="status"
+        >
+          This test is{" "}
+          <span className="font-semibold">{status.replace("_", " ")}</span> and
+          locked to protect exam integrity.
+          {status === "published"
+            ? " Use Retire & duplicate to create an editable draft copy."
+            : " Use Clone in the tests table to create an editable copy."}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="edit-title">Title</Label>
+          <Input
+            id="edit-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={isLocked}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="edit-duration">Duration (min)</Label>
+          <Input
+            id="edit-duration"
+            type="number"
+            min={1}
+            value={durationMin}
+            onChange={(e) => setDurationMin(Number(e.target.value))}
+            disabled={isLocked}
+          />
+        </div>
+      </div>
+
+      <PublishChecklist
+        module={module}
+        content={content}
+        answerKey={answerKey}
+        mediaAssets={mediaAssets}
+        published={status === "published"}
+      />
+
+      <div className="flex flex-wrap gap-1 border-b border-border pb-1">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "rounded-t-lg px-4 py-2 text-sm font-semibold transition",
+              tab === t.id
+                ? "border border-b-white border-border bg-white text-navy -mb-px"
+                : "text-muted hover:text-navy",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+
+  const tabPanel = (
+    <>
+      {tab === "visual" && (
+        <div
+          className={cn(
+            focused ? undefined : "flex h-full min-h-0 flex-col",
+            isLocked && "pointer-events-none opacity-75",
+          )}
+          aria-disabled={isLocked || undefined}
+        >
+          {module === "reading" && (
+            <ReadingVisualEditor
+              testId={testId}
+              content={content as ReadingContent}
+              answerKey={answerKey}
+              layout={visualLayout}
+              onContentChange={(c) => handleContentChange(c)}
+              onAnswerKeyChange={handleAnswerKeyChange}
+            />
+          )}
+          {module === "listening" && (
+            <ListeningVisualEditor
+              testId={testId ?? undefined}
+              content={content as ListeningContent}
+              answerKey={answerKey}
+              layout={visualLayout}
+              onContentChange={(c) => handleContentChange(c)}
+              onAnswerKeyChange={handleAnswerKeyChange}
+              onMediaUpdated={refreshMediaAssets}
+            />
+          )}
+          {module === "writing" && (
+            <WritingVisualEditor
+              testId={testId ?? undefined}
+              content={content as WritingContent}
+              layout={visualLayout}
+              onContentChange={(c) => handleContentChange(c)}
+              onMediaUpdated={refreshMediaAssets}
+            />
+          )}
+          {module === "speaking" && (
+            <SpeakingVisualEditor
+              content={content as SpeakingContent}
+              layout={visualLayout}
+              onContentChange={(c) => handleContentChange(c)}
+            />
+          )}
+        </div>
+      )}
+
+      {tab === "preview" && (
+        <div className={cn(focused ? undefined : "h-full min-h-0 overflow-y-auto")}>
+          <ContentPreviewPanel
+            module={module}
+            content={content}
+            mediaAssets={mediaAssets}
+          />
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div
@@ -488,128 +618,19 @@ export function ContentTestEditor({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="shrink-0 space-y-5 p-5 pb-4 sm:p-6 sm:pb-4">
-          {isLocked && (
-            <div
-              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-              role="status"
-            >
-              This test is{" "}
-              <span className="font-semibold">{status.replace("_", " ")}</span> and
-              locked to protect exam integrity.
-              {status === "published"
-                ? " Use Retire & duplicate to create an editable draft copy."
-                : " Use Clone in the tests table to create an editable copy."}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="edit-title">Title</Label>
-              <Input
-                id="edit-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                disabled={isLocked}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-duration">Duration (min)</Label>
-              <Input
-                id="edit-duration"
-                type="number"
-                min={1}
-                value={durationMin}
-                onChange={(e) => setDurationMin(Number(e.target.value))}
-                disabled={isLocked}
-              />
-            </div>
-          </div>
-
-          <PublishChecklist
-            module={module}
-            content={content}
-            answerKey={answerKey}
-            mediaAssets={mediaAssets}
-            published={status === "published"}
-          />
-
-          <div className="flex flex-wrap gap-1 border-b border-border pb-1">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  "rounded-t-lg px-4 py-2 text-sm font-semibold transition",
-                  tab === t.id
-                    ? "border border-b-white border-border bg-white text-navy -mb-px"
-                    : "text-muted hover:text-navy",
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
+      {focused ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-5 p-5 pb-4 sm:p-6 sm:pb-4">{metaFields}</div>
+          <div className="px-5 pb-6 sm:px-6 sm:pb-8">{tabPanel}</div>
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="shrink-0 space-y-5 p-5 pb-4 sm:p-6 sm:pb-4">{metaFields}</div>
+          <div className="min-h-0 flex-1 overflow-hidden px-5 pb-6 sm:px-6 sm:pb-8">
+            {tabPanel}
           </div>
         </div>
-
-        <div className="min-h-0 flex-1 overflow-hidden px-5 pb-6 sm:px-6 sm:pb-8">
-          {tab === "visual" && (
-            <div
-              className={cn(
-                "flex h-full min-h-0 flex-col",
-                isLocked && "pointer-events-none opacity-75",
-              )}
-              aria-disabled={isLocked || undefined}
-            >
-              {module === "reading" && (
-                <ReadingVisualEditor
-                  testId={testId}
-                  content={content as ReadingContent}
-                  answerKey={answerKey}
-                  onContentChange={(c) => handleContentChange(c)}
-                  onAnswerKeyChange={handleAnswerKeyChange}
-                />
-              )}
-              {module === "listening" && (
-                <ListeningVisualEditor
-                  testId={testId ?? undefined}
-                  content={content as ListeningContent}
-                  answerKey={answerKey}
-                  onContentChange={(c) => handleContentChange(c)}
-                  onAnswerKeyChange={handleAnswerKeyChange}
-                  onMediaUpdated={refreshMediaAssets}
-                />
-              )}
-              {module === "writing" && (
-                <WritingVisualEditor
-                  testId={testId ?? undefined}
-                  content={content as WritingContent}
-                  onContentChange={(c) => handleContentChange(c)}
-                  onMediaUpdated={refreshMediaAssets}
-                />
-              )}
-              {module === "speaking" && (
-                <SpeakingVisualEditor
-                  content={content as SpeakingContent}
-                  onContentChange={(c) => handleContentChange(c)}
-                />
-              )}
-            </div>
-          )}
-
-          {tab === "preview" && (
-            <div className="h-full min-h-0 overflow-y-auto">
-              <ContentPreviewPanel
-                module={module}
-                content={content}
-                mediaAssets={mediaAssets}
-              />
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

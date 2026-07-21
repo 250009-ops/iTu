@@ -30,6 +30,7 @@ type Props = {
   onContentChange: (content: ListeningContent) => void;
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
   onMediaUpdated?: () => void;
+  layout?: "pane" | "flow";
 };
 
 export function ListeningVisualEditor({
@@ -39,6 +40,7 @@ export function ListeningVisualEditor({
   onContentChange,
   onAnswerKeyChange,
   onMediaUpdated,
+  layout = "pane",
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const parts = content.parts ?? [];
@@ -92,9 +94,10 @@ export function ListeningVisualEditor({
     answerKey,
   );
   const allPartitionStatuses = partitionStatusesForModule("listening", content, answerKey);
+  const flowLayout = layout === "flow";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn(flowLayout ? "space-y-5" : "flex min-h-0 flex-1 flex-col")}>
       <div className="shrink-0 space-y-4 border-b border-border bg-white pb-4 pt-1">
         {testId && (
           <ListeningAudioUpload testId={testId} onMediaUpdated={onMediaUpdated} />
@@ -127,7 +130,11 @@ export function ListeningVisualEditor({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-5">
+      <div
+        className={cn(
+          flowLayout ? "space-y-5" : "min-h-0 flex-1 space-y-5 overflow-y-auto pt-5",
+        )}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
           <Button variant="secondary" size="sm" onClick={renumberAll}>

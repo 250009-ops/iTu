@@ -37,6 +37,8 @@ type Props = {
   answerKey: AnswerKeyMap;
   onContentChange: (content: ReadingContent) => void;
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
+  /** pane = nested scroll area; flow = grow naturally for a parent scroll container */
+  layout?: "pane" | "flow";
 };
 
 export function ReadingVisualEditor({
@@ -45,6 +47,7 @@ export function ReadingVisualEditor({
   answerKey,
   onContentChange,
   onAnswerKeyChange,
+  layout = "pane",
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const passages = content.passages ?? [];
@@ -114,9 +117,10 @@ export function ReadingVisualEditor({
     answerKey,
   );
   const allPartitionStatuses = partitionStatusesForModule("reading", content, answerKey);
+  const flowLayout = layout === "flow";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn(flowLayout ? "space-y-5" : "flex min-h-0 flex-1 flex-col")}>
       <div className="shrink-0 space-y-4 border-b border-border bg-white pb-4 pt-1">
         <div className="flex flex-wrap gap-2">
           {passages.map((p, idx) => {
@@ -160,7 +164,11 @@ export function ReadingVisualEditor({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-5">
+      <div
+        className={cn(
+          flowLayout ? "space-y-5" : "min-h-0 flex-1 space-y-5 overflow-y-auto pt-5",
+        )}
+      >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
         <Button variant="secondary" size="sm" onClick={renumberAll}>

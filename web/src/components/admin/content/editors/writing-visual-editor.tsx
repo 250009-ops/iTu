@@ -12,6 +12,7 @@ type Props = {
   content: WritingContent;
   onContentChange: (content: WritingContent) => void;
   onMediaUpdated?: () => void;
+  layout?: "pane" | "flow";
 };
 
 export function WritingVisualEditor({
@@ -19,6 +20,7 @@ export function WritingVisualEditor({
   content,
   onContentChange,
   onMediaUpdated,
+  layout = "pane",
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const tasks = content.tasks ?? [];
@@ -48,7 +50,7 @@ export function WritingVisualEditor({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn(layout === "flow" ? "space-y-5" : "flex min-h-0 flex-1 flex-col")}>
       <div className="shrink-0 border-b border-border bg-white pb-4 pt-1">
         <div className="flex flex-wrap gap-2">
           {tasks.map((t, idx) => (
@@ -69,7 +71,11 @@ export function WritingVisualEditor({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-5">
+      <div
+        className={cn(
+          layout === "flow" ? "space-y-5" : "min-h-0 flex-1 space-y-5 overflow-y-auto pt-5",
+        )}
+      >
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label>Minutes</Label>

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   content: SpeakingContent;
   onContentChange: (content: SpeakingContent) => void;
+  layout?: "pane" | "flow";
 };
 
 function QuestionListEditor({
@@ -199,7 +200,11 @@ function SpeakingTopicsEditor({
   );
 }
 
-export function SpeakingVisualEditor({ content, onContentChange }: Props) {
+export function SpeakingVisualEditor({
+  content,
+  onContentChange,
+  layout = "pane",
+}: Props) {
   const parts = content.parts ?? [];
   const cueCard = content.cueCard ?? {
     title: "",
@@ -223,7 +228,11 @@ export function SpeakingVisualEditor({ content, onContentChange }: Props) {
   }
 
   return (
-    <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
+    <div
+      className={cn(
+        layout === "flow" ? "space-y-6" : "min-h-0 flex-1 space-y-6 overflow-y-auto",
+      )}
+    >
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-navy">Speaking parts (student sees titles only)</h3>
         {parts.map((part, idx) => (
