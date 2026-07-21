@@ -1,22 +1,28 @@
 /**
  * Idempotent upsert of Listening Only + Reading Only catalog packages.
- * Safe to run on production after deploy (no db:seed).
+ * Safe to run on production after deploy when published L/R tests exist.
  */
 import { ExamType, PrismaClient } from '@prisma/client';
 import { getPackageContentTemplate } from '../src/common/package-templates';
 import { CATALOG_CURRENCY } from '../src/common/catalog-pricing';
+import { suggestPackageTitle } from '../src/common/package-naming';
 
 const prisma = new PrismaClient();
 
 async function ensureSkillPackage(
   packageKind: 'listening' | 'reading',
   slug: string,
-  title: string,
   testId: string,
 ) {
   const template = getPackageContentTemplate(packageKind, ExamType.ACADEMIC);
+  const title = suggestPackageTitle(ExamType.ACADEMIC, packageKind, 1);
   const existing = await prisma.mockTestPackage.findFirst({
-    where: { packageKind, mockNumber: 1 },
+    where: {
+      institutionId: null,
+      scopeKey: 'platform',
+      packageKind,
+      mockNumber: 1,
+    },
   });
 
   const data = {
@@ -28,6 +34,8 @@ async function ensureSkillPackage(
     examType: ExamType.ACADEMIC,
     packageKind,
     mockNumber: 1,
+    scopeKey: 'platform',
+    institutionId: null,
     isActive: true,
     skills: [packageKind],
     included: template.included,
@@ -63,45 +71,29 @@ async function main() {
     where: {
       type: 'LISTENING',
       status: 'PUBLISHED',
-      code: 'LIS-MOCK-A002',
       institutionId: null,
     },
-  }) ?? await prisma.contentTest.findFirst({
-    where: { type: 'LISTENING', status: 'PUBLISHED', institutionId: null },
-    orderBy: { code: 'desc' },
+    orderBy: { code: 'asc' },
   });
   const readingTest = await prisma.contentTest.findFirst({
     where: {
       type: 'READING',
       status: 'PUBLISHED',
-      code: 'REA-MOCK-A002',
       institutionId: null,
     },
-  }) ?? await prisma.contentTest.findFirst({
-    where: { type: 'READING', status: 'PUBLISHED', institutionId: null },
-    orderBy: { code: 'desc' },
+    orderBy: { code: 'asc' },
   });
 
   if (!listeningTest) {
     console.warn('No published listening test — skip listening-only package');
   } else {
-    await ensureSkillPackage(
-      'listening',
-      'listening-only',
-      'Listening Only 001',
-      listeningTest.id,
-    );
+    await ensureSkillPackage('listening', 'listening-only', listeningTest.id);
   }
 
   if (!readingTest) {
     console.warn('No published reading test — skip reading-only package');
   } else {
-    await ensureSkillPackage(
-      'reading',
-      'reading-only',
-      'Reading Only 001',
-      readingTest.id,
-    );
+    await ensureSkillPackage('reading', 'reading-only', readingTest.id);
   }
 }
 

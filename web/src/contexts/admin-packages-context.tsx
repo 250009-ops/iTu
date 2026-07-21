@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -18,6 +19,7 @@ import {
   updatePackage,
   type AdminPackagePayload,
 } from "@/lib/api/admin";
+import { ApiError } from "@/lib/api/errors";
 import { useApiQuery } from "@/hooks/use-api-query";
 import type { PackageTypeTabId } from "@/lib/package-type-tabs";
 import type { AdminContentTestOption, AdminPackage } from "@/lib/admin/types";
@@ -53,6 +55,7 @@ type PackagesValue = {
     archived?: boolean;
     deleted?: boolean;
     releasedContent?: boolean;
+    alreadyRemoved?: boolean;
   }>;
   duplicatePackage: (id: string) => Promise<AdminPackage>;
   replacePackage: (id: string) => Promise<{
@@ -125,9 +128,17 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
 
   const removePackage = useCallback(
     async (id: string) => {
-      const result = await deletePackage(id);
-      await refresh();
-      return result;
+      try {
+        const result = await deletePackage(id);
+        await refresh();
+        return result;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          await refresh();
+          return { deleted: true, alreadyRemoved: true };
+        }
+        throw err;
+      }
     },
     [refresh],
   );
@@ -158,6 +169,23 @@ export function AdminPackagesProvider({ children }: { children: ReactNode }) {
     },
     [refresh],
   );
+
+  useEffect(() => {
+    const onFocus = () => {
+      void refresh({ silent: true });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refresh({ silent: true });
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refresh]);
 
   const value = useMemo<PackagesValue>(
     () => ({

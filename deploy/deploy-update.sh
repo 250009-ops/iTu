@@ -67,4 +67,6 @@ npm run settings:migrate-day-cutoff
 if [[ "${FRESH_PACKAGES:-}" == "1" ]]; then
   npm run packages:clear -- --confirm
 fi
-npm run packages:ensure-skill
+if [[ "${SEED_MOCK_CONTENT:-0}" == "1" ]]; then
+  npm run packages:ensure-skill
+fi

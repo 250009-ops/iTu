@@ -105,12 +105,16 @@ if [ -f /var/www/itestu/app/deploy/nginx/itestu.uz.conf ]; then
 fi
 bash /var/www/itestu/deploy/deploy-rebuild.sh
 cd /var/www/itestu/app/api
-npm run packages:ensure-skill
-npm run sync:exam-content
-npm run content:patch
-npm run content:repair-mocks
-npm run content:fix-conflicts || true
-npm run content:migrate-names
+if [ "${SEED_MOCK_CONTENT:-0}" = "1" ]; then
+  npm run packages:ensure-skill
+  npm run sync:exam-content
+  npm run content:patch
+  npm run content:repair-mocks
+  npm run content:fix-conflicts || true
+  npm run content:migrate-names
+else
+  echo "Skipping bundled mock content seed (SEED_MOCK_CONTENT!=1)."
+fi
 npm run enrollments:backfill-cutoff
 npm run settings:migrate-day-cutoff
 cd /var/www/itestu/app/api && npx tsx scripts/migrate-teacher-rates.ts || true

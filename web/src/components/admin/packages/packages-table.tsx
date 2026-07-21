@@ -82,8 +82,16 @@ export function PackagesTable({
     setPendingDelete(null);
     try {
       const result = await removePackage(target.id);
-      toast(result.archived ? "Package archived" : "Package deleted", {
-        description: result.archived
+      toast(
+        result.alreadyRemoved
+          ? "Package already removed"
+          : result.archived
+            ? "Package archived"
+            : "Package deleted",
+        {
+        description: result.alreadyRemoved
+          ? `${target.title} is no longer in the catalog — the list has been refreshed.`
+          : result.archived
           ? result.releasedContent
             ? `${target.title} was hidden and its L/R/W papers were released for reuse in other packages.`
             : `${target.title} has booking history, so it was hidden instead of deleted.`
