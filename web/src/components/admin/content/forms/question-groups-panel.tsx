@@ -94,7 +94,10 @@ export function QuestionGroupsPanel({
   }
 
   function addGroup(type: QuestionGroup["type"]) {
-    commitGroups([...groups, createQuestionGroup(type, partitionFrom)]);
+    commitGroups([
+      ...groups,
+      createQuestionGroup(type, partitionFrom, { passageParagraphs }),
+    ]);
   }
 
   function updateGroup(index: number, group: QuestionGroup) {

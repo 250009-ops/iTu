@@ -11,9 +11,14 @@ import { defaultMatchOptions } from "@/lib/admin/content/match-editor-helpers";
 import { newId } from "@/lib/admin/content/utils";
 import { defaultMatchingHeadingsInstruction } from "@/lib/exam/matching-headings";
 import {
+  defaultMatchingInformationHint,
+  defaultMatchingInformationInstruction,
+} from "@/lib/exam/matching-information";
+import {
   defaultListeningMatchingHint,
   defaultMatchingFeaturesHint,
 } from "@/lib/exam/matching-options";
+import { passageSectionLabels } from "@/lib/exam/passage-sections";
 import { gapNode } from "@/lib/exam/inline-content";
 
 export function emptyReadingContent(title = "Reading"): ReadingContent {
@@ -201,9 +206,11 @@ export const QUESTION_TYPE_LABELS: Record<QuestionGroup["type"], string> = {
 export function createQuestionGroup(
   type: QuestionGroup["type"],
   from: number,
+  options?: { passageParagraphs?: { marker?: string }[] },
 ): QuestionGroup {
   const id = newId("group");
   const to = from;
+  const passageSections = passageSectionLabels(options?.passageParagraphs);
 
   switch (type) {
     case "tfng":
@@ -253,13 +260,15 @@ export function createQuestionGroup(
         options: defaultMatchOptions(5),
         questions: [{ n: from, prompt: "" }],
       };
-    case "matching_headings":
+    case "matching_headings": {
+      const sectionLetters =
+        passageSections.length > 0 ? passageSections : ["A"];
       return {
         id,
         type,
         from,
         to,
-        instruction: defaultMatchingHeadingsInstruction(["A"]),
+        instruction: defaultMatchingHeadingsInstruction(sectionLetters),
         hint: "Drag the correct heading into each section.",
         options: [
           { id: "i", label: "i. Heading one" },
@@ -271,18 +280,24 @@ export function createQuestionGroup(
           { id: "vii", label: "vii. Extra heading" },
           { id: "viii", label: "viii. Extra heading" },
         ],
-        questions: [{ n: from, prompt: "Section A", section: "A" }],
+        questions: [
+          {
+            n: from,
+            prompt: `Section ${sectionLetters[0]}`,
+            section: sectionLetters[0],
+          },
+        ],
       };
+    }
     case "matching_information":
       return {
         id,
         type,
         from,
         to,
-        instruction:
-          "The text has six sections. Which section contains the following information?",
-        hint: "Choose the correct section, A–F, for each question.",
-        sectionLabels: ["A", "B", "C", "D", "E", "F"],
+        instruction: defaultMatchingInformationInstruction(passageSections),
+        hint: defaultMatchingInformationHint(passageSections),
+        sectionLabels: passageSections,
         questions: [{ n: from, prompt: "" }],
       };
     case "summary_completion_list":

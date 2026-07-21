@@ -30,16 +30,19 @@ export function sectionCountWord(count: number): string {
   return SECTION_COUNT_WORDS[count] ?? String(count);
 }
 
+export function sectionLetterRange(sectionLetters: string[]): string {
+  if (sectionLetters.length === 0) return "";
+  if (sectionLetters.length === 1) return sectionLetters[0]!;
+  return `${sectionLetters[0]}–${sectionLetters[sectionLetters.length - 1]}`;
+}
+
 /** Default Cambridge-style matching headings instruction from section letters. */
 export function defaultMatchingHeadingsInstruction(sectionLetters: string[]): string {
   const count = sectionLetters.length;
   if (count === 0) {
     return "Choose the correct heading for each section.";
   }
-  const range =
-    count === 1
-      ? sectionLetters[0]!
-      : `${sectionLetters[0]}–${sectionLetters[sectionLetters.length - 1]}`;
+  const range = sectionLetterRange(sectionLetters);
   return `The text has ${sectionCountWord(count)} sections, ${range}. Choose the correct heading for each section.`;
 }
 

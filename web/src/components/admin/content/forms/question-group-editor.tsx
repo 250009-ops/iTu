@@ -34,11 +34,15 @@ import {
   resolveMatchingSection,
 } from "@/lib/exam/matching-headings";
 import {
+  patchMatchingInformationGroup,
+  syncMatchingInformationGroupsFromPassage,
+} from "@/lib/exam/matching-information";
+import {
   inferMatchingReuseOptions,
   matchingHintWithReuse,
 } from "@/lib/exam/matching-options";
 import { QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
-import type { FlowchartCompletionGroup, MatchingFeaturesGroup, MatchingGroup, McqSingleGroup, QuestionGroup } from "@/lib/exam/types";
+import type { FlowchartCompletionGroup, MatchingFeaturesGroup, MatchingGroup, MatchingInformationGroup, McqSingleGroup, QuestionGroup } from "@/lib/exam/types";
 
 type Props = {
   group: QuestionGroup;
@@ -680,21 +684,26 @@ function renderBody(
       );
 
     case "matching_information": {
+      const miGroup = group as MatchingInformationGroup;
       const labels =
-        group.sectionLabels && group.sectionLabels.length > 0
-          ? group.sectionLabels
+        miGroup.sectionLabels && miGroup.sectionLabels.length > 0
+          ? miGroup.sectionLabels
           : passageSectionLabels(passageParagraphs, undefined);
+      const commitMatchingInformation = (
+        patch: Partial<MatchingInformationGroup>,
+      ) => {
+        onChange(
+          patchMatchingInformationGroup(miGroup, patch, passageParagraphs),
+        );
+      };
       return (
         <div className="space-y-3">
           <div className="space-y-2">
             <Label className="text-xs">Section labels (dropdown options)</Label>
             <SectionLabelsInput
-              value={group.sectionLabels}
+              value={miGroup.sectionLabels}
               onChange={(sectionLabels) =>
-                onChange({
-                  ...group,
-                  sectionLabels,
-                })
+                commitMatchingInformation({ sectionLabels })
               }
               placeholder="A, B, C, D, E, F"
             />
@@ -704,14 +713,32 @@ function renderBody(
             </p>
           </div>
           <StatementListEditor
-            questions={group.questions}
+            questions={miGroup.questions}
             answerKey={answerKey}
             answerKeyType="option"
             answerOptions={labels.length > 0 ? labels : DEFAULT_SECTION_LABELS}
             placeholder="Statement to match to a section"
-            onQuestionsChange={(questions) => onChange({ ...group, questions })}
+            onQuestionsChange={(questions) =>
+              commitMatchingInformation({ questions })
+            }
             onAnswerKeyChange={onAnswerKeyChange}
           />
+          {passageParagraphs && passageParagraphs.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                onChange(
+                  syncMatchingInformationGroupsFromPassage(
+                    [miGroup],
+                    passageParagraphs,
+                  )[0] as MatchingInformationGroup,
+                );
+              }}
+            >
+              Sync from passage markers
+            </Button>
+          )}
         </div>
       );
     }

@@ -28,6 +28,7 @@ import {
   nextPassageMarker,
   normalizePassageMarker,
 } from "@/lib/exam/passage-sections";
+import { syncMatchingInformationGroupsFromPassage } from "@/lib/exam/matching-information";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -67,8 +68,12 @@ export function ReadingVisualEditor({
   }
 
   function updatePassage(patch: Partial<typeof passage>) {
+    let groups = passage.groups ?? [];
+    if (patch.paragraphs) {
+      groups = syncMatchingInformationGroupsFromPassage(groups, patch.paragraphs);
+    }
     const nextPassages = [...passages];
-    nextPassages[activeIdx] = { ...passage, ...patch };
+    nextPassages[activeIdx] = { ...passage, ...patch, groups };
     const next = { ...content, passages: nextPassages };
     recomputeTotalQuestions(next);
     onContentChange(next);
