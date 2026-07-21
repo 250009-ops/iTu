@@ -228,11 +228,11 @@ export function AdminSidebar() {
   return (
     <aside
       className={cn(
-        "hidden h-full shrink-0 flex-col bg-navy text-white transition-[width] duration-200 md:flex",
+        "hidden h-full min-h-0 shrink-0 flex-col overflow-hidden bg-navy text-white transition-[width] duration-200 md:flex",
         collapsed ? "w-[4.5rem]" : "w-60 lg:w-64",
       )}
     >
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+      <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
         {adminNavGroups.map((group, gi) => (
           <div key={gi}>
             {group.label && !collapsed && (
@@ -266,7 +266,7 @@ export function AdminSidebar() {
           </div>
         ))}
       </nav>
-      <PortalSidebarDownload collapsed={collapsed} />
+      <PortalSidebarDownload collapsed={collapsed} className="shrink-0" />
     </aside>
   );
 }
