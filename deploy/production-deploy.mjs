@@ -105,7 +105,7 @@ if [ -f /var/www/itestu/app/deploy/nginx/itestu.uz.conf ]; then
 fi
 bash /var/www/itestu/deploy/deploy-rebuild.sh
 cd /var/www/itestu/app/api
-if [ "${SEED_MOCK_CONTENT:-0}" = "1" ]; then
+if [ "\${SEED_MOCK_CONTENT:-0}" = "1" ]; then
   npm run packages:ensure-skill
   npm run sync:exam-content
   npm run content:patch
