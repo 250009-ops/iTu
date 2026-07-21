@@ -71,58 +71,67 @@ function ContentStudioInner() {
 
   return (
     <ApiDataShell loading={loading} error={error}>
-      <ContentDeepLink
-        activeModule={activeModule}
-        onModuleChange={setActiveModule}
-        onPreviewTab={openPreviewTab}
-      />
       <div
         className={cn(
-          "min-h-0 pt-4 lg:pt-6",
-          isEditing ? "flex flex-col pb-6" : "pb-10",
+          "flex min-h-0 flex-col",
+          isEditing && "flex-1 overflow-hidden",
         )}
       >
+        <ContentDeepLink
+          activeModule={activeModule}
+          onModuleChange={setActiveModule}
+          onPreviewTab={openPreviewTab}
+        />
         <div
           className={cn(
-            "mx-auto flex w-full max-w-7xl flex-col px-4 lg:px-6 xl:px-8",
-            isEditing ? "min-h-[calc(100dvh-4.5rem)] flex-1 gap-4" : "space-y-6",
+            "flex min-h-0 flex-col",
+            isEditing
+              ? "flex-1 overflow-hidden pt-4 lg:pt-6"
+              : "pb-10 pt-4 lg:pt-6",
           )}
         >
-          <ContentStudioHeader activeModule={activeModule} />
+          <div
+            className={cn(
+              "mx-auto flex w-full max-w-7xl flex-col px-4 lg:px-6 xl:px-8",
+              isEditing ? "min-h-0 flex-1 gap-4" : "space-y-6",
+            )}
+          >
+            {!isEditing && <ContentStudioHeader activeModule={activeModule} />}
 
-          {isEditing ? (
-            <>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setSelectedTestId(null)}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to tests
-                </Button>
-                {selectedTest && (
-                  <p className="text-sm text-muted">
-                    Editing{" "}
-                    <span className="font-semibold text-navy">{selectedTest.name}</span>
-                  </p>
-                )}
-              </div>
-              <div className="flex min-h-0 flex-1 flex-col">
-                <Editor initialTab={editorTab} focused />
-              </div>
-            </>
-          ) : (
-            <>
-              <ContentSummaryCards />
-              <ModuleTabs active={activeModule} onChange={setActiveModule} />
-              <TestsTable
-                module={activeModule}
-                onPreviewTest={openPreviewTab}
-                onEditTest={() => setEditorTab("visual")}
-              />
-            </>
-          )}
+            {isEditing ? (
+              <>
+                <div className="flex shrink-0 flex-wrap items-center gap-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setSelectedTestId(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to tests
+                  </Button>
+                  {selectedTest && (
+                    <p className="text-sm text-muted">
+                      Editing{" "}
+                      <span className="font-semibold text-navy">{selectedTest.name}</span>
+                    </p>
+                  )}
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <Editor initialTab={editorTab} focused />
+                </div>
+              </>
+            ) : (
+              <>
+                <ContentSummaryCards />
+                <ModuleTabs active={activeModule} onChange={setActiveModule} />
+                <TestsTable
+                  module={activeModule}
+                  onPreviewTest={openPreviewTab}
+                  onEditTest={() => setEditorTab("visual")}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </ApiDataShell>

@@ -12,8 +12,8 @@ function InstitutionContentPageInner() {
   const [tab, setTab] = useState<Tab>("tests");
 
   return (
-    <div className="min-h-0">
-      <div className="border-b border-border bg-white">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 border-b border-border bg-white">
         <div className="mx-auto flex max-w-7xl gap-1 px-4 pt-4 lg:px-6 xl:px-8">
           {(
             [
@@ -39,11 +39,15 @@ function InstitutionContentPageInner() {
       </div>
 
       {tab === "tests" ? (
-        <Suspense fallback={null}>
-          <ContentStudioInner />
-        </Suspense>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Suspense fallback={null}>
+            <ContentStudioInner />
+          </Suspense>
+        </div>
       ) : (
-        <InstitutionPackagesPanel />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <InstitutionPackagesPanel />
+        </div>
       )}
     </div>
   );
