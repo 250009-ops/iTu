@@ -167,42 +167,47 @@ export function InstitutionMocksView() {
 
       <ApiDataShell loading={loading} error={error}>
         {showLockedPreview ? (
-          <div className="relative overflow-hidden rounded-xl">
-            <div className="pointer-events-none select-none space-y-8 blur-sm">
-              <BrowseTypeTabs
-                tabs={preview.tabs.map((tab) => ({
-                  tabId: tab.tabId,
-                  label: tab.label,
-                  available: preview.packages.some(
-                    (pkg) =>
-                      pkg.packageKind === tab.packageKind &&
-                      pkg.examType === tab.examType,
-                  ),
-                }))}
-                activeTabId={previewTabId}
-                onTabChange={setPreviewTabId}
-              />
-              <div className="grid gap-6">
-                {previewTabPackages.map((pkg) => (
-                  <MockProductCard
-                    key={pkg.id}
-                    mode="institution"
-                    grantSetTitle={pkg.grantSetTitle}
-                    product={toBrowseProduct(pkg)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 px-6">
-              <Link href="/institution/mocks/shop">
-                <Button variant="danger" size="lg">
-                  Buy Mocks
+          <div className="space-y-6">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-6 py-5">
+              <h2 className="text-base font-semibold text-navy">
+                Purchase {preview.showcaseSetTitle} to enroll students
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted">
+                Preview the included section mocks below. After purchase, you can
+                enroll students directly from this page.
+              </p>
+              <Link href="/institution/mocks/shop" className="mt-4 inline-block">
+                <Button variant="danger" size="sm">
+                  Buy mock set
                 </Button>
               </Link>
-              <p className="mt-3 max-w-sm text-center text-sm text-muted">
-                Purchase a mock set to unlock student enrollment for{" "}
-                {preview.showcaseSetTitle}.
-              </p>
+            </div>
+
+            <BrowseTypeTabs
+              tabs={preview.tabs.map((tab) => ({
+                tabId: tab.tabId,
+                label: tab.label,
+                available: preview.packages.some(
+                  (pkg) =>
+                    pkg.packageKind === tab.packageKind &&
+                    pkg.examType === tab.examType,
+                ),
+              }))}
+              activeTabId={previewTabId}
+              onTabChange={setPreviewTabId}
+            />
+
+            <div className="grid gap-6">
+              {previewTabPackages.map((pkg) => (
+                <MockProductCard
+                  key={pkg.id}
+                  mode="institution"
+                  grantSetTitle={pkg.grantSetTitle}
+                  product={toBrowseProduct(pkg)}
+                  purchaseDisabled
+                  purchaseDisabledReason="Purchase the mock set to enroll students"
+                />
+              ))}
             </div>
           </div>
         ) : hasOwnedSets ? (
@@ -239,7 +244,20 @@ export function InstitutionMocksView() {
               )}
             </div>
           </>
-        ) : null}
+        ) : (
+          <div className="rounded-xl border border-border bg-white px-6 py-12 text-center shadow-sm">
+            <h2 className="text-base font-semibold text-navy">No mock sets yet</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+              Purchase a mock set from the shop, or ask iTestU admin to grant one to
+              your centre. Then you can enroll students here.
+            </p>
+            <Link href="/institution/mocks/shop" className="mt-6 inline-block">
+              <Button variant="primary" size="sm">
+                Buy mock sets
+              </Button>
+            </Link>
+          </div>
+        )}
       </ApiDataShell>
 
       <Modal

@@ -14,7 +14,7 @@ import {
   Settings,
   UserCheck,
 } from "lucide-react";
-import { institutionNav } from "@/lib/institution/nav";
+import { institutionNav, isInstitutionNavActive } from "@/lib/institution/nav";
 import { useInstitutionNavBadges } from "@/contexts/institution-nav-badges-context";
 import { cn } from "@/lib/utils";
 
@@ -45,10 +45,7 @@ export function InstitutionMobileNav() {
             : item.badge === "flaggedSessions" && flaggedSessions > 0
               ? flaggedSessions
               : null;
-        const active =
-          item.href === "/institution"
-            ? pathname === "/institution"
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const active = isInstitutionNavActive(pathname, item.href);
 
         return (
           <Link

@@ -116,6 +116,8 @@ export function MockProductCard({
   const isInstitutionShop = mode === "institutionShop";
   const showPrice = mode === "student" || isInstitutionShop;
   const buyDisabled = isInstitutionShop && (purchaseDisabled || !onBuyClick);
+  const enrollDisabled =
+    isInstitution && (purchaseDisabled || !onEnrollClick);
 
   useEffect(() => {
     if (autoOpenBooking) {
@@ -285,21 +287,28 @@ export function MockProductCard({
           size="lg"
           className="flex-1 sm:max-w-md"
           loading={buying}
-          disabled={buyDisabled}
+          disabled={buyDisabled || enrollDisabled}
           onClick={() => {
             if (isInstitutionShop && !buyDisabled) onBuyClick?.();
-            else if (isInstitution) onEnrollClick?.();
+            else if (isInstitution && !enrollDisabled) onEnrollClick?.();
             else setWizardOpen(true);
           }}
         >
           {isInstitutionShop
             ? "Buy mock set"
             : isInstitution
-              ? "Enroll students"
+              ? enrollDisabled
+                ? "Purchase to unlock"
+                : "Enroll students"
               : product.bookCta}
           <ArrowRight className="h-4 w-4" />
         </Button>
         {isInstitutionShop && buyDisabled && purchaseDisabledReason && (
+          <p className="text-center text-xs text-muted sm:text-left">
+            {purchaseDisabledReason}
+          </p>
+        )}
+        {isInstitution && enrollDisabled && purchaseDisabledReason && (
           <p className="text-center text-xs text-muted sm:text-left">
             {purchaseDisabledReason}
           </p>

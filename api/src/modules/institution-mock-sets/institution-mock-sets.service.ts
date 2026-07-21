@@ -662,7 +662,12 @@ export class InstitutionMockSetsService {
     const ownedSetIds = new Set(owned.map((g) => g.setId));
 
     const sets = await this.prisma.institutionMockSet.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        isListed: true,
+        listPrice: { gt: 0 },
+        id: { notIn: [...ownedSetIds] },
+      },
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
@@ -671,10 +676,6 @@ export class InstitutionMockSetsService {
       },
       orderBy: { title: 'asc' },
     });
-
-    if (sets.length === 0) {
-      return { sets: [this.buildPlaceholderShopOffer(currency)] };
-    }
 
     return {
       sets: sets.map((set) => {
@@ -770,7 +771,7 @@ export class InstitutionMockSetsService {
     if (showcase) {
       return this.buildPreviewFromSet(showcase, currency);
     }
-    return this.buildPlaceholderPreview(currency);
+    return null;
   }
 
   private async findShowcaseSet() {
@@ -850,41 +851,6 @@ export class InstitutionMockSetsService {
     };
   }
 
-  private buildPlaceholderPreview(currency: string) {
-    const showcaseSetTitle = 'Institution Mock Set';
-    const sectionOrder = ['listening', 'reading', 'writing'] as const;
-    const packages = sectionOrder.map((kind, index) => {
-      const template = getPackageContentTemplate(kind, ExamType.ACADEMIC);
-      const meta = SECTION_SKILL_META[kind];
-      return {
-        id: `preview-${kind}`,
-        slug: `preview-${kind}`,
-        title: `${meta.name} Mock`,
-        description: template.description || null,
-        price: 0,
-        currency,
-        examType: ExamType.ACADEMIC,
-        packageKind: kind,
-        mockNumber: index + 1,
-        mostPopular: false,
-        rating: null,
-        reviewCount: 0,
-        skills: [kind],
-        included: template.included,
-        rules: template.rules,
-        grantSetId: 'preview',
-        grantSetTitle: showcaseSetTitle,
-        grantSource: InstitutionMockSetGrantSource.ADMIN_GRANT,
-      };
-    });
-
-    return {
-      tabs: this.buildTabsFromPackages(packages),
-      packages,
-      showcaseSetTitle,
-    };
-  }
-
   private buildTabsFromPackages(
     packages: { packageKind: string; examType: ExamType | string }[],
   ) {
@@ -905,41 +871,6 @@ export class InstitutionMockSetsService {
       packageKind: group.packageKind,
       examType: group.examType,
     }));
-  }
-
-  private buildPlaceholderShopOffer(currency: string) {
-    const title = 'Institution Mock Set';
-    const product = this.buildSetShopProduct(
-      {
-        id: 'placeholder',
-        slug: 'institution-mock-set',
-        title,
-        description:
-          'B2B bundle of platform section mocks — enroll unlimited students after purchase.',
-        listPrice: 0,
-      },
-      SECTION_KINDS.map((kind) => ({
-        packageKind: kind,
-        examType: ExamType.ACADEMIC,
-        included: getPackageContentTemplate(kind, ExamType.ACADEMIC).included,
-        rules: getPackageContentTemplate(kind, ExamType.ACADEMIC).rules,
-      })),
-      currency,
-    );
-
-    return {
-      setId: null as string | null,
-      slug: 'institution-mock-set',
-      title,
-      description: product.description,
-      listPrice: 0,
-      currency,
-      contentSummary: 'Listening · Reading · Writing',
-      canPurchase: false,
-      disabledReason:
-        'Mock sets are not available for purchase yet. Contact iTestU admin.',
-      product,
-    };
   }
 
   private assertValidListingPrice(isListed: boolean, listPrice: number) {
@@ -987,7 +918,18 @@ export class InstitutionMockSetsService {
         ? activePackages
         : set.items.map((item) => item.package);
 
-    const product = this.buildSetShopProduct(set, packagesForProduct, currency);
+    const product = this.buildSetShopProduct(
+      set,
+      packagesForProduct.map((pkg) => ({
+        packageKind: pkg.packageKind,
+        examType: pkg.examType,
+        title: pkg.title,
+        description: pkg.description,
+        included: pkg.included,
+        rules: pkg.rules,
+      })),
+      currency,
+    );
 
     return {
       setId: set.id,
@@ -1014,32 +956,38 @@ export class InstitutionMockSetsService {
     packages: {
       packageKind: string;
       examType: ExamType;
+      title?: string;
+      description?: string | null;
       included: unknown;
       rules: unknown;
     }[],
     currency: string,
   ) {
     const sectionOrder = ['listening', 'reading', 'writing'] as const;
-    const kindsPresent = new Set(packages.map((p) => p.packageKind));
+    const packagesByKind = new Map(packages.map((p) => [p.packageKind, p]));
     const skills = sectionOrder
-      .filter((kind) => kindsPresent.has(kind))
-      .map((kind) => ({
-        id: kind,
-        ...SECTION_SKILL_META[kind],
-      }));
+      .filter((kind) => packagesByKind.has(kind))
+      .map((kind) => {
+        const pkg = packagesByKind.get(kind)!;
+        const meta = SECTION_SKILL_META[kind];
+        const detail =
+          pkg.description?.trim() ||
+          pkg.title?.trim() ||
+          meta.detail;
+        return {
+          id: kind,
+          name: meta.name,
+          detail,
+          badge: meta.badge,
+          color: meta.color,
+        };
+      });
 
     const included = this.mergeStringLists(
       packages.flatMap((p) => this.normalizeStringList(p.included)),
-      [
-        'Enroll unlimited students on included section mocks',
-        'No per-enrollment credit charges',
-        'Official computer-delivered IELTS format',
-      ],
     );
-
     const rules = this.mergeStringLists(
       packages.flatMap((p) => this.normalizeStringList(p.rules)),
-      ['Set content locked after purchase', 'One purchase per centre'],
     );
 
     const examType = packages[0]?.examType ?? ExamType.ACADEMIC;
@@ -1063,9 +1011,9 @@ export class InstitutionMockSetsService {
       included,
       rules,
       highlights: [
-        { icon: 'check', label: `${skills.length} section mocks included` },
+        { icon: 'check', label: `${skills.length} section mock${skills.length === 1 ? '' : 's'} included` },
         { icon: 'user', label: 'Unlimited student enrollments' },
-        { icon: 'globe', label: 'Official CBT format' },
+        { icon: 'globe', label: 'Computer-delivered mock format' },
       ],
     };
   }

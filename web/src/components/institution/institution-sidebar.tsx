@@ -17,7 +17,10 @@ import {
 import { useSidebar } from "@/contexts/sidebar-context";
 import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useInstitutionNavBadges } from "@/contexts/institution-nav-badges-context";
-import { institutionNavGroups } from "@/lib/institution/nav";
+import {
+  institutionNavGroups,
+  isInstitutionNavActive,
+} from "@/lib/institution/nav";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -62,11 +65,7 @@ export function InstitutionSidebar() {
                     : item.badge === "flaggedSessions" && flaggedSessions > 0
                       ? flaggedSessions
                       : null;
-                const active =
-                  item.href === "/institution"
-                    ? pathname === "/institution"
-                    : pathname === item.href ||
-                      pathname.startsWith(`${item.href}/`);
+                const active = isInstitutionNavActive(pathname, item.href);
 
                 return (
                   <Link

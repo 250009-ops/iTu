@@ -78,3 +78,18 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
 ];
 
 export const institutionNav = institutionNavGroups.flatMap((g) => g.items);
+
+/** `/institution/mocks/shop` must not also activate `/institution/mocks`. */
+export function isInstitutionNavActive(pathname: string, href: string): boolean {
+  if (href === "/institution") {
+    return pathname === "/institution";
+  }
+  if (href === "/institution/mocks") {
+    return (
+      pathname === "/institution/mocks" ||
+      (pathname.startsWith("/institution/mocks/") &&
+        !pathname.startsWith("/institution/mocks/shop"))
+    );
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
