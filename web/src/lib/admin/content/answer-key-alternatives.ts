@@ -24,11 +24,23 @@ export function parseTextAlternatives(
 
 /** Collapse edited alternatives back to answer-key storage shape. */
 export function commitTextAlternatives(alts: string[]): string | string[] {
-  const trimmed = alts.map((s) => s.trim());
-  const nonEmpty = trimmed.filter(Boolean);
-  if (nonEmpty.length === 0) return "";
-  if (alts.length === 1 && nonEmpty.length === 1) return nonEmpty[0]!;
-  return trimmed;
+  if (alts.length === 0) return "";
+  if (alts.length === 1) return alts[0] ?? "";
+  return alts;
+}
+
+/** Trim alternatives for persistence — keeps internal spaces, drops empty slots. */
+export function normalizeTextAlternativesForSave(
+  value: string | string[] | undefined,
+): string | string[] {
+  if (Array.isArray(value)) {
+    const trimmed = value.map((s) => s.trim()).filter(Boolean);
+    if (trimmed.length === 0) return "";
+    if (trimmed.length === 1) return trimmed[0]!;
+    return trimmed;
+  }
+  if (typeof value !== "string") return "";
+  return value.trim();
 }
 
 export function hasTextAnswer(value: string | string[] | undefined): boolean {

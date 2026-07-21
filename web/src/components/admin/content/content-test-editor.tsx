@@ -18,6 +18,7 @@ import {
   moduleUsesAnswerKey,
 } from "@/lib/admin/content-templates";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
+import { normalizeTextAlternativesForSave } from "@/lib/admin/content/answer-key-alternatives";
 import { syncAnswerKey } from "@/lib/admin/content/utils";
 import type { MediaAssetRef } from "@/lib/admin/content/listening-media";
 import { normalizeContent } from "@/lib/admin/content/normalize";
@@ -232,6 +233,14 @@ export function ContentTestEditor({
     );
   }
 
+  function normalizeAnswerKeyForSave(key: AnswerKeyMap): AnswerKeyMap {
+    const next: AnswerKeyMap = {};
+    for (const [questionKey, value] of Object.entries(key)) {
+      next[questionKey] = normalizeTextAlternativesForSave(value);
+    }
+    return next;
+  }
+
   async function handleSave(): Promise<boolean> {
     if (!testId) return false;
     if (isLocked) {
@@ -248,7 +257,7 @@ export function ContentTestEditor({
       await updateTest(testId, {
         title: title.trim(),
         content,
-        answerKey: showAnswerKey ? answerKey : undefined,
+        answerKey: showAnswerKey ? normalizeAnswerKeyForSave(answerKey) : undefined,
         durationMin,
       });
       toast("Draft saved", { variant: "success" });

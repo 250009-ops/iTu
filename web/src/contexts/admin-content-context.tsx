@@ -48,7 +48,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const createTest = useCallback(
     async (payload: CreateTestPayload) => {
       const created = await createContentTest(payload);
-      await refresh();
+      await refresh({ silent: true });
       setSelectedTestId(created.id as string);
       return { id: created.id as string, title: created.title as string };
     },
@@ -58,7 +58,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const updateTest = useCallback(
     async (id: string, payload: Parameters<ContentStudioValue["updateTest"]>[1]) => {
       await updateContentTest(id, payload);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -66,7 +66,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const publishTest = useCallback(
     async (id: string) => {
       await publishContentTest(id);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -74,7 +74,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const cloneTest = useCallback(
     async (id: string) => {
       const cloned = await cloneContentTest(id);
-      await refresh();
+      await refresh({ silent: true });
       setSelectedTestId(cloned.id);
       return { id: cloned.id, title: cloned.title, code: cloned.code };
     },
@@ -84,7 +84,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const archiveTest = useCallback(
     async (id: string) => {
       await archiveContentTest(id);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -92,7 +92,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const retireAndDuplicate = useCallback(
     async (id: string) => {
       const result = await retireAndDuplicateContentTest(id);
-      await refresh();
+      await refresh({ silent: true });
       setSelectedTestId(result.clone.id);
       return {
         archived: result.archived,
@@ -108,7 +108,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       await deleteContentTest(id);
       setSelectedTestId((current) => (current === id ? null : current));
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -116,7 +116,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const submitForReview = useCallback(
     async (id: string) => {
       await submitContentTestForReview(id);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -124,7 +124,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const revertToDraft = useCallback(
     async (id: string) => {
       await revertContentTestToDraft(id);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -132,7 +132,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const importTest = useCallback(
     async (payload: CreateTestPayload) => {
       const created = await importContentTest(payload);
-      await refresh();
+      await refresh({ silent: true });
       setSelectedTestId(created.id);
       return { id: created.id, title: created.title };
     },
@@ -142,7 +142,7 @@ export function AdminContentProvider({ children }: { children: ReactNode }) {
   const importAnswerKey = useCallback(
     async (id: string, csv: string) => {
       await importAnswerKeyCsv(id, csv);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );

@@ -39,7 +39,7 @@ export function InstitutionContentProvider({ children }: { children: ReactNode }
   const createTest = useCallback(
     async (payload: CreateTestPayload) => {
       const created = await createInstitutionContentTest(payload);
-      await refresh();
+      await refresh({ silent: true });
       setSelectedTestId(created.id);
       return { id: created.id, title: created.title };
     },
@@ -49,7 +49,7 @@ export function InstitutionContentProvider({ children }: { children: ReactNode }
   const updateTest = useCallback(
     async (id: string, payload: Parameters<ContentStudioValue["updateTest"]>[1]) => {
       await updateInstitutionContentTest(id, payload);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -57,7 +57,7 @@ export function InstitutionContentProvider({ children }: { children: ReactNode }
   const publishTest = useCallback(
     async (id: string) => {
       await publishInstitutionContentTest(id);
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
@@ -65,7 +65,7 @@ export function InstitutionContentProvider({ children }: { children: ReactNode }
   const cloneTest = useCallback(
     async (id: string) => {
       const cloned = await cloneInstitutionContentTest(id);
-      await refresh();
+      await refresh({ silent: true });
       setSelectedTestId(cloned.id);
       return { id: cloned.id, title: cloned.title, code: cloned.code };
     },
@@ -76,7 +76,7 @@ export function InstitutionContentProvider({ children }: { children: ReactNode }
     async (id: string) => {
       await deleteInstitutionContentTest(id);
       setSelectedTestId((current) => (current === id ? null : current));
-      await refresh();
+      await refresh({ silent: true });
     },
     [refresh],
   );
