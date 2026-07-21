@@ -1,5 +1,9 @@
 import { ExamType } from '@prisma/client';
-import { formatMockNumber, packageKindLabel } from './package-kind';
+import {
+  formatMockNumber,
+  formatMockSerial,
+  packageKindLabel,
+} from './package-kind';
 
 const FULL_PACKAGE_KIND = 'listening+reading+writing+speaking';
 
@@ -23,12 +27,12 @@ export function suggestPackageTitle(
   packageKind: string,
   mockNumber: number,
 ): string {
-  const serial = String(mockNumber).padStart(3, '0');
+  const serial = formatMockSerial(mockNumber);
   if (packageKind === FULL_PACKAGE_KIND) {
     if (examType === ExamType.GENERAL_TRAINING) {
-      return `General Training Mock ${serial}`;
+      return `General Training Mock-${serial}`;
     }
-    return `Full Academic Mock ${serial}`;
+    return `Full Academic Mock-${serial}`;
   }
   return formatMockNumber(packageKind, mockNumber);
 }

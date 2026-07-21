@@ -11,6 +11,7 @@ import {
   activateInstitutionPackage,
   createInstitutionPackage,
   getInstitutionPackageContentTests,
+  getInstitutionPackageNextIdentity,
   getInstitutionPackagesMine,
   updateInstitutionPackageLinks,
 } from "@/lib/api/institution-content";
@@ -36,6 +37,8 @@ export function InstitutionPackagesPanel() {
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [suggestedMockLabel, setSuggestedMockLabel] = useState<string | null>(null);
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [creating, setCreating] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
@@ -86,6 +89,20 @@ export function InstitutionPackagesPanel() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    setLoadingSuggestion(true);
+    void getInstitutionPackageNextIdentity()
+      .then((next) => {
+        setNewTitle(next.title);
+        setSuggestedMockLabel(next.mockLabel);
+      })
+      .catch(() => {
+        setSuggestedMockLabel(null);
+      })
+      .finally(() => setLoadingSuggestion(false));
+  }, [createOpen]);
 
   async function handleCreate() {
     if (!newTitle.trim()) {
@@ -264,13 +281,19 @@ export function InstitutionPackagesPanel() {
             <p className="mt-1 text-sm text-muted">
               Full mock (L/R/W/S). You can link tests after creation.
             </p>
+            {suggestedMockLabel && (
+              <p className="mt-2 text-xs font-medium text-navy">
+                Package ID: {suggestedMockLabel}
+              </p>
+            )}
             <div className="mt-4 space-y-2">
               <Label htmlFor="pkg-title">Title</Label>
               <Input
                 id="pkg-title"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Centre Mock A001"
+                placeholder={loadingSuggestion ? "Loading suggested title…" : "Full Academic Mock-A001"}
+                disabled={loadingSuggestion}
               />
             </div>
             <div className="mt-6 flex justify-end gap-2">

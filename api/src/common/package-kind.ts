@@ -22,8 +22,17 @@ export function packageKindLabel(kind: string): string {
   return KIND_LABELS[kind] ?? kind.replace(/\+/g, ' + ');
 }
 
+export function formatMockSerial(mockNumber: number): string {
+  return `A${String(mockNumber).padStart(3, '0')}`;
+}
+
 export function formatMockNumber(kind: string, mockNumber: number): string {
-  return `${packageKindLabel(kind)} ${String(mockNumber).padStart(3, '0')}`;
+  const serial = formatMockSerial(mockNumber);
+  const label = packageKindLabel(kind);
+  if (label.endsWith(' Mock')) {
+    return `${label}-${serial}`;
+  }
+  return `${label} Mock-${serial}`;
 }
 
 export const SKILL_TO_TEST_FIELD = {

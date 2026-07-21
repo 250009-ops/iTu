@@ -50,12 +50,17 @@ export class InstitutionPackagesController {
     );
   }
 
+  @Get('packages/next-identity')
+  suggestNextPackage(@CurrentUser() user: RequestUser) {
+    return this.packages.suggestNextPackage(user);
+  }
+
   @Post('packages')
   createPackage(
     @CurrentUser() user: RequestUser,
     @Body()
     body: {
-      title: string;
+      title?: string;
       examType?: ExamType;
       skills?: string[];
       description?: string;

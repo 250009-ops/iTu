@@ -398,7 +398,7 @@ export function PackageEditorDialog() {
               value={form.title}
               error={titleInvalid}
               onChange={(e) => set("title", e.target.value)}
-              placeholder="e.g. Full Academic Mock 002"
+              placeholder="e.g. Full Academic Mock-A002"
             />
           </div>
 

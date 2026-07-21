@@ -20,6 +20,7 @@ import {
   SKILL_TO_POOL_KEY,
   SKILL_TO_TEST_FIELD,
 } from '../../common/package-kind';
+import { suggestPackageTitle } from '../../common/package-naming';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
 import {
   queryNextMockNumber,
@@ -190,10 +191,30 @@ export class InstitutionPackagesService {
     return options.sort((a, b) => a.title.localeCompare(b.title));
   }
 
+  async suggestNextPackage(user: RequestUser) {
+    const institutionId = requireInstitutionId(user);
+    const skills = [...DEFAULT_SKILLS];
+    const packageKind = derivePackageKind(skills);
+    const examType = ExamType.ACADEMIC;
+    const mockNumber = await queryNextMockNumber(this.prisma, {
+      scopeKey: packageScopeKey(institutionId),
+      packageKind,
+      institutionId,
+    });
+    const title = suggestPackageTitle(examType, packageKind, mockNumber);
+    return {
+      title,
+      mockLabel: formatMockNumber(packageKind, mockNumber),
+      mockNumber,
+      packageKind,
+      examType,
+    };
+  }
+
   async createPackage(
     user: RequestUser,
     dto: {
-      title: string;
+      title?: string;
       examType?: ExamType;
       skills?: string[];
       description?: string;
@@ -208,26 +229,30 @@ export class InstitutionPackagesService {
 
     const skills = (dto.skills ?? [...DEFAULT_SKILLS]) as Prisma.InputJsonValue;
     const packageKind = derivePackageKind(skills);
+    const examType = dto.examType ?? ExamType.ACADEMIC;
     const scopeKey = packageScopeKey(institutionId);
 
     const created = await withUniqueRetry(async () => {
-      const mockNumber = await queryNextMockNumber(this.prisma, {
+      const nextMockNumber = await queryNextMockNumber(this.prisma, {
         scopeKey,
         packageKind,
         institutionId,
       });
-      const slug = await this.resolveSlug(institution.slug, dto.title);
+      const title =
+        dto.title?.trim() ||
+        suggestPackageTitle(examType, packageKind, nextMockNumber);
+      const slug = await this.resolveSlug(institution.slug, title);
 
       return this.prisma.mockTestPackage.create({
         data: {
           slug,
-          title: dto.title.trim(),
+          title,
           description: dto.description?.trim() || null,
           price: 0,
           currency: 'UZS',
-          examType: dto.examType ?? ExamType.ACADEMIC,
+          examType,
           packageKind,
-          mockNumber,
+          mockNumber: nextMockNumber,
           scopeKey,
           institutionId,
           skills,

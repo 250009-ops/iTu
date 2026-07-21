@@ -203,8 +203,18 @@ export function getInstitutionPackageContentTests(type?: string) {
   >(`/institution/packages/content-tests${q}`);
 }
 
+export function getInstitutionPackageNextIdentity() {
+  return apiFetch<{
+    title: string;
+    mockLabel: string;
+    mockNumber: number;
+    packageKind: string;
+    examType: string;
+  }>("/institution/packages/next-identity");
+}
+
 export function createInstitutionPackage(body: {
-  title: string;
+  title?: string;
   examType?: string;
   skills?: string[];
   description?: string;
