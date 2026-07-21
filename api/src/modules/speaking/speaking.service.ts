@@ -96,11 +96,16 @@ export class SpeakingService {
       })),
       enrollmentId: examSession.enrollment.id,
       adminGranted: examSession.enrollment.adminGranted,
+      institutionGranted: examSession.enrollment.institutionGranted,
       mockDate: examSession.enrollment.mockDate,
       speakingTeacherId: examSession.enrollment.speakingTeacherId,
       needsSpeakingSlot:
         !speakingSession.scheduledAt &&
         Boolean(examSession.enrollment.speakingTeacherId),
+      canScheduleSpeakingSlot:
+        !speakingSession.scheduledAt &&
+        Boolean(examSession.enrollment.speakingTeacherId) &&
+        !examSession.enrollment.institutionGranted,
       slotLocked: Boolean(examSession.enrollment.speakingSlotId),
     };
   }

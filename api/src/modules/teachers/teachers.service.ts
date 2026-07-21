@@ -262,6 +262,7 @@ export class TeachersService {
 
   async getAvailability(user: RequestUser, weekStart?: string) {
     const teacher = await this.requireTeacher(user);
+    this.assertMarketplaceTeacher(teacher);
 
     const weekStartDate = weekStart ? new Date(weekStart) : this.getMonday(new Date());
     weekStartDate.setHours(0, 0, 0, 0);
@@ -374,6 +375,7 @@ export class TeachersService {
     slotDuration = 20,
   ) {
     const teacher = await this.requireTeacher(user);
+    this.assertMarketplaceTeacher(teacher);
 
     const duration = [15, 20, 30].includes(slotDuration) ? slotDuration : 20;
 
@@ -506,6 +508,7 @@ export class TeachersService {
 
   async blockSlot(user: RequestUser, slotId: string) {
     const teacher = await this.requireTeacher(user);
+    this.assertMarketplaceTeacher(teacher);
     const slot = await this.prisma.teacherSlot.findFirst({
       where: { id: slotId, teacherId: teacher.id },
     });
@@ -523,6 +526,7 @@ export class TeachersService {
 
   async unblockSlot(user: RequestUser, slotId: string) {
     const teacher = await this.requireTeacher(user);
+    this.assertMarketplaceTeacher(teacher);
     const slot = await this.prisma.teacherSlot.findFirst({
       where: { id: slotId, teacherId: teacher.id },
     });
@@ -829,5 +833,14 @@ export class TeachersService {
     });
     if (!teacher) throw new NotFoundException('Teacher not found');
     return teacher;
+  }
+
+  /** Centre examiners do not manage marketplace availability — the institution does. */
+  private assertMarketplaceTeacher(teacher: { institutionId: string | null }) {
+    if (teacher.institutionId) {
+      throw new ForbiddenException(
+        'Availability is managed by your centre. Contact your centre admin to schedule speaking sessions.',
+      );
+    }
   }
 }

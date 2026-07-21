@@ -6,7 +6,6 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
-  Loader2,
   Mic,
   User,
 } from "lucide-react";
@@ -63,11 +62,22 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
   }, [loadState]);
 
   const needsSpeakingSlot = speakingState?.needsSpeakingSlot ?? false;
+  const canScheduleSpeakingSlot =
+    speakingState?.canScheduleSpeakingSlot ??
+    (needsSpeakingSlot && !speakingState?.institutionGranted);
+  const isInstitutionPending =
+    needsSpeakingSlot && Boolean(speakingState?.institutionGranted);
   const slotAccess = speakingJoinAccess(speakingState?.scheduledAt);
   const slotLabel = speakingState?.scheduledAt
     ? formatSlotRange(speakingState.scheduledAt)
     : content?.slot ?? "Not scheduled";
-  const isGrantedPending = needsSpeakingSlot && speakingState?.adminGranted;
+  const isGrantedPending =
+    needsSpeakingSlot &&
+    Boolean(speakingState?.adminGranted) &&
+    canScheduleSpeakingSlot;
+  const mockDayHref = speakingState?.institutionGranted
+    ? "/inst-student/my-mock"
+    : "/student/mock-day";
 
   let primaryAction: {
     label: string;
@@ -75,7 +85,14 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
     disabled: boolean;
     onClick: () => void;
   };
-  if (needsSpeakingSlot) {
+  if (isInstitutionPending) {
+    primaryAction = {
+      label: "Waiting for centre to schedule speaking",
+      icon: CalendarClock,
+      disabled: true,
+      onClick: () => undefined,
+    };
+  } else if (needsSpeakingSlot && canScheduleSpeakingSlot) {
     primaryAction = {
       label: "Select speaking time",
       icon: CalendarClock,
@@ -98,7 +115,7 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
     };
   } else if (!slotAccess.allowed) {
     primaryAction = {
-      label: slotAccess.message ?? "Select a speaking time first",
+      label: slotAccess.message ?? "Speaking is not ready yet",
       icon: CalendarClock,
       disabled: true,
       onClick: () => undefined,
@@ -143,6 +160,12 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
               <p className="mt-3 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900">
                 Choose a speaking time with your assigned examiner before
                 entering the waiting room. This slot cannot be changed later.
+              </p>
+            )}
+            {isInstitutionPending && (
+              <p className="mt-3 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900">
+                Your centre assigns the speaking time. Contact your centre admin
+                if it is not scheduled yet.
               </p>
             )}
           </div>
@@ -217,16 +240,19 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
             </button>
             <button
               type="button"
-              onClick={() => router.push("/student/mock-day")}
+              onClick={() => router.push(mockDayHref)}
               className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
-              Back to Mock Day Hub
+              {speakingState?.institutionGranted
+                ? "Back to My Mock"
+                : "Back to Mock Day Hub"}
             </button>
           </div>
         </div>
       </main>
 
       {slotDialogOpen &&
+        canScheduleSpeakingSlot &&
         speakingState?.enrollmentId &&
         speakingState.speakingTeacherId && (
           <SpeakingSlotDialog

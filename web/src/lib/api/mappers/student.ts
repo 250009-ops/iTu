@@ -345,7 +345,9 @@ export function mapMockDayHub(data: MockDayApi) {
   const { enrollment, sections = [], speaking, writing } = data;
   const isMissed = enrollment.status === "missed";
   const flexibleStart =
-    Boolean(enrollment.adminGranted) && !enrollment.mockTime;
+    (Boolean(enrollment.adminGranted) ||
+      Boolean(enrollment.institutionGranted)) &&
+    !enrollment.mockTime;
   const examStarted = Boolean(enrollment.examStartedAt);
   const hasSpeaking =
     (enrollment.packageSkills ?? []).includes("speaking") ||
@@ -359,6 +361,8 @@ export function mapMockDayHub(data: MockDayApi) {
     : null;
   const needsSpeakingSlot =
     hasSpeaking && !speakingScheduled && Boolean(enrollment.speakingTeacherId);
+  const institutionGranted = Boolean(enrollment.institutionGranted);
+  const canScheduleSpeakingSlot = needsSpeakingSlot && !institutionGranted;
   const mockDate = new Date(enrollment.mockDate);
   const now = Date.now();
   const checkInCompleted = Boolean(enrollment.checkInCompleted);
@@ -559,6 +563,8 @@ export function mapMockDayHub(data: MockDayApi) {
     flexibleStart,
     examStarted,
     needsSpeakingSlot,
+    canScheduleSpeakingSlot,
+    institutionGranted,
     speakingTeacherId: enrollment.speakingTeacherId ?? null,
     canReschedule:
       !isMissed && !mockDayClosed && !examStarted && !checkInCompleted,
@@ -641,7 +647,9 @@ export function mapMockDayHub(data: MockDayApi) {
       scheduledLabel: speakingScheduled
         ? formatTime(speakingScheduled)
         : needsSpeakingSlot
-          ? "Select slot"
+          ? institutionGranted
+            ? "Awaiting centre"
+            : "Select slot"
           : displayTime,
       examiner: speaking?.examiner ?? "Your examiner",
       examinerTitle: "Speaking Examiner · IELTS Certified",

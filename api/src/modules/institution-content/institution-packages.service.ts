@@ -107,12 +107,18 @@ export class InstitutionPackagesService {
     );
 
     const platform = availableGranted
-      .map((p) => ({
-        id: p.id,
-        title: p.title,
-        packageKind: p.packageKind,
-        mockNumber: p.mockNumber,
-      }))
+      .map((p) => {
+        const skills = packageExamSkills(p.skills);
+        return {
+          id: p.id,
+          title: p.title,
+          packageKind: p.packageKind,
+          mockNumber: p.mockNumber,
+          skills: skills.map((s) => s.toLowerCase()),
+          needsWriting: skills.includes(ExamSkill.WRITING),
+          needsSpeaking: skills.includes(ExamSkill.SPEAKING),
+        };
+      })
       .sort((a, b) => a.title.localeCompare(b.title));
 
     const own = await this.resolveNextPackagesForStudent(
@@ -152,6 +158,9 @@ export class InstitutionPackagesService {
       title: string;
       packageKind: string;
       mockNumber: number;
+      skills: string[];
+      needsWriting: boolean;
+      needsSpeaking: boolean;
     }[] = [];
 
     for (const group of seen.values()) {
@@ -161,11 +170,15 @@ export class InstitutionPackagesService {
         { ...group, institutionId },
       );
       if (resolved) {
+        const skills = packageExamSkills(resolved.skills);
         options.push({
           id: resolved.id,
           title: resolved.title,
           packageKind: resolved.packageKind,
           mockNumber: resolved.mockNumber,
+          skills: skills.map((s) => s.toLowerCase()),
+          needsWriting: skills.includes(ExamSkill.WRITING),
+          needsSpeaking: skills.includes(ExamSkill.SPEAKING),
         });
       }
     }

@@ -129,7 +129,10 @@ function MockDayContent({
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="space-y-4 lg:col-span-8">
             <ExamRulesBanner />
-            <SectionCards focusSectionId={showWelcomeBanner ? welcomeSkill : null} />
+            <SectionCards
+              portal={portal}
+              focusSectionId={showWelcomeBanner ? welcomeSkill : null}
+            />
           </div>
 
           <div className="space-y-4 lg:col-span-4">

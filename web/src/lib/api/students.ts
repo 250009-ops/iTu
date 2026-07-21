@@ -180,6 +180,7 @@ export function getMockDayHub() {
       mockTime: string | null;
       mockDayCutoffAt?: string | null;
       adminGranted?: boolean;
+      institutionGranted?: boolean;
       examStartedAt?: string | null;
       speakingTeacherId?: string | null;
       speakingSlotId?: string | null;

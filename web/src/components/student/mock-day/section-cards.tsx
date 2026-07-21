@@ -69,8 +69,10 @@ function StatusBadge({ status }: { status: SectionStatus }) {
 
 export function SectionCards({
   focusSectionId = null,
+  portal = "marketplace",
 }: {
   focusSectionId?: string | null;
+  portal?: "marketplace" | "institution";
 }) {
   const { data, refresh } = useStudentMockDayData();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -93,6 +95,8 @@ export function SectionCards({
   if (!data) return null;
   const isMissed = data.status === "missed";
   const examLocked = isMissed || data.mockDayClosed;
+  const isInstitution = portal === "institution" || data.institutionGranted;
+  const canScheduleSpeaking = data.canScheduleSpeakingSlot && !isInstitution;
   const { sections, speaking, sessionCode, hasSpeaking } = data;
   const speakingDone = speaking.status === "completed";
   const slotAccess = speakingJoinAccess(speaking.scheduledAt);
@@ -357,15 +361,25 @@ export function SectionCards({
                 Locked
               </span>
             ) : data.needsSpeakingSlot ? (
-              <button
-                type="button"
-                onClick={() => setSpeakingSlotOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 font-semibold text-white hover:bg-rose-700"
-                style={{ fontSize: "13px" }}
-              >
-                <CalendarClock size={14} />
-                Select examiner availability
-              </button>
+              canScheduleSpeaking ? (
+                <button
+                  type="button"
+                  onClick={() => setSpeakingSlotOpen(true)}
+                  className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 font-semibold text-white hover:bg-rose-700"
+                  style={{ fontSize: "13px" }}
+                >
+                  <CalendarClock size={14} />
+                  Select examiner availability
+                </button>
+              ) : (
+                <span
+                  className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 font-semibold text-amber-900"
+                  style={{ fontSize: "13px" }}
+                >
+                  <CalendarClock size={14} />
+                  Waiting for centre to schedule
+                </span>
+              )
             ) : (
               <>
                 <Link
@@ -426,7 +440,9 @@ export function SectionCards({
       </div>
       )}
 
-      {speakingSlotOpen && data.speakingTeacherId && (
+      {speakingSlotOpen &&
+        canScheduleSpeaking &&
+        data.speakingTeacherId && (
         <SpeakingSlotDialog
           enrollmentId={data.enrollmentId}
           mockDateIso={data.mockDateIso}

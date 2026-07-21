@@ -13,6 +13,7 @@ import {
   NotificationType,
   OrderStatus,
   PaymentMethod,
+  Prisma,
   SlotStatus,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
@@ -72,6 +73,12 @@ export interface ProvisionEnrollmentParams {
   writingTeacherId?: string;
   speakingTeacherId?: string;
   speakingSlotId?: string;
+  /**
+   * When set without speakingSlotId, create an AVAILABLE one-off TeacherSlot at
+   * mockDate + speakingTime (HH:mm) for the speaking examiner, then book it.
+   * Used by institution enrolments where centre examiners may lack weekly slots.
+   */
+  speakingTime?: string;
   /** When reappointing a missed mock, link to the prior enrollment. */
   reappointmentOfId?: string;
   /** When true: $0 order, COMPLIMENTARY payment method, adminGranted enrollment. */
@@ -219,7 +226,12 @@ export class BookingsService {
       throw new BadRequestException('Writing examiner is required for this package');
     }
 
-    const flexibleGrant = zeroCharge && !params.mockTime;
+    // Flexible start (no mockTime) stays allowed for zero-charge enrollments.
+    // Speaking-slot deferral is only for platform admin/welcome grants — centre
+    // enrollments must set the speaking time at enroll time.
+    const flexibleStart = zeroCharge && !params.mockTime;
+    const canDeferSpeakingSlot =
+      (complimentary || welcomePromo) && !institutionGranted;
     if (complimentary && !params.reappointmentOfId && !welcomePromo) {
       await this.assertNoActiveAdminGrant(studentProfileId);
     }
@@ -228,7 +240,12 @@ export class BookingsService {
         'Speaking examiner is required for this package',
       );
     }
-    if (needsSpeaking && !flexibleGrant && !params.speakingSlotId) {
+    if (
+      needsSpeaking &&
+      !canDeferSpeakingSlot &&
+      !params.speakingSlotId &&
+      !params.speakingTime
+    ) {
       throw new BadRequestException(
         'Speaking slot is required for this package',
       );
@@ -238,7 +255,10 @@ export class BookingsService {
         'Writing examiner is not required for this package',
       );
     }
-    if (!needsSpeaking && (params.speakingTeacherId || params.speakingSlotId)) {
+    if (
+      !needsSpeaking &&
+      (params.speakingTeacherId || params.speakingSlotId || params.speakingTime)
+    ) {
       throw new BadRequestException(
         'Speaking slot is not required for this package',
       );
@@ -262,7 +282,7 @@ export class BookingsService {
     }
 
     const resolvedMockTime = params.mockTime ?? null;
-    if (!flexibleGrant) {
+    if (!flexibleStart) {
       if (!resolvedMockTime || !/^\d{2}:\d{2}$/.test(resolvedMockTime)) {
         throw new BadRequestException('mockTime must be in HH:mm format');
       }
@@ -309,10 +329,25 @@ export class BookingsService {
     const result = await this.prisma.$transaction(async (tx) => {
       let slot: { id: string; teacherId: string; startsAt: Date } | null =
         null;
+      let speakingSlotId = params.speakingSlotId;
 
-      if (needsSpeaking && params.speakingSlotId) {
+      if (needsSpeaking && !speakingSlotId && params.speakingTime) {
+        if (!params.speakingTeacherId) {
+          throw new BadRequestException(
+            'Speaking examiner is required to create a speaking time',
+          );
+        }
+        speakingSlotId = await this.createAdHocSpeakingSlot(tx, {
+          teacherId: params.speakingTeacherId,
+          mockDate: params.mockDate,
+          speakingTime: params.speakingTime,
+          timeZone,
+        });
+      }
+
+      if (needsSpeaking && speakingSlotId) {
         const speakingSlot = await tx.teacherSlot.findUnique({
-          where: { id: params.speakingSlotId },
+          where: { id: speakingSlotId },
         });
         if (!speakingSlot || speakingSlot.status !== SlotStatus.AVAILABLE) {
           throw new BadRequestException('Speaking slot is no longer available');
@@ -327,7 +362,7 @@ export class BookingsService {
         }
 
         const booked = await tx.teacherSlot.updateMany({
-          where: { id: params.speakingSlotId, status: SlotStatus.AVAILABLE },
+          where: { id: speakingSlotId, status: SlotStatus.AVAILABLE },
           data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
         });
         if (booked.count === 0) {
@@ -353,7 +388,7 @@ export class BookingsService {
           writingTeacherId: params.writingTeacherId ?? null,
           speakingTeacherId:
             params.speakingTeacherId ?? slot?.teacherId ?? null,
-          speakingSlotId: params.speakingSlotId ?? null,
+          speakingSlotId: speakingSlotId ?? null,
         },
       });
 
@@ -468,12 +503,12 @@ export class BookingsService {
       });
       let body: string;
       let title: string;
-      if (welcomePromo && flexibleGrant) {
+      if (welcomePromo && flexibleStart) {
         const skillLabel =
           pkg.packageKind === 'reading' ? 'Reading' : 'Listening';
         title = 'Welcome gift claimed';
         body = `Your free ${skillLabel} mock is ready for ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
-      } else if (complimentary && flexibleGrant) {
+      } else if (complimentary && flexibleStart) {
         title = 'Free mock granted';
         body = `An admin granted you a free mock on ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
       } else if (params.isReappointment) {
@@ -482,6 +517,9 @@ export class BookingsService {
       } else if (complimentary) {
         title = 'Free mock granted';
         body = `An admin granted you a free mock on ${dateLabel} at ${resolvedMockTime}.`;
+      } else if (institutionGranted) {
+        title = 'Mock assigned by your centre';
+        body = `Your centre enrolled you for a mock on ${dateLabel}. Start anytime before ${cutoffLabel}; speaking time is set by your centre.`;
       } else {
         title = 'Mock booked';
         body = `Your mock is confirmed for ${dateLabel} at ${resolvedMockTime}.`;
@@ -491,7 +529,7 @@ export class BookingsService {
         title,
         body,
         NotificationType.INFO,
-        '/student/mock-day',
+        institutionGranted ? '/inst-student/my-mock' : '/student/mock-day',
       );
     }
 
@@ -1107,6 +1145,11 @@ export class BookingsService {
     if (!enrollment.speakingTeacherId) {
       throw new BadRequestException('No speaking examiner is assigned to this mock');
     }
+    if (enrollment.institutionGranted) {
+      throw new BadRequestException(
+        'Your centre schedules the speaking time for this mock. Contact your centre admin if it is missing.',
+      );
+    }
 
     const needsSpeaking = packageExamSkills(enrollment.package.skills).includes(
       ExamSkill.SPEAKING,
@@ -1324,6 +1367,66 @@ export class BookingsService {
 
   private packageSkills(pkg: { skills: unknown }): string[] {
     return packageExamSkills(pkg.skills).map((skill) => skill.toLowerCase());
+  }
+
+  /** Create an AVAILABLE one-off slot for institution/custom speaking times. */
+  private async createAdHocSpeakingSlot(
+    tx: Prisma.TransactionClient,
+    params: {
+      teacherId: string;
+      mockDate: string;
+      speakingTime: string;
+      timeZone: string;
+    },
+  ): Promise<string> {
+    if (!/^\d{2}:\d{2}$/.test(params.speakingTime)) {
+      throw new BadRequestException('speakingTime must be in HH:mm format');
+    }
+    const [hours, minutes] = params.speakingTime.split(':').map(Number);
+    const dateIso = extractCalendarDateIso(params.mockDate, params.timeZone);
+    const startsAt = zonedWallClockToUtc(
+      dateIso,
+      hours!,
+      minutes!,
+      0,
+      params.timeZone,
+    );
+    if (startsAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Speaking time must be in the future');
+    }
+    const endsAt = new Date(startsAt.getTime() + 20 * 60_000);
+
+    const existing = await tx.teacherSlot.findUnique({
+      where: {
+        teacherId_startsAt: {
+          teacherId: params.teacherId,
+          startsAt,
+        },
+      },
+    });
+    if (existing) {
+      if (existing.status === SlotStatus.BOOKED) {
+        throw new BadRequestException(
+          'That speaking time is already booked for this examiner',
+        );
+      }
+      if (existing.status === SlotStatus.BLOCKED) {
+        throw new BadRequestException(
+          'That speaking time is blocked for this examiner',
+        );
+      }
+      return existing.id;
+    }
+
+    const created = await tx.teacherSlot.create({
+      data: {
+        teacherId: params.teacherId,
+        startsAt,
+        endsAt,
+        status: SlotStatus.AVAILABLE,
+      },
+    });
+    return created.id;
   }
 
   /**

@@ -458,6 +458,7 @@ export class StudentsService {
         mockTime: enrollment.mockTime,
         mockDayCutoffAt: enrollment.mockDayCutoffAt,
         adminGranted: enrollment.adminGranted,
+        institutionGranted: enrollment.institutionGranted,
         examStartedAt: enrollment.examStartedAt,
         speakingTeacherId: enrollment.speakingTeacherId,
         speakingSlotId: enrollment.speakingSlotId,

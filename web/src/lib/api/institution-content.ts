@@ -173,6 +173,9 @@ export function getInstitutionEnrollmentPackages(studentId: string) {
       title: string;
       packageKind: string;
       mockNumber: number;
+      skills?: string[];
+      needsWriting?: boolean;
+      needsSpeaking?: boolean;
     }[];
     own: {
       id: string;
@@ -180,6 +183,9 @@ export function getInstitutionEnrollmentPackages(studentId: string) {
       packageKind: string;
       mockNumber: number;
       costsCredit?: boolean;
+      skills?: string[];
+      needsWriting?: boolean;
+      needsSpeaking?: boolean;
     }[];
   }>(`/institution/enrollment-packages?studentId=${encodeURIComponent(studentId)}`);
 }

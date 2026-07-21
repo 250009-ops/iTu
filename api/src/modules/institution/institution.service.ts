@@ -9,12 +9,14 @@ import { ConfigService } from '@nestjs/config';
 import {
   CreditTxnType,
   EnrollmentStatus,
+  ExamSkill,
   InstitutionMemberStatus,
   NotificationType,
   OrderStatus,
   OrderType,
   Prisma,
   ResultsStatus,
+  SlotStatus,
   TeacherSpeciality,
   TeacherStatus,
   UserRole,
@@ -44,8 +46,11 @@ import { StorageService } from '../../common/storage/storage.service';
 import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { evaluatePackageAvailability } from '../content/content-assignment';
+import { packageExamSkills } from '../content/package-skills';
 import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import { BookingsService } from '../bookings/bookings.service';
+import { SettingsService } from '../settings/settings.service';
+import { extractCalendarDateIso, zonedWallClockToUtc } from '../../common/mock-day-policy';
 import { UzumCheckoutService } from '../payments/uzum-checkout.service';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -112,6 +117,7 @@ export class InstitutionService {
     private storage: StorageService,
     private mockSets: InstitutionMockSetsService,
     private payments: PaymentsService,
+    private settings: SettingsService,
   ) {}
 
   private appUrl(): string {
@@ -743,6 +749,38 @@ export class InstitutionService {
       }
     }
 
+    const skills = packageExamSkills(pkg.skills);
+    const needsWriting = skills.includes(ExamSkill.WRITING);
+    const needsSpeaking = skills.includes(ExamSkill.SPEAKING);
+
+    if (needsWriting && !dto.writingTeacherId) {
+      throw new BadRequestException(
+        'Writing examiner is required for this package',
+      );
+    }
+    if (needsSpeaking && !dto.speakingTeacherId) {
+      throw new BadRequestException(
+        'Speaking examiner is required for this package',
+      );
+    }
+    if (needsSpeaking && !dto.speakingSlotId && !dto.speakingTime) {
+      throw new BadRequestException(
+        'Speaking time is required for the assigned speaking examiner',
+      );
+    }
+    if (!needsSpeaking && (dto.speakingSlotId || dto.speakingTime)) {
+      throw new BadRequestException(
+        'Speaking time is not required for this package',
+      );
+    }
+    if (needsSpeaking && dto.speakingTime && dto.speakingTeacherId) {
+      await this.assertSpeakingExaminerTimeAvailable(
+        dto.speakingTeacherId,
+        dto.mockDate,
+        dto.speakingTime,
+      );
+    }
+
     // Validate examiners belong to this institution when provided.
     for (const teacherId of [dto.writingTeacherId, dto.speakingTeacherId]) {
       if (!teacherId) continue;
@@ -752,6 +790,21 @@ export class InstitutionService {
       });
       if (!teacher || teacher.institutionId !== institutionId) {
         throw new BadRequestException('Examiner does not belong to this institution');
+      }
+    }
+
+    if (dto.speakingSlotId && dto.speakingTeacherId) {
+      const slot = await this.prisma.teacherSlot.findUnique({
+        where: { id: dto.speakingSlotId },
+        select: { teacherId: true, status: true },
+      });
+      if (!slot || slot.status !== SlotStatus.AVAILABLE) {
+        throw new BadRequestException('Speaking slot is no longer available');
+      }
+      if (slot.teacherId !== dto.speakingTeacherId) {
+        throw new BadRequestException(
+          'Speaking slot must belong to the selected speaking examiner',
+        );
       }
     }
 
@@ -789,6 +842,8 @@ export class InstitutionService {
           mockDate: dto.mockDate,
           writingTeacherId: dto.writingTeacherId,
           speakingTeacherId: dto.speakingTeacherId,
+          speakingSlotId: dto.speakingSlotId,
+          speakingTime: dto.speakingTime,
           institutionId,
           institutionGranted: true,
           auditAction: AuditAction.INSTITUTION_ENROLL,
@@ -805,6 +860,37 @@ export class InstitutionService {
       enrolled: results.filter((r) => r.enrollmentCode).length,
       failed: results.filter((r) => r.error),
     };
+  }
+
+  /** Prevent double-booking a centre speaking examiner at the same time. */
+  private async assertSpeakingExaminerTimeAvailable(
+    teacherId: string,
+    mockDate: string,
+    speakingTime: string,
+  ) {
+    if (!/^\d{2}:\d{2}$/.test(speakingTime)) {
+      throw new BadRequestException('speakingTime must be in HH:mm format');
+    }
+    const timeZone = await this.settings.getPlatformTimezone();
+    const [hours, minutes] = speakingTime.split(':').map(Number);
+    const dateIso = extractCalendarDateIso(mockDate, timeZone);
+    const startsAt = zonedWallClockToUtc(dateIso, hours!, minutes!, 0, timeZone);
+
+    const existing = await this.prisma.teacherSlot.findUnique({
+      where: {
+        teacherId_startsAt: { teacherId, startsAt },
+      },
+      select: { status: true },
+    });
+    if (
+      existing &&
+      (existing.status === SlotStatus.BOOKED ||
+        existing.status === SlotStatus.BLOCKED)
+    ) {
+      throw new BadRequestException(
+        'This speaking examiner is already booked at that time. Choose a different time.',
+      );
+    }
   }
 
   // ─── Examiners ───────────────────────────────────────────────────────────

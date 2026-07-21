@@ -290,6 +290,8 @@ export function enrollStudents(body: {
   mockDate: string;
   writingTeacherId?: string;
   speakingTeacherId?: string;
+  speakingSlotId?: string;
+  speakingTime?: string;
 }) {
   return apiFetch<{
     enrolled: number;
@@ -388,6 +390,9 @@ export interface EnrollmentPackageOption {
   packageKind: string;
   mockNumber: number;
   costsCredit?: boolean;
+  skills?: string[];
+  needsWriting?: boolean;
+  needsSpeaking?: boolean;
 }
 
 export interface EnrollmentPackagesGrouped {

@@ -24,9 +24,11 @@ export type SpeakingState = {
   joinMessage?: string | null;
   enrollmentId?: string;
   adminGranted?: boolean;
+  institutionGranted?: boolean;
   mockDate?: string;
   speakingTeacherId?: string | null;
   needsSpeakingSlot?: boolean;
+  canScheduleSpeakingSlot?: boolean;
   slotLocked?: boolean;
 };
 

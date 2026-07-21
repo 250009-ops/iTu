@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import {
   enrollStudents,
@@ -14,6 +14,37 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api/errors";
+
+type EnrollPackageOption = {
+  id: string;
+  title: string;
+  packageKind: string;
+  mockNumber: number;
+  skills?: string[];
+  needsWriting?: boolean;
+  needsSpeaking?: boolean;
+};
+
+function normalizeTimeInput(value: string) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return value.trim();
+  return `${match[1]!.padStart(2, "0")}:${match[2]}`;
+}
+
+function packageNeeds(pkg: EnrollPackageOption | undefined) {
+  if (!pkg) return { writing: false, speaking: false };
+  if (pkg.needsWriting != null || pkg.needsSpeaking != null) {
+    return {
+      writing: Boolean(pkg.needsWriting),
+      speaking: Boolean(pkg.needsSpeaking),
+    };
+  }
+  const skills = (pkg.skills ?? []).map((s) => s.toLowerCase());
+  return {
+    writing: skills.includes("writing"),
+    speaking: skills.includes("speaking"),
+  };
+}
 
 export function EnrollWizard({
   open,
@@ -38,11 +69,16 @@ export function EnrollWizard({
   const [mockDate, setMockDate] = useState("");
   const [writingTeacherId, setWritingTeacherId] = useState("");
   const [speakingTeacherId, setSpeakingTeacherId] = useState("");
+  const [speakingTime, setSpeakingTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open || !studentId) return;
     setPackageId(initialPackageId ?? "");
+    setMockDate("");
+    setWritingTeacherId("");
+    setSpeakingTeacherId("");
+    setSpeakingTime("");
     setLoadingPackages(true);
     void getInstitutionEnrollmentPackages(studentId)
       .then(setData)
@@ -53,6 +89,15 @@ export function EnrollWizard({
       .catch(() => setExaminers([]));
   }, [open, studentId, initialPackageId]);
 
+  const selectedPackage = useMemo(() => {
+    if (!packageId || !data) return undefined;
+    return (
+      data.platform.find((p) => p.id === packageId) ??
+      data.own.find((p) => p.id === packageId)
+    ) as EnrollPackageOption | undefined;
+  }, [packageId, data]);
+
+  const needs = packageNeeds(selectedPackage);
   const isGrantedPlatform = Boolean(
     packageId && data?.platform.some((p) => p.id === packageId),
   );
@@ -66,12 +111,19 @@ export function EnrollWizard({
     (e) => e.speciality === "speaking" || e.speciality === "both",
   );
 
-  const canSubmit = Boolean(packageId && mockDate);
+  const canSubmit = Boolean(
+    packageId &&
+      mockDate &&
+      (!needs.writing || writingTeacherId) &&
+      (!needs.speaking || (speakingTeacherId && speakingTime)),
+  );
 
   async function handleSubmit() {
-    if (!packageId || !mockDate) {
+    if (!canSubmit) {
       toast("Missing details", {
-        description: "Choose a package and mock date.",
+        description: needs.speaking
+          ? "Choose package, date, examiners, and a speaking time."
+          : "Choose a package, mock date, and required examiners.",
         variant: "warning",
       });
       return;
@@ -84,6 +136,7 @@ export function EnrollWizard({
         mockDate,
         writingTeacherId: writingTeacherId || undefined,
         speakingTeacherId: speakingTeacherId || undefined,
+        speakingTime: speakingTime ? normalizeTimeInput(speakingTime) : undefined,
       });
       if (res.enrolled > 0) {
         toast(`Enrolled ${studentName ?? "student"}`, {
@@ -91,8 +144,8 @@ export function EnrollWizard({
             res.failed.length > 0
               ? `${res.failed.length} could not be enrolled.`
               : isGrantedPlatform
-                ? "Granted platform mock — no credits required."
-                : "Centre-owned mock enrolled.",
+                ? "Granted platform mock — speaking time set by your centre."
+                : "Centre mock enrolled with assigned examiners and speaking time.",
           variant: res.failed.length > 0 ? "warning" : "success",
         });
         onEnrolled();
@@ -135,11 +188,13 @@ export function EnrollWizard({
         {isGrantedPlatform ? (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
             Granted platform mock from your admin-assigned sets —{" "}
-            <strong>no credit cost</strong>.
+            <strong>no credit cost</strong>. Assign examiners and speaking time
+            here; the student will not choose them.
           </p>
         ) : packageId ? (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-            Your centre&apos;s mock: <strong>no credit cost</strong>.
+            Your centre&apos;s mock: <strong>no credit cost</strong>. You set
+            examiners and speaking time for the student.
           </p>
         ) : (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
@@ -171,7 +226,12 @@ export function EnrollWizard({
           ) : (
             <select
               value={packageId}
-              onChange={(e) => setPackageId(e.target.value)}
+              onChange={(e) => {
+                setPackageId(e.target.value);
+                setWritingTeacherId("");
+                setSpeakingTeacherId("");
+                setSpeakingTime("");
+              }}
               className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
             >
               <option value="">Select a package…</option>
@@ -207,35 +267,75 @@ export function EnrollWizard({
           />
         </Field>
 
-        <Field label="Writing examiner (optional)">
-          <select
-            value={writingTeacherId}
-            onChange={(e) => setWritingTeacherId(e.target.value)}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
-          >
-            <option value="">Auto / not required</option>
-            {writingExaminers.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {needs.writing && (
+          <Field label="Writing examiner">
+            <select
+              value={writingTeacherId}
+              onChange={(e) => setWritingTeacherId(e.target.value)}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+            >
+              <option value="">Select writing examiner…</option>
+              {writingExaminers.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+            {writingExaminers.length === 0 && (
+              <p className="mt-1 text-xs text-amber-800">
+                No active writing examiners. Invite one under Examiners.
+              </p>
+            )}
+          </Field>
+        )}
 
-        <Field label="Speaking examiner (optional)">
-          <select
-            value={speakingTeacherId}
-            onChange={(e) => setSpeakingTeacherId(e.target.value)}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
-          >
-            <option value="">Auto / not required</option>
-            {speakingExaminers.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {needs.speaking && (
+          <>
+            <Field label="Speaking examiner">
+              <select
+                value={speakingTeacherId}
+                onChange={(e) => {
+                  setSpeakingTeacherId(e.target.value);
+                  setSpeakingTime("");
+                }}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+              >
+                <option value="">Select speaking examiner…</option>
+                {speakingExaminers.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+              {speakingExaminers.length === 0 && (
+                <p className="mt-1 text-xs text-amber-800">
+                  No active speaking examiners. Invite one under Examiners.
+                </p>
+              )}
+            </Field>
+
+            <Field label="Speaking time">
+              {!speakingTeacherId || !mockDate ? (
+                <p className="text-sm text-muted">
+                  Select a speaking examiner and mock date first.
+                </p>
+              ) : (
+                <>
+                  <input
+                    type="time"
+                    value={speakingTime}
+                    onChange={(e) => setSpeakingTime(e.target.value)}
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+                  />
+                  <p className="mt-1 text-xs text-muted">
+                    Live speaking session on the mock date (~20 minutes). Each
+                    examiner can only be booked once at the same time.
+                  </p>
+                </>
+              )}
+            </Field>
+          </>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
