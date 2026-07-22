@@ -96,7 +96,6 @@ async function upsertSpeakingMock(def: SpeakingMockDef) {
         durationMin: 20,
         status: ContentTestStatus.PUBLISHED,
         publishedAt: existing.publishedAt ?? new Date(),
-        archivedAt: null,
       },
     });
     console.log(`Updated ${code} (${existing.id})`);
