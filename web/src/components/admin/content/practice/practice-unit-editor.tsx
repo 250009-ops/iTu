@@ -6,8 +6,15 @@ import { ListeningVisualEditor } from "@/components/admin/content/editors/listen
 import { RichTextField } from "@/components/admin/content/forms/rich-text-field";
 import { QuestionGroupsPanel } from "@/components/admin/content/forms/question-groups-panel";
 import { PracticeListeningAudioUpload } from "@/components/admin/content/practice/practice-listening-audio-upload";
+import { scrollPracticeEditorToTop } from "@/components/admin/content/practice/practice-editor-scroll";
+import {
+  ListeningSectionPartTabs,
+  listeningSectionPracticeTitle,
+  type ListeningSectionPart,
+} from "@/components/admin/content/practice/listening-section-part-tabs";
 import {
   ReadingPassagePartSelect,
+  readingPassagePracticeTitle,
   type ReadingPassagePart,
 } from "@/components/admin/content/practice/reading-passage-part-select";
 import { Button } from "@/components/ui/button";
@@ -125,6 +132,17 @@ export function PracticeUnitEditor({ unitId }: Props) {
   const isDrill = isQuestionTypeUnit(unitType);
   const isReadingPassage =
     !isDrill && module === "reading" && unitType === "READING_PASSAGE";
+  const isListeningSection =
+    !isDrill && module === "listening" && unitType === "LISTENING_SECTION";
+  const autoTitle = isReadingPassage
+    ? readingPassagePracticeTitle(
+        (readingContent.passages[0]?.part as ReadingPassagePart | undefined) ?? 1,
+      )
+    : isListeningSection
+      ? listeningSectionPracticeTitle(
+          (listeningContent.parts[0]?.part as ListeningSectionPart | undefined) ?? 1,
+        )
+      : null;
 
   function handleReadingContentChange(content: ReadingContent) {
     if (isReadingPassage && (content.passages?.length ?? 0) > 1) {
@@ -158,26 +176,53 @@ export function PracticeUnitEditor({ unitId }: Props) {
     recomputeTotalQuestions(nextContent);
     setReadingContent(nextContent);
     setAnswerKey(remapAnswerKeyByOrder(answerKey, oldNums, newNums));
-    if (/^Reading Passage \d practice$/.test(title)) {
-      setTitle(`Reading Passage ${newPart} practice`);
-    }
+    setTitle(readingPassagePracticeTitle(newPart));
+  }
+
+  function handleListeningSectionPartChange(newPart: ListeningSectionPart) {
+    const part = listeningContent.parts[0];
+    if (!part || part.part === newPart) return;
+
+    const oldNums = collectOrderedNumbers(part.groups ?? []);
+    const range = partitionForPart("listening", newPart);
+    const groups = renumberPartitionGroups(part.groups ?? [], range.from);
+    const newNums = collectOrderedNumbers(groups);
+    const nextPart = {
+      ...part,
+      part: newPart,
+      blurb: defaultPartitionBlurb("listening", newPart),
+      groups,
+    };
+    const nextContent: ListeningContent = {
+      ...listeningContent,
+      parts: [nextPart],
+    };
+    recomputeTotalQuestions(nextContent);
+    setListeningContent(nextContent);
+    setAnswerKey(remapAnswerKeyByOrder(answerKey, oldNums, newNums));
+    setTitle(listeningSectionPracticeTitle(newPart));
   }
 
   const readingPassagePart =
     (readingContent.passages[0]?.part as ReadingPassagePart | undefined) ?? 1;
+  const listeningSectionPart =
+    (listeningContent.parts[0]?.part as ListeningSectionPart | undefined) ?? 1;
 
   async function handleSave() {
     setSaving(true);
     try {
       const content = module === "reading" ? readingContent : listeningContent;
+      const resolvedTitle = autoTitle ?? title;
       await saveUnit(unitId, {
-        title,
+        title: resolvedTitle,
         questionType: isDrill ? questionType : undefined,
         content,
         answerKey,
         durationMin,
       });
+      if (autoTitle) setTitle(autoTitle);
       toast("Saved", { variant: "success" });
+      scrollPracticeEditorToTop();
     } catch {
       toast("Save failed", { variant: "error" });
     } finally {
@@ -190,7 +235,17 @@ export function PracticeUnitEditor({ unitId }: Props) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>Title</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input
+            value={autoTitle ?? title}
+            onChange={(e) => setTitle(e.target.value)}
+            readOnly={Boolean(autoTitle)}
+            className={autoTitle ? "bg-slate-50 font-medium" : undefined}
+          />
+          {autoTitle && (
+            <p className="mt-1 text-xs text-muted">
+              Title follows the selected passage/section automatically.
+            </p>
+          )}
         </div>
         <div>
           <Label>Duration (minutes)</Label>
@@ -219,6 +274,17 @@ export function PracticeUnitEditor({ unitId }: Props) {
             onChange={handleReadingPassagePartChange}
             disabled={status === "published"}
           />
+        )}
+        {isListeningSection && (
+          <div>
+            <Label>IELTS section</Label>
+            <ListeningSectionPartTabs
+              value={listeningSectionPart}
+              onChange={handleListeningSectionPartChange}
+              disabled={status === "published"}
+              className="mt-2"
+            />
+          </div>
         )}
       </div>
 
@@ -270,16 +336,22 @@ export function PracticeUnitEditor({ unitId }: Props) {
           <Button
             variant="secondary"
             onClick={() =>
-              void publishUnit(unitId).then(() =>
-                toast("Published", { variant: "success" }),
-              )
+              void publishUnit(unitId).then(() => {
+                toast("Published", { variant: "success" });
+                scrollPracticeEditorToTop();
+              })
             }
           >
             Publish
           </Button>
         )}
         {status === "published" && (
-          <Button variant="secondary" onClick={() => void archiveUnit(unitId)}>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              void archiveUnit(unitId).then(() => scrollPracticeEditorToTop())
+            }
+          >
             Archive
           </Button>
         )}

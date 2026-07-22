@@ -46,12 +46,26 @@ export class PracticeContentController {
   }
 
   @Get('units/next-identity')
-  suggestNextIdentity(@Query('type') type: string) {
+  suggestNextIdentity(
+    @Query('type') type: string,
+    @Query('passagePart') passagePart?: string,
+    @Query('listeningPart') listeningPart?: string,
+  ) {
     if (!type?.trim()) {
       throw new BadRequestException('Query parameter "type" is required');
     }
+    const parsedPassagePart = passagePart ? Number(passagePart) : undefined;
+    const parsedListeningPart = listeningPart ? Number(listeningPart) : undefined;
     return this.practiceContent.suggestNextUnitIdentity(
       type.trim().toUpperCase() as PracticeUnitType,
+      {
+        ...(parsedPassagePart && parsedPassagePart >= 1 && parsedPassagePart <= 3
+          ? { passagePart: parsedPassagePart }
+          : {}),
+        ...(parsedListeningPart && parsedListeningPart >= 1 && parsedListeningPart <= 4
+          ? { listeningPart: parsedListeningPart }
+          : {}),
+      },
     );
   }
 

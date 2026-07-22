@@ -51,6 +51,8 @@ type AdminPracticeContextValue = {
     type: string;
     title?: string;
     questionType?: string;
+    passagePart?: number;
+    listeningPart?: number;
     content: object;
     answerKey?: object;
   }) => Promise<string>;
@@ -142,10 +144,15 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
       type: string;
       title?: string;
       questionType?: string;
+      passagePart?: number;
+      listeningPart?: number;
       content: object;
       answerKey?: object;
     }) => {
-      const identity = await suggestPracticeUnitIdentity(payload.type);
+      const identity = await suggestPracticeUnitIdentity(payload.type, {
+        passagePart: payload.passagePart,
+        listeningPart: payload.listeningPart,
+      });
       const created = await createPracticeUnit({
         code: identity.code,
         title: payload.title ?? identity.title,

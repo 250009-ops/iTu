@@ -79,7 +79,7 @@ export class PracticeContentService {
       questionType: u.questionType,
       status: u.status.toLowerCase(),
       durationMin: u.durationMin,
-      questionCount: u.questionCount,
+      questionCount: countQuestionsInContent(u.skill, u.content),
       passagePart: passagePartFromPracticeContent(u.type, u.content),
       updatedAt: u.updatedAt,
       publishedAt: u.publishedAt,
@@ -96,13 +96,22 @@ export class PracticeContentService {
     return unit;
   }
 
-  async suggestNextUnitIdentity(type: PracticeUnitType) {
-    const code = await nextPracticeUnitCode(this.prisma, type);
+  async suggestNextUnitIdentity(
+    type: PracticeUnitType,
+    options?: { passagePart?: number; listeningPart?: number },
+  ) {
+    const code = await nextPracticeUnitCode(this.prisma, type, options);
     const skill = skillForUnitType(type);
     const typeLabel = type.replace(/_/g, ' ').toLowerCase();
+    let title = `New ${typeLabel} practice`;
+    if (type === 'READING_PASSAGE' && options?.passagePart) {
+      title = `Reading Passage ${options.passagePart} practice`;
+    } else if (type === 'LISTENING_SECTION' && options?.listeningPart) {
+      title = `Listening Section ${options.listeningPart} practice`;
+    }
     return {
       code,
-      title: `New ${typeLabel} practice`,
+      title,
       skill: skill.toLowerCase(),
       type,
     };
@@ -121,8 +130,16 @@ export class PracticeContentService {
     userId: string,
   ) {
     const code = body.code.trim().toUpperCase();
+    const codeOptions = {
+      passagePart:
+        passagePartFromPracticeContent(body.type, body.content) ?? undefined,
+      listeningPart:
+        body.type === 'LISTENING_SECTION' || body.type === 'LISTENING_QUESTION_TYPE'
+          ? passagePartFromPracticeContent(body.type, body.content) ?? undefined
+          : undefined,
+    };
     try {
-      assertPracticeUnitCode(body.type, code);
+      assertPracticeUnitCode(body.type, code, codeOptions);
     } catch (error) {
       throw new BadRequestException(
         error instanceof Error ? error.message : 'Invalid practice unit code',

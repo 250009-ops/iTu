@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminPractice } from "@/contexts/admin-practice-context";
+import { scrollPracticeEditorToTop } from "@/components/admin/content/practice/practice-editor-scroll";
 import { useToast } from "@/components/ui/toast";
 
 type Props = {
@@ -43,6 +44,7 @@ export function PracticeWritingPromptEditor({ promptId }: Props) {
     try {
       await savePrompt(promptId, { title, instruction, minWords });
       toast("Saved", { variant: "success" });
+      scrollPracticeEditorToTop();
     } finally {
       setSaving(false);
     }
@@ -80,7 +82,12 @@ export function PracticeWritingPromptEditor({ promptId }: Props) {
         {status === "draft" && (
           <Button
             variant="secondary"
-            onClick={() => void publishPrompt(promptId).then(() => toast("Published", { variant: "success" }))}
+            onClick={() =>
+              void publishPrompt(promptId).then(() => {
+                toast("Published", { variant: "success" });
+                scrollPracticeEditorToTop();
+              })
+            }
           >
             Publish
           </Button>

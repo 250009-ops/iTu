@@ -1,13 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Plus } from "lucide-react";
+import { scrollPracticeEditorToTop } from "@/components/admin/content/practice/practice-editor-scroll";
+import {
+  ListeningSectionPartTabs,
+  listeningSectionPracticeTitle,
+  type ListeningSectionPart,
+} from "@/components/admin/content/practice/listening-section-part-tabs";
 import { PracticeUnitsSection } from "@/components/admin/content/practice/practice-units-section";
 import { PracticeWritingPromptsSection } from "@/components/admin/content/practice/practice-writing-prompts-section";
 import { PracticeUnitEditor } from "@/components/admin/content/practice/practice-unit-editor";
 import { PracticeWritingPromptEditor } from "@/components/admin/content/practice/practice-writing-prompt-editor";
 import {
-  ReadingPassagePartSelect,
+  ReadingPassagePartTabs,
+  readingPassagePracticeTitle,
   type ReadingPassagePart,
 } from "@/components/admin/content/practice/reading-passage-part-select";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
@@ -87,6 +94,8 @@ function PracticeStudioInner() {
 
   const [creating, setCreating] = useState(false);
   const [readingPassagePart, setReadingPassagePart] = useState<ReadingPassagePart>(1);
+  const [listeningSectionPart, setListeningSectionPart] =
+    useState<ListeningSectionPart>(1);
   const [readingDrillType, setReadingDrillType] =
     useState<QuestionGroup["type"]>("mcq_single");
   const [listeningDrillType, setListeningDrillType] =
@@ -99,6 +108,10 @@ function PracticeStudioInner() {
     () => units.filter((u) => u.type === "READING_PASSAGE"),
     [units],
   );
+  const filteredReadingPassages = useMemo(
+    () => readingPassages.filter((u) => (u.passagePart ?? 1) === readingPassagePart),
+    [readingPassages, readingPassagePart],
+  );
   const readingDrills = useMemo(
     () => units.filter((u) => u.type === "READING_QUESTION_TYPE"),
     [units],
@@ -106,6 +119,11 @@ function PracticeStudioInner() {
   const listeningSections = useMemo(
     () => units.filter((u) => u.type === "LISTENING_SECTION"),
     [units],
+  );
+  const filteredListeningSections = useMemo(
+    () =>
+      listeningSections.filter((u) => (u.passagePart ?? 1) === listeningSectionPart),
+    [listeningSections, listeningSectionPart],
   );
   const listeningDrills = useMemo(
     () => units.filter((u) => u.type === "LISTENING_QUESTION_TYPE"),
@@ -129,7 +147,8 @@ function PracticeStudioInner() {
         const passage = emptyReadingPassage(readingPassagePart);
         await createUnit({
           type: types.passage,
-          title: `Reading Passage ${readingPassagePart} practice`,
+          title: readingPassagePracticeTitle(readingPassagePart),
+          passagePart: readingPassagePart,
           content: {
             passages: [
               {
@@ -142,10 +161,20 @@ function PracticeStudioInner() {
           answerKey: {},
         });
       } else {
-        const passage = emptyListeningPart();
+        const passage = emptyListeningPart(listeningSectionPart);
         await createUnit({
           type: types.passage,
-          content: { parts: [{ ...passage, groups: [] }] },
+          title: listeningSectionPracticeTitle(listeningSectionPart),
+          listeningPart: listeningSectionPart,
+          content: {
+            parts: [
+              {
+                ...passage,
+                blurb: defaultPartitionBlurb("listening", listeningSectionPart),
+                groups: [],
+              },
+            ],
+          },
           answerKey: {},
         });
       }
@@ -207,6 +236,11 @@ function PracticeStudioInner() {
       setCreating(false);
     }
   }
+
+  useEffect(() => {
+    if (!selectedUnitId && !selectedPromptId) return;
+    scrollPracticeEditorToTop();
+  }, [selectedUnitId, selectedPromptId]);
 
   return (
     <ApiDataShell loading={loading} error={error}>
@@ -271,29 +305,28 @@ function PracticeStudioInner() {
           <div className="space-y-10">
             <PracticeUnitsSection
               title="Reading passages"
-              description="One IELTS passage per unit — choose Passage 1, 2, or 3 when creating. Each unit holds a single passage with its question groups."
-              units={readingPassages}
+              description="One IELTS passage per unit. Use the tabs to browse Passage 1, 2, or 3 — new units are created for the active tab."
+              units={filteredReadingPassages}
               onEdit={setSelectedUnitId}
-              emptyMessage="No reading passages yet."
+              emptyMessage={`No Passage ${readingPassagePart} units yet.`}
               tableVariant="reading-passage"
+              tabs={
+                <ReadingPassagePartTabs
+                  value={readingPassagePart}
+                  onChange={setReadingPassagePart}
+                  disabled={creating}
+                />
+              }
               actions={
-                <>
-                  <ReadingPassagePartSelect
-                    inline
-                    value={readingPassagePart}
-                    onChange={setReadingPassagePart}
-                    disabled={creating}
-                  />
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => void handleCreatePassage()}
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Passage
-                  </Button>
-                </>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={creating}
+                  onClick={() => void handleCreatePassage()}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Passage {readingPassagePart}
+                </Button>
               }
             />
             <PracticeUnitsSection
@@ -338,10 +371,17 @@ function PracticeStudioInner() {
           <div className="space-y-10">
             <PracticeUnitsSection
               title="Listening sections"
-              description="Full sections with multiple question types and audio upload."
-              units={listeningSections}
+              description="One IELTS section per unit. Use the tabs to browse Sections 1–4 — new units are created for the active tab."
+              units={filteredListeningSections}
               onEdit={setSelectedUnitId}
-              emptyMessage="No listening sections yet."
+              emptyMessage={`No Section ${listeningSectionPart} units yet.`}
+              tabs={
+                <ListeningSectionPartTabs
+                  value={listeningSectionPart}
+                  onChange={setListeningSectionPart}
+                  disabled={creating}
+                />
+              }
               actions={
                 <Button
                   variant="primary"
@@ -350,7 +390,7 @@ function PracticeStudioInner() {
                   onClick={() => void handleCreatePassage()}
                 >
                   <Plus className="h-4 w-4" />
-                  New Section
+                  New Section {listeningSectionPart}
                 </Button>
               }
             />

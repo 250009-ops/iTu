@@ -14,14 +14,25 @@ export function skillForUnitType(type: PracticeUnitType): ExamSkill {
   }
 }
 
-export function prefixForUnitType(type: PracticeUnitType): string {
+export function prefixForUnitType(
+  type: PracticeUnitType,
+  options?: { passagePart?: number; listeningPart?: number },
+): string {
   switch (type) {
-    case 'READING_PASSAGE':
+    case 'READING_PASSAGE': {
+      const part = options?.passagePart;
+      if (part === 1 || part === 2 || part === 3) return `PRA-REA-P${part}-`;
       return 'PRA-REA-P';
+    }
     case 'READING_QUESTION_TYPE':
       return 'PRA-REA-Q';
-    case 'LISTENING_SECTION':
+    case 'LISTENING_SECTION': {
+      const part = options?.listeningPart;
+      if (part === 1 || part === 2 || part === 3 || part === 4) {
+        return `PRA-LIS-S${part}-`;
+      }
       return 'PRA-LIS-S';
+    }
     case 'LISTENING_QUESTION_TYPE':
       return 'PRA-LIS-Q';
     default:
@@ -32,8 +43,9 @@ export function prefixForUnitType(type: PracticeUnitType): string {
 export async function nextPracticeUnitCode(
   prisma: { practiceUnit: { findMany: (args: object) => Promise<{ code: string }[]> } },
   type: PracticeUnitType,
+  options?: { passagePart?: number; listeningPart?: number },
 ): Promise<string> {
-  const prefix = prefixForUnitType(type);
+  const prefix = prefixForUnitType(type, options);
   const existing = await prisma.practiceUnit.findMany({
     where: { code: { startsWith: prefix } },
     select: { code: true },
@@ -59,16 +71,49 @@ export async function nextWritingPromptCode(
   );
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
 export function assertPracticeUnitCode(
   type: PracticeUnitType,
   code: string,
+  options?: { passagePart?: number; listeningPart?: number },
 ): void {
-  const prefix = prefixForUnitType(type);
   const normalized = code.trim().toUpperCase();
-  const pattern = new RegExp(`^${prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\d{3,}$`);
-  if (!pattern.test(normalized)) {
+  const patterns: RegExp[] = [];
+
+  if (type === 'READING_PASSAGE') {
+    if (options?.passagePart) {
+      patterns.push(
+        new RegExp(
+          `^${escapeRegex(prefixForUnitType(type, options))}\\d{3,}$`,
+        ),
+      );
+    } else {
+      patterns.push(/^PRA-REA-P\d{3,}$/);
+      patterns.push(/^PRA-REA-P[123]-\d{3,}$/);
+    }
+  } else if (type === 'LISTENING_SECTION') {
+    if (options?.listeningPart) {
+      patterns.push(
+        new RegExp(
+          `^${escapeRegex(prefixForUnitType(type, options))}\\d{3,}$`,
+        ),
+      );
+    } else {
+      patterns.push(/^PRA-LIS-S\d{3,}$/);
+      patterns.push(/^PRA-LIS-S[1-4]-\d{3,}$/);
+    }
+  } else {
+    const prefix = prefixForUnitType(type);
+    patterns.push(new RegExp(`^${escapeRegex(prefix)}\\d{3,}$`));
+  }
+
+  if (!patterns.some((pattern) => pattern.test(normalized))) {
+    const examplePrefix = prefixForUnitType(type, options);
     throw new Error(
-      `Practice code must match ${prefix}### (e.g. ${prefix}001).`,
+      `Practice code must match ${examplePrefix}### (e.g. ${examplePrefix}001).`,
     );
   }
 }
@@ -107,56 +152,111 @@ export function passagePartFromPracticeContent(
   return null;
 }
 
+function arr<T>(value: T[] | undefined | null): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function gapsInInlineNodes(nodes: unknown): number[] {
+  const nums: number[] = [];
+  for (const node of arr(nodes as unknown[])) {
+    if (typeof node === 'object' && node !== null && 'n' in node && !('type' in node)) {
+      nums.push(Number((node as { n: number }).n));
+    }
+  }
+  return nums;
+}
+
+function gapsInCompletionLines(lines: unknown): number[] {
+  const nums: number[] = [];
+  for (const line of arr(lines as { nodes?: unknown[] }[])) {
+    nums.push(...gapsInInlineNodes(line?.nodes));
+  }
+  return nums;
+}
+
+function gapsInGroup(group: Record<string, unknown>): number[] {
+  switch (group.type) {
+    case 'note_completion':
+    case 'form_completion':
+    case 'summary_completion':
+    case 'summary_completion_list':
+    case 'sentence_completion':
+      return gapsInCompletionLines(group.lines);
+    case 'table_completion':
+      return arr(group.rows as unknown[]).flatMap((row) =>
+        arr(row as unknown[]).flatMap((cell) =>
+          gapsInInlineNodes(cell as unknown[]),
+        ),
+      );
+    case 'mcq_single':
+    case 'tfng':
+    case 'yng':
+    case 'short_answer':
+    case 'matching':
+    case 'matching_headings':
+    case 'matching_information':
+    case 'matching_features':
+      return arr(group.questions as { n?: number }[])
+        .map((q) => q.n)
+        .filter((n): n is number => typeof n === 'number');
+    case 'mcq_multi':
+      return arr(group.numbers as number[]);
+    case 'flowchart_completion':
+      return gapsInCompletionLines(group.steps);
+    case 'instruction_screen':
+      return [];
+    case 'map_labeling':
+      if (group.layoutMode === 'place_list') {
+        return arr(group.questions as { n?: number }[])
+          .map((q) => q.n)
+          .filter((n): n is number => typeof n === 'number');
+      }
+      return arr(group.zones as { n?: number }[])
+        .map((z) => z.n)
+        .filter((n): n is number => typeof n === 'number');
+    default:
+      return [];
+  }
+}
+
+function countGroups(groups: unknown): number {
+  if (!Array.isArray(groups)) return 0;
+  let count = 0;
+  for (const g of groups) {
+    if (!g || typeof g !== 'object') continue;
+    count += gapsInGroup(g as Record<string, unknown>).length;
+  }
+  return count;
+}
+
 export function countQuestionsInContent(
   skill: ExamSkill,
   content: unknown,
 ): number {
   if (!content || typeof content !== 'object') return 0;
   const c = content as Record<string, unknown>;
-  let count = 0;
-
-  const countGroups = (groups: unknown) => {
-    if (!Array.isArray(groups)) return;
-    for (const g of groups) {
-      if (!g || typeof g !== 'object') continue;
-      const group = g as Record<string, unknown>;
-      if (group.type === 'instruction_screen') continue;
-      if (Array.isArray(group.questions)) count += group.questions.length;
-      else if (Array.isArray(group.items)) count += group.items.length;
-      else if (Array.isArray(group.statements)) count += group.statements.length;
-      else if (Array.isArray(group.steps)) {
-        for (const step of group.steps) {
-          if (step && typeof step === 'object' && 'gaps' in step) {
-            const gaps = (step as { gaps?: unknown[] }).gaps;
-            if (Array.isArray(gaps)) count += gaps.length;
-          }
-        }
-      } else if (Array.isArray(group.lines)) {
-        for (const line of group.lines) {
-          if (line && typeof line === 'object' && 'gaps' in line) {
-            const gaps = (line as { gaps?: unknown[] }).gaps;
-            if (Array.isArray(gaps)) count += gaps.length;
-          }
-        }
-      }
-    }
-  };
 
   if (skill === ExamSkill.READING && Array.isArray(c.passages)) {
+    let count = 0;
     for (const p of c.passages) {
       if (p && typeof p === 'object') {
-        countGroups((p as { groups?: unknown }).groups);
+        count += countGroups((p as { groups?: unknown }).groups);
       }
     }
-  } else if (skill === ExamSkill.LISTENING && Array.isArray(c.parts)) {
-    for (const p of c.parts) {
-      if (p && typeof p === 'object') {
-        countGroups((p as { groups?: unknown }).groups);
-      }
-    }
+    return count;
   }
 
-  return count;
+  if (skill === ExamSkill.LISTENING && Array.isArray(c.parts)) {
+    let count = 0;
+    for (const p of c.parts) {
+      if (p && typeof p === 'object') {
+        count += countGroups((p as { groups?: unknown }).groups);
+      }
+    }
+    return count;
+  }
+
+  return 0;
 }
 
 export function wrapReadingPassageContent(passage: object): object {

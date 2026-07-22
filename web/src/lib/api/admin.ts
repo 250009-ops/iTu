@@ -1052,9 +1052,15 @@ export function getAdminPracticeUnit(id: string) {
   return apiFetch(`/admin/practice/units/${id}`);
 }
 
-export function suggestPracticeUnitIdentity(type: string) {
+export function suggestPracticeUnitIdentity(
+  type: string,
+  options?: { passagePart?: number; listeningPart?: number },
+) {
+  const q = new URLSearchParams({ type });
+  if (options?.passagePart) q.set("passagePart", String(options.passagePart));
+  if (options?.listeningPart) q.set("listeningPart", String(options.listeningPart));
   return apiFetch<{ code: string; title: string; type: string; skill: string }>(
-    `/admin/practice/units/next-identity?type=${encodeURIComponent(type)}`,
+    `/admin/practice/units/next-identity?${q.toString()}`,
   );
 }
 
