@@ -62,6 +62,7 @@ npm run sync:exam-content
 npm run content:patch
 npm run content:repair-mocks
 npm run content:migrate-names
+npm run practice:migrate-units || true
 npm run enrollments:backfill-cutoff
 npm run settings:migrate-day-cutoff
 if [[ "${FRESH_PACKAGES:-}" == "1" ]]; then
