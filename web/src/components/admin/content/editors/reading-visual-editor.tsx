@@ -41,6 +41,8 @@ type Props = {
   layout?: "pane" | "flow";
   /** Practice units: one IELTS passage only — hide add-passage and multi-passage tabs */
   singlePassage?: boolean;
+  /** Hide passage tabs/badge — passage part is chosen in Practice Creation only */
+  hidePassageHeader?: boolean;
 };
 
 export function ReadingVisualEditor({
@@ -51,6 +53,7 @@ export function ReadingVisualEditor({
   onAnswerKeyChange,
   layout = "pane",
   singlePassage = false,
+  hidePassageHeader = false,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const passages = content.passages ?? [];
@@ -124,6 +127,7 @@ export function ReadingVisualEditor({
 
   return (
     <div className={cn(flowLayout ? "space-y-5" : "flex min-h-0 flex-1 flex-col")}>
+      {!hidePassageHeader && (
       <div className="shrink-0 space-y-4 border-b border-border bg-white pb-4 pt-1">
         <div className="flex flex-wrap gap-2">
           {singlePassage && passage ? (
@@ -174,6 +178,7 @@ export function ReadingVisualEditor({
           )}
         </div>
       </div>
+      )}
 
       <div
         className={cn(

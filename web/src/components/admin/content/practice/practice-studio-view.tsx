@@ -6,6 +6,10 @@ import { PracticeUnitsSection } from "@/components/admin/content/practice/practi
 import { PracticeWritingPromptsSection } from "@/components/admin/content/practice/practice-writing-prompts-section";
 import { PracticeUnitEditor } from "@/components/admin/content/practice/practice-unit-editor";
 import { PracticeWritingPromptEditor } from "@/components/admin/content/practice/practice-writing-prompt-editor";
+import {
+  ReadingPassagePartSelect,
+  type ReadingPassagePart,
+} from "@/components/admin/content/practice/reading-passage-part-select";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { PortalPage } from "@/components/portal/portal-page";
 import { Button } from "@/components/ui/button";
@@ -19,6 +23,7 @@ import {
   type PracticeStudioTab,
 } from "@/contexts/admin-practice-context";
 import { createQuestionGroup, QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
+import { defaultPartitionBlurb } from "@/lib/admin/content/numbering";
 import type { QuestionGroup } from "@/lib/exam/types";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +86,7 @@ function PracticeStudioInner() {
   } = useAdminPractice();
 
   const [creating, setCreating] = useState(false);
-  const [readingPassagePart, setReadingPassagePart] = useState<1 | 2 | 3>(1);
+  const [readingPassagePart, setReadingPassagePart] = useState<ReadingPassagePart>(1);
   const [readingDrillType, setReadingDrillType] =
     useState<QuestionGroup["type"]>("mcq_single");
   const [listeningDrillType, setListeningDrillType] =
@@ -125,7 +130,15 @@ function PracticeStudioInner() {
         await createUnit({
           type: types.passage,
           title: `Reading Passage ${readingPassagePart} practice`,
-          content: { passages: [{ ...passage, groups: [] }] },
+          content: {
+            passages: [
+              {
+                ...passage,
+                blurb: defaultPartitionBlurb("reading", readingPassagePart),
+                groups: [],
+              },
+            ],
+          },
           answerKey: {},
         });
       } else {
@@ -265,20 +278,12 @@ function PracticeStudioInner() {
               tableVariant="reading-passage"
               actions={
                 <>
-                  <label className="flex items-center gap-2 text-sm text-muted">
-                    <span className="font-medium text-navy">Passage</span>
-                    <select
-                      value={readingPassagePart}
-                      onChange={(e) =>
-                        setReadingPassagePart(Number(e.target.value) as 1 | 2 | 3)
-                      }
-                      className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy"
-                    >
-                      <option value={1}>Passage 1 (Q1–13)</option>
-                      <option value={2}>Passage 2 (Q14–26)</option>
-                      <option value={3}>Passage 3 (Q27–40)</option>
-                    </select>
-                  </label>
+                  <ReadingPassagePartSelect
+                    inline
+                    value={readingPassagePart}
+                    onChange={setReadingPassagePart}
+                    disabled={creating}
+                  />
                   <Button
                     variant="primary"
                     size="sm"

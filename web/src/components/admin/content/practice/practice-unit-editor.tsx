@@ -6,6 +6,10 @@ import { ListeningVisualEditor } from "@/components/admin/content/editors/listen
 import { RichTextField } from "@/components/admin/content/forms/rich-text-field";
 import { QuestionGroupsPanel } from "@/components/admin/content/forms/question-groups-panel";
 import { PracticeListeningAudioUpload } from "@/components/admin/content/practice/practice-listening-audio-upload";
+import {
+  ReadingPassagePartSelect,
+  type ReadingPassagePart,
+} from "@/components/admin/content/practice/reading-passage-part-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +18,15 @@ import {
   emptyListeningContent,
   emptyReadingContent,
   QUESTION_TYPE_LABELS,
+  recomputeTotalQuestions,
 } from "@/lib/admin/content/factories";
+import {
+  collectOrderedNumbers,
+  defaultPartitionBlurb,
+  partitionForPart,
+  remapAnswerKeyByOrder,
+  renumberPartitionGroups,
+} from "@/lib/admin/content/numbering";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type {
   ListeningContent,
@@ -125,6 +137,35 @@ export function PracticeUnitEditor({ unitId }: Props) {
     setReadingContent(content);
   }
 
+  function handleReadingPassagePartChange(newPart: ReadingPassagePart) {
+    const passage = readingContent.passages[0];
+    if (!passage || passage.part === newPart) return;
+
+    const oldNums = collectOrderedNumbers(passage.groups ?? []);
+    const range = partitionForPart("reading", newPart);
+    const groups = renumberPartitionGroups(passage.groups ?? [], range.from);
+    const newNums = collectOrderedNumbers(groups);
+    const nextPassage = {
+      ...passage,
+      part: newPart,
+      blurb: defaultPartitionBlurb("reading", newPart),
+      groups,
+    };
+    const nextContent: ReadingContent = {
+      ...readingContent,
+      passages: [nextPassage],
+    };
+    recomputeTotalQuestions(nextContent);
+    setReadingContent(nextContent);
+    setAnswerKey(remapAnswerKeyByOrder(answerKey, oldNums, newNums));
+    if (/^Reading Passage \d practice$/.test(title)) {
+      setTitle(`Reading Passage ${newPart} practice`);
+    }
+  }
+
+  const readingPassagePart =
+    (readingContent.passages[0]?.part as ReadingPassagePart | undefined) ?? 1;
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -172,15 +213,12 @@ export function PracticeUnitEditor({ unitId }: Props) {
             </p>
           </div>
         )}
-        {isReadingPassage && readingContent.passages[0] && (
-          <div>
-            <Label>IELTS passage</Label>
-            <Input
-              value={`Passage ${readingContent.passages[0].part}`}
-              readOnly
-              className="bg-slate-50 font-medium"
-            />
-          </div>
+        {isReadingPassage && (
+          <ReadingPassagePartSelect
+            value={readingPassagePart}
+            onChange={handleReadingPassagePartChange}
+            disabled={status === "published"}
+          />
         )}
       </div>
 
@@ -205,6 +243,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
             onContentChange={handleReadingContentChange}
             onAnswerKeyChange={setAnswerKey}
             singlePassage={isReadingPassage}
+            hidePassageHeader={isReadingPassage}
           />
         </div>
       ) : (
