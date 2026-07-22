@@ -82,22 +82,44 @@ async function main() {
     orderBy: { createdAt: 'asc' },
   });
 
-  const nextByKind = new Map<string, number>();
+  const slotKeys = packages.map(
+    (p) => `${p.scopeKey}:${p.packageKind}:${p.mockNumber}`,
+  );
+  const slotsUnique = new Set(slotKeys).size === packages.length;
+  const kindsMatch = packages.every(
+    (p) => p.packageKind === derivePackageKind(p.skills),
+  );
 
-  for (const pkg of packages) {
-    const packageKind = derivePackageKind(pkg.skills);
-    const mockNumber = (nextByKind.get(packageKind) ?? 0) + 1;
-    nextByKind.set(packageKind, mockNumber);
+  if (packages.length > 0 && slotsUnique && kindsMatch) {
+    console.log('Package mock numbers already backfilled — skipping.');
+  } else {
+    // Two-phase update avoids unique (scope_key, package_kind, mock_number) clashes on re-run.
+    for (let i = 0; i < packages.length; i++) {
+      await prisma.mockTestPackage.update({
+        where: { id: packages[i]!.id },
+        data: { mockNumber: -(i + 1) },
+      });
+    }
 
-    await prisma.mockTestPackage.update({
-      where: { id: pkg.id },
-      data: { packageKind, mockNumber },
-    });
+    const nextByKind = new Map<string, number>();
 
-    console.log(`  ${pkg.slug} → ${packageKind} #${mockNumber}`);
+    for (const pkg of packages) {
+      const packageKind = derivePackageKind(pkg.skills);
+      const scopeKey = pkg.scopeKey ?? 'platform';
+      const kindKey = `${scopeKey}:${packageKind}`;
+      const mockNumber = (nextByKind.get(kindKey) ?? 0) + 1;
+      nextByKind.set(kindKey, mockNumber);
+
+      await prisma.mockTestPackage.update({
+        where: { id: pkg.id },
+        data: { packageKind, mockNumber },
+      });
+
+      console.log(`  ${pkg.slug} → ${packageKind} #${mockNumber}`);
+    }
+
+    console.log(`Backfilled mock numbers for ${packages.length} package(s).`);
   }
-
-  console.log(`Backfilled mock numbers for ${packages.length} package(s).`);
 
   // Build pool rows from legacy FKs; warn loudly on duplicate exclusive assignments.
   const assignedTests = new Map<string, { slug: string; skill: string }>();
