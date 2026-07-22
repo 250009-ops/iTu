@@ -32,7 +32,7 @@ async function main() {
   assertVpsCredentials();
   const tarPath = join(tmpdir(), "itestu-hotfix.tar.gz");
   execSync(
-    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=deploy/node_modules --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh deploy/nginx/itestu.uz.conf`,
+    `tar -czf "${tarPath}" --exclude=node_modules --exclude=.git --exclude=web/.next --exclude=api/dist --exclude=deploy/node_modules --exclude=api/prisma/dev.db --exclude=api/.env --exclude=web/.env.local -C "${ROOT}" api web deploy/deploy-rebuild.sh deploy/fonts deploy/nginx/itestu.uz.conf`,
     { stdio: "inherit" },
   );
 

@@ -16,6 +16,10 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$SCRIPT_DIR/ensure-local-media.sh"
+if [[ -d "$APP_DIR/deploy/fonts" ]]; then
+  mkdir -p "$DEPLOY_DIR/fonts"
+  cp -a "$APP_DIR/deploy/fonts/." "$DEPLOY_DIR/fonts/"
+fi
 if [[ -f "$DEPLOY_DIR/env/api.env" ]]; then
   cp "$DEPLOY_DIR/env/api.env" "$APP_DIR/api/.env"
 fi
@@ -44,6 +48,9 @@ npm run packages:sync-prices || true
 echo "==> Building Web..."
 cd "$APP_DIR/web"
 npm ci
+if [[ -f "$DEPLOY_DIR/fonts/google-font-mocks.cjs" ]]; then
+  export NEXT_FONT_GOOGLE_MOCKED_RESPONSES="$DEPLOY_DIR/fonts/google-font-mocks.cjs"
+fi
 npm run build
 
 echo "==> Restarting PM2..."
