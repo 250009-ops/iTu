@@ -10,6 +10,10 @@ import { MatchOptionsBankEditor } from "@/components/admin/content/forms/matchin
 import { nextMatchOptionId, removeQuestionAt } from "@/lib/admin/content/match-editor-helpers";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type { MapLabelingGroup } from "@/lib/exam/types";
+import {
+  inferMatchingReuseOptions,
+  matchingHintWithReuse,
+} from "@/lib/exam/matching-options";
 import { useContentStudio } from "@/contexts/content-studio-context";
 import { getErrorMessage } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
@@ -70,6 +74,44 @@ function MapImageCanvas({
   );
 }
 
+function MapReuseOptionsField({
+  group,
+  onChange,
+}: {
+  group: MapLabelingGroup;
+  onChange: (group: MapLabelingGroup) => void;
+}) {
+  const reuse = inferMatchingReuseOptions(group);
+  return (
+    <div className="rounded-lg border border-border bg-white p-3">
+      <label className="flex cursor-pointer items-start gap-2.5">
+        <input
+          type="checkbox"
+          checked={reuse}
+          onChange={(e) => {
+            const reuseOptions = e.target.checked;
+            onChange({
+              ...group,
+              reuseOptions,
+              hint: matchingHintWithReuse(group.hint ?? "", reuseOptions),
+            });
+          }}
+          className="mt-0.5 rounded border-border"
+        />
+        <span>
+          <span className="text-sm font-medium text-navy">
+            Allow reusing the same letter (NB)
+          </span>
+          <span className="mt-0.5 block text-xs text-muted">
+            When checked, the hint adds &quot;NB You may use any letter more than
+            once&quot; and students can assign the same letter to multiple locations.
+          </span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 export function MapLabelingEditor({
   group,
   testId,
@@ -120,7 +162,10 @@ export function MapLabelingEditor({
         ...group,
         layoutMode: "place_list",
         answerMode: "option",
-        hint: "Write the correct letter for each place on the map.",
+        hint: matchingHintWithReuse(
+          "Write the correct letter for each place on the map.",
+          group.reuseOptions ?? true,
+        ),
         questions:
           questions.length > 0
             ? questions
@@ -132,7 +177,10 @@ export function MapLabelingEditor({
     onChange({
       ...group,
       layoutMode: "zones",
-      hint: "Drag the correct letter next to each location.",
+      hint: matchingHintWithReuse(
+        "Drag the correct letter next to each location.",
+        group.reuseOptions ?? true,
+      ),
       zones:
         zones.length > 0 ? zones : [{ n: group.from, x: 50, y: 50, label: "Location" }],
     });
@@ -145,7 +193,10 @@ export function MapLabelingEditor({
       hint:
         mode === "text"
           ? "Write the correct word or phrase for each label."
-          : "Drag the correct letter next to each location.",
+          : matchingHintWithReuse(
+              "Drag the correct letter next to each location.",
+              group.reuseOptions ?? true,
+            ),
     });
   }
 
@@ -231,6 +282,8 @@ export function MapLabelingEditor({
         </div>
 
         {uploadBlock}
+
+        <MapReuseOptionsField group={group} onChange={onChange} />
 
         <div className="space-y-2">
           <Label className="text-xs">
@@ -419,6 +472,8 @@ export function MapLabelingEditor({
       </div>
 
       {uploadBlock}
+
+      {!isTextMode && <MapReuseOptionsField group={group} onChange={onChange} />}
 
       <div className="space-y-2">
         <Label className="text-xs">

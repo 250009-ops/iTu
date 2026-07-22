@@ -659,6 +659,7 @@ function GroupBody({
           group={group}
           answers={map}
           current={current}
+          reuseOptions={inferMatchingReuseOptions(group)}
           onAssign={(n, value) => {
             onFocus(n);
             onAnswer(n, value ?? "");

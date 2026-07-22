@@ -147,6 +147,8 @@ export interface MapLabelingGroup extends BaseGroup {
   mapMarkers?: { id: string; x: number; y: number }[];
   /** Place names to match to map letters (place_list layout). */
   questions?: { n: number; prompt: string }[];
+  /** When true, the same letter may be assigned to multiple questions. */
+  reuseOptions?: boolean;
 }
 
 export interface ShortAnswerGroup extends BaseGroup {

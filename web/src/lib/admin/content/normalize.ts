@@ -34,6 +34,10 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         ...g,
         layoutMode: g.layoutMode === "place_list" ? "place_list" : "zones",
         answerMode: g.answerMode === "text" ? "text" : "option",
+        reuseOptions:
+          g.reuseOptions !== false &&
+          (g.reuseOptions === true ||
+            /NB\s+You may use any letter more than once/i.test(String(g.hint ?? ""))),
         options: asArray(g.options),
         zones: asArray(g.zones),
         mapMarkers: asArray(g.mapMarkers),

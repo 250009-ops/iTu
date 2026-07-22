@@ -1,83 +1,291 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 import type { MapLabelingGroup } from "@/lib/exam/types";
+import { usedMatchOptionIds } from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 interface MapLabelingProps {
   group: MapLabelingGroup;
   answers: Record<number, string>;
   current: number | null;
+  reuseOptions?: boolean;
   onAssign: (n: number, value: string | null) => void;
   onFocus: (n: number) => void;
   onPasteBlocked?: () => void;
+}
+
+type LetterItem = { id: string; label: string };
+
+function useLetterMatching({
+  questionNumbers,
+  answers,
+  reuseOptions = true,
+  onAssign,
+  onFocus,
+}: {
+  questionNumbers: number[];
+  answers: Record<number, string>;
+  reuseOptions?: boolean;
+  onAssign: (n: number, value: string | null) => void;
+  onFocus: (n: number) => void;
+}) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const questions = questionNumbers.map((n) => ({ n }));
+
+  function assign(n: number, id: string | null) {
+    if (!reuseOptions && id) {
+      for (const q of questions) {
+        if (q.n !== n && answers[q.n] === id) {
+          onAssign(q.n, null);
+        }
+      }
+    }
+    onAssign(n, id);
+  }
+
+  const handleSlotActivate = (n: number) => {
+    onFocus(n);
+    if (picked) {
+      assign(n, picked);
+      setPicked(null);
+    }
+  };
+
+  const usedElsewhere = (forQuestion: number | null) =>
+    reuseOptions
+      ? new Set<string>()
+      : usedMatchOptionIds(questions, answers, forQuestion ?? undefined);
+
+  return {
+    picked,
+    setPicked,
+    dragOver,
+    setDragOver,
+    assign,
+    usedElsewhere,
+    handleSlotActivate,
+  };
+}
+
+function LetterBank({
+  items,
+  picked,
+  setPicked,
+  usedElsewhere,
+  current,
+}: {
+  items: LetterItem[];
+  picked: string | null;
+  setPicked: (id: string | null) => void;
+  usedElsewhere: (forQuestion: number | null) => Set<string>;
+  current: number | null;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+      {items.map((item) => {
+        const isPicked = picked === item.id;
+        const isUsed = usedElsewhere(current).has(item.id);
+        return (
+          <button
+            key={item.id}
+            type="button"
+            draggable={!isUsed || isPicked}
+            onDragStart={(e) => {
+              if (isUsed && !isPicked) return;
+              e.dataTransfer.setData("text/plain", item.id);
+              e.dataTransfer.effectAllowed = "copy";
+            }}
+            onClick={() => {
+              if (isUsed && !isPicked) return;
+              setPicked(isPicked ? null : item.id);
+            }}
+            className={cn(
+              "flex h-9 w-9 cursor-grab items-center justify-center rounded-lg border text-sm font-bold transition active:cursor-grabbing",
+              isUsed && !isPicked
+                ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400"
+                : isPicked
+                  ? "border-navy bg-navy text-white shadow-md"
+                  : "border-slate-200 bg-white text-navy hover:border-navy hover:bg-sky-50",
+            )}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnswerDropSlot({
+  questionNumber,
+  assignedId,
+  isActive,
+  picked,
+  dragOver,
+  setDragOver,
+  assign,
+  handleSlotActivate,
+  setPicked,
+  compact,
+}: {
+  questionNumber: number;
+  assignedId?: string;
+  isActive: boolean;
+  picked: string | null;
+  dragOver: number | null;
+  setDragOver: (n: number | null) => void;
+  assign: (n: number, id: string | null) => void;
+  handleSlotActivate: (n: number) => void;
+  setPicked: (id: string | null) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOver(questionNumber);
+      }}
+      onDragLeave={() => setDragOver(null)}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = e.dataTransfer.getData("text/plain");
+        if (id) assign(questionNumber, id);
+        setDragOver(null);
+        setPicked(null);
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleSlotActivate(questionNumber);
+      }}
+      className={cn(
+        "flex cursor-pointer items-center justify-between gap-2 rounded-lg border-2 border-dashed transition",
+        compact ? "h-7 min-w-[3rem] px-2" : "h-9 min-w-[4.5rem] px-2.5",
+        dragOver === questionNumber
+          ? "border-navy bg-sky-100"
+          : assignedId
+            ? "border-emerald-300 bg-emerald-50"
+            : isActive
+              ? "border-navy bg-sky-50"
+              : "border-slate-300 bg-slate-50 hover:border-navy",
+      )}
+    >
+      {assignedId ? (
+        <>
+          <span
+            className={cn(
+              "font-bold text-emerald-800",
+              compact ? "text-[13px]" : "text-[13px]",
+            )}
+          >
+            {assignedId}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              assign(questionNumber, null);
+            }}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-600 hover:bg-emerald-100"
+            aria-label={`Clear answer for question ${questionNumber}`}
+          >
+            <X size={13} />
+          </button>
+        </>
+      ) : (
+        <span className="w-full text-center text-[12px] text-slate-400">
+          {picked ? "Drop here" : "—"}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function MapLabelingPlaceListMode({
   group,
   answers,
   current,
+  reuseOptions = true,
   onAssign,
   onFocus,
 }: MapLabelingProps) {
   const markers = group.mapMarkers ?? [];
   const questions = group.questions ?? [];
+  const letters: LetterItem[] = markers.map((m) => ({ id: m.id, label: m.id }));
+  const questionNumbers = questions.map((q) => q.n);
+  const {
+    picked,
+    setPicked,
+    dragOver,
+    setDragOver,
+    assign,
+    usedElsewhere,
+    handleSlotActivate,
+  } = useLetterMatching({
+    questionNumbers,
+    answers,
+    reuseOptions,
+    onAssign,
+    onFocus,
+  });
 
   return (
     <div className="space-y-4">
-      <MapCanvas
-        group={group}
-        answers={answers}
+      <LetterBank
+        items={letters}
+        picked={picked}
+        setPicked={setPicked}
+        usedElsewhere={usedElsewhere}
         current={current}
-        onFocus={() => {}}
-        renderMarker={(zone) => null}
-        overlayMarkers={markers}
       />
 
-      <ol className="space-y-2">
-        {questions.map((q) => {
-          const value = answers[q.n]?.trim() ?? "";
-          const isActive = current === q.n;
-          return (
-            <li
-              key={q.n}
-              id={`q-${q.n}`}
-              className={cn(
-                "scroll-mt-20 flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2.5 transition",
-                isActive ? "border-navy bg-sky-50" : "border-slate-200 bg-white",
-              )}
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[13px] font-bold text-white">
-                {q.n}
-              </span>
-              <span className="min-w-0 flex-1 text-[14px] text-slate-800">{q.prompt}</span>
-              <div className="flex flex-wrap gap-1.5">
-                {markers.map((m) => {
-                  const picked = value.toUpperCase() === m.id.toUpperCase();
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => {
-                        onFocus(q.n);
-                        onAssign(q.n, picked ? null : m.id);
-                      }}
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-bold transition",
-                        picked
-                          ? "border-navy bg-navy text-white shadow-md"
-                          : "border-slate-200 bg-white text-navy hover:border-navy hover:bg-sky-50",
-                      )}
-                    >
-                      {m.id}
-                    </button>
-                  );
-                })}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <MapCanvas
+          group={group}
+          answers={answers}
+          current={current}
+          onFocus={onFocus}
+          renderMarker={() => null}
+          overlayMarkers={markers}
+        />
+
+        <ol className="space-y-2">
+          {questions.map((q) => {
+            const assignedId = answers[q.n]?.trim() || undefined;
+            const isActive = current === q.n;
+            return (
+              <li
+                key={q.n}
+                id={`q-${q.n}`}
+                className={cn(
+                  "scroll-mt-20 flex items-center gap-3 rounded-lg border px-3 py-2.5 transition",
+                  isActive ? "border-navy bg-sky-50" : "border-slate-200 bg-white",
+                )}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[13px] font-bold text-white">
+                  {q.n}
+                </span>
+                <span className="min-w-0 flex-1 text-[14px] text-slate-800">{q.prompt}</span>
+                <AnswerDropSlot
+                  questionNumber={q.n}
+                  assignedId={assignedId}
+                  isActive={isActive}
+                  picked={picked}
+                  dragOver={dragOver}
+                  setDragOver={setDragOver}
+                  assign={assign}
+                  handleSlotActivate={handleSlotActivate}
+                  setPicked={setPicked}
+                />
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </div>
   );
 }
@@ -105,6 +313,7 @@ function MapCanvas({
           src={group.imageUrl}
           alt={group.imageLabel}
           className="absolute inset-0 h-full w-full object-contain"
+          draggable={false}
         />
       ) : (
         <svg
@@ -148,18 +357,22 @@ function MapCanvas({
       ))}
 
       {group.zones.map((zone) => (
-        <button
+        <div
           key={zone.n}
-          type="button"
+          role="button"
+          tabIndex={0}
           style={{ left: `${zone.x}%`, top: `${zone.y}%` }}
           onClick={() => onFocus(zone.n)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") onFocus(zone.n);
+          }}
           className={cn(
             "absolute -translate-x-1/2 -translate-y-1/2 transition",
             current === zone.n && "z-10",
           )}
         >
           {renderMarker(zone)}
-        </button>
+        </div>
       ))}
     </div>
   );
@@ -169,58 +382,52 @@ function MapLabelingOptionMode({
   group,
   answers,
   current,
+  reuseOptions = true,
   onAssign,
   onFocus,
 }: MapLabelingProps) {
-  const [picked, setPicked] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
+  const letters: LetterItem[] = group.options.map((opt) => ({
+    id: opt.id,
+    label: opt.label,
+  }));
+  const questionNumbers = group.zones.map((z) => z.n);
+  const {
+    picked,
+    setPicked,
+    dragOver,
+    setDragOver,
+    assign,
+    usedElsewhere,
+    handleSlotActivate,
+  } = useLetterMatching({
+    questionNumbers,
+    answers,
+    reuseOptions,
+    onAssign,
+    onFocus,
+  });
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
-        {group.options.map((opt) => {
-          const isPicked = picked === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("text/plain", opt.id);
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              onClick={() => setPicked(isPicked ? null : opt.id)}
-              className={cn(
-                "flex h-9 w-9 cursor-grab items-center justify-center rounded-lg border text-sm font-bold transition active:cursor-grabbing",
-                isPicked
-                  ? "border-navy bg-navy text-white shadow-md"
-                  : "border-slate-200 bg-white text-navy hover:border-navy hover:bg-sky-50",
-              )}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
+      <LetterBank
+        items={letters}
+        picked={picked}
+        setPicked={setPicked}
+        usedElsewhere={usedElsewhere}
+        current={current}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <MapCanvas
           group={group}
           answers={answers}
           current={current}
-          onFocus={(n) => {
-            onFocus(n);
-            if (picked) {
-              onAssign(n, picked);
-              setPicked(null);
-            }
-          }}
+          onFocus={(n) => handleSlotActivate(n)}
           renderMarker={(zone) => {
-            const assignedId = answers[zone.n];
-            const assigned = group.options.find((o) => o.id === assignedId);
+            const assignedId = answers[zone.n]?.trim() || undefined;
             const isActive = current === zone.n;
             return (
-              <span
+              <div
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -231,43 +438,41 @@ function MapLabelingOptionMode({
                   e.preventDefault();
                   e.stopPropagation();
                   const id = e.dataTransfer.getData("text/plain");
-                  if (id) onAssign(zone.n, id);
+                  if (id) assign(zone.n, id);
                   setDragOver(null);
+                  setPicked(null);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSlotActivate(zone.n);
                 }}
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full border-2 text-[13px] font-bold shadow-sm",
                   dragOver === zone.n
                     ? "scale-110 border-navy bg-navy text-white"
-                    : assigned
+                    : assignedId
                       ? "border-emerald-500 bg-white text-emerald-700"
                       : isActive
                         ? "border-navy bg-white text-navy"
                         : "border-slate-400 bg-white text-slate-500 hover:border-navy",
                 )}
               >
-                {assigned ? assigned.label : zone.n}
-              </span>
+                {assignedId ?? zone.n}
+              </div>
             );
           }}
         />
 
         <ol className="space-y-2">
           {group.zones.map((zone) => {
-            const assignedId = answers[zone.n];
-            const assigned = group.options.find((o) => o.id === assignedId);
+            const assignedId = answers[zone.n]?.trim() || undefined;
             const isActive = current === zone.n;
             return (
               <li
                 key={zone.n}
-                onClick={() => {
-                  onFocus(zone.n);
-                  if (picked) {
-                    onAssign(zone.n, picked);
-                    setPicked(null);
-                  }
-                }}
+                id={`q-${zone.n}`}
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition",
+                  "scroll-mt-20 flex items-center gap-3 rounded-lg border px-3 py-2 transition",
                   isActive
                     ? "border-navy bg-sky-50"
                     : "border-slate-200 bg-white hover:bg-slate-50",
@@ -277,16 +482,18 @@ function MapLabelingOptionMode({
                   {zone.n}
                 </span>
                 <span className="flex-1 text-[14px] text-slate-700">{zone.label}</span>
-                <span
-                  className={cn(
-                    "flex h-7 w-12 items-center justify-center rounded-md border-2 text-[13px] font-bold",
-                    assigned
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                      : "border-dashed border-slate-300 text-slate-300",
-                  )}
-                >
-                  {assigned ? assigned.label : "—"}
-                </span>
+                <AnswerDropSlot
+                  questionNumber={zone.n}
+                  assignedId={assignedId}
+                  isActive={isActive}
+                  picked={picked}
+                  dragOver={dragOver}
+                  setDragOver={setDragOver}
+                  assign={assign}
+                  handleSlotActivate={handleSlotActivate}
+                  setPicked={setPicked}
+                  compact
+                />
               </li>
             );
           })}
