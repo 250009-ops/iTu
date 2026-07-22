@@ -1,5 +1,32 @@
 import type { MatchOption } from "@/lib/exam/types";
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Removes a duplicate option-letter prefix from stored labels (e.g. "A. Limited space"). */
+export function stripMatchOptionPrefix(optionId: string, label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed || !optionId.trim()) return trimmed;
+
+  const id = escapeRegex(optionId.trim());
+  const withPunctuation = new RegExp(`^${id}[.)][:–-]?\\s+`, "i");
+  if (withPunctuation.test(trimmed)) {
+    return trimmed.replace(withPunctuation, "").trim();
+  }
+
+  const withSpace = new RegExp(`^${id}\\s+`, "i");
+  if (withSpace.test(trimmed)) {
+    return trimmed.replace(withSpace, "").trim();
+  }
+
+  return trimmed;
+}
+
+export function matchOptionDisplayLabel(option: MatchOption): string {
+  return stripMatchOptionPrefix(option.id, option.label);
+}
+
 export const MATCHING_NB_SUFFIX = "NB You may use any letter more than once.";
 
 export function stripMatchingNbSuffix(hint: string | undefined): string {

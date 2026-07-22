@@ -10,6 +10,7 @@ import {
   normalizeFlowchartSteps,
 } from "@/lib/exam/inline-content";
 import { isGap } from "@/lib/exam/types";
+import { matchOptionDisplayLabel } from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -23,10 +24,6 @@ type Props = {
   onFocus: (n: number) => void;
   onPasteBlocked?: () => void;
 };
-
-function optionWord(label: string): string {
-  return label.replace(/^[A-Z]\.?\s*/i, "").trim() || label;
-}
 
 function InlineOptionGap({
   n,
@@ -49,7 +46,7 @@ function InlineOptionGap({
 }) {
   const [dragOver, setDragOver] = useState(false);
   const assigned = options.find((o) => o.id === optionId);
-  const word = assigned ? optionWord(assigned.label) : "";
+  const word = assigned ? matchOptionDisplayLabel(assigned) : "";
 
   return (
     <span
@@ -198,7 +195,7 @@ export function FlowchartCompletionControl({
           </p>
           {options.map((opt) => {
             const isPicked = picked === opt.id;
-            const word = optionWord(opt.label);
+            const word = matchOptionDisplayLabel(opt);
             return (
               <button
                 key={opt.id}

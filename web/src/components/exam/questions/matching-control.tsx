@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { MatchOption } from "@/lib/exam/types";
-import { usedMatchOptionIds } from "@/lib/exam/matching-options";
+import {
+  matchOptionDisplayLabel,
+  usedMatchOptionIds,
+} from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 interface MatchingControlProps {
@@ -62,6 +65,7 @@ export function MatchingControl({
         {options.map((opt) => {
           const isPicked = picked === opt.id;
           const isUsed = usedElsewhere(current).has(opt.id);
+          const displayLabel = matchOptionDisplayLabel(opt);
           return (
             <button
               key={opt.id}
@@ -86,10 +90,8 @@ export function MatchingControl({
               )}
             >
               <span className="font-bold">{opt.id}</span>
-              {opt.label.replace(/^[A-Z]\.?\s*/i, "").trim() && (
-                <span className="ml-1.5 font-normal">
-                  {opt.label.replace(/^[A-Z]\.?\s*/i, "")}
-                </span>
+              {displayLabel && displayLabel !== opt.id && (
+                <span className="ml-1.5 font-normal">{displayLabel}</span>
               )}
             </button>
           );
@@ -100,6 +102,7 @@ export function MatchingControl({
         {questions.map((q) => {
           const assignedId = answers[q.n];
           const assigned = options.find((o) => o.id === assignedId);
+          const assignedLabel = assigned ? matchOptionDisplayLabel(assigned) : "";
           const isActive = current === q.n;
           return (
             <li
@@ -142,8 +145,9 @@ export function MatchingControl({
                   <>
                     <span className="truncate text-[13px] font-semibold text-emerald-800">
                       {assigned.id}
-                      {assigned.label.replace(/^[A-Z]\.?\s*/i, "").trim() &&
-                        ` — ${assigned.label.replace(/^[A-Z]\.?\s*/i, "")}`}
+                      {assignedLabel &&
+                        assignedLabel !== assigned.id &&
+                        ` — ${assignedLabel}`}
                     </span>
                     <button
                       type="button"

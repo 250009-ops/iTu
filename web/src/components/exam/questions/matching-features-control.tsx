@@ -4,7 +4,10 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import type { MatchOption } from "@/lib/exam/types";
-import { usedMatchOptionIds } from "@/lib/exam/matching-options";
+import {
+  matchOptionDisplayLabel,
+  usedMatchOptionIds,
+} from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -17,11 +20,6 @@ type Props = {
   onAssign: (n: number, optionId: string | null) => void;
   onFocus: (n: number) => void;
 };
-
-function optionDisplayLabel(opt: MatchOption): string {
-  const stripped = opt.label.replace(/^[A-Z]\.?\s*/i, "").trim();
-  return stripped || opt.id;
-}
 
 /** Cambridge-style matching features: statements + drop zones, people/options bank on the right. */
 export function MatchingFeaturesControl({
@@ -165,7 +163,7 @@ export function MatchingFeaturesControl({
                 >
                   <span className="font-bold">{opt.id}</span>
                   <span className="min-w-0 flex-1 leading-snug">
-                    {optionDisplayLabel(opt)}
+                    {matchOptionDisplayLabel(opt)}
                   </span>
                 </button>
               </li>

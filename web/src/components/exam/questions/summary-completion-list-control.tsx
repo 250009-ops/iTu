@@ -8,6 +8,7 @@ import {
   normalizeCompletionLines,
 } from "@/lib/exam/inline-content";
 import { isGap } from "@/lib/exam/types";
+import { matchOptionDisplayLabel } from "@/lib/exam/matching-options";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -19,10 +20,6 @@ type Props = {
   onAssign: (n: number, optionId: string | null) => void;
   onFocus: (n: number) => void;
 };
-
-function optionWord(label: string): string {
-  return label.replace(/^[A-Z]\.?\s*/i, "").trim() || label;
-}
 
 function InlineListGap({
   n,
@@ -45,7 +42,7 @@ function InlineListGap({
 }) {
   const [dragOver, setDragOver] = useState(false);
   const assigned = options.find((o) => o.id === optionId);
-  const word = assigned ? optionWord(assigned.label) : "";
+  const word = assigned ? matchOptionDisplayLabel(assigned) : "";
 
   return (
     <span
@@ -166,7 +163,7 @@ export function SummaryCompletionListControl({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
           {options.map((opt) => {
             const isPicked = picked === opt.id;
-            const word = optionWord(opt.label);
+            const word = matchOptionDisplayLabel(opt);
             return (
               <button
                 key={opt.id}
