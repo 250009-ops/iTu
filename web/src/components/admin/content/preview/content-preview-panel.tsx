@@ -177,8 +177,9 @@ function ListeningPreview({
   const [partIdx, setPartIdx] = useState(0);
   const part = content.parts[partIdx];
   const state = useExamState(part?.id ?? "preview");
-  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
-    useInstructionGate(part?.groups ?? []);
+  const questionGroups = (part?.groups ?? []).filter(
+    (group) => group.type !== "instruction_screen",
+  );
   const audioTracks = buildListeningAudioTracks(content, mediaAssets);
 
   if (!part) return <EmptyPreview message="No listening parts to preview." />;
@@ -214,17 +215,6 @@ function ListeningPreview({
           />
         ))}
       </div>
-      {blocking && (
-        <InstructionScreen
-          group={blocking}
-          overlay
-          onContinue={() => {
-            dismiss(blocking.id);
-            const next = nextQuestionAfter(blocking.id);
-            if (next != null) state.focusQuestion(next);
-          }}
-        />
-      )}
     </div>
   );
 }

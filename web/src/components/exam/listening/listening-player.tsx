@@ -12,7 +12,6 @@ import {
 } from "@/components/exam/shell/question-palette";
 import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { QuestionGroup } from "@/components/exam/questions/question-group";
-import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
 import {
   ListeningAudioPlayer,
   type ListeningAudioPlayerHandle,
@@ -22,7 +21,6 @@ import { EXAM_FONT_STYLE } from "@/lib/exam/typography";
 import { CONTRAST_THEMES } from "@/lib/exam/contrast";
 import { useExamContrast } from "@/hooks/use-exam-contrast";
 import { answeredCount, questionNumbers } from "@/lib/exam/helpers";
-import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import { useExamContent } from "@/hooks/use-exam-content";
 import { useServerTimer } from "@/hooks/use-server-timer";
 import { useExamAutosave } from "@/hooks/use-exam-autosave";
@@ -129,8 +127,13 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const activePart =
     content?.parts.find((p) => p.id === state.activePart) ?? content?.parts[0];
 
-  const { blocking, dismiss, questionGroups, nextQuestionAfter } =
-    useInstructionGate(activePart?.groups ?? []);
+  const questionGroups = useMemo(
+    () =>
+      (activePart?.groups ?? []).filter(
+        (group) => group.type !== "instruction_screen",
+      ),
+    [activePart?.groups],
+  );
 
   const startAudio = useCallback(() => {
     if (!audioTracks.length) return;
@@ -143,14 +146,8 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   }, [sectionStarted, audioReadyToStart, startAudio]);
 
   useEffect(() => {
-    if (!sectionStarted) {
-      setAudioReadyToStart(false);
-      return;
-    }
-    if (!blocking) {
-      setAudioReadyToStart(true);
-    }
-  }, [sectionStarted, blocking]);
+    setAudioReadyToStart(sectionStarted);
+  }, [sectionStarted]);
 
   const currentIndex =
     state.current != null ? allNumbers.indexOf(state.current) : -1;
@@ -333,20 +330,6 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
           </button>
         </div>
       </main>
-
-      {blocking && (
-        <InstructionScreen
-          group={blocking}
-          overlay
-          onContinue={() => {
-            dismiss(blocking.id);
-            setAudioReadyToStart(true);
-            startAudio();
-            const next = nextQuestionAfter(blocking.id);
-            if (next != null) goToQuestion(next);
-          }}
-        />
-      )}
 
       <QuestionPalette
         parts={paletteParts}
