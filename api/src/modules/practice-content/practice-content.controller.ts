@@ -50,6 +50,7 @@ export class PracticeContentController {
     @Query('type') type: string,
     @Query('passagePart') passagePart?: string,
     @Query('listeningPart') listeningPart?: string,
+    @Query('questionType') questionType?: string,
   ) {
     if (!type?.trim()) {
       throw new BadRequestException('Query parameter "type" is required');
@@ -65,6 +66,7 @@ export class PracticeContentController {
         ...(parsedListeningPart && parsedListeningPart >= 1 && parsedListeningPart <= 4
           ? { listeningPart: parsedListeningPart }
           : {}),
+        ...(questionType?.trim() ? { questionType: questionType.trim() } : {}),
       },
     );
   }

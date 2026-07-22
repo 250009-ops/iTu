@@ -98,7 +98,11 @@ export class PracticeContentService {
 
   async suggestNextUnitIdentity(
     type: PracticeUnitType,
-    options?: { passagePart?: number; listeningPart?: number },
+    options?: {
+      passagePart?: number;
+      listeningPart?: number;
+      questionType?: string;
+    },
   ) {
     const code = await nextPracticeUnitCode(this.prisma, type, options);
     const skill = skillForUnitType(type);
@@ -108,6 +112,16 @@ export class PracticeContentService {
       title = `Reading Passage ${options.passagePart} practice`;
     } else if (type === 'LISTENING_SECTION' && options?.listeningPart) {
       title = `Listening Section ${options.listeningPart} practice`;
+    } else if (
+      type === 'READING_QUESTION_TYPE' &&
+      options?.questionType
+    ) {
+      title = `${options.questionType.replace(/_/g, ' ')} drill`;
+    } else if (
+      type === 'LISTENING_QUESTION_TYPE' &&
+      options?.questionType
+    ) {
+      title = `${options.questionType.replace(/_/g, ' ')} drill`;
     }
     return {
       code,
@@ -137,6 +151,7 @@ export class PracticeContentService {
         body.type === 'LISTENING_SECTION' || body.type === 'LISTENING_QUESTION_TYPE'
           ? passagePartFromPracticeContent(body.type, body.content) ?? undefined
           : undefined,
+      questionType: body.questionType ?? undefined,
     };
     try {
       assertPracticeUnitCode(body.type, code, codeOptions);

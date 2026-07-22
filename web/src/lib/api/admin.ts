@@ -1054,11 +1054,16 @@ export function getAdminPracticeUnit(id: string) {
 
 export function suggestPracticeUnitIdentity(
   type: string,
-  options?: { passagePart?: number; listeningPart?: number },
+  options?: {
+    passagePart?: number;
+    listeningPart?: number;
+    questionType?: string;
+  },
 ) {
   const q = new URLSearchParams({ type });
   if (options?.passagePart) q.set("passagePart", String(options.passagePart));
   if (options?.listeningPart) q.set("listeningPart", String(options.listeningPart));
+  if (options?.questionType) q.set("questionType", options.questionType);
   return apiFetch<{ code: string; title: string; type: string; skill: string }>(
     `/admin/practice/units/next-identity?${q.toString()}`,
   );

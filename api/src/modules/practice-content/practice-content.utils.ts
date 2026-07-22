@@ -1,6 +1,31 @@
 import { ExamSkill, PracticeUnitType } from '@prisma/client';
 import { nextSequentialCode } from '../../common/id-allocation';
 
+const QUESTION_TYPE_CODES: Record<string, string> = {
+  tfng: 'TFNG',
+  yng: 'YNG',
+  form_completion: 'FORM',
+  note_completion: 'NOTE',
+  summary_completion: 'SUMM',
+  summary_completion_list: 'SUML',
+  table_completion: 'TABLE',
+  flowchart_completion: 'FLOW',
+  map_labeling: 'MAP',
+  matching_information: 'MINF',
+  matching_headings: 'MHEAD',
+  matching_features: 'MFEAT',
+  matching: 'MATCH',
+  mcq_single: 'MCQ',
+  mcq_multi: 'MCQM',
+  sentence_completion: 'SENT',
+  short_answer: 'SHORT',
+};
+
+export function questionTypeCodeForPrefix(type: string | undefined): string | null {
+  if (!type) return null;
+  return QUESTION_TYPE_CODES[type] ?? type.toUpperCase().replace(/_/g, '').slice(0, 6);
+}
+
 export function skillForUnitType(type: PracticeUnitType): ExamSkill {
   switch (type) {
     case 'READING_PASSAGE':
@@ -16,7 +41,11 @@ export function skillForUnitType(type: PracticeUnitType): ExamSkill {
 
 export function prefixForUnitType(
   type: PracticeUnitType,
-  options?: { passagePart?: number; listeningPart?: number },
+  options?: {
+    passagePart?: number;
+    listeningPart?: number;
+    questionType?: string;
+  },
 ): string {
   switch (type) {
     case 'READING_PASSAGE': {
@@ -24,8 +53,11 @@ export function prefixForUnitType(
       if (part === 1 || part === 2 || part === 3) return `PRA-REA-P${part}-`;
       return 'PRA-REA-P';
     }
-    case 'READING_QUESTION_TYPE':
+    case 'READING_QUESTION_TYPE': {
+      const code = questionTypeCodeForPrefix(options?.questionType);
+      if (code) return `PRA-REA-Q-${code}-`;
       return 'PRA-REA-Q';
+    }
     case 'LISTENING_SECTION': {
       const part = options?.listeningPart;
       if (part === 1 || part === 2 || part === 3 || part === 4) {
@@ -33,8 +65,11 @@ export function prefixForUnitType(
       }
       return 'PRA-LIS-S';
     }
-    case 'LISTENING_QUESTION_TYPE':
+    case 'LISTENING_QUESTION_TYPE': {
+      const code = questionTypeCodeForPrefix(options?.questionType);
+      if (code) return `PRA-LIS-Q-${code}-`;
       return 'PRA-LIS-Q';
+    }
     default:
       return 'PRA-UNK';
   }
@@ -43,7 +78,11 @@ export function prefixForUnitType(
 export async function nextPracticeUnitCode(
   prisma: { practiceUnit: { findMany: (args: object) => Promise<{ code: string }[]> } },
   type: PracticeUnitType,
-  options?: { passagePart?: number; listeningPart?: number },
+  options?: {
+    passagePart?: number;
+    listeningPart?: number;
+    questionType?: string;
+  },
 ): Promise<string> {
   const prefix = prefixForUnitType(type, options);
   const existing = await prisma.practiceUnit.findMany({
@@ -78,7 +117,11 @@ function escapeRegex(value: string): string {
 export function assertPracticeUnitCode(
   type: PracticeUnitType,
   code: string,
-  options?: { passagePart?: number; listeningPart?: number },
+  options?: {
+    passagePart?: number;
+    listeningPart?: number;
+    questionType?: string;
+  },
 ): void {
   const normalized = code.trim().toUpperCase();
   const patterns: RegExp[] = [];
@@ -104,6 +147,28 @@ export function assertPracticeUnitCode(
     } else {
       patterns.push(/^PRA-LIS-S\d{3,}$/);
       patterns.push(/^PRA-LIS-S[1-4]-\d{3,}$/);
+    }
+  } else if (type === 'READING_QUESTION_TYPE') {
+    if (options?.questionType) {
+      patterns.push(
+        new RegExp(
+          `^${escapeRegex(prefixForUnitType(type, options))}\\d{3,}$`,
+        ),
+      );
+    } else {
+      patterns.push(/^PRA-REA-Q\d{3,}$/);
+      patterns.push(/^PRA-REA-Q-[A-Z0-9]+-\d{3,}$/);
+    }
+  } else if (type === 'LISTENING_QUESTION_TYPE') {
+    if (options?.questionType) {
+      patterns.push(
+        new RegExp(
+          `^${escapeRegex(prefixForUnitType(type, options))}\\d{3,}$`,
+        ),
+      );
+    } else {
+      patterns.push(/^PRA-LIS-Q\d{3,}$/);
+      patterns.push(/^PRA-LIS-Q-[A-Z0-9]+-\d{3,}$/);
     }
   } else {
     const prefix = prefixForUnitType(type);

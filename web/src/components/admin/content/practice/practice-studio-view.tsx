@@ -31,8 +31,17 @@ import {
 } from "@/contexts/admin-practice-context";
 import { createQuestionGroup, QUESTION_TYPE_LABELS } from "@/lib/admin/content/factories";
 import { defaultPartitionBlurb } from "@/lib/admin/content/numbering";
+import {
+  resolveListeningSectionPart,
+  resolveReadingPassagePart,
+} from "@/lib/admin/practice-unit-meta";
 import type { QuestionGroup } from "@/lib/exam/types";
 import { cn } from "@/lib/utils";
+import {
+  QuestionTypeDrillTabs,
+  listeningDrillPracticeTitle,
+  readingDrillPracticeTitle,
+} from "@/components/admin/content/practice/question-type-drill-tabs";
 
 const TABS: { id: PracticeStudioTab; label: string }[] = [
   { id: "reading", label: "Reading" },
@@ -109,12 +118,19 @@ function PracticeStudioInner() {
     [units],
   );
   const filteredReadingPassages = useMemo(
-    () => readingPassages.filter((u) => (u.passagePart ?? 1) === readingPassagePart),
+    () =>
+      readingPassages.filter(
+        (u) => resolveReadingPassagePart(u) === readingPassagePart,
+      ),
     [readingPassages, readingPassagePart],
   );
   const readingDrills = useMemo(
     () => units.filter((u) => u.type === "READING_QUESTION_TYPE"),
     [units],
+  );
+  const filteredReadingDrills = useMemo(
+    () => readingDrills.filter((u) => u.questionType === readingDrillType),
+    [readingDrills, readingDrillType],
   );
   const listeningSections = useMemo(
     () => units.filter((u) => u.type === "LISTENING_SECTION"),
@@ -122,12 +138,18 @@ function PracticeStudioInner() {
   );
   const filteredListeningSections = useMemo(
     () =>
-      listeningSections.filter((u) => (u.passagePart ?? 1) === listeningSectionPart),
+      listeningSections.filter(
+        (u) => resolveListeningSectionPart(u) === listeningSectionPart,
+      ),
     [listeningSections, listeningSectionPart],
   );
   const listeningDrills = useMemo(
     () => units.filter((u) => u.type === "LISTENING_QUESTION_TYPE"),
     [units],
+  );
+  const filteredListeningDrills = useMemo(
+    () => listeningDrills.filter((u) => u.questionType === listeningDrillType),
+    [listeningDrills, listeningDrillType],
   );
   const task1Prompts = useMemo(
     () => prompts.filter((p) => p.taskNumber === 1),
@@ -203,9 +225,13 @@ function PracticeStudioInner() {
         activeTab === "reading"
           ? { passages: [partitionWithGroup] }
           : { parts: [partitionWithGroup] };
+      const drillTitle =
+        activeTab === "reading"
+          ? readingDrillPracticeTitle(drillType)
+          : listeningDrillPracticeTitle(drillType);
       await createUnit({
         type: types.questionType,
-        title: `${QUESTION_TYPE_LABELS[drillType]} drill`,
+        title: drillTitle,
         questionType: drillType,
         content,
         answerKey: {},
@@ -331,39 +357,29 @@ function PracticeStudioInner() {
             />
             <PracticeUnitsSection
               title="Reading question-type drills"
-              description="Focused practice on one question format. Pick the format first, then add an optional short stimulus and one question group."
-              units={readingDrills}
+              description="One format per drill. Use the tabs to browse formats — new drills are created for the active format with aligned codes (e.g. PRA-REA-Q-MCQ-001)."
+              units={filteredReadingDrills}
               onEdit={setSelectedUnitId}
-              emptyMessage="No reading question-type drills yet."
+              emptyMessage={`No ${QUESTION_TYPE_LABELS[readingDrillType]} drills yet.`}
               tableVariant="reading-drill"
+              tabs={
+                <QuestionTypeDrillTabs
+                  types={READING_DRILL_TYPES}
+                  value={readingDrillType}
+                  onChange={setReadingDrillType}
+                  disabled={creating}
+                />
+              }
               actions={
-                <>
-                  <label className="flex items-center gap-2 text-sm text-muted">
-                    <span className="font-medium text-navy">Question format</span>
-                    <select
-                      value={readingDrillType}
-                      onChange={(e) =>
-                        setReadingDrillType(e.target.value as QuestionGroup["type"])
-                      }
-                      className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy"
-                    >
-                    {READING_DRILL_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {QUESTION_TYPE_LABELS[type]}
-                      </option>
-                    ))}
-                  </select>
-                  </label>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => void handleCreateDrill()}
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Question-Type Drill
-                  </Button>
-                </>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={creating}
+                  onClick={() => void handleCreateDrill()}
+                >
+                  <Plus className="h-4 w-4" />
+                  New {QUESTION_TYPE_LABELS[readingDrillType]} Drill
+                </Button>
               }
             />
           </div>
@@ -396,39 +412,30 @@ function PracticeStudioInner() {
             />
             <PracticeUnitsSection
               title="Listening question-type drills"
-              description="Single question format per drill — one group only with section audio."
-              units={listeningDrills}
+              description="One format per drill. Use the tabs to browse formats — new drills are created for the active format with aligned codes (e.g. PRA-LIS-Q-NOTE-001)."
+              units={filteredListeningDrills}
               onEdit={setSelectedUnitId}
-              emptyMessage="No listening question-type drills yet."
+              emptyMessage={`No ${QUESTION_TYPE_LABELS[listeningDrillType]} drills yet.`}
               tableVariant="listening-drill"
+              tabs={
+                <QuestionTypeDrillTabs
+                  types={LISTENING_DRILL_TYPES}
+                  value={listeningDrillType}
+                  onChange={setListeningDrillType}
+                  disabled={creating}
+                  accent="sky"
+                />
+              }
               actions={
-                <>
-                  <label className="flex items-center gap-2 text-sm text-muted">
-                    <span className="font-medium text-navy">Question format</span>
-                    <select
-                      value={listeningDrillType}
-                      onChange={(e) =>
-                        setListeningDrillType(e.target.value as QuestionGroup["type"])
-                      }
-                      className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy"
-                    >
-                    {LISTENING_DRILL_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {QUESTION_TYPE_LABELS[type]}
-                      </option>
-                    ))}
-                  </select>
-                  </label>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={creating}
-                    onClick={() => void handleCreateDrill()}
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Question-Type Drill
-                  </Button>
-                </>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={creating}
+                  onClick={() => void handleCreateDrill()}
+                >
+                  <Plus className="h-4 w-4" />
+                  New {QUESTION_TYPE_LABELS[listeningDrillType]} Drill
+                </Button>
               }
             />
           </div>

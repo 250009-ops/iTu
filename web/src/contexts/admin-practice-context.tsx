@@ -152,6 +152,7 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
       const identity = await suggestPracticeUnitIdentity(payload.type, {
         passagePart: payload.passagePart,
         listeningPart: payload.listeningPart,
+        questionType: payload.questionType,
       });
       const created = await createPracticeUnit({
         code: identity.code,

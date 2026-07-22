@@ -34,8 +34,16 @@ export function PracticeUnitsSection({
         <h2 className="text-base font-semibold text-navy">{title}</h2>
         {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
       </div>
-      {tabs}
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {(tabs || actions) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {tabs ? <div className="min-w-0 flex-1">{tabs}</div> : <div />}
+          {actions && (
+            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+              {actions}
+            </div>
+          )}
+        </div>
+      )}
       <PracticeUnitsTable
         units={units}
         onEdit={onEdit}
