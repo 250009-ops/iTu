@@ -315,6 +315,7 @@ function PracticeStudioInner() {
                       </option>
                     ))}
                   </select>
+                  </label>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -372,6 +373,7 @@ function PracticeStudioInner() {
                       </option>
                     ))}
                   </select>
+                  </label>
                   <Button
                     variant="secondary"
                     size="sm"
