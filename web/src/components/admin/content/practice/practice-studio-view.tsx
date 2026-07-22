@@ -81,6 +81,7 @@ function PracticeStudioInner() {
   } = useAdminPractice();
 
   const [creating, setCreating] = useState(false);
+  const [readingPassagePart, setReadingPassagePart] = useState<1 | 2 | 3>(1);
   const [readingDrillType, setReadingDrillType] =
     useState<QuestionGroup["type"]>("mcq_single");
   const [listeningDrillType, setListeningDrillType] =
@@ -119,17 +120,22 @@ function PracticeStudioInner() {
     setCreating(true);
     try {
       const types = UNIT_TYPE_BY_TAB[activeTab];
-      const passage =
-        activeTab === "reading" ? emptyReadingPassage() : emptyListeningPart();
-      const content =
-        activeTab === "reading"
-          ? { passages: [{ ...passage, groups: [] }] }
-          : { parts: [{ ...passage, groups: [] }] };
-      await createUnit({
-        type: types.passage,
-        content,
-        answerKey: {},
-      });
+      if (activeTab === "reading") {
+        const passage = emptyReadingPassage(readingPassagePart);
+        await createUnit({
+          type: types.passage,
+          title: `Reading Passage ${readingPassagePart} practice`,
+          content: { passages: [{ ...passage, groups: [] }] },
+          answerKey: {},
+        });
+      } else {
+        const passage = emptyListeningPart();
+        await createUnit({
+          type: types.passage,
+          content: { parts: [{ ...passage, groups: [] }] },
+          answerKey: {},
+        });
+      }
     } catch (err) {
       toast("Could not create practice unit", {
         description: err instanceof Error ? err.message : "Please try again.",
@@ -157,6 +163,7 @@ function PracticeStudioInner() {
           : { parts: [partitionWithGroup] };
       await createUnit({
         type: types.questionType,
+        title: `${QUESTION_TYPE_LABELS[drillType]} drill`,
         questionType: drillType,
         content,
         answerKey: {},
@@ -251,37 +258,57 @@ function PracticeStudioInner() {
           <div className="space-y-10">
             <PracticeUnitsSection
               title="Reading passages"
-              description="Full passages with multiple question types — same editor as Mock Content Studio."
+              description="One IELTS passage per unit — choose Passage 1, 2, or 3 when creating. Each unit holds a single passage with its question groups."
               units={readingPassages}
               onEdit={setSelectedUnitId}
               emptyMessage="No reading passages yet."
+              tableVariant="reading-passage"
               actions={
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={creating}
-                  onClick={() => void handleCreatePassage()}
-                >
-                  <Plus className="h-4 w-4" />
-                  New Passage
-                </Button>
+                <>
+                  <label className="flex items-center gap-2 text-sm text-muted">
+                    <span className="font-medium text-navy">Passage</span>
+                    <select
+                      value={readingPassagePart}
+                      onChange={(e) =>
+                        setReadingPassagePart(Number(e.target.value) as 1 | 2 | 3)
+                      }
+                      className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy"
+                    >
+                      <option value={1}>Passage 1 (Q1–13)</option>
+                      <option value={2}>Passage 2 (Q14–26)</option>
+                      <option value={3}>Passage 3 (Q27–40)</option>
+                    </select>
+                  </label>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={creating}
+                    onClick={() => void handleCreatePassage()}
+                  >
+                    <Plus className="h-4 w-4" />
+                    New Passage
+                  </Button>
+                </>
               }
             />
             <PracticeUnitsSection
               title="Reading question-type drills"
-              description="Single question format per drill — one group only, optional short stimulus."
+              description="Focused practice on one question format. Pick the format first, then add an optional short stimulus and one question group."
               units={readingDrills}
               onEdit={setSelectedUnitId}
               emptyMessage="No reading question-type drills yet."
+              tableVariant="reading-drill"
               actions={
                 <>
-                  <select
-                    value={readingDrillType}
-                    onChange={(e) =>
-                      setReadingDrillType(e.target.value as QuestionGroup["type"])
-                    }
-                    className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                  >
+                  <label className="flex items-center gap-2 text-sm text-muted">
+                    <span className="font-medium text-navy">Question format</span>
+                    <select
+                      value={readingDrillType}
+                      onChange={(e) =>
+                        setReadingDrillType(e.target.value as QuestionGroup["type"])
+                      }
+                      className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy"
+                    >
                     {READING_DRILL_TYPES.map((type) => (
                       <option key={type} value={type}>
                         {QUESTION_TYPE_LABELS[type]}
@@ -327,15 +354,18 @@ function PracticeStudioInner() {
               units={listeningDrills}
               onEdit={setSelectedUnitId}
               emptyMessage="No listening question-type drills yet."
+              tableVariant="listening-drill"
               actions={
                 <>
-                  <select
-                    value={listeningDrillType}
-                    onChange={(e) =>
-                      setListeningDrillType(e.target.value as QuestionGroup["type"])
-                    }
-                    className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                  >
+                  <label className="flex items-center gap-2 text-sm text-muted">
+                    <span className="font-medium text-navy">Question format</span>
+                    <select
+                      value={listeningDrillType}
+                      onChange={(e) =>
+                        setListeningDrillType(e.target.value as QuestionGroup["type"])
+                      }
+                      className="h-9 min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy"
+                    >
                     {LISTENING_DRILL_TYPES.map((type) => (
                       <option key={type} value={type}>
                         {QUESTION_TYPE_LABELS[type]}

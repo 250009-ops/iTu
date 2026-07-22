@@ -39,6 +39,8 @@ type Props = {
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
   /** pane = nested scroll area; flow = grow naturally for a parent scroll container */
   layout?: "pane" | "flow";
+  /** Practice units: one IELTS passage only — hide add-passage and multi-passage tabs */
+  singlePassage?: boolean;
 };
 
 export function ReadingVisualEditor({
@@ -48,6 +50,7 @@ export function ReadingVisualEditor({
   onContentChange,
   onAnswerKeyChange,
   layout = "pane",
+  singlePassage = false,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const passages = content.passages ?? [];
@@ -123,43 +126,51 @@ export function ReadingVisualEditor({
     <div className={cn(flowLayout ? "space-y-5" : "flex min-h-0 flex-1 flex-col")}>
       <div className="shrink-0 space-y-4 border-b border-border bg-white pb-4 pt-1">
         <div className="flex flex-wrap gap-2">
-          {passages.map((p, idx) => {
-            const tabStatus = allPartitionStatuses.find((s) => s.part === p.part);
-            const tabCount = tabStatus?.count ?? 0;
-            const expected = tabStatus?.range.expectedCount ?? 13;
-            return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setActiveIdx(idx)}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-semibold transition",
-                activeIdx === idx
-                  ? "bg-emerald-600 text-white"
-                  : "border border-border bg-white text-muted hover:text-navy",
+          {singlePassage && passage ? (
+            <span className="inline-flex items-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
+              Passage {passage.part}
+            </span>
+          ) : (
+            <>
+              {passages.map((p, idx) => {
+                const tabStatus = allPartitionStatuses.find((s) => s.part === p.part);
+                const tabCount = tabStatus?.count ?? 0;
+                const expected = tabStatus?.range.expectedCount ?? 13;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setActiveIdx(idx)}
+                    className={cn(
+                      "rounded-full px-4 py-2 text-sm font-semibold transition",
+                      activeIdx === idx
+                        ? "bg-emerald-600 text-white"
+                        : "border border-border bg-white text-muted hover:text-navy",
+                    )}
+                  >
+                    Passage {p.part}
+                    <span className="ml-1.5 text-xs font-normal opacity-80">
+                      ({tabCount}/{expected})
+                    </span>
+                  </button>
+                );
+              })}
+              {passages.length < 3 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const part = passages.length + 1;
+                    const nextPassages = [...passages, emptyReadingPassage(part)];
+                    const next = { ...content, passages: nextPassages };
+                    onContentChange(next);
+                    setActiveIdx(nextPassages.length - 1);
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add passage
+                </Button>
               )}
-            >
-              Passage {p.part}
-              <span className="ml-1.5 text-xs font-normal opacity-80">
-                ({tabCount}/{expected})
-              </span>
-            </button>
-            );
-          })}
-          {passages.length < 3 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                const part = passages.length + 1;
-                const nextPassages = [...passages, emptyReadingPassage(part)];
-                const next = { ...content, passages: nextPassages };
-                onContentChange(next);
-                setActiveIdx(nextPassages.length - 1);
-              }}
-            >
-              <Plus className="h-3.5 w-3.5" /> Add passage
-            </Button>
+            </>
           )}
         </div>
       </div>

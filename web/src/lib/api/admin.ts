@@ -971,6 +971,7 @@ export type AdminPracticeUnit = {
   status: string;
   durationMin: number;
   questionCount: number;
+  passagePart: number | null;
   updatedAt: string;
   publishedAt: string | null;
   mediaCount: number;

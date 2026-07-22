@@ -84,6 +84,29 @@ export function assertWritingPromptCode(code: string, taskNumber: number): void 
   }
 }
 
+export function passagePartFromPracticeContent(
+  type: string,
+  content: unknown,
+): number | null {
+  if (!content || typeof content !== "object") return null;
+  const c = content as Record<string, unknown>;
+  if (type === "READING_PASSAGE" || type === "READING_QUESTION_TYPE") {
+    const passages = c.passages;
+    if (Array.isArray(passages) && passages[0] && typeof passages[0] === "object") {
+      const part = (passages[0] as { part?: number }).part;
+      return typeof part === "number" ? part : null;
+    }
+  }
+  if (type === "LISTENING_SECTION" || type === "LISTENING_QUESTION_TYPE") {
+    const parts = c.parts;
+    if (Array.isArray(parts) && parts[0] && typeof parts[0] === "object") {
+      const part = (parts[0] as { part?: number }).part;
+      return typeof part === "number" ? part : null;
+    }
+  }
+  return null;
+}
+
 export function countQuestionsInContent(
   skill: ExamSkill,
   content: unknown,

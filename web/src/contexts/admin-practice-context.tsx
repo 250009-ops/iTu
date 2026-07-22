@@ -28,6 +28,10 @@ import {
   type AdminWritingPrompt,
 } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  emptyListeningPart as factoryEmptyListeningPart,
+  emptyReadingPassage as factoryEmptyReadingPassage,
+} from "@/lib/admin/content/factories";
 
 export type PracticeStudioTab = "reading" | "listening" | "writing-ai";
 
@@ -45,6 +49,7 @@ type AdminPracticeContextValue = {
   refresh: () => Promise<void>;
   createUnit: (payload: {
     type: string;
+    title?: string;
     questionType?: string;
     content: object;
     answerKey?: object;
@@ -90,25 +95,12 @@ const UNIT_TYPE_BY_TAB: Record<
   },
 };
 
-function emptyReadingPassage() {
-  return {
-    id: "passage-1",
-    part: 1,
-    title: "Practice Passage",
-    blurb: "Read the passage and answer the questions.",
-    paragraphs: [{ marker: "A", text: "Enter passage text here." }],
-    groups: [],
-  };
+function emptyReadingPassage(part = 1) {
+  return factoryEmptyReadingPassage(part);
 }
 
-function emptyListeningPart() {
-  return {
-    id: "part-1",
-    part: 1,
-    title: "Section 1",
-    blurb: "Listen and answer the questions.",
-    groups: [],
-  };
+function emptyListeningPart(part = 1) {
+  return factoryEmptyListeningPart(part);
 }
 
 export function AdminPracticeProvider({ children }: { children: ReactNode }) {
@@ -148,6 +140,7 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
   const createUnit = useCallback(
     async (payload: {
       type: string;
+      title?: string;
       questionType?: string;
       content: object;
       answerKey?: object;
@@ -155,7 +148,7 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
       const identity = await suggestPracticeUnitIdentity(payload.type);
       const created = await createPracticeUnit({
         code: identity.code,
-        title: identity.title,
+        title: payload.title ?? identity.title,
         type: payload.type,
         questionType: payload.questionType,
         content: payload.content,

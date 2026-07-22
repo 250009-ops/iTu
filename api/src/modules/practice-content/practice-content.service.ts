@@ -22,6 +22,7 @@ import {
   countQuestionsInContent,
   nextPracticeUnitCode,
   nextWritingPromptCode,
+  passagePartFromPracticeContent,
   skillForUnitType,
   wrapListeningPartContent,
   wrapReadingPassageContent,
@@ -79,6 +80,7 @@ export class PracticeContentService {
       status: u.status.toLowerCase(),
       durationMin: u.durationMin,
       questionCount: u.questionCount,
+      passagePart: passagePartFromPracticeContent(u.type, u.content),
       updatedAt: u.updatedAt,
       publishedAt: u.publishedAt,
       mediaCount: u._count.mediaAssets,
@@ -492,7 +494,12 @@ export class PracticeContentService {
   private normalizeUnitContent(type: PracticeUnitType, content: object): object {
     const c = content as Record<string, unknown>;
     if (type === 'READING_PASSAGE' || type === 'READING_QUESTION_TYPE') {
-      if (Array.isArray(c.passages)) return content;
+      if (Array.isArray(c.passages)) {
+        if (type === 'READING_PASSAGE') {
+          return { ...content, passages: c.passages.slice(0, 1) };
+        }
+        return content;
+      }
       if (c.id && c.groups) {
         return wrapReadingPassageContent(content);
       }

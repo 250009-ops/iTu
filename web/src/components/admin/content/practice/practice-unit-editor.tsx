@@ -111,6 +111,19 @@ export function PracticeUnitEditor({ unitId }: Props) {
   }
 
   const isDrill = isQuestionTypeUnit(unitType);
+  const isReadingPassage =
+    !isDrill && module === "reading" && unitType === "READING_PASSAGE";
+
+  function handleReadingContentChange(content: ReadingContent) {
+    if (isReadingPassage && (content.passages?.length ?? 0) > 1) {
+      setReadingContent({
+        ...content,
+        passages: [content.passages[0]!],
+      });
+      return;
+    }
+    setReadingContent(content);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -148,11 +161,24 @@ export function PracticeUnitEditor({ unitId }: Props) {
         </div>
         {isDrill && (
           <div>
-            <Label>Question type</Label>
+            <Label>Question format</Label>
             <Input
               value={QUESTION_TYPE_LABELS[questionType] ?? questionType}
               readOnly
-              className="bg-slate-50"
+              className="bg-slate-50 font-medium"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Format is fixed when the drill is created. Delete and recreate to change it.
+            </p>
+          </div>
+        )}
+        {isReadingPassage && readingContent.passages[0] && (
+          <div>
+            <Label>IELTS passage</Label>
+            <Input
+              value={`Passage ${readingContent.passages[0].part}`}
+              readOnly
+              className="bg-slate-50 font-medium"
             />
           </div>
         )}
@@ -176,8 +202,9 @@ export function PracticeUnitEditor({ unitId }: Props) {
             testId={unitId}
             content={readingContent}
             answerKey={answerKey}
-            onContentChange={setReadingContent}
+            onContentChange={handleReadingContentChange}
             onAnswerKeyChange={setAnswerKey}
+            singlePassage={isReadingPassage}
           />
         </div>
       ) : (
@@ -263,8 +290,13 @@ function PracticeQuestionTypeBody({
     return (
       <div className="space-y-5">
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Question-type drills use one question format only. Add a short reading
-          stimulus below if needed, then build the single question group.
+          <p className="font-semibold">
+            {QUESTION_TYPE_LABELS[questionType]} drill
+          </p>
+          <p className="mt-1">
+            Add one question group in this format only. Use the optional stimulus
+            below when the question type needs reading context.
+          </p>
         </div>
         <RichTextField
           label="Reading stimulus (optional)"

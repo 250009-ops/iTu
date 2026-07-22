@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { PracticeUnitsTable } from "@/components/admin/content/practice/practice-units-table";
+import {
+  PracticeUnitsTable,
+  type PracticeUnitsTableVariant,
+} from "@/components/admin/content/practice/practice-units-table";
 import type { AdminPracticeUnit } from "@/lib/api/admin";
 
 type Props = {
@@ -11,6 +14,7 @@ type Props = {
   onEdit: (id: string) => void;
   emptyMessage: string;
   actions?: ReactNode;
+  tableVariant?: PracticeUnitsTableVariant;
 };
 
 export function PracticeUnitsSection({
@@ -20,6 +24,7 @@ export function PracticeUnitsSection({
   onEdit,
   emptyMessage,
   actions,
+  tableVariant,
 }: Props) {
   return (
     <section className="space-y-3">
@@ -28,7 +33,12 @@ export function PracticeUnitsSection({
         {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-      <PracticeUnitsTable units={units} onEdit={onEdit} emptyMessage={emptyMessage} />
+      <PracticeUnitsTable
+        units={units}
+        onEdit={onEdit}
+        emptyMessage={emptyMessage}
+        variant={tableVariant}
+      />
     </section>
   );
 }
