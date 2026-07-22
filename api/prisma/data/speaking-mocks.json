@@ -1,0 +1,612 @@
+[
+  {
+    "serial": 1,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "Could you tell me your full name, please?",
+          "May I see your identification?"
+        ]
+      },
+      {
+        "title": "Parks",
+        "questions": [
+          "Do you often visit parks?",
+          "Is there a park near where you live?",
+          "What do people usually do in parks in your country?",
+          "Did you visit parks more often when you were a child?"
+        ]
+      },
+      {
+        "title": "Time Management",
+        "questions": [
+          "Are you good at managing your time?",
+          "Do you usually make plans before studying?",
+          "What activities take up most of your time?",
+          "Would you like to have more free time?"
+        ]
+      },
+      {
+        "title": "Photographs",
+        "questions": [
+          "Do you enjoy taking photos?",
+          "What do you usually take pictures of?",
+          "Do you prefer taking photos with a phone or a camera?",
+          "Do you think photographs are important?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a skill you would like to learn.",
+      "bullets": [
+        "what the skill is",
+        "why you want to learn it",
+        "how you plan to learn it",
+        "and explain how learning this skill could benefit you."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Learning New Skills",
+        "questions": [
+          "Why do adults continue learning new skills?",
+          "Is it easier for children or adults to learn?",
+          "Should schools teach practical skills?",
+          "How has technology changed learning?",
+          "What skills will be most valuable in the future?",
+          "Can people learn everything online?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 2,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "What's your full name?",
+          "Could I see your ID, please?"
+        ]
+      },
+      {
+        "title": "Snacks",
+        "questions": [
+          "Do you often eat snacks?",
+          "What's your favorite snack?",
+          "Did you eat different snacks as a child?",
+          "Are healthy snacks popular in your country?"
+        ]
+      },
+      {
+        "title": "Emails",
+        "questions": [
+          "Do you write emails often?",
+          "Who do you usually send emails to?",
+          "Do you prefer emails or messages?",
+          "Do you think emails will become less common?"
+        ]
+      },
+      {
+        "title": "Dreams",
+        "questions": [
+          "Do you usually remember your dreams?",
+          "Have you ever had an interesting dream?",
+          "Do dreams influence your mood?",
+          "Why do you think people dream?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a time when someone gave you useful advice.",
+      "bullets": [
+        "who gave you the advice",
+        "what the advice was",
+        "when this happened",
+        "and explain why you found this advice helpful."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Advice",
+        "questions": [
+          "Why do people ask others for advice?",
+          "Are older people better at giving advice?",
+          "Should young people always follow their parents' advice?",
+          "Can advice from strangers be useful?",
+          "Why do some people ignore good advice?",
+          "How has the internet changed the way people seek advice?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 3,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "Could you tell me your full name?",
+          "May I see your passport or ID?"
+        ]
+      },
+      {
+        "title": "Clothes",
+        "questions": [
+          "Do you enjoy buying clothes?",
+          "What kind of clothes do you usually wear?",
+          "Has your clothing style changed?",
+          "Are clothes important to you?"
+        ]
+      },
+      {
+        "title": "Neighbours",
+        "questions": [
+          "Do you know your neighbours well?",
+          "Are your neighbours friendly?",
+          "Did you know your neighbours better when you were younger?",
+          "What makes a good neighbour?"
+        ]
+      },
+      {
+        "title": "Science",
+        "questions": [
+          "Did you enjoy science at school?",
+          "Which area of science interests you most?",
+          "Do you think science is important in everyday life?",
+          "Would you like to work in a scientific field?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe an event that made you feel proud.",
+      "bullets": [
+        "what the event was",
+        "when it happened",
+        "who was with you",
+        "and explain why you felt proud."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Success and Achievement",
+        "questions": [
+          "What kinds of achievements make people proud?",
+          "Is success always the result of hard work?",
+          "Should schools reward high-achieving students?",
+          "Do people today have more opportunities than in the past?",
+          "How can parents help children become confident?",
+          "Is competition good for society?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 4,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "Could you tell me your full name, please?",
+          "Can I see your identification?"
+        ]
+      },
+      {
+        "title": "Flowers",
+        "questions": [
+          "Do you like flowers?",
+          "Have you ever received flowers as a gift?",
+          "Are flowers important in your country?",
+          "Do you enjoy growing plants or flowers?"
+        ]
+      },
+      {
+        "title": "Keys",
+        "questions": [
+          "How many keys do you usually carry with you?",
+          "Have you ever lost your keys?",
+          "Do you think people will use fewer physical keys in the future?",
+          "What would you do if you lost your house key?"
+        ]
+      },
+      {
+        "title": "Museums",
+        "questions": [
+          "Do you like visiting museums?",
+          "When was the last time you visited a museum?",
+          "What kinds of museums interest you the most?",
+          "Do you think museums are important for children?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a useful website you often visit.",
+      "bullets": [
+        "what the website is",
+        "how you found it",
+        "what you use it for",
+        "and explain why you think this website is useful."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "The Internet",
+        "questions": [
+          "How has the Internet changed education?",
+          "What are the advantages of online learning?",
+          "What problems can people face when using the Internet?",
+          "Should children spend less time online?",
+          "Will books eventually disappear because of the Internet?",
+          "How might the Internet change in the future?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 5,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "What's your full name?",
+          "May I see your ID, please?"
+        ]
+      },
+      {
+        "title": "Pens and Pencils",
+        "questions": [
+          "Do you often use a pen or a pencil?",
+          "When do you usually write by hand?",
+          "Do you prefer typing or handwriting?",
+          "Do you think handwriting is still important?"
+        ]
+      },
+      {
+        "title": "Chocolate",
+        "questions": [
+          "Do you like eating chocolate?",
+          "Did you eat more chocolate when you were younger?",
+          "Is chocolate a popular gift in your country?",
+          "What's your favorite kind of chocolate?"
+        ]
+      },
+      {
+        "title": "Being Busy",
+        "questions": [
+          "Are you usually busy?",
+          "What keeps you busy these days?",
+          "Do you enjoy being busy?",
+          "How do you relax after a busy day?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a difficult decision you had to make.",
+      "bullets": [
+        "what the decision was",
+        "when you made it",
+        "why it was difficult",
+        "and explain whether you think you made the right decision."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Decision-Making",
+        "questions": [
+          "Why do some people find it difficult to make decisions?",
+          "Should young people make important decisions on their own?",
+          "Do people make better decisions alone or in groups?",
+          "How has technology changed decision-making?",
+          "What kinds of decisions are the most difficult?",
+          "Can experience improve decision-making?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 6,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "Could you tell me your full name?",
+          "May I see your passport or ID?"
+        ]
+      },
+      {
+        "title": "Maps",
+        "questions": [
+          "Do you often use maps?",
+          "Have you ever gotten lost?",
+          "Do you prefer paper maps or digital maps?",
+          "Are map-reading skills still important today?"
+        ]
+      },
+      {
+        "title": "Teachers",
+        "questions": [
+          "Did you have a favorite teacher at school?",
+          "What makes a good teacher?",
+          "Would you like to become a teacher?",
+          "Do teachers receive enough respect in your country?"
+        ]
+      },
+      {
+        "title": "Birthdays",
+        "questions": [
+          "Do you enjoy celebrating birthdays?",
+          "How did you celebrate your birthdays as a child?",
+          "Do adults celebrate birthdays differently from children?",
+          "What's the best birthday gift you've ever received?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a time when you helped someone.",
+      "bullets": [
+        "who you helped",
+        "what you did",
+        "why the person needed help",
+        "and explain how you felt after helping that person."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Helping Others",
+        "questions": [
+          "Why do people help each other?",
+          "Should children be encouraged to help others?",
+          "Is it more important to help family or strangers?",
+          "How can governments encourage people to volunteer?",
+          "Do people help others less than they did in the past?",
+          "What are the benefits of volunteering?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 7,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "Could you tell me your full name, please?",
+          "Can I see your identification?"
+        ]
+      },
+      {
+        "title": "Gifts",
+        "questions": [
+          "Do you enjoy giving gifts to other people?",
+          "What kinds of gifts do you usually give?",
+          "Have you ever received a gift you didn't like?",
+          "Do you think expensive gifts are better than inexpensive ones?"
+        ]
+      },
+      {
+        "title": "Noise",
+        "questions": [
+          "Do you live in a noisy area?",
+          "What kinds of noise do you hear every day?",
+          "Does noise affect your concentration?",
+          "How can cities reduce noise pollution?"
+        ]
+      },
+      {
+        "title": "Watches",
+        "questions": [
+          "Do you usually wear a watch?",
+          "Have you ever received a watch as a gift?",
+          "Why do some people still wear watches even though they have smartphones?",
+          "Do you think wearing a watch is fashionable?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a person who is good at solving problems.",
+      "bullets": [
+        "who this person is",
+        "how you know this person",
+        "what kinds of problems they solve",
+        "and explain why you admire this person's problem-solving ability."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Problem Solving",
+        "questions": [
+          "Why are some people better at solving problems than others?",
+          "Can schools teach problem-solving skills?",
+          "Do modern technologies make solving problems easier?",
+          "What kinds of problems do young people often face?",
+          "Is it better to solve problems alone or with others?",
+          "Why is critical thinking important?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 8,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "What's your full name?",
+          "May I see your ID, please?"
+        ]
+      },
+      {
+        "title": "Languages",
+        "questions": [
+          "How many languages can you speak?",
+          "Would you like to learn another language?",
+          "What is the most difficult part of learning a language?",
+          "How can people improve their speaking skills?"
+        ]
+      },
+      {
+        "title": "Shoes",
+        "questions": [
+          "How often do you buy new shoes?",
+          "Do you prefer comfortable or fashionable shoes?",
+          "Have your preferences changed over the years?",
+          "Do you think people own too many shoes nowadays?"
+        ]
+      },
+      {
+        "title": "Libraries",
+        "questions": [
+          "Do you often visit libraries?",
+          "Did you use libraries when you were younger?",
+          "What kinds of people use libraries today?",
+          "Do you think libraries will still be important in the future?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a memorable journey you have taken.",
+      "bullets": [
+        "where you went",
+        "who you traveled with",
+        "what happened during the journey",
+        "and explain why you remember this journey so well."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Travel",
+        "questions": [
+          "Why do people enjoy traveling?",
+          "How has transportation improved over the years?",
+          "What are the disadvantages of traveling frequently?",
+          "Should governments invest more in public transportation?",
+          "How has tourism affected local cultures?",
+          "Will people travel differently in the future?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 9,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "Could you tell me your full name?",
+          "May I see your passport or ID?"
+        ]
+      },
+      {
+        "title": "Rain",
+        "questions": [
+          "Do you enjoy rainy weather?",
+          "What do you usually do when it rains?",
+          "Did you like playing in the rain as a child?",
+          "Does rain affect your daily plans?"
+        ]
+      },
+      {
+        "title": "Cakes",
+        "questions": [
+          "Do you like eating cakes?",
+          "What is your favorite kind of cake?",
+          "Are cakes popular for celebrations in your country?",
+          "Have you ever baked a cake?"
+        ]
+      },
+      {
+        "title": "Teamwork",
+        "questions": [
+          "Do you enjoy working in teams?",
+          "Have you ever worked on a group project?",
+          "Is teamwork important in your studies or job?",
+          "What makes a good team member?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a piece of good news you recently heard.",
+      "bullets": [
+        "what the news was",
+        "who told you",
+        "when you heard it",
+        "and explain why this news made you happy."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "News and Communication",
+        "questions": [
+          "How do people usually get news today?",
+          "Why do some people prefer online news to newspapers?",
+          "How can people know whether news is reliable?",
+          "Do you think people receive too much information nowadays?",
+          "Should schools teach students how to evaluate news sources?",
+          "How might news reporting change in the future?"
+        ]
+      }
+    ]
+  },
+  {
+    "serial": 10,
+    "part1Topics": [
+      {
+        "title": "Introduction",
+        "questions": [
+          "Could you tell me your full name, please?",
+          "Can I see your identification?"
+        ]
+      },
+      {
+        "title": "Art",
+        "questions": [
+          "Do you enjoy looking at art?",
+          "Have you ever created a piece of art?",
+          "Did you study art at school?",
+          "Do you think art is important in people's lives?"
+        ]
+      },
+      {
+        "title": "Staying Up Late",
+        "questions": [
+          "Do you often stay up late?",
+          "What do you usually do when you stay up late?",
+          "Did you stay up late more often when you were younger?",
+          "Do you think staying up late is a good habit?"
+        ]
+      },
+      {
+        "title": "Coins",
+        "questions": [
+          "Do you carry coins with you?",
+          "Have you ever collected coins?",
+          "Are coins used as much as they were in the past?",
+          "Do you think cash will disappear in the future?"
+        ]
+      }
+    ],
+    "cueCard": {
+      "title": "Describe a subject you enjoyed studying at school.",
+      "bullets": [
+        "what the subject was",
+        "who taught it",
+        "what you learned",
+        "and explain why you enjoyed studying this subject."
+      ]
+    },
+    "part3Topics": [
+      {
+        "title": "Education",
+        "questions": [
+          "Which school subjects are the most useful in adult life?",
+          "Should students be allowed to choose all of their subjects?",
+          "How has education changed in the last few decades?",
+          "Is online education as effective as classroom learning?",
+          "What qualities make an excellent teacher?",
+          "How can schools encourage students to enjoy learning?"
+        ]
+      }
+    ]
+  }
+]

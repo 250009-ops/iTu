@@ -45,6 +45,9 @@ npm run build
 echo "==> Syncing catalog prices (UZS)..."
 npm run packages:sync-prices || true
 
+echo "==> Importing speaking mock bank (SPK-MOCK-A001–A010)..."
+npx tsx scripts/import-speaking-mocks.ts
+
 echo "==> Building Web..."
 cd "$APP_DIR/web"
 npm ci
