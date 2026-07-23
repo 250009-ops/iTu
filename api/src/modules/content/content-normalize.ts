@@ -279,14 +279,18 @@ function repairQuestionGroup(group: unknown): Json {
           typeof g.maxSelections === 'number' && g.maxSelections >= 2
             ? g.maxSelections
             : Math.max(2, numbers.length);
+        const sharedNumbers = Array.from(
+          { length: maxSelections },
+          (_, i) => from + i,
+        );
         return {
           ...g,
           selectionMode: 'shared',
           answerOrdering: g.answerOrdering === 'fixed' ? 'fixed' : 'any',
           options: asArray(g.options),
           from,
-          to: from,
-          numbers: [from],
+          to: from + maxSelections - 1,
+          numbers: sharedNumbers,
           maxSelections,
         };
       }

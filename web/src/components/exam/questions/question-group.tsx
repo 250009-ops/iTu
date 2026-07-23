@@ -32,7 +32,7 @@ import {
   chooseCountWord,
   chooseLettersRange,
   mcqChooseNNumbers,
-  mcqSharedQuestionNumber,
+  mcqMultiSharedNumbers,
 } from "@/lib/exam/mcq-choose-n";
 import { inferMatchingReuseOptions } from "@/lib/exam/matching-options";
 
@@ -439,60 +439,59 @@ function GroupBody({
         );
       }
 
-      const questionN = mcqSharedQuestionNumber(group);
-      const value = (answers[questionN] as string[]) ?? [];
-      const toggle = (id: string) => {
-        let next: string[];
-        if (value.includes(id)) {
-          next = value.filter((v) => v !== id);
-        } else if (value.length >= group.maxSelections) {
-          next = [...value.slice(1), id];
-        } else {
-          next = [...value, id];
-        }
-        onAnswer(questionN, next);
-        onFocus(questionN);
-      };
+      const sharedNumbers = mcqMultiSharedNumbers(group);
       return (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="mb-1 flex gap-2 text-[15px] font-medium text-slate-800">
+          <p className="mb-3 flex flex-wrap gap-2 text-[15px] font-medium text-slate-800">
             <span className="flex h-6 items-center justify-center rounded-md bg-navy px-1.5 text-[12px] font-bold text-white">
-              {questionN}
+              {sharedNumbers[0]}
+              {sharedNumbers.length > 1
+                ? `–${sharedNumbers[sharedNumbers.length - 1]}`
+                : ""}
             </span>
             {group.prompt}
           </p>
-          <p className="mb-3 pl-1 text-[12px] font-medium text-slate-400">
-            Choose {group.maxSelections} answers · {value.length}/
-            {group.maxSelections} selected
+          <p className="mb-3 text-[12px] font-medium text-slate-500">
+            Choose {group.maxSelections} letters, {optionIds[0] ?? "A"}–
+            {optionIds[optionIds.length - 1] ?? "G"}. Write one letter in each box.
           </p>
+          <ol className="mb-4 space-y-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+            {group.options.map((opt) => (
+              <li key={opt.id} className="flex gap-2 text-[14px] text-slate-700">
+                <span className="font-bold text-slate-500">{opt.id}</span>
+                <span>{opt.label}</span>
+              </li>
+            ))}
+          </ol>
           <div className="space-y-2">
-            {group.options.map((opt) => {
-              const selected = value.includes(opt.id);
+            {sharedNumbers.map((n) => {
+              const value = typeof answers[n] === "string" ? (answers[n] as string) : "";
+              const isActive = current === n;
               return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => toggle(opt.id)}
+                <div
+                  key={n}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-[14px] transition",
-                    selected
-                      ? "border-navy bg-navy/5 font-medium text-navy"
-                      : "border-slate-200 text-slate-700 hover:border-navy hover:bg-slate-50",
+                    "flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 transition",
+                    isActive ? "border-navy bg-sky-50" : "border-slate-200 bg-white",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-[11px] font-bold",
-                      selected
-                        ? "border-navy bg-navy text-white"
-                        : "border-slate-300 text-transparent",
-                    )}
-                  >
-                    ✓
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-navy text-[13px] font-bold text-white">
+                    {n}
                   </span>
-                  <span className="font-semibold text-slate-500">{opt.id}</span>
-                  {opt.label}
-                </button>
+                  <select
+                    value={value}
+                    onFocus={() => onFocus(n)}
+                    onChange={(e) => onAnswer(n, e.target.value)}
+                    className="h-9 min-w-[6rem] rounded-md border border-slate-200 bg-white px-2 text-[14px] font-medium text-navy"
+                  >
+                    <option value="">—</option>
+                    {group.options.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               );
             })}
           </div>

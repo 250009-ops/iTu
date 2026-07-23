@@ -1,4 +1,5 @@
 import type { ContentModule } from "@/lib/admin/types";
+import { mcqMultiSharedNumbers } from "@/lib/exam/mcq-choose-n";
 import {
   listeningMediaReady,
   type MediaAssetRef,
@@ -67,7 +68,7 @@ export function gapsInGroup(group: QuestionGroup): number[] {
       if (group.selectionMode === "per_question") {
         return arr(group.numbers);
       }
-      return [group.from];
+      return mcqMultiSharedNumbers(group as import("@/lib/exam/types").McqMultiGroup);
     case "mcq_choose_n":
       return [group.from];
     case "matching":

@@ -177,12 +177,16 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
           numbers: nums.slice(0, group.numbers.length),
         };
       }
-      return {
-        ...group,
-        from,
-        to: from,
-        numbers: [from],
-      };
+      {
+        const count = Math.max(2, group.maxSelections ?? group.numbers.length ?? 2);
+        return {
+          ...group,
+          from,
+          to: nums[count - 1] ?? from,
+          numbers: nums.slice(0, count),
+          maxSelections: count,
+        };
+      }
     case "mcq_choose_n":
       return {
         ...group,

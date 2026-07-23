@@ -269,7 +269,23 @@ function gapsInGroup(group: Record<string, unknown>): number[] {
       if (group.selectionMode === 'per_question') {
         return arr(group.numbers as number[]);
       }
-      return typeof group.from === 'number' ? [group.from] : arr(group.numbers as number[]).slice(0, 1);
+      {
+        const from =
+          typeof group.from === 'number'
+            ? group.from
+            : (arr(group.numbers as number[])[0] ?? 1);
+        const count = Math.max(
+          2,
+          (typeof group.maxSelections === 'number'
+            ? group.maxSelections
+            : arr(group.numbers as number[]).length) || 2,
+        );
+        const nums = arr(group.numbers as number[]);
+        if (nums.length >= count) {
+          return nums.slice(0, count);
+        }
+        return Array.from({ length: count }, (_, i) => from + i);
+      }
     case 'mcq_choose_n':
       return typeof group.from === 'number' ? [group.from] : [1];
     case 'flowchart_completion':

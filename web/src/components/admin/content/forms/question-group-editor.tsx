@@ -27,7 +27,7 @@ import {
   buildMcqChooseNInstruction,
   mcqChooseNNumbers,
   mcqChooseNQuestionNumber,
-  mcqSharedQuestionNumber,
+  mcqMultiSharedNumbers,
   normalizeMcqMultiSharedGroup,
   syncMcqChooseNMeta,
   syncMcqMultiSharedMeta,
@@ -142,7 +142,10 @@ function groupQuestionRangeLabel(group: QuestionGroup): string {
   if (group.type === "mcq_multi") {
     const mcq = group;
     if ((mcq.selectionMode ?? "shared") === "shared") {
-      return `Question ${mcqSharedQuestionNumber(mcq)}`;
+      const nums = mcqMultiSharedNumbers(mcq);
+      return nums.length === 1
+        ? `Question ${nums[0]}`
+        : `Questions ${nums[0]}–${nums[nums.length - 1]}`;
     }
     const nums = mcq.numbers;
     if (nums.length === 0) return `Questions ${group.from}–${group.to}`;
@@ -901,6 +904,7 @@ function renderBody(
       const answerOrdering = mcq.answerOrdering ?? "any";
       const isAnyOrder = answerOrdering === "any";
       const optionIds = mcq.options.map((o) => o.id);
+      const sharedNumbers = mcqMultiSharedNumbers(mcq);
 
       function resizeNumbers(count: number) {
         const nums = [...mcq.numbers];
@@ -1117,12 +1121,17 @@ function renderBody(
                 Correct answers (choose {mcq.maxSelections})
               </Label>
               <AnswerKeyMultiField
-                numbers={[mcqSharedQuestionNumber(mcq)]}
+                numbers={sharedNumbers}
                 answerKey={answerKey}
                 onChange={onAnswerKeyChange}
                 options={optionIds}
                 maxSelections={mcq.maxSelections}
+                setKeyMode
               />
+              <p className="text-xs text-muted">
+                Uses answer boxes {sharedNumbers[0]}–{sharedNumbers[sharedNumbers.length - 1]}{" "}
+                on the answer sheet (letters may be written in any order).
+              </p>
             </>
           )}
         </div>

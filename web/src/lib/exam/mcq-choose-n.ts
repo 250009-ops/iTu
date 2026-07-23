@@ -40,11 +40,30 @@ export function mcqSharedQuestionNumber(group: McqMultiGroup): number {
   return group.from;
 }
 
+/** Answer-sheet numbers for shared choose-N-together (one box per letter). */
+export function mcqMultiSharedNumbers(group: McqMultiGroup): number[] {
+  if (isMcqMultiPerQuestion(group)) {
+    return group.numbers;
+  }
+  const from =
+    typeof group.from === "number"
+      ? group.from
+      : (group.numbers[0] ?? 1);
+  const count = Math.max(
+    2,
+    group.maxSelections ?? group.numbers.length ?? 2,
+  );
+  if (group.numbers.length >= count) {
+    return group.numbers.slice(0, count);
+  }
+  return Array.from({ length: count }, (_, i) => from + i);
+}
+
 export function mcqMultiGapNumbers(group: McqMultiGroup): number[] {
   if (isMcqMultiPerQuestion(group)) {
     return group.numbers;
   }
-  return [mcqSharedQuestionNumber(group)];
+  return mcqMultiSharedNumbers(group);
 }
 
 export function buildMcqChooseNInstruction(
@@ -68,7 +87,7 @@ export function syncMcqChooseNMeta(group: McqChooseNGroup): McqChooseNGroup {
   };
 }
 
-/** Collapse legacy shared groups that spanned N numbers into one question. */
+/** Shared choose-N-together spans N consecutive answer-sheet boxes (e.g. Q29–31). */
 export function normalizeMcqMultiSharedGroup(group: McqMultiGroup): McqMultiGroup {
   if (isMcqMultiPerQuestion(group)) {
     return group;
@@ -81,12 +100,17 @@ export function normalizeMcqMultiSharedGroup(group: McqMultiGroup): McqMultiGrou
     typeof group.maxSelections === "number" && group.maxSelections >= 2
       ? group.maxSelections
       : Math.max(2, group.numbers.length);
+  const numbers = Array.from(
+    { length: maxSelections },
+    (_, i) => from + i,
+  );
   return {
     ...group,
     selectionMode: "shared",
+    answerOrdering: group.answerOrdering ?? "any",
     from,
-    to: from,
-    numbers: [from],
+    to: from + maxSelections - 1,
+    numbers,
     maxSelections,
   };
 }
