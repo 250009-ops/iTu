@@ -159,9 +159,54 @@ function PracticeStudioInner() {
     () => prompts.filter((p) => p.taskNumber === 2),
     [prompts],
   );
+  const hasEmptyReadingPassageDraft = useMemo(
+    () =>
+      filteredReadingPassages.some(
+        (u) => u.status.toLowerCase() === "draft" && u.questionCount === 0,
+      ),
+    [filteredReadingPassages],
+  );
+  const hasEmptyListeningSectionDraft = useMemo(
+    () =>
+      filteredListeningSections.some(
+        (u) => u.status.toLowerCase() === "draft" && u.questionCount === 0,
+      ),
+    [filteredListeningSections],
+  );
+  const hasEmptyReadingDrillDraft = useMemo(
+    () =>
+      filteredReadingDrills.some(
+        (u) => u.status.toLowerCase() === "draft" && u.questionCount === 0,
+      ),
+    [filteredReadingDrills],
+  );
+  const hasEmptyListeningDrillDraft = useMemo(
+    () =>
+      filteredListeningDrills.some(
+        (u) => u.status.toLowerCase() === "draft" && u.questionCount === 0,
+      ),
+    [filteredListeningDrills],
+  );
 
   async function handleCreatePassage() {
     if (activeTab === "writing-ai") return;
+
+    const existingEmpty =
+      activeTab === "reading"
+        ? filteredReadingPassages.find(
+            (u) => u.status.toLowerCase() === "draft" && u.questionCount === 0,
+          )
+        : filteredListeningSections.find(
+            (u) => u.status.toLowerCase() === "draft" && u.questionCount === 0,
+          );
+    if (existingEmpty) {
+      setSelectedUnitId(existingEmpty.id);
+      toast("Opened your existing empty draft", {
+        description: "Finish editing it or delete it before starting another.",
+      });
+      return;
+    }
+
     setCreating(true);
     try {
       const types = UNIT_TYPE_BY_TAB[activeTab];
@@ -212,6 +257,29 @@ function PracticeStudioInner() {
 
   async function handleCreateDrill() {
     if (activeTab === "writing-ai") return;
+
+    const existingEmpty =
+      activeTab === "reading"
+        ? filteredReadingDrills.find(
+            (u) =>
+              u.status.toLowerCase() === "draft" &&
+              u.questionCount === 0 &&
+              u.questionType === readingDrillType,
+          )
+        : filteredListeningDrills.find(
+            (u) =>
+              u.status.toLowerCase() === "draft" &&
+              u.questionCount === 0 &&
+              u.questionType === listeningDrillType,
+          );
+    if (existingEmpty) {
+      setSelectedUnitId(existingEmpty.id);
+      toast("Opened your existing empty drill draft", {
+        description: "Finish editing it or delete it before starting another.",
+      });
+      return;
+    }
+
     setCreating(true);
     try {
       const types = UNIT_TYPE_BY_TAB[activeTab];
@@ -345,10 +413,17 @@ function PracticeStudioInner() {
                   variant="primary"
                   size="sm"
                   disabled={creating}
+                  title={
+                    hasEmptyReadingPassageDraft
+                      ? "Open the existing empty draft for this passage"
+                      : undefined
+                  }
                   onClick={() => void handleCreatePassage()}
                 >
                   <Plus className="h-4 w-4" />
-                  New Passage {readingPassagePart}
+                  {hasEmptyReadingPassageDraft
+                    ? "Open empty draft"
+                    : `New Passage ${readingPassagePart}`}
                 </Button>
               }
             />
@@ -372,10 +447,17 @@ function PracticeStudioInner() {
                   variant="secondary"
                   size="sm"
                   disabled={creating}
+                  title={
+                    hasEmptyReadingDrillDraft
+                      ? "Open the existing empty drill draft for this format"
+                      : undefined
+                  }
                   onClick={() => void handleCreateDrill()}
                 >
                   <Plus className="h-4 w-4" />
-                  New {QUESTION_TYPE_LABELS[readingDrillType]} Drill
+                  {hasEmptyReadingDrillDraft
+                    ? "Open empty drill"
+                    : `New ${QUESTION_TYPE_LABELS[readingDrillType]} Drill`}
                 </Button>
               }
             />
@@ -400,10 +482,17 @@ function PracticeStudioInner() {
                   variant="primary"
                   size="sm"
                   disabled={creating}
+                  title={
+                    hasEmptyListeningSectionDraft
+                      ? "Open the existing empty draft for this section"
+                      : undefined
+                  }
                   onClick={() => void handleCreatePassage()}
                 >
                   <Plus className="h-4 w-4" />
-                  New Section {listeningSectionPart}
+                  {hasEmptyListeningSectionDraft
+                    ? "Open empty draft"
+                    : `New Section ${listeningSectionPart}`}
                 </Button>
               }
             />
@@ -428,10 +517,17 @@ function PracticeStudioInner() {
                   variant="secondary"
                   size="sm"
                   disabled={creating}
+                  title={
+                    hasEmptyListeningDrillDraft
+                      ? "Open the existing empty drill draft for this format"
+                      : undefined
+                  }
                   onClick={() => void handleCreateDrill()}
                 >
                   <Plus className="h-4 w-4" />
-                  New {QUESTION_TYPE_LABELS[listeningDrillType]} Drill
+                  {hasEmptyListeningDrillDraft
+                    ? "Open empty drill"
+                    : `New ${QUESTION_TYPE_LABELS[listeningDrillType]} Drill`}
                 </Button>
               }
             />

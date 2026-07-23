@@ -153,6 +153,16 @@ export class PracticeContentService {
           : undefined,
       questionType: body.questionType ?? undefined,
     };
+
+    const reusableDraft = await this.findReusableEmptyDraft(body.type, {
+      passagePart: codeOptions.passagePart,
+      listeningPart: codeOptions.listeningPart,
+      questionType: body.questionType ?? undefined,
+    });
+    if (reusableDraft) {
+      return reusableDraft;
+    }
+
     try {
       assertPracticeUnitCode(body.type, code, codeOptions);
     } catch (error) {
@@ -521,6 +531,41 @@ export class PracticeContentService {
       where: { id },
       data: { status: ContentTestStatus.ARCHIVED },
     });
+  }
+
+  private async findReusableEmptyDraft(
+    type: PracticeUnitType,
+    options: {
+      passagePart?: number;
+      listeningPart?: number;
+      questionType?: string;
+    },
+  ) {
+    const drafts = await this.prisma.practiceUnit.findMany({
+      where: {
+        type,
+        status: ContentTestStatus.DRAFT,
+        questionCount: 0,
+        ...(options.questionType
+          ? { questionType: options.questionType }
+          : {}),
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    return (
+      drafts.find((draft) => {
+        if (type === 'READING_PASSAGE' || type === 'READING_QUESTION_TYPE') {
+          const part = passagePartFromPracticeContent(type, draft.content);
+          return part === (options.passagePart ?? 1);
+        }
+        if (type === 'LISTENING_SECTION' || type === 'LISTENING_QUESTION_TYPE') {
+          const part = passagePartFromPracticeContent(type, draft.content);
+          return part === (options.listeningPart ?? 1);
+        }
+        return true;
+      }) ?? null
+    );
   }
 
   private normalizeUnitContent(type: PracticeUnitType, content: object): object {

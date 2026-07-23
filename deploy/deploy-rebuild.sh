@@ -52,7 +52,7 @@ echo "==> Aligning legacy practice unit codes and titles..."
 npm run practice:migrate-units || true
 
 echo "==> Cleaning Passage 1 practice unit slots..."
-npm run practice:fix-passage-p1 || true
+npm run practice:purge-empty-drafts || true
 
 echo "==> Building Web..."
 cd "$APP_DIR/web"

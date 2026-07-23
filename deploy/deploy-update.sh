@@ -63,7 +63,7 @@ npm run content:patch
 npm run content:repair-mocks
 npm run content:migrate-names
 npm run practice:migrate-units || true
-npm run practice:fix-passage-p1 || true
+npm run practice:purge-empty-drafts || true
 npm run enrollments:backfill-cutoff
 npm run settings:migrate-day-cutoff
 if [[ "${FRESH_PACKAGES:-}" == "1" ]]; then
