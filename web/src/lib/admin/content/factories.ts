@@ -191,6 +191,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionGroup["type"], string> = {
   table_completion: "Table completion",
   mcq_single: "Multiple choice (single)",
   mcq_multi: "Multiple choice (choose multiple)",
+  mcq_choose_n: "Multiple choice (choose N letters)",
   matching: "Matching",
   matching_headings: "Matching headings",
   matching_information: "Matching information",
@@ -361,6 +362,25 @@ export function createQuestionGroup(
           { id: "A", label: "" },
           { id: "B", label: "" },
           { id: "C", label: "" },
+        ],
+      };
+    case "mcq_choose_n":
+      return {
+        id,
+        type,
+        from,
+        to: from + 2,
+        chooseCount: 3,
+        instruction: "Choose THREE letters A–F.",
+        hint: "Write the correct letters in boxes on your answer sheet.",
+        prompt: "",
+        options: [
+          { id: "A", label: "" },
+          { id: "B", label: "" },
+          { id: "C", label: "" },
+          { id: "D", label: "" },
+          { id: "E", label: "" },
+          { id: "F", label: "" },
         ],
       };
     case "map_labeling":

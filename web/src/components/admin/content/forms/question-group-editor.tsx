@@ -24,6 +24,11 @@ import { removeAnswerKeyEntry, removeQuestionAt, nextMatchOptionId } from "@/lib
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import {
+  buildMcqChooseNInstruction,
+  mcqChooseNNumbers,
+  syncMcqChooseNMeta,
+} from "@/lib/exam/mcq-choose-n";
+import {
   passageSectionLabels,
   DEFAULT_SECTION_LABELS,
 } from "@/lib/exam/passage-sections";
@@ -803,6 +808,65 @@ function renderBody(
           />
         </div>
       );
+
+    case "mcq_choose_n": {
+      if (group.type !== "mcq_choose_n") return null;
+      const choose = group;
+      const numbers = mcqChooseNNumbers(choose);
+      const optionIds = choose.options.map((o) => o.id);
+
+      return (
+        <div className="space-y-3 rounded-lg border border-border bg-white p-3">
+          <p className="text-xs font-medium text-slate-600">{choose.instruction}</p>
+          <Input
+            value={choose.prompt}
+            onChange={(e) =>
+              onChange(syncMcqChooseNMeta({ ...choose, prompt: e.target.value }))
+            }
+            placeholder="Which THREE of the following…"
+          />
+          <MatchOptionsBankEditor
+            label="Options (A, B, C…)"
+            options={choose.options}
+            minOptions={2}
+            onChange={(options) =>
+              onChange(syncMcqChooseNMeta({ ...choose, options }))
+            }
+          />
+          <div className="space-y-2">
+            <Label className="text-xs">Number of letters to choose</Label>
+            <Input
+              type="number"
+              min={2}
+              max={Math.max(2, choose.options.length)}
+              value={choose.chooseCount}
+              onChange={(e) => {
+                const count = Math.max(
+                  2,
+                  Math.min(choose.options.length, Number(e.target.value) || 2),
+                );
+                onChange(syncMcqChooseNMeta({ ...choose, chooseCount: count }));
+              }}
+              className="max-w-[8rem]"
+            />
+            <p className="text-xs text-muted">
+              Instruction updates automatically:{" "}
+              {buildMcqChooseNInstruction(choose.chooseCount, choose.options)}
+            </p>
+          </div>
+          <Label className="text-xs">
+            Correct answers (choose {choose.chooseCount})
+          </Label>
+          <AnswerKeyMultiField
+            numbers={numbers}
+            answerKey={answerKey}
+            onChange={onAnswerKeyChange}
+            options={optionIds}
+            maxSelections={choose.chooseCount}
+          />
+        </div>
+      );
+    }
 
     case "mcq_multi": {
       if (group.type !== "mcq_multi") return null;

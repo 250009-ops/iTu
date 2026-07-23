@@ -6,14 +6,11 @@ import { ListeningVisualEditor } from "@/components/admin/content/editors/listen
 import { RichTextField } from "@/components/admin/content/forms/rich-text-field";
 import { QuestionGroupsPanel } from "@/components/admin/content/forms/question-groups-panel";
 import { PracticeListeningAudioUpload } from "@/components/admin/content/practice/practice-listening-audio-upload";
-import { scrollPracticeEditorToTop } from "@/components/admin/content/practice/practice-editor-scroll";
 import {
-  ListeningSectionPartTabs,
   listeningSectionPracticeTitle,
   type ListeningSectionPart,
 } from "@/components/admin/content/practice/listening-section-part-tabs";
 import {
-  ReadingPassagePartSelect,
   readingPassagePracticeTitle,
   type ReadingPassagePart,
 } from "@/components/admin/content/practice/reading-passage-part-select";
@@ -27,13 +24,6 @@ import {
   QUESTION_TYPE_LABELS,
   recomputeTotalQuestions,
 } from "@/lib/admin/content/factories";
-import {
-  collectOrderedNumbers,
-  defaultPartitionBlurb,
-  partitionForPart,
-  remapAnswerKeyByOrder,
-  renumberPartitionGroups,
-} from "@/lib/admin/content/numbering";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type {
   ListeningContent,
@@ -132,15 +122,14 @@ export function PracticeUnitEditor({ unitId }: Props) {
   const isDrill = isQuestionTypeUnit(unitType);
   const isReadingPassage =
     !isDrill && module === "reading" && unitType === "READING_PASSAGE";
-  const isListeningSection =
-    !isDrill && module === "listening" && unitType === "LISTENING_SECTION";
   const autoTitle = isReadingPassage
     ? readingPassagePracticeTitle(
         (readingContent.passages[0]?.part as ReadingPassagePart | undefined) ?? 1,
       )
-    : isListeningSection
+    : !isDrill && module === "listening" && unitType === "LISTENING_SECTION"
       ? listeningSectionPracticeTitle(
-          (listeningContent.parts[0]?.part as ListeningSectionPart | undefined) ?? 1,
+          (listeningContent.parts[0]?.part as ListeningSectionPart | undefined) ??
+            1,
         )
       : null;
 
@@ -154,59 +143,6 @@ export function PracticeUnitEditor({ unitId }: Props) {
     }
     setReadingContent(content);
   }
-
-  function handleReadingPassagePartChange(newPart: ReadingPassagePart) {
-    const passage = readingContent.passages[0];
-    if (!passage || passage.part === newPart) return;
-
-    const oldNums = collectOrderedNumbers(passage.groups ?? []);
-    const range = partitionForPart("reading", newPart);
-    const groups = renumberPartitionGroups(passage.groups ?? [], range.from);
-    const newNums = collectOrderedNumbers(groups);
-    const nextPassage = {
-      ...passage,
-      part: newPart,
-      blurb: defaultPartitionBlurb("reading", newPart),
-      groups,
-    };
-    const nextContent: ReadingContent = {
-      ...readingContent,
-      passages: [nextPassage],
-    };
-    recomputeTotalQuestions(nextContent);
-    setReadingContent(nextContent);
-    setAnswerKey(remapAnswerKeyByOrder(answerKey, oldNums, newNums));
-    setTitle(readingPassagePracticeTitle(newPart));
-  }
-
-  function handleListeningSectionPartChange(newPart: ListeningSectionPart) {
-    const part = listeningContent.parts[0];
-    if (!part || part.part === newPart) return;
-
-    const oldNums = collectOrderedNumbers(part.groups ?? []);
-    const range = partitionForPart("listening", newPart);
-    const groups = renumberPartitionGroups(part.groups ?? [], range.from);
-    const newNums = collectOrderedNumbers(groups);
-    const nextPart = {
-      ...part,
-      part: newPart,
-      blurb: defaultPartitionBlurb("listening", newPart),
-      groups,
-    };
-    const nextContent: ListeningContent = {
-      ...listeningContent,
-      parts: [nextPart],
-    };
-    recomputeTotalQuestions(nextContent);
-    setListeningContent(nextContent);
-    setAnswerKey(remapAnswerKeyByOrder(answerKey, oldNums, newNums));
-    setTitle(listeningSectionPracticeTitle(newPart));
-  }
-
-  const readingPassagePart =
-    (readingContent.passages[0]?.part as ReadingPassagePart | undefined) ?? 1;
-  const listeningSectionPart =
-    (listeningContent.parts[0]?.part as ListeningSectionPart | undefined) ?? 1;
 
   async function handleSave() {
     setSaving(true);
@@ -222,7 +158,6 @@ export function PracticeUnitEditor({ unitId }: Props) {
       });
       if (autoTitle) setTitle(autoTitle);
       toast("Saved", { variant: "success" });
-      scrollPracticeEditorToTop();
     } catch {
       toast("Save failed", { variant: "error" });
     } finally {
@@ -243,7 +178,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
           />
           {autoTitle && (
             <p className="mt-1 text-xs text-muted">
-              Title follows the selected passage/section automatically.
+              Title follows the passage/section tab this unit was created from.
             </p>
           )}
         </div>
@@ -266,24 +201,6 @@ export function PracticeUnitEditor({ unitId }: Props) {
             <p className="mt-1 text-xs text-muted">
               Format is fixed when the drill is created. Delete and recreate to change it.
             </p>
-          </div>
-        )}
-        {isReadingPassage && (
-          <ReadingPassagePartSelect
-            value={readingPassagePart}
-            onChange={handleReadingPassagePartChange}
-            disabled={status === "published"}
-          />
-        )}
-        {isListeningSection && (
-          <div>
-            <Label>IELTS section</Label>
-            <ListeningSectionPartTabs
-              value={listeningSectionPart}
-              onChange={handleListeningSectionPartChange}
-              disabled={status === "published"}
-              className="mt-2"
-            />
           </div>
         )}
       </div>
@@ -338,7 +255,6 @@ export function PracticeUnitEditor({ unitId }: Props) {
             onClick={() =>
               void publishUnit(unitId).then(() => {
                 toast("Published", { variant: "success" });
-                scrollPracticeEditorToTop();
               })
             }
           >
@@ -346,12 +262,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
           </Button>
         )}
         {status === "published" && (
-          <Button
-            variant="secondary"
-            onClick={() =>
-              void archiveUnit(unitId).then(() => scrollPracticeEditorToTop())
-            }
-          >
+          <Button variant="secondary" onClick={() => void archiveUnit(unitId)}>
             Archive
           </Button>
         )}

@@ -17,6 +17,7 @@ const QUESTION_TYPE_CODES: Record<string, string> = {
   matching: 'MATCH',
   mcq_single: 'MCQ',
   mcq_multi: 'MCQM',
+  mcq_choose_n: 'CHOS',
   sentence_completion: 'SENT',
   short_answer: 'SHORT',
 };
@@ -266,6 +267,12 @@ function gapsInGroup(group: Record<string, unknown>): number[] {
         .filter((n): n is number => typeof n === 'number');
     case 'mcq_multi':
       return arr(group.numbers as number[]);
+    case 'mcq_choose_n': {
+      const chooseCount =
+        typeof group.chooseCount === 'number' ? group.chooseCount : 2;
+      const from = typeof group.from === 'number' ? group.from : 1;
+      return Array.from({ length: chooseCount }, (_, i) => from + i);
+    }
     case 'flowchart_completion':
       return gapsInCompletionLines(group.steps);
     case 'instruction_screen':

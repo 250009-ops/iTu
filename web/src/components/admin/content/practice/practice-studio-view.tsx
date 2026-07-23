@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Plus } from "lucide-react";
-import { scrollPracticeEditorToTop } from "@/components/admin/content/practice/practice-editor-scroll";
 import {
   ListeningSectionPartTabs,
   listeningSectionPracticeTitle,
@@ -65,6 +64,7 @@ const READING_DRILL_TYPES: QuestionGroup["type"][] = [
   "matching",
   "mcq_single",
   "mcq_multi",
+  "mcq_choose_n",
   "sentence_completion",
   "short_answer",
 ];
@@ -262,11 +262,6 @@ function PracticeStudioInner() {
       setCreating(false);
     }
   }
-
-  useEffect(() => {
-    if (!selectedUnitId && !selectedPromptId) return;
-    scrollPracticeEditorToTop();
-  }, [selectedUnitId, selectedPromptId]);
 
   return (
     <ApiDataShell loading={loading} error={error}>

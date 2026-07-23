@@ -31,6 +31,7 @@ const READING_TYPES: QuestionGroup["type"][] = [
   "matching",
   "mcq_single",
   "mcq_multi",
+  "mcq_choose_n",
   "sentence_completion",
   "short_answer",
 ];
@@ -44,6 +45,7 @@ const LISTENING_TYPES: QuestionGroup["type"][] = [
   "sentence_completion",
   "mcq_single",
   "mcq_multi",
+  "mcq_choose_n",
   "matching",
   "flowchart_completion",
   "map_labeling",

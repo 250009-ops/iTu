@@ -110,6 +110,25 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
         options: asArray(g.options),
         numbers: asArray(g.numbers),
       };
+    case "mcq_choose_n": {
+      const options = asArray<{ id: string; label: string }>(g.options);
+      const chooseCount = Math.max(
+        2,
+        Math.min(
+          options.length || 6,
+          typeof g.chooseCount === "number" ? g.chooseCount : 3,
+        ),
+      );
+      const from = typeof g.from === "number" ? g.from : 1;
+      return {
+        ...g,
+        type: "mcq_choose_n",
+        options,
+        chooseCount,
+        from,
+        to: from + chooseCount - 1,
+      } as QuestionGroup;
+    }
     case "note_completion":
     case "form_completion":
     case "summary_completion":

@@ -98,6 +98,15 @@ export interface McqMultiGroup extends BaseGroup {
   options: Option[];
 }
 
+/** IELTS-style: one prompt, choose N letters from a shared A–F list. */
+export interface McqChooseNGroup extends BaseGroup {
+  type: "mcq_choose_n";
+  prompt: string;
+  /** How many letters the student must select (maps to answer-sheet boxes). */
+  chooseCount: number;
+  options: Option[];
+}
+
 export interface MatchingGroup extends BaseGroup {
   type: "matching" | "matching_headings";
   options: MatchOption[];
@@ -204,6 +213,7 @@ export type QuestionGroup =
   | TableCompletionGroup
   | McqSingleGroup
   | McqMultiGroup
+  | McqChooseNGroup
   | MatchingGroup
   | MatchingInformationGroup
   | MatchingFeaturesGroup

@@ -28,6 +28,11 @@ import { SummaryCompletionListControl } from "./summary-completion-list-control"
 import { MapLabeling } from "./map-labeling";
 import { QuestionNumberBadge } from "@/components/exam/ui/question-number-badge";
 import { passageSectionLabels } from "@/lib/exam/passage-sections";
+import {
+  chooseCountWord,
+  chooseLettersRange,
+  mcqChooseNNumbers,
+} from "@/lib/exam/mcq-choose-n";
 import { inferMatchingReuseOptions } from "@/lib/exam/matching-options";
 
 interface QuestionGroupProps {
@@ -285,6 +290,69 @@ function GroupBody({
               </div>
             );
           })}
+        </div>
+      );
+    }
+
+    case "mcq_choose_n": {
+      const numbers = mcqChooseNNumbers(group);
+      const value = (answers[numbers[0]!] as string[]) ?? [];
+      const toggle = (id: string) => {
+        let next: string[];
+        if (value.includes(id)) {
+          next = value.filter((v) => v !== id);
+        } else if (value.length >= group.chooseCount) {
+          next = [...value.slice(1), id];
+        } else {
+          next = [...value, id];
+        }
+        numbers.forEach((n) => onAnswer(n, next));
+        onFocus(numbers[0]!);
+      };
+      const range = chooseLettersRange(group.options);
+      const countWord = chooseCountWord(group.chooseCount);
+
+      return (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <p className="mb-4 text-[15px] leading-relaxed text-slate-800">
+            {group.prompt.trim() ||
+              `Which ${countWord} of the following…`}
+          </p>
+          <p className="mb-2 text-[12px] font-medium text-slate-500">
+            Select {group.chooseCount} letters ({range}) · {value.length}/
+            {group.chooseCount} selected
+          </p>
+          <div className="space-y-2">
+            {group.options.map((opt) => {
+              const selected = value.includes(opt.id);
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => toggle(opt.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-[14px] transition",
+                    selected
+                      ? "border-navy bg-navy/5 font-medium text-navy"
+                      : "border-slate-200 text-slate-700 hover:border-navy hover:bg-slate-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-[11px] font-bold",
+                      selected
+                        ? "border-navy bg-navy text-white"
+                        : "border-slate-300 text-transparent",
+                    )}
+                  >
+                    ✓
+                  </span>
+                  <span className="font-semibold text-slate-500">{opt.id}</span>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       );
     }

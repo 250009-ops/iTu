@@ -270,6 +270,24 @@ function repairQuestionGroup(group: unknown): Json {
         options: asArray(g.options),
         numbers: asArray(g.numbers),
       };
+    case 'mcq_choose_n': {
+      const options = asArray(g.options);
+      const chooseCount = Math.max(
+        2,
+        Math.min(
+          options.length || 6,
+          typeof g.chooseCount === 'number' ? g.chooseCount : 3,
+        ),
+      );
+      const from = typeof g.from === 'number' ? g.from : 1;
+      return {
+        ...g,
+        options,
+        chooseCount,
+        from,
+        to: from + chooseCount - 1,
+      };
+    }
     case 'note_completion':
     case 'form_completion':
     case 'summary_completion':

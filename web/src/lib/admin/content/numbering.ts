@@ -175,6 +175,12 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
         to,
         numbers: nums.slice(0, group.numbers.length),
       };
+    case "mcq_choose_n":
+      return {
+        ...group,
+        from,
+        to: from + group.chooseCount - 1,
+      };
     case "map_labeling":
       if (group.layoutMode === "place_list") {
         return {
