@@ -43,6 +43,8 @@ type Props = {
   singlePassage?: boolean;
   /** Hide passage tabs/badge — passage part is chosen in Practice Creation only */
   hidePassageHeader?: boolean;
+  /** Practice unit editor — hide Passage N partition label in the status banner */
+  practiceUnit?: boolean;
 };
 
 export function ReadingVisualEditor({
@@ -54,6 +56,7 @@ export function ReadingVisualEditor({
   layout = "pane",
   singlePassage = false,
   hidePassageHeader = false,
+  practiceUnit = false,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const passages = content.passages ?? [];
@@ -186,7 +189,11 @@ export function ReadingVisualEditor({
         )}
       >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
+        <PartitionBanner
+          status={partitionStatus}
+          className="flex-1 min-w-[280px]"
+          practiceMode={practiceUnit}
+        />
         <Button variant="secondary" size="sm" onClick={renumberAll}>
           <RefreshCw className="h-3.5 w-3.5" />
           Renumber all

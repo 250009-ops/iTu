@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 type Props = {
   status: PartitionStatus;
   className?: string;
+  /** Practice Creation units — omit Passage/Section prefix in the banner. */
+  practiceMode?: boolean;
 };
 
-export function PartitionBanner({ status, className }: Props) {
+export function PartitionBanner({ status, className, practiceMode = false }: Props) {
   const { label, range, count, missingAnswers, issues } = status;
   const hasError = issues.some((i) => i.severity === "error");
   const hasWarning = issues.some((i) => i.severity === "warning");
@@ -31,7 +33,9 @@ export function PartitionBanner({ status, className }: Props) {
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-navy">
-          {label} · Questions {range.from}–{range.to}
+          {practiceMode
+            ? `Questions ${range.from}–${range.to}`
+            : `${label} · Questions ${range.from}–${range.to}`}
         </p>
         <p className="text-xs text-muted">
           {count}/{range.expectedCount} in content

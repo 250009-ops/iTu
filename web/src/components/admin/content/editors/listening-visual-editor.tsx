@@ -31,6 +31,9 @@ type Props = {
   onAnswerKeyChange: (key: AnswerKeyMap) => void;
   onMediaUpdated?: () => void;
   layout?: "pane" | "flow";
+  /** Practice units: one section only — hide part tabs */
+  singlePart?: boolean;
+  practiceUnit?: boolean;
 };
 
 export function ListeningVisualEditor({
@@ -41,6 +44,8 @@ export function ListeningVisualEditor({
   onAnswerKeyChange,
   onMediaUpdated,
   layout = "pane",
+  singlePart = false,
+  practiceUnit = false,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const parts = content.parts ?? [];
@@ -104,7 +109,8 @@ export function ListeningVisualEditor({
         )}
 
         <div className="flex flex-wrap gap-2">
-          {parts.map((p, idx) => {
+          {!singlePart &&
+            parts.map((p, idx) => {
             const tabStatus = allPartitionStatuses.find((s) => s.part === p.part);
             const tabCount = tabStatus?.count ?? 0;
             const expected = tabStatus?.range.expectedCount ?? 10;
@@ -136,7 +142,11 @@ export function ListeningVisualEditor({
         )}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <PartitionBanner status={partitionStatus} className="flex-1 min-w-[280px]" />
+          <PartitionBanner
+            status={partitionStatus}
+            className="flex-1 min-w-[280px]"
+            practiceMode={practiceUnit}
+          />
           <Button variant="secondary" size="sm" onClick={renumberAll}>
             <RefreshCw className="h-3.5 w-3.5" />
             Renumber all

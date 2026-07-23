@@ -122,11 +122,13 @@ export function PracticeUnitEditor({ unitId }: Props) {
   const isDrill = isQuestionTypeUnit(unitType);
   const isReadingPassage =
     !isDrill && module === "reading" && unitType === "READING_PASSAGE";
+  const isListeningSection =
+    !isDrill && module === "listening" && unitType === "LISTENING_SECTION";
   const autoTitle = isReadingPassage
     ? readingPassagePracticeTitle(
         (readingContent.passages[0]?.part as ReadingPassagePart | undefined) ?? 1,
       )
-    : !isDrill && module === "listening" && unitType === "LISTENING_SECTION"
+    : isListeningSection
       ? listeningSectionPracticeTitle(
           (listeningContent.parts[0]?.part as ListeningSectionPart | undefined) ??
             1,
@@ -227,6 +229,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
             onAnswerKeyChange={setAnswerKey}
             singlePassage={isReadingPassage}
             hidePassageHeader={isReadingPassage}
+            practiceUnit={isReadingPassage}
           />
         </div>
       ) : (
@@ -237,6 +240,8 @@ export function PracticeUnitEditor({ unitId }: Props) {
             answerKey={answerKey}
             onContentChange={setListeningContent}
             onAnswerKeyChange={setAnswerKey}
+            singlePart={isListeningSection}
+            practiceUnit={isListeningSection}
           />
         </div>
       )}

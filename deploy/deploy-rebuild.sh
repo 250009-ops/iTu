@@ -51,6 +51,9 @@ npx tsx scripts/import-speaking-mocks.ts || true
 echo "==> Aligning legacy practice unit codes and titles..."
 npm run practice:migrate-units || true
 
+echo "==> Cleaning Passage 1 practice unit slots..."
+npm run practice:fix-passage-p1 || true
+
 echo "==> Building Web..."
 cd "$APP_DIR/web"
 npm ci
