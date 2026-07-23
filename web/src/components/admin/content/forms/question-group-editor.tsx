@@ -26,9 +26,11 @@ import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import {
   buildMcqChooseNInstruction,
   mcqChooseNNumbers,
+  mcqChooseNQuestionNumber,
   mcqSharedQuestionNumber,
   normalizeMcqMultiSharedGroup,
   syncMcqChooseNMeta,
+  syncMcqMultiSharedMeta,
 } from "@/lib/exam/mcq-choose-n";
 import {
   passageSectionLabels,
@@ -133,6 +135,30 @@ function MatchingReuseOptionsField({
   );
 }
 
+function groupQuestionRangeLabel(group: QuestionGroup): string {
+  if (group.type === "mcq_choose_n") {
+    return `Question ${mcqChooseNQuestionNumber(group)}`;
+  }
+  if (group.type === "mcq_multi") {
+    const mcq = group;
+    if ((mcq.selectionMode ?? "shared") === "shared") {
+      return `Question ${mcqSharedQuestionNumber(mcq)}`;
+    }
+    const nums = mcq.numbers;
+    if (nums.length === 0) return `Questions ${group.from}–${group.to}`;
+    return nums.length === 1
+      ? `Question ${nums[0]}`
+      : `Questions ${nums[0]}–${nums[nums.length - 1]}`;
+  }
+  if (group.type === "instruction_screen" || (group.from === 0 && group.to === 0)) {
+    return "Instruction screen";
+  }
+  if (group.from === group.to) {
+    return `Question ${group.from}`;
+  }
+  return `Questions ${group.from}–${group.to}`;
+}
+
 export function QuestionGroupEditor({
   group,
   testId,
@@ -149,10 +175,7 @@ export function QuestionGroupEditor({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-bold text-navy">{typeLabel}</p>
-          <p className="text-xs text-muted">
-            Questions {group.from}
-            {group.to !== group.from ? `–${group.to}` : ""}
-          </p>
+          <p className="text-xs text-muted">{groupQuestionRangeLabel(group)}</p>
         </div>
         <Button variant="secondary" size="sm" className="h-8 text-red-600" onClick={onRemove}>
           <Trash2 className="h-3.5 w-3.5" />
@@ -909,11 +932,10 @@ function renderBody(
                   });
                 } else {
                   onChange(
-                    normalizeMcqMultiSharedGroup({
+                    syncMcqMultiSharedMeta({
                       ...mcq,
                       selectionMode: mode,
                       maxSelections: 2,
-                      hint: "Choose TWO letters.",
                     }),
                   );
                 }
@@ -935,7 +957,13 @@ function renderBody(
             label="Options (A, B, C…)"
             options={mcq.options}
             minOptions={2}
-            onChange={(options) => onChange({ ...mcq, options })}
+            onChange={(options) =>
+              onChange(
+                isPerQuestion
+                  ? { ...mcq, options }
+                  : syncMcqMultiSharedMeta({ ...mcq, options }),
+              )
+            }
           />
 
           {isPerQuestion ? (
@@ -1076,7 +1104,7 @@ function renderBody(
                       Math.min(mcq.options.length, Number(e.target.value) || 2),
                     );
                     onChange(
-                      normalizeMcqMultiSharedGroup({
+                      syncMcqMultiSharedMeta({
                         ...mcq,
                         maxSelections: count,
                       }),

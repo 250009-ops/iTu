@@ -12,7 +12,8 @@ import {
   renumberPartitionGroups,
 } from "@/lib/admin/content/numbering";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
-import type { QuestionGroup } from "@/lib/exam/types";
+import { syncMcqChooseNMeta, syncMcqMultiSharedMeta } from "@/lib/exam/mcq-choose-n";
+import type { McqMultiGroup, QuestionGroup } from "@/lib/exam/types";
 
 const READING_TYPES: QuestionGroup["type"][] = [
   "instruction_screen",
@@ -96,15 +97,27 @@ export function QuestionGroupsPanel({
   }
 
   function addGroup(type: QuestionGroup["type"]) {
-    commitGroups([
-      ...groups,
-      createQuestionGroup(type, partitionFrom, { passageParagraphs }),
-    ]);
+    let group = createQuestionGroup(type, partitionFrom, { passageParagraphs });
+    group = normalizeGroup(group);
+    commitGroups([...groups, group]);
+  }
+
+  function normalizeGroup(group: QuestionGroup): QuestionGroup {
+    if (group.type === "mcq_multi") {
+      const mcq = group as McqMultiGroup;
+      if ((mcq.selectionMode ?? "shared") === "shared") {
+        return syncMcqMultiSharedMeta(mcq);
+      }
+    }
+    if (group.type === "mcq_choose_n") {
+      return syncMcqChooseNMeta(group);
+    }
+    return group;
   }
 
   function updateGroup(index: number, group: QuestionGroup) {
     const next = [...groups];
-    next[index] = group;
+    next[index] = normalizeGroup(group);
     commitGroups(next);
   }
 

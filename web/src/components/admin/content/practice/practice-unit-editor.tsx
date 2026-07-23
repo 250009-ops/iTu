@@ -24,6 +24,7 @@ import {
   QUESTION_TYPE_LABELS,
   recomputeTotalQuestions,
 } from "@/lib/admin/content/factories";
+import { normalizeContent } from "@/lib/admin/content/normalize";
 import type { AnswerKeyMap } from "@/lib/admin/content/utils";
 import type {
   ListeningContent,
@@ -86,6 +87,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
   );
   const [answerKey, setAnswerKey] = useState<AnswerKeyMap>({});
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -101,9 +103,17 @@ export function PracticeUnitEditor({ unitId }: Props) {
         setDurationMin(unit.durationMin);
         setStatus(unit.status.toLowerCase());
         if (unit.skill === "listening") {
-          setListeningContent(asListeningContent(unit.content));
+          setListeningContent(
+            asListeningContent(
+              normalizeContent("listening", unit.content) as ListeningContent,
+            ),
+          );
         } else {
-          setReadingContent(asReadingContent(unit.content));
+          setReadingContent(
+            asReadingContent(
+              normalizeContent("reading", unit.content) as ReadingContent,
+            ),
+          );
         }
         setAnswerKey((unit.answerKey as AnswerKeyMap) ?? {});
       })
@@ -146,8 +156,10 @@ export function PracticeUnitEditor({ unitId }: Props) {
     setReadingContent(content);
   }
 
-  async function handleSave() {
-    setSaving(true);
+  async function persistDraft(options?: { manageSavingState?: boolean }): Promise<boolean> {
+    const manageSaving = options?.manageSavingState !== false;
+    const scrollY = typeof window !== "undefined" ? window.scrollY : 0;
+    if (manageSaving) setSaving(true);
     try {
       const content = module === "reading" ? readingContent : listeningContent;
       const resolvedTitle = autoTitle ?? title;
@@ -159,11 +171,39 @@ export function PracticeUnitEditor({ unitId }: Props) {
         durationMin,
       });
       if (autoTitle) setTitle(autoTitle);
-      toast("Saved", { variant: "success" });
+      if (typeof window !== "undefined") {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: scrollY, behavior: "auto" });
+        });
+      }
+      return true;
     } catch {
       toast("Save failed", { variant: "error" });
+      return false;
     } finally {
-      setSaving(false);
+      if (manageSaving) setSaving(false);
+    }
+  }
+
+  async function handleSave() {
+    const saved = await persistDraft();
+    if (saved) {
+      toast("Saved", { variant: "success" });
+    }
+  }
+
+  async function handlePublish() {
+    setPublishing(true);
+    try {
+      const saved = await persistDraft({ manageSavingState: false });
+      if (!saved) return;
+      await publishUnit(unitId);
+      setStatus("published");
+      toast("Published", { variant: "success" });
+    } catch {
+      toast("Publish failed", { variant: "error" });
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -227,6 +267,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
             answerKey={answerKey}
             onContentChange={handleReadingContentChange}
             onAnswerKeyChange={setAnswerKey}
+            layout="flow"
             singlePassage={isReadingPassage}
             hidePassageHeader={isReadingPassage}
             practiceUnit={isReadingPassage}
@@ -240,6 +281,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
             answerKey={answerKey}
             onContentChange={setListeningContent}
             onAnswerKeyChange={setAnswerKey}
+            layout="flow"
             singlePart={isListeningSection}
             practiceUnit={isListeningSection}
           />
@@ -249,7 +291,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
       <div className="flex flex-wrap gap-2">
         <Button
           variant="primary"
-          disabled={saving || status === "published"}
+          disabled={saving || publishing || status === "published"}
           onClick={() => void handleSave()}
         >
           Save draft
@@ -257,13 +299,10 @@ export function PracticeUnitEditor({ unitId }: Props) {
         {status === "draft" && (
           <Button
             variant="secondary"
-            onClick={() =>
-              void publishUnit(unitId).then(() => {
-                toast("Published", { variant: "success" });
-              })
-            }
+            disabled={saving || publishing}
+            onClick={() => void handlePublish()}
           >
-            Publish
+            {publishing ? "Publishing…" : "Publish"}
           </Button>
         )}
         {status === "published" && (

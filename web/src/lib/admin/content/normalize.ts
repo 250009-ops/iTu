@@ -24,6 +24,7 @@ import { normalizeMcqSingleGroup } from "@/lib/exam/mcq-single";
 import {
   normalizeMcqMultiSharedGroup,
   syncMcqChooseNMeta,
+  syncMcqMultiSharedMeta,
 } from "@/lib/exam/mcq-choose-n";
 
 function asArray<T>(value: unknown, fallback: T[] = []): T[] {
@@ -119,7 +120,7 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
       if (selectionMode === "per_question") {
         return base;
       }
-      return normalizeMcqMultiSharedGroup(base as import("@/lib/exam/types").McqMultiGroup);
+      return syncMcqMultiSharedMeta(base as import("@/lib/exam/types").McqMultiGroup);
     }
     case "mcq_choose_n": {
       const options = asArray<{ id: string; label: string }>(g.options);

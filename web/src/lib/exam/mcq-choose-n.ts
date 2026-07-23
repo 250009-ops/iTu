@@ -90,3 +90,14 @@ export function normalizeMcqMultiSharedGroup(group: McqMultiGroup): McqMultiGrou
     maxSelections,
   };
 }
+
+/** Keep shared mcq_multi aligned with choose-N-together semantics. */
+export function syncMcqMultiSharedMeta(group: McqMultiGroup): McqMultiGroup {
+  const normalized = normalizeMcqMultiSharedGroup(group);
+  const maxSelections = normalized.maxSelections;
+  return {
+    ...normalized,
+    instruction: buildMcqChooseNInstruction(maxSelections, normalized.options),
+    hint: `Choose ${chooseCountWord(maxSelections)} letters.`,
+  };
+}

@@ -48,6 +48,20 @@ export function PracticeWritingPromptEditor({ promptId }: Props) {
     }
   }
 
+  async function handlePublish() {
+    setSaving(true);
+    try {
+      await savePrompt(promptId, { title, instruction, minWords });
+      await publishPrompt(promptId);
+      setStatus("published");
+      toast("Published", { variant: "success" });
+    } catch {
+      toast("Publish failed", { variant: "error" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-6">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -80,11 +94,8 @@ export function PracticeWritingPromptEditor({ promptId }: Props) {
         {status === "draft" && (
           <Button
             variant="secondary"
-            onClick={() =>
-              void publishPrompt(promptId).then(() => {
-                toast("Published", { variant: "success" });
-              })
-            }
+            disabled={saving}
+            onClick={() => void handlePublish()}
           >
             Publish
           </Button>
