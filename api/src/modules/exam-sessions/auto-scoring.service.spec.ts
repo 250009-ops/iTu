@@ -45,6 +45,16 @@ describe('AutoScoringService.scoreListeningOrReading', () => {
     expect(rawScore).toBe(2);
   });
 
+  it('awards one mark per letter for choose-N array answers on a single question', async () => {
+    const service = makeService();
+    const { rawScore } = await service.scoreListeningOrReading(
+      ExamSkill.READING,
+      [{ questionNumber: 21, value: ['A', 'C', 'F'] }],
+      { '21': ['A', 'C', 'F'] },
+    );
+    expect(rawScore).toBe(3);
+  });
+
   it('matches $set$ range answers (any order, any case)', async () => {
     const service = makeService();
     const { rawScore } = await service.scoreListeningOrReading(

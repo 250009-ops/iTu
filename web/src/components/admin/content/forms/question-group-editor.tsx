@@ -26,6 +26,8 @@ import { gapsInCompletionLines } from "@/lib/exam/inline-content";
 import {
   buildMcqChooseNInstruction,
   mcqChooseNNumbers,
+  mcqSharedQuestionNumber,
+  normalizeMcqMultiSharedGroup,
   syncMcqChooseNMeta,
 } from "@/lib/exam/mcq-choose-n";
 import {
@@ -906,14 +908,14 @@ function renderBody(
                     hint: `Choose the correct letter, ${optionIds[0] ?? "A"}–${optionIds[optionIds.length - 1] ?? "G"}. Write one letter in each box.`,
                   });
                 } else {
-                  onChange({
-                    ...mcq,
-                    selectionMode: mode,
-                    maxSelections: 2,
-                    numbers: resizeNumbers(2),
-                    to: mcq.from + 1,
-                    hint: "Choose TWO letters.",
-                  });
+                  onChange(
+                    normalizeMcqMultiSharedGroup({
+                      ...mcq,
+                      selectionMode: mode,
+                      maxSelections: 2,
+                      hint: "Choose TWO letters.",
+                    }),
+                  );
                 }
               }}
               className="h-9 w-full max-w-md rounded-md border border-border bg-white px-2 text-sm"
@@ -1073,13 +1075,12 @@ function renderBody(
                       2,
                       Math.min(mcq.options.length, Number(e.target.value) || 2),
                     );
-                    const nums = resizeNumbers(count);
-                    onChange({
-                      ...mcq,
-                      maxSelections: count,
-                      numbers: nums,
-                      to: nums[nums.length - 1] ?? mcq.to,
-                    });
+                    onChange(
+                      normalizeMcqMultiSharedGroup({
+                        ...mcq,
+                        maxSelections: count,
+                      }),
+                    );
                   }}
                   className="max-w-[8rem]"
                 />
@@ -1088,7 +1089,7 @@ function renderBody(
                 Correct answers (choose {mcq.maxSelections})
               </Label>
               <AnswerKeyMultiField
-                numbers={mcq.numbers}
+                numbers={[mcqSharedQuestionNumber(mcq)]}
                 answerKey={answerKey}
                 onChange={onAnswerKeyChange}
                 options={optionIds}

@@ -263,29 +263,53 @@ function repairQuestionGroup(group: unknown): Json {
     case 'yng':
       return { ...g, questions: asArray(g.questions) };
     case 'mcq_multi':
-      return {
-        ...g,
-        selectionMode: g.selectionMode === 'per_question' ? 'per_question' : 'shared',
-        answerOrdering: g.answerOrdering === 'fixed' ? 'fixed' : 'any',
-        options: asArray(g.options),
-        numbers: asArray(g.numbers),
-      };
+      if (g.selectionMode === 'per_question') {
+        return {
+          ...g,
+          selectionMode: 'per_question',
+          answerOrdering: g.answerOrdering === 'fixed' ? 'fixed' : 'any',
+          options: asArray(g.options),
+          numbers: asArray(g.numbers),
+        };
+      }
+      {
+        const numbers = asArray<number>(g.numbers);
+        const from = typeof g.from === 'number' ? g.from : (numbers[0] ?? 1);
+        const maxSelections =
+          typeof g.maxSelections === 'number' && g.maxSelections >= 2
+            ? g.maxSelections
+            : Math.max(2, numbers.length);
+        return {
+          ...g,
+          selectionMode: 'shared',
+          answerOrdering: g.answerOrdering === 'fixed' ? 'fixed' : 'any',
+          options: asArray(g.options),
+          from,
+          to: from,
+          numbers: [from],
+          maxSelections,
+        };
+      }
     case 'mcq_choose_n': {
       const options = asArray(g.options);
+      const from = typeof g.from === 'number' ? g.from : 1;
       const chooseCount = Math.max(
         2,
         Math.min(
           options.length || 6,
-          typeof g.chooseCount === 'number' ? g.chooseCount : 3,
+          typeof g.chooseCount === 'number'
+            ? g.chooseCount
+            : typeof g.to === 'number' && g.to > from
+              ? g.to - from + 1
+              : 3,
         ),
       );
-      const from = typeof g.from === 'number' ? g.from : 1;
       return {
         ...g,
         options,
         chooseCount,
         from,
-        to: from + chooseCount - 1,
+        to: from,
       };
     }
     case 'note_completion':

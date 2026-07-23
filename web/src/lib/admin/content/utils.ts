@@ -64,9 +64,12 @@ export function gapsInGroup(group: QuestionGroup): number[] {
     case "mcq_single":
       return arr(group.questions).map((q) => q.n);
     case "mcq_multi":
-      return arr(group.numbers);
+      if (group.selectionMode === "per_question") {
+        return arr(group.numbers);
+      }
+      return [group.from];
     case "mcq_choose_n":
-      return Array.from({ length: group.chooseCount }, (_, i) => group.from + i);
+      return [group.from];
     case "matching":
     case "matching_headings":
     case "matching_information":

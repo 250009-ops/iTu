@@ -59,7 +59,11 @@ export class AutoScoringService {
       const key = answerKey[String(answer.questionNumber)];
       if (!key) continue;
       if (this.isCorrect(answer.value, key)) {
-        rawScore++;
+        if (Array.isArray(key) && Array.isArray(answer.value)) {
+          rawScore += key.filter((entry) => String(entry).trim()).length;
+        } else {
+          rawScore++;
+        }
       }
     }
 

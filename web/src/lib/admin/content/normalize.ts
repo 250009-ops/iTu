@@ -21,6 +21,10 @@ import {
 } from "@/lib/exam/inline-content";
 import { normalizeMatchingHeadingsGroup } from "@/lib/exam/matching-headings";
 import { normalizeMcqSingleGroup } from "@/lib/exam/mcq-single";
+import {
+  normalizeMcqMultiSharedGroup,
+  syncMcqChooseNMeta,
+} from "@/lib/exam/mcq-choose-n";
 
 function asArray<T>(value: unknown, fallback: T[] = []): T[] {
   return Array.isArray(value) ? value : fallback;
@@ -102,32 +106,43 @@ function repairQuestionGroup(group: QuestionGroup): QuestionGroup {
     case "tfng":
     case "yng":
       return { ...g, questions: asArray(g.questions) };
-    case "mcq_multi":
-      return {
+    case "mcq_multi": {
+      const selectionMode =
+        g.selectionMode === "per_question" ? "per_question" : "shared";
+      const base = {
         ...g,
-        selectionMode: g.selectionMode === "per_question" ? "per_question" : "shared",
+        selectionMode,
         answerOrdering: g.answerOrdering === "fixed" ? "fixed" : "any",
         options: asArray(g.options),
-        numbers: asArray(g.numbers),
-      };
+        numbers: asArray<number>(g.numbers),
+      } as QuestionGroup;
+      if (selectionMode === "per_question") {
+        return base;
+      }
+      return normalizeMcqMultiSharedGroup(base as import("@/lib/exam/types").McqMultiGroup);
+    }
     case "mcq_choose_n": {
       const options = asArray<{ id: string; label: string }>(g.options);
+      const from = typeof g.from === "number" ? g.from : 1;
       const chooseCount = Math.max(
         2,
         Math.min(
           options.length || 6,
-          typeof g.chooseCount === "number" ? g.chooseCount : 3,
+          typeof g.chooseCount === "number"
+            ? g.chooseCount
+            : typeof g.to === "number" && g.to > from
+              ? g.to - from + 1
+              : 3,
         ),
       );
-      const from = typeof g.from === "number" ? g.from : 1;
-      return {
+      return syncMcqChooseNMeta({
         ...g,
         type: "mcq_choose_n",
         options,
         chooseCount,
         from,
-        to: from + chooseCount - 1,
-      } as QuestionGroup;
+        to: from,
+      } as import("@/lib/exam/types").McqChooseNGroup) as QuestionGroup;
     }
     case "note_completion":
     case "form_completion":

@@ -1,4 +1,4 @@
-import type { McqChooseNGroup } from "@/lib/exam/types";
+import type { McqChooseNGroup, McqMultiGroup } from "@/lib/exam/types";
 
 const COUNT_WORDS: Record<number, string> = {
   2: "TWO",
@@ -20,8 +20,31 @@ export function chooseLettersRange(options: { id: string }[]): string {
   return first === last ? first : `${first}–${last}`;
 }
 
+/** One answer-sheet number for choose-N-together groups. */
+export function mcqChooseNQuestionNumber(group: McqChooseNGroup): number {
+  return group.from;
+}
+
 export function mcqChooseNNumbers(group: McqChooseNGroup): number[] {
-  return Array.from({ length: group.chooseCount }, (_, i) => group.from + i);
+  return [mcqChooseNQuestionNumber(group)];
+}
+
+export function isMcqMultiPerQuestion(group: McqMultiGroup): boolean {
+  return group.selectionMode === "per_question";
+}
+
+export function mcqSharedQuestionNumber(group: McqMultiGroup): number {
+  if (isMcqMultiPerQuestion(group)) {
+    return group.numbers[0] ?? group.from;
+  }
+  return group.from;
+}
+
+export function mcqMultiGapNumbers(group: McqMultiGroup): number[] {
+  if (isMcqMultiPerQuestion(group)) {
+    return group.numbers;
+  }
+  return [mcqSharedQuestionNumber(group)];
 }
 
 export function buildMcqChooseNInstruction(
@@ -37,11 +60,33 @@ export function syncMcqChooseNMeta(group: McqChooseNGroup): McqChooseNGroup {
     2,
     Math.min(group.options.length, group.chooseCount || 2),
   );
-  const to = group.from + chooseCount - 1;
   return {
     ...group,
     chooseCount,
-    to,
+    to: group.from,
     instruction: buildMcqChooseNInstruction(chooseCount, group.options),
+  };
+}
+
+/** Collapse legacy shared groups that spanned N numbers into one question. */
+export function normalizeMcqMultiSharedGroup(group: McqMultiGroup): McqMultiGroup {
+  if (isMcqMultiPerQuestion(group)) {
+    return group;
+  }
+  const from =
+    typeof group.from === "number"
+      ? group.from
+      : (group.numbers[0] ?? 1);
+  const maxSelections =
+    typeof group.maxSelections === "number" && group.maxSelections >= 2
+      ? group.maxSelections
+      : Math.max(2, group.numbers.length);
+  return {
+    ...group,
+    selectionMode: "shared",
+    from,
+    to: from,
+    numbers: [from],
+    maxSelections,
   };
 }

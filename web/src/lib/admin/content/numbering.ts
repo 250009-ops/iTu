@@ -169,17 +169,25 @@ export function setGroupQuestionNumbers(group: QuestionGroup, nums: number[]): Q
         questions: group.questions.map((q) => ({ ...q, n: nums[i++]! })),
       };
     case "mcq_multi":
+      if (group.selectionMode === "per_question") {
+        return {
+          ...group,
+          from,
+          to: nums[Math.min(group.numbers.length, nums.length) - 1] ?? from,
+          numbers: nums.slice(0, group.numbers.length),
+        };
+      }
       return {
         ...group,
         from,
-        to,
-        numbers: nums.slice(0, group.numbers.length),
+        to: from,
+        numbers: [from],
       };
     case "mcq_choose_n":
       return {
         ...group,
         from,
-        to: from + group.chooseCount - 1,
+        to: from,
       };
     case "map_labeling":
       if (group.layoutMode === "place_list") {

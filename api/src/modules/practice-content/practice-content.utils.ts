@@ -266,13 +266,12 @@ function gapsInGroup(group: Record<string, unknown>): number[] {
         .map((q) => q.n)
         .filter((n): n is number => typeof n === 'number');
     case 'mcq_multi':
-      return arr(group.numbers as number[]);
-    case 'mcq_choose_n': {
-      const chooseCount =
-        typeof group.chooseCount === 'number' ? group.chooseCount : 2;
-      const from = typeof group.from === 'number' ? group.from : 1;
-      return Array.from({ length: chooseCount }, (_, i) => from + i);
-    }
+      if (group.selectionMode === 'per_question') {
+        return arr(group.numbers as number[]);
+      }
+      return typeof group.from === 'number' ? [group.from] : arr(group.numbers as number[]).slice(0, 1);
+    case 'mcq_choose_n':
+      return typeof group.from === 'number' ? [group.from] : [1];
     case 'flowchart_completion':
       return gapsInCompletionLines(group.steps);
     case 'instruction_screen':

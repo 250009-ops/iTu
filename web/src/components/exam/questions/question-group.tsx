@@ -32,6 +32,7 @@ import {
   chooseCountWord,
   chooseLettersRange,
   mcqChooseNNumbers,
+  mcqSharedQuestionNumber,
 } from "@/lib/exam/mcq-choose-n";
 import { inferMatchingReuseOptions } from "@/lib/exam/matching-options";
 
@@ -297,6 +298,8 @@ function GroupBody({
     case "mcq_choose_n": {
       const numbers = mcqChooseNNumbers(group);
       const value = (answers[numbers[0]!] as string[]) ?? [];
+      const countWord = chooseCountWord(group.chooseCount);
+      const range = chooseLettersRange(group.options);
       const toggle = (id: string) => {
         let next: string[];
         if (value.includes(id)) {
@@ -309,8 +312,6 @@ function GroupBody({
         numbers.forEach((n) => onAnswer(n, next));
         onFocus(numbers[0]!);
       };
-      const range = chooseLettersRange(group.options);
-      const countWord = chooseCountWord(group.chooseCount);
 
       return (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -438,7 +439,8 @@ function GroupBody({
         );
       }
 
-      const value = (answers[group.numbers[0]] as string[]) ?? [];
+      const questionN = mcqSharedQuestionNumber(group);
+      const value = (answers[questionN] as string[]) ?? [];
       const toggle = (id: string) => {
         let next: string[];
         if (value.includes(id)) {
@@ -448,15 +450,14 @@ function GroupBody({
         } else {
           next = [...value, id];
         }
-        // Store the same array on every grouped number so the palette marks all.
-        group.numbers.forEach((n) => onAnswer(n, next));
-        onFocus(group.numbers[0]);
+        onAnswer(questionN, next);
+        onFocus(questionN);
       };
       return (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="mb-1 flex gap-2 text-[15px] font-medium text-slate-800">
             <span className="flex h-6 items-center justify-center rounded-md bg-navy px-1.5 text-[12px] font-bold text-white">
-              {group.numbers.join(" & ")}
+              {questionN}
             </span>
             {group.prompt}
           </p>
