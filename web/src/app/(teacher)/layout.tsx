@@ -9,8 +9,9 @@ export default function TeacherLayout({
 }) {
   return (
     <AuthGuard allowedRoles={["teacher"]}>
-      <InstitutionExaminerRedirect />
-      <TeacherShell>{children}</TeacherShell>
+      <InstitutionExaminerRedirect>
+        <TeacherShell>{children}</TeacherShell>
+      </InstitutionExaminerRedirect>
     </AuthGuard>
   );
 }

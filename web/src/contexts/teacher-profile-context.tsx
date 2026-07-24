@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/mappers/teacher";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useProfilePortal } from "@/contexts/profile-portal-context";
 
 type TeacherProfileValue = {
   loading: boolean;
@@ -45,26 +46,37 @@ const TeacherProfileContext = createContext<TeacherProfileValue | null>(null);
 
 export function TeacherProfileProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
+  const { variant } = useProfilePortal();
+  /** Centre examiners do not manage marketplace availability — skip the 403 call. */
+  const fetchAvailability = variant !== "centre";
+
   const profileQuery = useApiQuery(getTeacherProfile, [session?.accessToken]);
-  const availabilityQuery = useApiQuery(getTeacherAvailability, [
-    session?.accessToken,
-  ]);
+  const availabilityQuery = useApiQuery(
+    getTeacherAvailability,
+    [session?.accessToken],
+    { enabled: fetchAvailability },
+  );
 
   const value = useMemo<TeacherProfileValue>(() => {
     const base = profileQuery.data
       ? mapTeacherProfile(profileQuery.data)
       : emptyProfile;
 
-    const profile = availabilityQuery.data
-      ? {
-          ...base,
-          availability: mapWeeklyAvailability(availabilityQuery.data.weekly),
-        }
-      : base;
+    const profile =
+      fetchAvailability && availabilityQuery.data
+        ? {
+            ...base,
+            availability: mapWeeklyAvailability(availabilityQuery.data.weekly),
+          }
+        : base;
 
     return {
-      loading: profileQuery.loading || availabilityQuery.loading,
-      error: profileQuery.error ?? availabilityQuery.error,
+      loading:
+        profileQuery.loading ||
+        (fetchAvailability && availabilityQuery.loading),
+      error:
+        profileQuery.error ??
+        (fetchAvailability ? availabilityQuery.error : null),
       profile,
       raw: {
         name: profileQuery.data?.name ?? "",
@@ -72,9 +84,14 @@ export function TeacherProfileProvider({ children }: { children: ReactNode }) {
         speciality: profileQuery.data?.speciality ?? "both",
         notificationPrefs: profileQuery.data?.notificationPrefs ?? null,
       },
-      refresh: profileQuery.refresh,
+      refresh: async () => {
+        await profileQuery.refresh();
+        if (fetchAvailability) {
+          await availabilityQuery.refresh();
+        }
+      },
     };
-  }, [profileQuery, availabilityQuery]);
+  }, [profileQuery, availabilityQuery, fetchAvailability]);
 
   return (
     <TeacherProfileContext.Provider value={value}>

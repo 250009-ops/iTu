@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -10,8 +11,15 @@ import {
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useSseStream } from "@/hooks/use-sse-stream";
+import { getMe } from "@/lib/api/auth";
 import { getTeacherDashboard } from "@/lib/api/teachers";
 import { getSpeakingQueue, getWritingQueue } from "@/lib/api/grading";
+import {
+  canAccessSpeaking,
+  canAccessWriting,
+  normalizeExaminerSpeciality,
+  type ExaminerSpeciality,
+} from "@/lib/inst-examiner/speciality";
 
 type TeacherNavBadges = {
   speaking: number;
@@ -25,9 +33,37 @@ const TeacherNavBadgesContext = createContext<TeacherNavBadges>({
 
 export function TeacherNavBadgesProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
-  const dashboard = useApiQuery(getTeacherDashboard, [session?.accessToken]);
-  const writingQueue = useApiQuery(getWritingQueue, [session?.accessToken]);
-  const speakingQueue = useApiQuery(getSpeakingQueue, [session?.accessToken]);
+  const [speciality, setSpeciality] = useState<ExaminerSpeciality | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getMe()
+      .then((user) => {
+        if (cancelled) return;
+        setSpeciality(
+          normalizeExaminerSpeciality(user.teacherProfile?.speciality),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setSpeciality("both");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.accessToken]);
+
+  const allowWriting = speciality != null && canAccessWriting(speciality);
+  const allowSpeaking = speciality != null && canAccessSpeaking(speciality);
+
+  const dashboard = useApiQuery(getTeacherDashboard, [session?.accessToken], {
+    enabled: speciality != null,
+  });
+  const writingQueue = useApiQuery(getWritingQueue, [session?.accessToken], {
+    enabled: allowWriting,
+  });
+  const speakingQueue = useApiQuery(getSpeakingQueue, [session?.accessToken], {
+    enabled: allowSpeaking,
+  });
   const [streamCounts, setStreamCounts] = useState<{
     speaking: number;
     writing: number;
@@ -53,16 +89,26 @@ export function TeacherNavBadgesProvider({ children }: { children: ReactNode }) 
   const value = useMemo<TeacherNavBadges>(() => {
     if (streamCounts) return streamCounts;
 
-    const writing =
-      writingQueue.data?.filter((item) => item.status?.toLowerCase() !== "graded")
-        .length ??
-      dashboard.data?.stats.writingQueue ??
-      0;
-    const speaking =
-      speakingQueue.data?.length ?? dashboard.data?.stats.speakingQueue ?? 0;
+    const writing = allowWriting
+      ? (writingQueue.data?.filter(
+          (item) => item.status?.toLowerCase() !== "graded",
+        ).length ??
+        dashboard.data?.stats.writingQueue ??
+        0)
+      : 0;
+    const speaking = allowSpeaking
+      ? (speakingQueue.data?.length ?? dashboard.data?.stats.speakingQueue ?? 0)
+      : 0;
 
     return { speaking, writing };
-  }, [streamCounts, dashboard.data, writingQueue.data, speakingQueue.data]);
+  }, [
+    streamCounts,
+    allowWriting,
+    allowSpeaking,
+    dashboard.data,
+    writingQueue.data,
+    speakingQueue.data,
+  ]);
 
   return (
     <TeacherNavBadgesContext.Provider value={value}>
