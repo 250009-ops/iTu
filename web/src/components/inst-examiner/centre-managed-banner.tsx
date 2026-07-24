@@ -14,10 +14,10 @@ export function CentreManagedBanner() {
           <ShieldCheck className="h-4 w-4" />
         </span>
         <div className="text-sm text-slate-600">
-          <p className="font-semibold text-navy">Earnings managed by {name}</p>
+          <p className="font-semibold text-navy">Profile scoped to {name}</p>
           <p className="mt-0.5">
-            Your payout schedule and invoicing are handled by {name}. Contact
-            your centre coordinator for payment inquiries or scheduling changes.
+            Your sessions, credentials, and centre details come from {name}.
+            Contact your centre coordinator for schedule or account changes.
           </p>
         </div>
       </div>

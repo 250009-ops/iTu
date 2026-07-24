@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { updateTeacherProfile } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/api/errors";
+import { useProfilePortal } from "@/contexts/profile-portal-context";
 
 const PREFS = [
   {
@@ -50,6 +51,14 @@ export function NotificationPrefsDialog({
   onDone: () => Promise<void> | void;
 }) {
   const { toast } = useToast();
+  const { variant } = useProfilePortal();
+  const visiblePrefs = useMemo(
+    () =>
+      PREFS.filter(
+        (pref) => variant !== "centre" || pref.id !== "payout",
+      ),
+    [variant],
+  );
   const [prefs, setPrefs] = useState<Record<PrefId, boolean>>({
     ...DEFAULT_PREFS,
     ...(initialPrefs ?? {}),
@@ -105,7 +114,7 @@ export function NotificationPrefsDialog({
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto px-6 py-5">
-          {PREFS.map((pref) => (
+          {visiblePrefs.map((pref) => (
             <div
               key={pref.id}
               className="flex items-start justify-between gap-4 rounded-xl border border-border px-4 py-3"

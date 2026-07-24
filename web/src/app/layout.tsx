@@ -12,11 +12,12 @@ export const metadata: Metadata = {
   description:
     "iTestU (iTu) — professional computer-delivered IELTS mocks with examiner feedback, plus Reading, Listening, and AI Writing practice packages.",
   icons: {
+    // Google requires a square favicon that is a multiple of 48px; prefer PNGs.
     icon: [
+      { url: "/icon-96.png", sizes: "96x96", type: "image/png" },
       { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
       { url: "/favicon.svg", type: "image/svg+xml" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],

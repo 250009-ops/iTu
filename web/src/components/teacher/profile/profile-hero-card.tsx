@@ -176,9 +176,11 @@ export function ProfileHeroCard() {
             ? `Centre Examiner · ${title.replace(/^IELTS Examiner · /, "")}`
             : title}
         </p>
-        <div className="mt-2">
-          <StarRating rating={rating} reviewCount={reviewCount} />
-        </div>
+        {!isCentre ? (
+          <div className="mt-2">
+            <StarRating rating={rating} reviewCount={reviewCount} />
+          </div>
+        ) : null}
 
         <ul className="mt-4 space-y-2 text-sm text-muted">
           <li className="flex items-center gap-2">
