@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
-import { useToast } from "@/components/ui/toast";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { CurrentStatusBanner } from "@/components/student/mock-day/current-status-banner";
 import { ExamRulesBanner } from "@/components/student/mock-day/exam-rules-banner";
 import { MockDayEmptyState } from "@/components/student/mock-day/mock-day-empty-state";
@@ -17,6 +16,7 @@ import {
   StudentMockDayProvider,
   useStudentMockDayData,
 } from "@/contexts/student-mock-day-context";
+import { useCheckoutPaymentReturn } from "@/hooks/use-checkout-payment-return";
 import type { StudentPortal } from "@/lib/student/portal";
 
 type MockDayViewProps = {
@@ -39,35 +39,40 @@ function MockDayContent({
   portal,
   institutionLabel,
 }: Required<MockDayViewProps>) {
-  const { data, loading, error } = useStudentMockDayData();
+  const { data, loading, error, refresh } = useStudentMockDayData();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const isInstitution = portal === "institution";
   const welcomeSkill = searchParams.get("welcome");
   const showWelcomeBanner =
     !isInstitution &&
     (welcomeSkill === "listening" || welcomeSkill === "reading");
 
-  useEffect(() => {
-    if (isInstitution || searchParams.get("payment") !== "success") return;
-    toast("Payment confirmed", {
-      description:
-        "Your mock is booked. Mock Day Hub is ready when exam day arrives.",
-      variant: "success",
-    });
-  }, [searchParams, toast, isInstitution]);
+  const onPaymentPaid = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
 
-  useEffect(() => {
-    if (!showWelcomeBanner) return;
-    const label = welcomeSkill === "listening" ? "Listening" : "Reading";
-    toast("Welcome gift claimed", {
-      description: `Your free ${label} mock is ready in Mock Day Hub.`,
-      variant: "success",
-    });
-  }, [showWelcomeBanner, welcomeSkill, toast]);
+  const {
+    reconciling,
+    reconcileError,
+    retryReconcile,
+  } = useCheckoutPaymentReturn({
+    onPaid: onPaymentPaid,
+  });
 
-  if (loading) {
-    return <MockDayLoadingSkeleton portal={portal} />;
+  if (loading || reconciling) {
+    return (
+      <div>
+        {reconciling ? (
+          <div className="border-b border-sky-200 bg-sky-50 px-6 py-3 text-sm text-sky-900">
+            <div className="mx-auto flex max-w-7xl items-center gap-2">
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sky-600" />
+              <span>Confirming your payment and unlocking Mock Day Hub…</span>
+            </div>
+          </div>
+        ) : null}
+        <MockDayLoadingSkeleton portal={portal} />
+      </div>
+    );
   }
 
   if (error) {
@@ -93,7 +98,23 @@ function MockDayContent({
 
   if (!data) {
     return (
-      <MockDayEmptyState portal={portal} institutionLabel={institutionLabel} />
+      <>
+        {reconcileError ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-900">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2">
+              <span>{reconcileError}</span>
+              <button
+                type="button"
+                onClick={() => void retryReconcile()}
+                className="font-semibold text-amber-950 underline-offset-2 hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        ) : null}
+        <MockDayEmptyState portal={portal} institutionLabel={institutionLabel} />
+      </>
     );
   }
 

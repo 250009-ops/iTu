@@ -8,7 +8,8 @@ export type InstitutionNavIcon =
   | "settings"
   | "message-square"
   | "file-text"
-  | "radio";
+  | "radio"
+  | "package";
 
 export type InstitutionNavItem = {
   label: string;
@@ -60,6 +61,11 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
         label: "Content Studio",
         href: "/institution/content",
         icon: "file-text",
+      },
+      {
+        label: "Private packages",
+        href: "/institution/packages",
+        icon: "package",
       },
     ],
   },

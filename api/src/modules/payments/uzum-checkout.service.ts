@@ -58,7 +58,13 @@ export type UzumOrderStatusResult = {
 
 const UZS_CURRENCY_CODE = 860;
 const DEFAULT_BASE_URL = 'https://test-chk-api.uzumcheckout.uz';
-const PAID_STATUSES = new Set(['COMPLETED', 'TOP_UP_COMPLETED']);
+const PAID_STATUSES = new Set([
+  'COMPLETED',
+  'TOP_UP_COMPLETED',
+  'CONFIRMED',
+  'PAID',
+  'SUCCESS',
+]);
 
 @Injectable()
 export class UzumCheckoutService {

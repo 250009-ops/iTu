@@ -150,6 +150,7 @@ export function BookingWizard({
   const [cardCvc, setCardCvc] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [redirectingToCheckout, setRedirectingToCheckout] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [purchaseBlocked, setPurchaseBlocked] = useState<string | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(true);
@@ -324,6 +325,7 @@ export function BookingWizard({
 
     setSubmitting(true);
     setError(null);
+    let navigatingToCheckout = false;
     try {
       const bookingMockTime = showExamStartTime ? mockTime : EXAM_START_TIMES[0]!;
       const result = await createBooking({
@@ -343,10 +345,8 @@ export function BookingWizard({
       });
 
       if (result.status === "pending_payment" && result.checkoutUrl) {
-        toast("Redirecting to secure checkout", {
-          description: "Complete payment to confirm your mock.",
-          variant: "success",
-        });
+        navigatingToCheckout = true;
+        setRedirectingToCheckout(true);
         window.location.href = result.checkoutUrl;
         return;
       }
@@ -360,14 +360,16 @@ export function BookingWizard({
     } catch (err) {
       setError(getErrorMessage(err, "Booking failed. Please try again."));
     } finally {
-      setSubmitting(false);
+      if (!navigatingToCheckout) {
+        setSubmitting(false);
+      }
     }
   }
 
   const isLastStep = stepIndex === steps.length - 1;
 
   return (
-    <Modal open onClose={onClose} ariaLabel={`Book ${product.title}`}>
+    <Modal open onClose={onClose} ariaLabel={`Book ${product.title}`} className="relative">
         <div className="flex items-start justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-navy">Book {product.title}</h2>
@@ -758,6 +760,18 @@ export function BookingWizard({
             </Button>
           )}
         </div>
+
+        {redirectingToCheckout ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/95 px-6 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-navy" />
+            <p className="text-sm font-semibold text-navy">
+              Redirecting to secure checkout…
+            </p>
+            <p className="text-xs text-muted">
+              Please wait — do not close this window.
+            </p>
+          </div>
+        ) : null}
     </Modal>
   );
 }

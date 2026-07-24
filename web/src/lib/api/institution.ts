@@ -40,7 +40,7 @@ export function getInstitutionMocks() {
       rules: unknown;
       grantSetId: string;
       grantSetTitle: string;
-      grantSource: "ADMIN_GRANT" | "PURCHASE";
+      grantSource: "ADMIN_GRANT" | "PURCHASE" | "OWN";
     }[];
     grants: {
       setId: string;
@@ -73,7 +73,7 @@ export function getInstitutionMocks() {
         rules: unknown;
         grantSetId: string;
         grantSetTitle: string;
-        grantSource: "ADMIN_GRANT" | "PURCHASE";
+        grantSource: "ADMIN_GRANT" | "PURCHASE" | "OWN";
       }[];
       showcaseSetTitle: string;
     } | null;

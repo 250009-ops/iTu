@@ -31,15 +31,18 @@ export function InstitutionCreditsView() {
   async function handleCheckout() {
     if (!selected) return;
     setCheckingOut(true);
+    let navigating = false;
     try {
       const res = await createCreditCheckout(selected);
+      navigating = true;
       window.location.href = res.checkoutUrl;
     } catch (err) {
       toast("Checkout failed", {
         description: getErrorMessage(err, "Could not start checkout."),
         variant: "error",
       });
-      setCheckingOut(false);
+    } finally {
+      if (!navigating) setCheckingOut(false);
     }
   }
 

@@ -10,6 +10,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   MessageSquare,
+  Package,
   Radio,
   Settings,
   UserCheck,
@@ -28,6 +29,7 @@ const iconMap = {
   "bar-chart": BarChart3,
   settings: Settings,
   "message-square": MessageSquare,
+  package: Package,
   radio: Radio,
 } as const;
 

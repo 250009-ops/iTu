@@ -65,8 +65,9 @@ export class PaymentsService {
     const confirmed = await this.confirmAndFulfill(order.id, payload.orderId);
     if (!confirmed) {
       this.logger.warn(
-        `Uzum callback for ${orderCode} could not be confirmed via getOrderStatus`,
+        `Uzum callback SUCCESS for ${orderCode} — fulfilling from callback (status API inconclusive)`,
       );
+      await this.fulfillByOrderId(order.id, payload.orderId);
     }
 
     return { received: true };

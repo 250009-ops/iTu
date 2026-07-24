@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, ShoppingBag } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Check, ShoppingBag, Loader2 } from "lucide-react";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
   getPracticePackages,
   type PracticeProductPackage,
 } from "@/lib/api/practice";
+import { useCheckoutPaymentReturn } from "@/hooks/use-checkout-payment-return";
 import { PRACTICE_CREDIT_META } from "@/lib/practice/hub";
 import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
@@ -23,30 +24,51 @@ export function PracticeShopView({ basePath }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [packages, setPackages] = useState<PracticeProductPackage[]>([]);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
 
-  useEffect(() => {
-    void getPracticePackages()
+  const loadPackages = useCallback(() => {
+    setLoading(true);
+    return getPracticePackages()
       .then(setPackages)
       .catch(() => setError("Failed to load packages"))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    void loadPackages();
+  }, [loadPackages]);
+
+  const { reconciling } = useCheckoutPaymentReturn({
+    onPaid: loadPackages,
+  });
+
   async function handleBuy(packageId: string) {
     setCheckingOut(packageId);
+    let navigating = false;
     try {
       const result = await checkoutPracticePackage(packageId, basePath);
       if (result.checkoutUrl) {
+        navigating = true;
+        setRedirecting(true);
         window.location.href = result.checkoutUrl;
         return;
       }
       window.location.href = `${basePath}?purchased=1`;
     } finally {
-      setCheckingOut(null);
+      if (!navigating) setCheckingOut(null);
     }
   }
 
   return (
-    <ApiDataShell loading={loading} error={error}>
+    <ApiDataShell loading={loading || reconciling} error={error}>
+      {redirecting ? (
+        <div className="fixed inset-0 z-[120] flex flex-col items-center justify-center gap-3 bg-white/95">
+          <Loader2 className="h-8 w-8 animate-spin text-navy" />
+          <p className="text-sm font-semibold text-navy">
+            Redirecting to secure checkout…
+          </p>
+        </div>
+      ) : null}
       <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
         <div>
           <Link href={basePath} className="text-sm text-muted hover:text-navy">
@@ -124,7 +146,8 @@ export function PracticeShopView({ basePath }: Props) {
                     "mt-6 w-full",
                     pkg.mostPopular && "bg-brand-red hover:bg-brand-red-hover",
                   )}
-                  disabled={checkingOut === pkg.id}
+                  disabled={checkingOut === pkg.id || redirecting}
+                  loading={checkingOut === pkg.id}
                   onClick={() => void handleBuy(pkg.id)}
                 >
                   <ShoppingBag className="h-4 w-4" />

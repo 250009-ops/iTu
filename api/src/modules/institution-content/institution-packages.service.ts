@@ -191,11 +191,18 @@ export class InstitutionPackagesService {
     return options.sort((a, b) => a.title.localeCompare(b.title));
   }
 
-  async suggestNextPackage(user: RequestUser) {
+  async suggestNextPackage(
+    user: RequestUser,
+    opts?: { packageKind?: string; examType?: ExamType; skills?: string[] },
+  ) {
     const institutionId = requireInstitutionId(user);
-    const skills = [...DEFAULT_SKILLS];
-    const packageKind = derivePackageKind(skills);
-    const examType = ExamType.ACADEMIC;
+    const skills: string[] = opts?.skills?.length
+      ? opts.skills
+      : opts?.packageKind
+        ? opts.packageKind.split('+').filter(Boolean)
+        : [...DEFAULT_SKILLS];
+    const packageKind = opts?.packageKind ?? derivePackageKind(skills);
+    const examType = opts?.examType ?? ExamType.ACADEMIC;
     const mockNumber = await queryNextMockNumber(this.prisma, {
       scopeKey: packageScopeKey(institutionId),
       packageKind,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { BrowseTypeTabs } from "@/components/student/browse/browse-type-tabs";
 import { MockProductCard } from "@/components/student/browse/mock-product-card";
@@ -14,11 +14,15 @@ import { useToast } from "@/components/ui/toast";
 import {
   getInstitutionMocks,
   getInstitutionStudents,
-  getMockSetOrderStatus,
   type InstitutionMockPackage,
   type InstitutionMockPreview,
 } from "@/lib/api/institution";
 import { mapBrowseProduct } from "@/lib/api/mappers/student";
+import { useCheckoutPaymentReturn } from "@/hooks/use-checkout-payment-return";
+import {
+  buildInstitutionMocksPreviewPlaceholder,
+  INSTITUTION_MOCK_ENROLL_LOCKED_REASON,
+} from "@/lib/institution/mock-set-placeholders";
 import { PageHeader } from "@/components/institution/ui";
 
 type MockPackageLike = InstitutionMockPackage | InstitutionMockPreview["packages"][number];
@@ -57,9 +61,8 @@ export function InstitutionMocksView() {
   const [enrollPackageId, setEnrollPackageId] = useState("");
 
   const paymentStatus = searchParams.get("payment");
-  const orderCode = searchParams.get("order");
 
-  function loadMocks() {
+  const loadMocks = useCallback(() => {
     setLoading(true);
     return getInstitutionMocks()
       .then((data) => {
@@ -67,38 +70,33 @@ export function InstitutionMocksView() {
         setPackages(data.packages);
         setPreview(data.preview);
         setActiveTabId(data.tabs[0]?.tabId ?? "");
-        setPreviewTabId(data.preview?.tabs[0]?.tabId ?? "");
+        setPreviewTabId(
+          data.preview?.tabs[0]?.tabId ??
+            buildInstitutionMocksPreviewPlaceholder().tabs[0]?.tabId ??
+            "",
+        );
         setError(null);
       })
       .catch(() => setError("Failed to load your mock sets"))
       .finally(() => setLoading(false));
-  }
-
-  useEffect(() => {
-    void loadMocks();
   }, []);
 
   useEffect(() => {
-    if (paymentStatus === "success") {
-      toast("Payment successful", {
-        description: "Your mock set is now available for student enrollment.",
-        variant: "success",
-      });
-      void loadMocks();
-    } else if (paymentStatus === "failed") {
+    void loadMocks();
+  }, [loadMocks]);
+
+  useCheckoutPaymentReturn({
+    onPaid: loadMocks,
+  });
+
+  useEffect(() => {
+    if (paymentStatus === "failed") {
       toast("Payment failed", {
         description: "Your payment was not completed. Try again from Buy mock sets.",
         variant: "error",
       });
     }
   }, [paymentStatus, toast]);
-
-  useEffect(() => {
-    if (!orderCode || paymentStatus !== "success") return;
-    void getMockSetOrderStatus(orderCode).then(() => {
-      void loadMocks();
-    });
-  }, [orderCode, paymentStatus]);
 
   const tabPackages = useMemo(() => {
     const tab = tabs.find((t) => t.tabId === activeTabId);
@@ -110,16 +108,20 @@ export function InstitutionMocksView() {
     );
   }, [packages, tabs, activeTabId]);
 
+  const lockedPreview = useMemo(
+    () => preview ?? buildInstitutionMocksPreviewPlaceholder(),
+    [preview],
+  );
+
   const previewTabPackages = useMemo(() => {
-    if (!preview) return [];
-    const tab = preview.tabs.find((t) => t.tabId === previewTabId);
+    const tab = lockedPreview.tabs.find((t) => t.tabId === previewTabId);
     if (!tab) return [];
-    return preview.packages.filter(
+    return lockedPreview.packages.filter(
       (pkg) =>
         pkg.packageKind === tab.packageKind &&
         pkg.examType === tab.examType,
     );
-  }, [preview, previewTabId]);
+  }, [lockedPreview, previewTabId]);
 
   async function openStudentPicker(pkg: InstitutionMockPackage) {
     setPickStudentFor(pkg);
@@ -149,14 +151,13 @@ export function InstitutionMocksView() {
   }
 
   const hasOwnedSets = tabs.length > 0;
-  const showLockedPreview = !hasOwnedSets && preview != null;
 
   return (
     <PortalPage innerClassName="space-y-8">
       <PageHeader
         breadcrumb="Institution"
         title="Mocks"
-        description="Your centre's owned mock sets — enroll students on section mocks from purchased or granted bundles."
+        description="Enroll students on platform mock sets or your centre's own private packages."
         actions={
           <Link href="/institution/mocks/shop">
             <Button variant="secondary" size="sm">
@@ -167,65 +168,7 @@ export function InstitutionMocksView() {
       />
 
       <ApiDataShell loading={loading} error={error}>
-        {showLockedPreview ? (
-          <div className="space-y-6">
-            <p className="text-sm text-muted">
-              This is exactly what your Mocks page will look like after purchase —
-              section tabs and enroll cards from your chosen set.
-            </p>
-
-            <div className="relative overflow-hidden rounded-xl">
-              <div
-                className="pointer-events-none select-none space-y-6 blur-sm"
-                aria-hidden
-              >
-                <BrowseTypeTabs
-                  tabs={preview.tabs.map((tab) => ({
-                    tabId: tab.tabId,
-                    label: tab.label,
-                    available: preview.packages.some(
-                      (pkg) =>
-                        pkg.packageKind === tab.packageKind &&
-                        pkg.examType === tab.examType,
-                    ),
-                  }))}
-                  activeTabId={previewTabId}
-                  onTabChange={() => undefined}
-                />
-
-                <div className="grid gap-6">
-                  {previewTabPackages.map((pkg) => (
-                    <MockProductCard
-                      key={pkg.id}
-                      mode="institution"
-                      grantSetTitle={pkg.grantSetTitle}
-                      product={toBrowseProduct(pkg)}
-                      purchaseDisabled
-                      purchaseDisabledReason="Purchase the mock set to enroll students"
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="absolute inset-0 flex items-center justify-center bg-white/70 px-6 py-10 backdrop-blur-[2px]">
-                <div className="max-w-md rounded-xl border border-sky-200 bg-white px-6 py-6 text-center shadow-lg">
-                  <h2 className="text-base font-semibold text-navy">
-                    Purchase {preview.showcaseSetTitle} to unlock
-                  </h2>
-                  <p className="mt-2 text-sm text-muted">
-                    After purchase you can enroll students on each section mock
-                    directly from this page — no extra setup.
-                  </p>
-                  <Link href="/institution/mocks/shop" className="mt-5 inline-block">
-                    <Button variant="danger" size="sm">
-                      Buy mock set
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : hasOwnedSets ? (
+        {hasOwnedSets ? (
           <>
             <BrowseTypeTabs
               tabs={tabs.map((tab) => ({
@@ -260,17 +203,51 @@ export function InstitutionMocksView() {
             </div>
           </>
         ) : (
-          <div className="rounded-xl border border-border bg-white px-6 py-12 text-center shadow-sm">
-            <h2 className="text-base font-semibold text-navy">No mock sets yet</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-              Purchase a mock set from the shop, or ask iTestU admin to grant one to
-              your centre. Then you can enroll students here.
-            </p>
-            <Link href="/institution/mocks/shop" className="mt-6 inline-block">
-              <Button variant="primary" size="sm">
-                Buy mock sets
-              </Button>
-            </Link>
+          <div className="space-y-6">
+            <div className="flex flex-col gap-4 rounded-xl border border-sky-200 bg-sky-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-navy">
+                  Purchase {lockedPreview.showcaseSetTitle} to unlock student
+                  enrollment
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Section tabs and enroll cards below show what your centre gets
+                  after purchase or when iTestU grants a set.
+                </p>
+              </div>
+              <Link href="/institution/mocks/shop" className="shrink-0">
+                <Button variant="danger" size="sm">
+                  Buy mock sets
+                </Button>
+              </Link>
+            </div>
+
+            <BrowseTypeTabs
+              tabs={lockedPreview.tabs.map((tab) => ({
+                tabId: tab.tabId,
+                label: tab.label,
+                available: lockedPreview.packages.some(
+                  (pkg) =>
+                    pkg.packageKind === tab.packageKind &&
+                    pkg.examType === tab.examType,
+                ),
+              }))}
+              activeTabId={previewTabId}
+              onTabChange={setPreviewTabId}
+            />
+
+            <div className="grid gap-6">
+              {previewTabPackages.map((pkg) => (
+                <MockProductCard
+                  key={pkg.id}
+                  mode="institution"
+                  grantSetTitle={pkg.grantSetTitle}
+                  product={toBrowseProduct(pkg)}
+                  purchaseDisabled
+                  purchaseDisabledReason={INSTITUTION_MOCK_ENROLL_LOCKED_REASON}
+                />
+              ))}
+            </div>
           </div>
         )}
       </ApiDataShell>

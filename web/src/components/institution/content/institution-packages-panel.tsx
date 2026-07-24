@@ -16,6 +16,15 @@ import {
   getInstitutionPackagesMine,
   updateInstitutionPackageLinks,
 } from "@/lib/api/institution-content";
+import {
+  examTypeForPackageTypeTab,
+  labelForPackageTypeTab,
+  skillsForPackageTypeTab,
+  STUDENT_BROWSE_TYPE_TABS,
+  type PackageTypeTabId,
+} from "@/lib/package-type-tabs";
+import { PageHeader } from "@/components/institution/ui";
+import { cn } from "@/lib/utils";
 
 type PackageRow = Awaited<ReturnType<typeof getInstitutionPackagesMine>>[number];
 type ContentTestOption = Awaited<
@@ -29,6 +38,25 @@ const SKILL_FIELDS = [
   { key: "speakingBankId" as const, label: "Speaking bank", type: "SPEAKING" },
 ];
 
+const FIELD_SKILL: Record<(typeof SKILL_FIELDS)[number]["key"], string> = {
+  listeningTestId: "listening",
+  readingTestId: "reading",
+  writingTestId: "writing",
+  speakingBankId: "speaking",
+};
+
+function packageSkillIds(pkg: PackageRow): string[] {
+  if (Array.isArray(pkg.skills)) {
+    return pkg.skills.map((skill) => String(skill).toLowerCase());
+  }
+  return ["listening", "reading", "writing", "speaking"];
+}
+
+function fieldsForPackage(pkg: PackageRow) {
+  const skills = new Set(packageSkillIds(pkg));
+  return SKILL_FIELDS.filter((field) => skills.has(FIELD_SKILL[field.key]));
+}
+
 export function InstitutionPackagesPanel() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -37,6 +65,7 @@ export function InstitutionPackagesPanel() {
     {},
   );
   const [createOpen, setCreateOpen] = useState(false);
+  const [createTypeTab, setCreateTypeTab] = useState<PackageTypeTabId>("full-academic");
   const [newTitle, setNewTitle] = useState("");
   const [suggestedMockLabel, setSuggestedMockLabel] = useState<string | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
@@ -93,8 +122,13 @@ export function InstitutionPackagesPanel() {
 
   useEffect(() => {
     if (!createOpen) return;
+    const tab = STUDENT_BROWSE_TYPE_TABS.find((item) => item.id === createTypeTab);
     setLoadingSuggestion(true);
-    void getInstitutionPackageNextIdentity()
+    void getInstitutionPackageNextIdentity({
+      packageKind: tab?.packageKind,
+      examType: tab?.examType,
+      skills: skillsForPackageTypeTab(createTypeTab),
+    })
       .then((next) => {
         setNewTitle(next.title);
         setSuggestedMockLabel(next.mockLabel);
@@ -103,7 +137,7 @@ export function InstitutionPackagesPanel() {
         setSuggestedMockLabel(null);
       })
       .finally(() => setLoadingSuggestion(false));
-  }, [createOpen]);
+  }, [createOpen, createTypeTab]);
 
   async function handleCreate() {
     if (!newTitle.trim()) {
@@ -112,9 +146,14 @@ export function InstitutionPackagesPanel() {
     }
     setCreating(true);
     try {
-      await createInstitutionPackage({ title: newTitle.trim() });
+      await createInstitutionPackage({
+        title: newTitle.trim(),
+        skills: skillsForPackageTypeTab(createTypeTab),
+        examType: examTypeForPackageTypeTab(createTypeTab),
+      });
       setNewTitle("");
       setCreateOpen(false);
+      setCreateTypeTab("full-academic");
       await refresh();
       toast("Package created", {
         description: "Link published tests, then activate when ready.",
@@ -158,7 +197,7 @@ export function InstitutionPackagesPanel() {
       await activateInstitutionPackage(pkg.id);
       await refresh();
       toast("Package activated", {
-        description: `${pkg.title} is now available in the Enroll wizard.`,
+        description: `${pkg.title} is now available on the Mocks page and in Enroll.`,
         variant: "success",
       });
     } catch (err) {
@@ -171,40 +210,35 @@ export function InstitutionPackagesPanel() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-muted">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading packages…
-      </div>
-    );
-  }
-
   return (
-    <PortalPage>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-navy">Private mock packages</h2>
-          <p className="mt-1 text-sm text-muted">
-            Build centre-only packages from your published tests. These appear alongside
-            granted platform mocks in the Enroll wizard.
-          </p>
-        </div>
-        <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" />
-          New package
-        </Button>
-      </div>
+    <PortalPage innerClassName="space-y-8">
+      <PageHeader
+        breadcrumb="Institution"
+        title="Private packages"
+        description="Build centre-only full or section mocks from your published tests. Activate a package to enroll students from the Mocks page."
+        actions={
+          <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4" />
+            New package
+          </Button>
+        }
+      />
 
-      {packages.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading packages…
+        </div>
+      ) : packages.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-slate-50 px-6 py-12 text-center text-sm text-muted">
-          No private packages yet. Create one, link your published tests, then activate
-          it for enrollment.
+          No private packages yet. Create a full or section mock package, link your
+          published tests from Content Studio, then activate it for enrollment.
         </div>
       ) : (
         <div className="space-y-4">
           {packages.map((pkg) => {
             const links = draftLinks[pkg.id] ?? {};
+            const linkFields = fieldsForPackage(pkg);
             return (
               <div
                 key={pkg.id}
@@ -213,11 +247,13 @@ export function InstitutionPackagesPanel() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                      {pkg.mockLabel}
+                      {pkg.mockLabel} · {pkg.packageKindLabel}
                     </p>
                     <h3 className="text-lg font-bold text-navy">{pkg.title}</h3>
                     <p className="mt-1 text-xs text-muted">
-                      {pkg.isActive ? "Active — free enrollment" : "Draft — activate when ready"}
+                      {pkg.isActive
+                        ? "Active — enroll students from Mocks or Students"
+                        : "Draft — link tests and activate when ready"}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -243,7 +279,7 @@ export function InstitutionPackagesPanel() {
                 </div>
 
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  {SKILL_FIELDS.map((field) => (
+                  {linkFields.map((field) => (
                     <div key={field.key} className="space-y-1">
                       <Label>{field.label}</Label>
                       <select
@@ -277,14 +313,35 @@ export function InstitutionPackagesPanel() {
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-navy">New private package</h3>
             <p className="mt-1 text-sm text-muted">
-              Full mock (L/R/W/S). You can link tests after creation.
+              Choose a mock type like the platform admin catalogue — full academic or
+              section-only. Link your published tests after creation.
             </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {STUDENT_BROWSE_TYPE_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setCreateTypeTab(tab.id)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                    createTypeTab === tab.id
+                      ? "bg-navy text-white"
+                      : "bg-slate-100 text-muted hover:bg-slate-200 hover:text-navy",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
             {suggestedMockLabel && (
-              <p className="mt-2 text-xs font-medium text-navy">
-                Package ID: {suggestedMockLabel}
+              <p className="mt-3 text-xs font-medium text-navy">
+                Package ID: {suggestedMockLabel} ·{" "}
+                {labelForPackageTypeTab(createTypeTab)}
               </p>
             )}
             <div className="mt-4 space-y-2">
@@ -293,12 +350,23 @@ export function InstitutionPackagesPanel() {
                 id="pkg-title"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder={loadingSuggestion ? "Loading suggested title…" : "Full Academic Mock-A001"}
+                placeholder={
+                  loadingSuggestion
+                    ? "Loading suggested title…"
+                    : `${labelForPackageTypeTab(createTypeTab)} Mock-A001`
+                }
                 disabled={loadingSuggestion}
               />
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setCreateOpen(false)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setCreateTypeTab("full-academic");
+                }}
+              >
                 Cancel
               </Button>
               <Button

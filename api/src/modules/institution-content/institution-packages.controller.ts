@@ -51,8 +51,20 @@ export class InstitutionPackagesController {
   }
 
   @Get('packages/next-identity')
-  suggestNextPackage(@CurrentUser() user: RequestUser) {
-    return this.packages.suggestNextPackage(user);
+  suggestNextPackage(
+    @CurrentUser() user: RequestUser,
+    @Query('packageKind') packageKind?: string,
+    @Query('examType') examType?: ExamType,
+    @Query('skills') skills?: string,
+  ) {
+    return this.packages.suggestNextPackage(user, {
+      packageKind: packageKind?.trim() || undefined,
+      examType: examType?.trim() as ExamType | undefined,
+      skills: skills
+        ?.split(',')
+        .map((skill) => skill.trim())
+        .filter(Boolean),
+    });
   }
 
   @Post('packages')

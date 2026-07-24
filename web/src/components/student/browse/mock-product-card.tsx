@@ -104,7 +104,7 @@ export function MockProductCard({
   initialSpeakingTeacherId?: string | null;
   mode?: "student" | "institution" | "institutionShop";
   grantSetTitle?: string;
-  grantSource?: "ADMIN_GRANT" | "PURCHASE";
+  grantSource?: "ADMIN_GRANT" | "PURCHASE" | "OWN";
   onEnrollClick?: () => void;
   onBuyClick?: () => void;
   buying?: boolean;
@@ -163,6 +163,11 @@ export function MockProductCard({
               {isInstitution && grantSource === "ADMIN_GRANT" && (
                 <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-medium text-slate-200">
                   Granted by iTestU
+                </span>
+              )}
+              {isInstitution && grantSource === "OWN" && (
+                <span className="rounded-full bg-violet-500/90 px-3 py-0.5 text-xs font-semibold">
+                  Your centre&apos;s mock
                 </span>
               )}
               {mode === "student" &&

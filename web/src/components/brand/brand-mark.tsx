@@ -1,3 +1,6 @@
+"use client";
+
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { SITE } from "@/lib/marketing/data";
 
@@ -51,11 +54,14 @@ export function BrandMark({
           config.shadow,
         )}
       >
-        <img
+        <Image
           src="/logo/itestu3.svg"
           alt=""
           aria-hidden
-          className={cn(config.icon)}
+          width={24}
+          height={24}
+          unoptimized
+          className={cn("h-auto w-auto", config.icon)}
         />
       </span>
       {showText ? (
@@ -84,11 +90,14 @@ export function BrandMarkIcon({ size = "md", className }: BrandMarkIconProps) {
         className,
       )}
     >
-      <img
+      <Image
         src="/logo/itestu3.svg"
         alt=""
         aria-hidden
-        className={cn(config.icon)}
+        width={24}
+        height={24}
+        unoptimized
+        className={cn("h-auto w-auto", config.icon)}
       />
     </span>
   );

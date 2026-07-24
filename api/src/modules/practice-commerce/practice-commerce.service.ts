@@ -201,8 +201,8 @@ export class PracticeCommerceService {
       packageTitle: pkg.title,
       clientId: user.id,
       sessionTimeoutSecs: CHECKOUT_HOLD_MINUTES * 60,
-      successPath: `${portalBasePath}/shop?paid=1`,
-      failurePath: `${portalBasePath}/shop?paid=0`,
+      successPath: `${portalBasePath}/shop?payment=success`,
+      failurePath: `${portalBasePath}/shop?payment=failed`,
     });
 
     await this.prisma.order.update({

@@ -203,14 +203,23 @@ export function getInstitutionPackageContentTests(type?: string) {
   >(`/institution/packages/content-tests${q}`);
 }
 
-export function getInstitutionPackageNextIdentity() {
+export function getInstitutionPackageNextIdentity(params?: {
+  packageKind?: string;
+  examType?: string;
+  skills?: string[];
+}) {
+  const search = new URLSearchParams();
+  if (params?.packageKind) search.set("packageKind", params.packageKind);
+  if (params?.examType) search.set("examType", params.examType);
+  if (params?.skills?.length) search.set("skills", params.skills.join(","));
+  const q = search.toString();
   return apiFetch<{
     title: string;
     mockLabel: string;
     mockNumber: number;
     packageKind: string;
     examType: string;
-  }>("/institution/packages/next-identity");
+  }>(`/institution/packages/next-identity${q ? `?${q}` : ""}`);
 }
 
 export function createInstitutionPackage(body: {
