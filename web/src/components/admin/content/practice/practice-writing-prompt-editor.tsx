@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  captureScroll,
+  restoreScroll,
+} from "@/components/admin/content/practice/practice-editor-scroll";
 import { useAdminPractice } from "@/contexts/admin-practice-context";
 import { useToast } from "@/components/ui/toast";
 
@@ -49,16 +53,19 @@ export function PracticeWritingPromptEditor({ promptId }: Props) {
   }
 
   async function handlePublish() {
+    const scroll = captureScroll();
     setSaving(true);
     try {
       await savePrompt(promptId, { title, instruction, minWords });
       await publishPrompt(promptId);
       setStatus("published");
       toast("Published", { variant: "success" });
+      restoreScroll(scroll);
     } catch {
       toast("Publish failed", { variant: "error" });
     } finally {
       setSaving(false);
+      restoreScroll(scroll);
     }
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { ContentStudioHeader } from "@/components/admin/content/content-studio-header";
 import { ContentSummaryCards } from "@/components/admin/content/content-summary-cards";
@@ -64,8 +64,12 @@ function ContentStudioInner() {
     }
   }, [loading, selectedTestId, tests, setSelectedTestId]);
 
+  // Scroll to top only when opening a different test — not on publish/refresh.
+  const prevSelectedTestId = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedTestId) return;
+    const prev = prevSelectedTestId.current;
+    prevSelectedTestId.current = selectedTestId;
+    if (!selectedTestId || selectedTestId === prev) return;
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [selectedTestId]);
 

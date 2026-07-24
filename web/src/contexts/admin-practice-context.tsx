@@ -170,6 +170,94 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  /** Stable — must not change when the units list refreshes after save/publish. */
+  const loadUnit = useCallback(
+    (id: string) => getAdminPracticeUnit(id),
+    [],
+  );
+  const loadPrompt = useCallback(
+    (id: string) => getAdminWritingPrompt(id),
+    [],
+  );
+
+  const saveUnit = useCallback(
+    async (
+      id: string,
+      payload: {
+        title?: string;
+        questionType?: string;
+        content?: object;
+        answerKey?: object;
+        durationMin?: number;
+      },
+    ) => {
+      await updatePracticeUnit(id, payload);
+      await refresh({ silent: true });
+    },
+    [refresh],
+  );
+
+  const publishUnit = useCallback(
+    async (id: string) => {
+      await publishPracticeUnit(id);
+      await refresh({ silent: true });
+    },
+    [refresh],
+  );
+
+  const archiveUnit = useCallback(
+    async (id: string) => {
+      await archivePracticeUnit(id);
+      await refresh({ silent: true });
+    },
+    [refresh],
+  );
+
+  const removeUnit = useCallback(
+    async (id: string) => {
+      await deletePracticeUnit(id);
+      setSelectedUnitId(null);
+      await refresh({ silent: true });
+    },
+    [refresh],
+  );
+
+  const createPrompt = useCallback(
+    async (taskNumber: number, instruction: string) => {
+      const identity = await suggestWritingPromptIdentity(taskNumber);
+      const created = await createWritingPrompt({
+        code: identity.code,
+        title: identity.title,
+        taskNumber,
+        instruction,
+      });
+      setSelectedPromptId(created.id);
+      setSelectedUnitId(null);
+      await refresh({ silent: true });
+      return created.id;
+    },
+    [refresh],
+  );
+
+  const savePrompt = useCallback(
+    async (
+      id: string,
+      payload: { title?: string; instruction?: string; minWords?: number },
+    ) => {
+      await updateWritingPrompt(id, payload);
+      await refresh({ silent: true });
+    },
+    [refresh],
+  );
+
+  const publishPrompt = useCallback(
+    async (id: string) => {
+      await publishWritingPrompt(id);
+      await refresh({ silent: true });
+    },
+    [refresh],
+  );
+
   const value = useMemo<AdminPracticeContextValue>(
     () => ({
       loading,
@@ -184,46 +272,15 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
       setSelectedPromptId,
       refresh,
       createUnit,
-      saveUnit: async (id, payload) => {
-        await updatePracticeUnit(id, payload);
-        await refresh({ silent: true });
-      },
-      publishUnit: async (id) => {
-        await publishPracticeUnit(id);
-        await refresh({ silent: true });
-      },
-      archiveUnit: async (id) => {
-        await archivePracticeUnit(id);
-        await refresh({ silent: true });
-      },
-      removeUnit: async (id) => {
-        await deletePracticeUnit(id);
-        setSelectedUnitId(null);
-        await refresh({ silent: true });
-      },
-      loadUnit: (id) => getAdminPracticeUnit(id),
-      createPrompt: async (taskNumber, instruction) => {
-        const identity = await suggestWritingPromptIdentity(taskNumber);
-        const created = await createWritingPrompt({
-          code: identity.code,
-          title: identity.title,
-          taskNumber,
-          instruction,
-        });
-        setSelectedPromptId(created.id);
-        setSelectedUnitId(null);
-        await refresh({ silent: true });
-        return created.id;
-      },
-      savePrompt: async (id, payload) => {
-        await updateWritingPrompt(id, payload);
-        await refresh({ silent: true });
-      },
-      publishPrompt: async (id) => {
-        await publishWritingPrompt(id);
-        await refresh({ silent: true });
-      },
-      loadPrompt: (id) => getAdminWritingPrompt(id),
+      saveUnit,
+      publishUnit,
+      archiveUnit,
+      removeUnit,
+      loadUnit,
+      createPrompt,
+      savePrompt,
+      publishPrompt,
+      loadPrompt,
     }),
     [
       loading,
@@ -235,6 +292,15 @@ export function AdminPracticeProvider({ children }: { children: ReactNode }) {
       selectedPromptId,
       refresh,
       createUnit,
+      saveUnit,
+      publishUnit,
+      archiveUnit,
+      removeUnit,
+      loadUnit,
+      createPrompt,
+      savePrompt,
+      publishPrompt,
+      loadPrompt,
     ],
   );
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,10 @@ import { ReadingVisualEditor } from "@/components/admin/content/editors/reading-
 import { SpeakingVisualEditor } from "@/components/admin/content/editors/speaking-visual-editor";
 import { WritingVisualEditor } from "@/components/admin/content/editors/writing-visual-editor";
 import { ContentPreviewPanel } from "@/components/admin/content/preview/content-preview-panel";
+import {
+  captureScroll,
+  restoreScroll,
+} from "@/components/admin/content/practice/practice-editor-scroll";
 import {
   isPublishReady,
   PublishChecklist,
@@ -74,6 +78,7 @@ export function ContentTestEditor({
     features,
   } = useContentStudio();
   const { toast } = useToast();
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -287,6 +292,7 @@ export function ContentTestEditor({
       });
       return;
     }
+    const scroll = captureScroll(bodyScrollRef.current);
     const saved = await handleSave();
     if (!saved) return;
     setPublishing(true);
@@ -297,6 +303,7 @@ export function ContentTestEditor({
         description: "This test can now be linked to packages.",
         variant: "success",
       });
+      restoreScroll(scroll);
     } catch (err) {
       if (handleContentError(err, "Publish")) return;
       toast("Publish failed", {
@@ -305,6 +312,7 @@ export function ContentTestEditor({
       });
     } finally {
       setPublishing(false);
+      restoreScroll(scroll);
     }
   }
 
@@ -429,10 +437,7 @@ export function ContentTestEditor({
         </div>
       )}
       {isPublished && (
-        <div
-          className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
-          role="status"
-        >
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
           This test is published. You can edit and save changes in place — they
           apply to packages that use this test.
         </div>
@@ -641,7 +646,7 @@ export function ContentTestEditor({
       </div>
 
       {focused ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={bodyScrollRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-5 p-5 pb-4 sm:p-6 sm:pb-4">{metaFields}</div>
           <div className="px-5 pb-6 sm:px-6 sm:pb-8">{tabPanel}</div>
         </div>

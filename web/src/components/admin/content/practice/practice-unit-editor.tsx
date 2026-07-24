@@ -38,6 +38,10 @@ import {
   getPracticeUnitAiPackStatus,
   regeneratePracticeUnitAiPack,
 } from "@/lib/api/admin";
+import {
+  captureScroll,
+  restoreScroll,
+} from "@/components/admin/content/practice/practice-editor-scroll";
 
 type Props = {
   unitId: string;
@@ -174,7 +178,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
 
   async function persistDraft(options?: { manageSavingState?: boolean }): Promise<boolean> {
     const manageSaving = options?.manageSavingState !== false;
-    const scrollY = typeof window !== "undefined" ? window.scrollY : 0;
+    const scroll = captureScroll();
     if (manageSaving) setSaving(true);
     try {
       const content = module === "reading" ? readingContent : listeningContent;
@@ -187,11 +191,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
         durationMin,
       });
       if (autoTitle) setTitle(autoTitle);
-      if (typeof window !== "undefined") {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: scrollY, behavior: "auto" });
-        });
-      }
+      restoreScroll(scroll);
       return true;
     } catch {
       toast("Save failed", { variant: "error" });
@@ -209,6 +209,7 @@ export function PracticeUnitEditor({ unitId }: Props) {
   }
 
   async function handlePublish() {
+    const scroll = captureScroll();
     setPublishing(true);
     try {
       const saved = await persistDraft({ manageSavingState: false });
@@ -216,10 +217,12 @@ export function PracticeUnitEditor({ unitId }: Props) {
       await publishUnit(unitId);
       setStatus("published");
       toast("Published", { variant: "success" });
+      restoreScroll(scroll);
     } catch {
       toast("Publish failed", { variant: "error" });
     } finally {
       setPublishing(false);
+      restoreScroll(scroll);
     }
   }
 
