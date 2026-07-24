@@ -42,7 +42,12 @@ const SKILL_FIELDS = [
   { key: "listeningTestId" as const, label: "Listening", type: "LISTENING" },
   { key: "readingTestId" as const, label: "Reading", type: "READING" },
   { key: "writingTestId" as const, label: "Writing", type: "WRITING" },
-  { key: "speakingBankId" as const, label: "Speaking bank", type: "SPEAKING" },
+  {
+    key: "speakingBankId" as const,
+    label: "Speaking bank",
+    type: "SPEAKING",
+    optional: true,
+  },
 ];
 
 const FIELD_SKILL: Record<(typeof SKILL_FIELDS)[number]["key"], string> = {
@@ -59,7 +64,29 @@ function packageSkillIds(pkg: PackageRow): string[] {
   return ["listening", "reading", "writing", "speaking"];
 }
 
+/** Full Academic (L+R+W) — always show Speaking as an optional link. */
+function isFullStylePackage(pkg: PackageRow): boolean {
+  const kind = pkg.packageKind ?? "";
+  if (
+    kind === "listening+reading+writing+speaking" ||
+    kind === "listening+reading+writing"
+  ) {
+    return true;
+  }
+  const skills = new Set(packageSkillIds(pkg));
+  return (
+    skills.has("listening") && skills.has("reading") && skills.has("writing")
+  );
+}
+
 function fieldsForPackage(pkg: PackageRow) {
+  if (isFullStylePackage(pkg)) {
+    return SKILL_FIELDS.map((field) =>
+      field.key === "speakingBankId"
+        ? { ...field, label: "Speaking bank (optional)" }
+        : field,
+    );
+  }
   const skills = new Set(packageSkillIds(pkg));
   return SKILL_FIELDS.filter((field) => skills.has(FIELD_SKILL[field.key]));
 }
@@ -223,7 +250,7 @@ export function InstitutionMocksView() {
       toast("Save failed", {
         description: getErrorMessage(
           err,
-          "Check all skills have a published test that is not already used.",
+          "Listening, Reading, and Writing are required. Speaking is optional.",
         ),
         variant: "error",
       });
@@ -243,7 +270,10 @@ export function InstitutionMocksView() {
       });
     } catch (err) {
       toast("Activation failed", {
-        description: getErrorMessage(err, "Assign all skills before activating."),
+        description: getErrorMessage(
+          err,
+          "Link Listening, Reading, and Writing before activating. Speaking is optional.",
+        ),
         variant: "error",
       });
     } finally {
@@ -484,7 +514,10 @@ export function InstitutionMocksView() {
               <h2 className="text-base font-bold text-navy">{editPkg.title}</h2>
               <p className="mt-1 text-sm text-muted">
                 {editPkg.mockLabel} · {editPkg.packageKindLabel}. Link published
-                tests from your Purchased set or Content Studio.
+                tests from your Purchased set or Content Studio
+                {isFullStylePackage(editPkg)
+                  ? ". Speaking is optional for Full Academic mocks."
+                  : "."}
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2">

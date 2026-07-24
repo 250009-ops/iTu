@@ -96,6 +96,19 @@ export function packageMatchesTypeTab(
   if (tabId === "all") return true;
   const tab = PACKAGE_TYPE_TABS.find((t) => t.id === tabId);
   if (!tab?.packageKind) return true;
+
+  // Full Academic covers L+R+W with or without Speaking.
+  if (tabId === "full-academic" || tabId === "full-gt") {
+    const kind = pkg.packageKind ?? "";
+    const isFullKind =
+      kind === "listening+reading+writing+speaking" ||
+      kind === "listening+reading+writing";
+    return (
+      isFullKind &&
+      (!tab.examType || !pkg.examType || pkg.examType === tab.examType)
+    );
+  }
+
   return (
     pkg.packageKind === tab.packageKind &&
     (!tab.examType || !pkg.examType || pkg.examType === tab.examType)

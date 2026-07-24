@@ -312,4 +312,117 @@ describe('InstitutionPackagesService', () => {
       sourceMockLabel: expect.stringContaining('Listening'),
     });
   });
+
+  it('allows saving and activating a Full Academic mock without speaking', async () => {
+    const update = jest.fn(async (_args: unknown) => ({
+      id: 'pkg-full',
+      slug: 'full-a001',
+      title: 'Full Academic Mock-A001',
+      description: null,
+      packageKind: 'listening+reading+writing+speaking',
+      mockNumber: 1,
+      examType: ExamType.ACADEMIC,
+      skills: ['listening', 'reading', 'writing'],
+      isActive: false,
+      listeningTestId: 't-l',
+      readingTestId: 't-r',
+      writingTestId: 't-w',
+      speakingBankId: null,
+    }));
+    const prisma = {
+      mockTestPackage: {
+        findUnique: () =>
+          Promise.resolve({
+            id: 'pkg-full',
+            institutionId: 'centre-a',
+            packageKind: 'listening+reading+writing+speaking',
+            skills: ['listening', 'reading', 'writing', 'speaking'],
+            title: 'Full Academic Mock-A001',
+            speakingBankId: null,
+          }),
+        findMany: () => Promise.resolve([]),
+        update,
+      },
+      contentTest: {
+        findMany: () =>
+          Promise.resolve([
+            {
+              id: 't-l',
+              code: 'LIS-1',
+              type: 'LISTENING',
+              status: ContentTestStatus.PUBLISHED,
+              institutionId: null,
+            },
+            {
+              id: 't-r',
+              code: 'REA-1',
+              type: 'READING',
+              status: ContentTestStatus.PUBLISHED,
+              institutionId: null,
+            },
+            {
+              id: 't-w',
+              code: 'WRI-1',
+              type: 'WRITING',
+              status: ContentTestStatus.PUBLISHED,
+              institutionId: null,
+            },
+          ]),
+      },
+      packageContentTest: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([]) // exclusivity check in assert
+          .mockResolvedValueOnce([
+            { skill: 'LISTENING', testId: 't-l' },
+            { skill: 'READING', testId: 't-r' },
+            { skill: 'WRITING', testId: 't-w' },
+          ]), // activate pool
+        deleteMany: () => Promise.resolve({ count: 0 }),
+        createMany: () => Promise.resolve({ count: 3 }),
+      },
+      $transaction: (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]),
+    };
+    const mockSets = {
+      listGrantedPackageIds: jest.fn(async () => ['granted-1']),
+    };
+    // Mark granted tests so assert allows platform tests
+    (prisma.mockTestPackage.findMany as unknown) = () =>
+      Promise.resolve([
+        {
+          listeningTestId: 't-l',
+          readingTestId: 't-r',
+          writingTestId: 't-w',
+          speakingBankId: null,
+          contentPool: [],
+        },
+      ]);
+    const service = makeService(prisma, mockSets);
+
+    await expect(
+      service.updatePackageLinks(user, 'pkg-full', {
+        listeningTestId: 't-l',
+        readingTestId: 't-r',
+        writingTestId: 't-w',
+        speakingBankId: null,
+      }),
+    ).resolves.toMatchObject({
+      listeningTestId: 't-l',
+      speakingBankId: null,
+      skills: ['listening', 'reading', 'writing'],
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          skills: ['listening', 'reading', 'writing'],
+          speakingBankId: null,
+        }),
+      }),
+    );
+
+    await expect(service.activatePackage(user, 'pkg-full')).resolves.toMatchObject({
+      id: 'pkg-full',
+    });
+  });
 });

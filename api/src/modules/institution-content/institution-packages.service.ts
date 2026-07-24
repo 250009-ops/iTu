@@ -58,6 +58,43 @@ type SkillKey = 'listening' | 'reading' | 'writing' | 'speaking';
 
 type ContentPoolEntry = { skill: SkillKey; testIds: string[] };
 
+/** Full Academic / L+R+W packages — speaking may be omitted. */
+function isFullStylePackage(pkg: {
+  packageKind?: string | null;
+  skills?: unknown;
+}): boolean {
+  const kind = pkg.packageKind ?? '';
+  if (
+    kind === 'listening+reading+writing+speaking' ||
+    kind === 'listening+reading+writing'
+  ) {
+    return true;
+  }
+  const skills = packageExamSkills(pkg.skills);
+  return (
+    skills.includes(ExamSkill.LISTENING) &&
+    skills.includes(ExamSkill.READING) &&
+    skills.includes(ExamSkill.WRITING)
+  );
+}
+
+function resolveSkillsForLinks(
+  pkg: { packageKind?: string | null; skills?: unknown },
+  links: {
+    listeningTestId?: string | null;
+    readingTestId?: string | null;
+    writingTestId?: string | null;
+    speakingBankId?: string | null;
+  },
+): string[] {
+  if (isFullStylePackage(pkg)) {
+    const next = ['listening', 'reading', 'writing'];
+    if (links.speakingBankId?.trim()) next.push('speaking');
+    return next;
+  }
+  return packageExamSkills(pkg.skills).map((skill) => skill.toLowerCase());
+}
+
 @Injectable()
 export class InstitutionPackagesService {
   constructor(
@@ -588,13 +625,27 @@ export class InstitutionPackagesService {
     if (!pkg) throw new NotFoundException('Package not found');
     assertPackageScopeMatch(pkg, { institutionId });
 
-    const pool = this.buildContentPoolFromLinks(pkg.skills, links);
-    await this.assertPackageContentLinks(institutionId, pkg.skills, pool, packageId);
+    // Full Academic: speaking is optional — skills shrink/grow with the link.
+    // Keep Full Academic packageKind so type tabs / mock IDs stay stable.
+    const nextSkills = resolveSkillsForLinks(pkg, links);
+    const nextPackageKind = isFullStylePackage(pkg)
+      ? 'listening+reading+writing+speaking'
+      : derivePackageKind(nextSkills);
+
+    const pool = this.buildContentPoolFromLinks(nextSkills, links);
+    await this.assertPackageContentLinks(
+      institutionId,
+      nextSkills,
+      pool,
+      packageId,
+    );
     await this.syncContentPool(packageId, pool);
 
     const updated = await this.prisma.mockTestPackage.update({
       where: { id: packageId },
       data: {
+        skills: nextSkills,
+        packageKind: nextPackageKind,
         listeningTestId: links.listeningTestId || null,
         readingTestId: links.readingTestId || null,
         writingTestId: links.writingTestId || null,
@@ -624,7 +675,24 @@ export class InstitutionPackagesService {
     const pool = await this.prisma.packageContentTest.findMany({
       where: { packageId },
     });
-    const required = packageExamSkills(pkg.skills);
+
+    // Prefer stored skills; for full-style drafts, speaking is optional
+    // so centres can activate L+R+W without a speaking bank.
+    let required = packageExamSkills(pkg.skills);
+    if (isFullStylePackage(pkg)) {
+      required = [
+        ExamSkill.LISTENING,
+        ExamSkill.READING,
+        ExamSkill.WRITING,
+      ];
+      if (
+        pkg.speakingBankId ||
+        pool.some((row) => row.skill === ExamSkill.SPEAKING)
+      ) {
+        required = [...required, ExamSkill.SPEAKING];
+      }
+    }
+
     for (const skill of required) {
       if (!pool.some((row) => row.skill === skill)) {
         throw new BadRequestException(

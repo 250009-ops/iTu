@@ -22,15 +22,6 @@ import {
 } from "@/lib/package-type-tabs";
 import { cn } from "@/lib/utils";
 
-type StatusFilter = "available" | "in_progress" | "completed" | "all";
-
-const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
-  { id: "available", label: "Not taken yet" },
-  { id: "in_progress", label: "In progress" },
-  { id: "completed", label: "Already completed" },
-  { id: "all", label: "All" },
-];
-
 function normalizeTimeInput(value: string) {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return value.trim();
@@ -52,19 +43,6 @@ function packageNeeds(pkg: EnrollmentMockOption | undefined) {
   };
 }
 
-function statusBadgeClass(status: EnrollmentMockOption["enrollStatus"]) {
-  switch (status) {
-    case "available":
-      return "bg-emerald-50 text-emerald-700";
-    case "in_progress":
-      return "bg-amber-50 text-amber-800";
-    case "completed":
-      return "bg-slate-100 text-slate-600";
-    default:
-      return "bg-rose-50 text-rose-700";
-  }
-}
-
 export function EnrollWizard({
   open,
   studentId,
@@ -84,8 +62,8 @@ export function EnrollWizard({
   const [data, setData] = useState<EnrollmentPackagesGrouped | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [examiners, setExaminers] = useState<ExaminerRow[]>([]);
-  const [typeFilter, setTypeFilter] = useState<PackageTypeTabId>("full-academic");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("available");
+  const [typeFilter, setTypeFilter] =
+    useState<PackageTypeTabId>("full-academic");
   const [packageId, setPackageId] = useState("");
   const [mockDate, setMockDate] = useState("");
   const [writingTeacherId, setWritingTeacherId] = useState("");
@@ -100,7 +78,6 @@ export function EnrollWizard({
     setWritingTeacherId("");
     setSpeakingTeacherId("");
     setSpeakingTime("");
-    setStatusFilter("available");
     setLoadingPackages(true);
     void getInstitutionEnrollmentPackages(studentId)
       .then((res) => {
@@ -126,13 +103,14 @@ export function EnrollWizard({
 
   const mocks = data?.mocks ?? [];
 
+  /** Only enrollable (not taken / not in progress) mocks for the selected type. */
   const filteredMocks = useMemo(() => {
-    return mocks.filter((mock) => {
-      if (!packageMatchesTypeTab(mock, typeFilter)) return false;
-      if (statusFilter === "all") return true;
-      return mock.enrollStatus === statusFilter;
-    });
-  }, [mocks, typeFilter, statusFilter]);
+    return mocks.filter(
+      (mock) =>
+        packageMatchesTypeTab(mock, typeFilter) &&
+        mock.enrollStatus === "available",
+    );
+  }, [mocks, typeFilter]);
 
   const selectedPackage = useMemo(() => {
     if (!packageId) return undefined;
@@ -185,7 +163,7 @@ export function EnrollWizard({
           description:
             res.failed.length > 0
               ? `${res.failed.length} could not be enrolled.`
-              : "Centre mock enrolled with assigned examiners and speaking time.",
+              : "Centre mock enrolled with assigned examiners.",
           variant: res.failed.length > 0 ? "warning" : "success",
         });
         onEnrolled();
@@ -208,7 +186,7 @@ export function EnrollWizard({
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const hasAnyMocks = mocks.length > 0;
+  const hasAnyMocks = mocks.some((m) => m.enrollStatus === "available");
 
   return (
     <Modal
@@ -239,8 +217,7 @@ export function EnrollWizard({
           >
             Mocks
           </Link>{" "}
-          page. Filter by mock type and whether the student has already taken
-          it.
+          page. Pick a mock type, then an available mock.
         </p>
 
         {!hasAnyMocks && !loadingPackages && (
@@ -279,48 +256,23 @@ export function EnrollWizard({
           </div>
         </Field>
 
-        <Field label="Status">
-          <div className="flex flex-wrap gap-2">
-            {STATUS_FILTERS.map((filter) => (
-              <button
-                key={filter.id}
-                type="button"
-                onClick={() => {
-                  setStatusFilter(filter.id);
-                  setPackageId("");
-                }}
-                className={cn(
-                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                  statusFilter === filter.id
-                    ? "bg-sky-600 text-white"
-                    : "bg-slate-100 text-muted hover:bg-slate-200 hover:text-navy",
-                )}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        </Field>
-
         <Field label="Mock">
           {loadingPackages ? (
             <p className="text-sm text-muted">Loading mocks…</p>
           ) : filteredMocks.length === 0 ? (
             <p className="text-sm text-muted">
-              No mocks match this type and status filter.
+              No available mocks of this type. Activate a mock on the Mocks page,
+              or pick another type.
             </p>
           ) : (
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border p-2">
               {filteredMocks.map((mock) => {
-                const selectable = mock.enrollStatus === "available";
                 const selected = packageId === mock.id;
                 return (
                   <button
                     key={mock.id}
                     type="button"
-                    disabled={!selectable}
                     onClick={() => {
-                      if (!selectable) return;
                       setPackageId(mock.id);
                       setWritingTeacherId("");
                       setSpeakingTeacherId("");
@@ -330,28 +282,15 @@ export function EnrollWizard({
                       "flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm transition",
                       selected
                         ? "border-navy bg-sky-50"
-                        : selectable
-                          ? "border-border hover:border-navy/40"
-                          : "cursor-not-allowed border-border bg-slate-50 opacity-70",
+                        : "border-border hover:border-navy/40",
                     )}
                   >
                     <div>
                       <p className="font-semibold text-navy">{mock.title}</p>
                       <p className="text-xs text-muted">
                         {mock.mockLabel ?? mock.packageKind}
-                        {mock.blockingReason
-                          ? ` · ${mock.blockingReason}`
-                          : ""}
                       </p>
                     </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                        statusBadgeClass(mock.enrollStatus),
-                      )}
-                    >
-                      {mock.statusLabel}
-                    </span>
                   </button>
                 );
               })}
