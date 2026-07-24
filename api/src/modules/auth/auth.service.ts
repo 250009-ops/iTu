@@ -14,6 +14,11 @@ import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
+import {
+  generateUniqueReferralCode,
+  markReferralInviteAccepted,
+  resolveReferrerForSignup,
+} from '../../common/referral';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -165,6 +170,13 @@ export class AuthService {
         ? 'GENERAL_TRAINING'
         : 'ACADEMIC';
 
+    const referrer = await resolveReferrerForSignup(
+      this.prisma,
+      dto.referralCode,
+      email,
+    );
+    const referralCode = await generateUniqueReferralCode(this.prisma);
+
     const user = await this.prisma.user.create({
       data: {
         email,
@@ -175,6 +187,8 @@ export class AuthService {
           create: {
             targetBand: dto.targetBand,
             examType: examType as 'ACADEMIC' | 'GENERAL_TRAINING',
+            referralCode,
+            referredById: referrer?.id ?? null,
           },
         },
       },
@@ -184,12 +198,26 @@ export class AuthService {
       },
     });
 
+    if (referrer?.id && user.studentProfile?.id) {
+      await markReferralInviteAccepted(
+        this.prisma,
+        referrer.id,
+        user.studentProfile.id,
+        email,
+      );
+    }
+
     await this.audit.log({
       userId: user.id,
       action: AuditAction.AUTH_REGISTER,
       entity: 'user',
       entityId: user.id,
-      metadata: { email, examType },
+      metadata: {
+        email,
+        examType,
+        referredById: referrer?.id ?? null,
+        referralVia: dto.referralCode?.trim() ? 'link' : referrer ? 'email' : null,
+      },
     });
 
     const rawToken = randomBytes(32).toString('hex');

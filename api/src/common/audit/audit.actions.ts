@@ -13,6 +13,8 @@ export const AuditAction = {
 
   BOOKING_CREATE: 'booking.create',
   BOOKING_RESCHEDULE: 'booking.reschedule',
+  REFERRAL_INVITE_SEND: 'referral.invite.send',
+  REFERRAL_REWARD_CLAIM: 'referral.reward.claim',
 
   EXAM_CHECK_IN: 'exam.check_in',
   EXAM_SECTION_START: 'exam.section.start',

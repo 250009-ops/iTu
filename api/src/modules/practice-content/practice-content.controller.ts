@@ -23,6 +23,7 @@ import { memoryStorage } from 'multer';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { PracticeAiPackService } from '../practice-ai/practice-ai-pack.service';
 import { PracticeContentService } from './practice-content.service';
 
 @ApiTags('practice-content')
@@ -30,7 +31,10 @@ import { PracticeContentService } from './practice-content.service';
 @Controller('admin/practice')
 @Roles(UserRole.ADMIN)
 export class PracticeContentController {
-  constructor(private practiceContent: PracticeContentService) {}
+  constructor(
+    private practiceContent: PracticeContentService,
+    private aiPack: PracticeAiPackService,
+  ) {}
 
   @Get('units')
   listUnits(
@@ -112,6 +116,21 @@ export class PracticeContentController {
   @Post('units/:id/publish')
   publishUnit(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.practiceContent.publishUnit(id, user.id);
+  }
+
+  @Get('units/:id/ai-pack/status')
+  getAiPackStatus(@Param('id') id: string) {
+    return this.aiPack.getPackStatus(id);
+  }
+
+  @Get('units/:id/ai-pack')
+  getAiPackPreview(@Param('id') id: string) {
+    return this.aiPack.getPackPreview(id);
+  }
+
+  @Post('units/:id/ai-pack/regenerate')
+  regenerateAiPack(@Param('id') id: string) {
+    return this.aiPack.regenerate(id);
   }
 
   @Post('units/:id/archive')

@@ -167,6 +167,51 @@ export function claimWelcomePromo(body: {
   });
 }
 
+export type StudentReferralStatus = {
+  code: string;
+  sharePath: string;
+  inviteCount: number;
+  requiredInvites: number;
+  rewardUnlocked: boolean;
+  rewardClaimed: boolean;
+  rewardSkill: "listening" | "reading" | null;
+  recentInvitees: { name: string; joinedAt: string }[];
+  pendingEmailInvites: { email: string; sentAt: string }[];
+};
+
+export function getStudentReferralStatus() {
+  return apiFetch<StudentReferralStatus>("/students/referral");
+}
+
+export function sendReferralInvite(body: {
+  email: string;
+  friendName?: string;
+}) {
+  return apiFetch<{
+    sent: boolean;
+    email: string;
+    signupUrl: string;
+    status: StudentReferralStatus;
+  }>("/students/referral/invite", {
+    method: "POST",
+    body,
+  });
+}
+
+export function claimReferralReward(body: {
+  skill: "listening" | "reading";
+  mockDate: string;
+}) {
+  return apiFetch<{
+    enrollmentCode: string;
+    sessionCode: string;
+    status: string;
+  }>("/students/referral/claim", {
+    method: "POST",
+    body,
+  });
+}
+
 export function getStudentProfile() {
   return apiFetch<StudentProfileResponse>("/students/profile");
 }

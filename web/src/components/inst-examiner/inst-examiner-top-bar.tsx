@@ -2,7 +2,6 @@
 
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { NotificationMenu } from "@/components/portal/notification-menu";
-import { SearchBar } from "@/components/portal/search-bar";
 import { UserMenu } from "@/components/portal/user-menu";
 import { InstExaminerBrandBar } from "@/components/inst-examiner/inst-examiner-brand-bar";
 import { useInstExaminer } from "@/contexts/inst-examiner-context";
@@ -23,11 +22,6 @@ export function InstExaminerTopBar() {
             <p className="text-[10px] text-muted">Centre Examiner</p>
           </div>
         </div>
-
-        <SearchBar
-          placeholder="Search students, tests, sessions…"
-          className="relative hidden min-w-0 flex-1 md:block md:max-w-xl"
-        />
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           {centerName && (

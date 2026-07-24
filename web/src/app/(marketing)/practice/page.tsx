@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Check, Minus } from "lucide-react";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
@@ -8,6 +9,7 @@ import { PracticeCtaButton } from "@/components/marketing/shared/practice-cta-bu
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { PRODUCT_CLAIMS, MARKETING_FAQS } from "@/lib/marketing/data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -59,6 +61,10 @@ function Cell({ value }: { value: boolean }) {
 const PRACTICE_FAQS = MARKETING_FAQS.filter((f) => f.category === "Practice");
 
 export default function PracticePage() {
+  if (!PRACTICE_MARKETING_VISIBLE) {
+    notFound();
+  }
+
   return (
     <>
       <PageHero

@@ -3,7 +3,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ExamSkill,
   NotificationType,
@@ -27,6 +29,15 @@ import {
 } from '../../common/student-leaderboard';
 import { teacherSpecialityWhere } from '../../common/teacher-speciality';
 import { AuditAction } from '../../common/audit/audit.actions';
+import { MailService } from '../../common/mail/mail.service';
+import {
+  buildReferralSignupPath,
+  buildReferralStatus,
+  ensureStudentReferralCode,
+  REFERRAL_EMAIL_DAILY_LIMIT,
+  REFERRAL_EMAIL_RESEND_COOLDOWN_MS,
+  REFERRAL_REQUIRED_INVITES,
+} from '../../common/referral';
 import {
   buildWelcomePromosForDashboard,
   isWelcomePromoEligibleForSkill,
@@ -37,7 +48,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { ClaimReferralRewardDto } from './dto/claim-referral-reward.dto';
 import { ClaimWelcomePromoDto } from './dto/claim-welcome-promo.dto';
+import { SendReferralInviteDto } from './dto/send-referral-invite.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { packageExamSkills } from '../content/package-skills';
@@ -71,6 +84,8 @@ export class StudentsService {
     private catalog: CatalogService,
     private enrollmentLifecycle: EnrollmentLifecycleService,
     private bookings: BookingsService,
+    private mail: MailService,
+    private config: ConfigService,
   ) {}
 
   async listCatalogPackages(user: RequestUser) {
@@ -128,6 +143,168 @@ export class StudentsService {
       mockDate: dto.mockDate,
       welcomePromo: true,
       auditAction: AuditAction.BOOKING_CREATE,
+    });
+  }
+
+  async getReferralStatus(user: RequestUser) {
+    this.requireStudent(user);
+    return buildReferralStatus(this.prisma, user.studentProfileId!);
+  }
+
+  async sendReferralInvite(user: RequestUser, dto: SendReferralInviteDto) {
+    this.requireStudent(user);
+
+    const inviter = await this.prisma.studentProfile.findUnique({
+      where: { id: user.studentProfileId },
+      include: { user: true },
+    });
+    if (!inviter) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    if (email === inviter.user.email.trim().toLowerCase()) {
+      throw new BadRequestException('You cannot invite your own email address');
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (existingUser) {
+      throw new BadRequestException(
+        'That email already has an iTestU account',
+      );
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sentLastDay = await this.prisma.studentReferralInvite.count({
+      where: {
+        inviterId: inviter.id,
+        sentAt: { gte: since },
+      },
+    });
+    if (sentLastDay >= REFERRAL_EMAIL_DAILY_LIMIT) {
+      throw new BadRequestException(
+        `You can send up to ${REFERRAL_EMAIL_DAILY_LIMIT} invite emails per day`,
+      );
+    }
+
+    const existingInvite = await this.prisma.studentReferralInvite.findUnique({
+      where: {
+        inviterId_email: {
+          inviterId: inviter.id,
+          email,
+        },
+      },
+    });
+    if (existingInvite?.acceptedAt) {
+      throw new BadRequestException(
+        'That friend already joined with your invite',
+      );
+    }
+    if (
+      existingInvite &&
+      Date.now() - existingInvite.sentAt.getTime() <
+        REFERRAL_EMAIL_RESEND_COOLDOWN_MS
+    ) {
+      throw new BadRequestException(
+        'You already invited this email recently — try again tomorrow',
+      );
+    }
+
+    const code = await ensureStudentReferralCode(this.prisma, inviter.id);
+    const appUrl = this.config
+      .get<string>('APP_URL', 'https://itestu.uz')
+      .replace(/\/$/, '');
+    const signupUrl = `${appUrl}${buildReferralSignupPath(code, email)}`;
+
+    const sent = await this.mail.sendStudentReferralInviteEmail(
+      email,
+      dto.friendName?.trim() || null,
+      inviter.user.name,
+      signupUrl,
+    );
+    if (!sent) {
+      throw new ServiceUnavailableException(
+        'Email delivery is temporarily unavailable. Copy your invite link instead.',
+      );
+    }
+
+    await this.prisma.studentReferralInvite.upsert({
+      where: {
+        inviterId_email: {
+          inviterId: inviter.id,
+          email,
+        },
+      },
+      create: {
+        inviterId: inviter.id,
+        email,
+        sentAt: new Date(),
+      },
+      update: {
+        sentAt: new Date(),
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: AuditAction.REFERRAL_INVITE_SEND,
+        entity: 'student_referral_invite',
+        entityId: inviter.id,
+        metadata: { email, signupUrl },
+      },
+    }).catch(() => undefined);
+
+    return {
+      sent: true,
+      email,
+      signupUrl,
+      status: await buildReferralStatus(this.prisma, inviter.id),
+    };
+  }
+
+  async claimReferralReward(user: RequestUser, dto: ClaimReferralRewardDto) {
+    this.requireStudent(user);
+
+    const profile = await this.prisma.studentProfile.findUnique({
+      where: { id: user.studentProfileId },
+      include: {
+        user: true,
+        _count: { select: { referrals: true } },
+      },
+    });
+    if (!profile) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    if (profile.referralRewardClaimedAt) {
+      throw new BadRequestException('Referral reward already claimed');
+    }
+    if (profile._count.referrals < REFERRAL_REQUIRED_INVITES) {
+      throw new BadRequestException(
+        `Invite ${REFERRAL_REQUIRED_INVITES} friends to unlock this reward`,
+      );
+    }
+
+    const pkg = await resolveWelcomePromoPackage(
+      this.prisma,
+      profile.examType,
+      dto.skill,
+    );
+    if (!pkg) {
+      throw new BadRequestException('Referral mock package is not available');
+    }
+
+    return this.bookings.provisionEnrollment({
+      studentProfileId: user.studentProfileId!,
+      actorUserId: user.id,
+      packageId: pkg.id,
+      mockDate: dto.mockDate,
+      referralReward: true,
+      auditAction: AuditAction.REFERRAL_REWARD_CLAIM,
     });
   }
 

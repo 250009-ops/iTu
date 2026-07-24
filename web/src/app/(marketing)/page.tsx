@@ -27,6 +27,7 @@ import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { MarketingDesktopAppSection } from "@/components/marketing/shared/desktop-app-section";
 import { PracticeOfferingSection } from "@/components/marketing/shared/practice-offering-section";
+import { StudentOffersSection } from "@/components/marketing/shared/student-offers-section";
 
 export const metadata: Metadata = {
   title: `${SITE.name} — Realistic IELTS Mock Exams with Real Examiners`,
@@ -109,6 +110,7 @@ export default async function HomePage() {
       <HomeHero stats={heroStats} />
       {centers.length > 0 ? <PartnerMarquee centers={centers} /> : null}
       <StatsBand stats={stats} />
+      <StudentOffersSection className="bg-white pt-0" />
 
       <Section>
         <Reveal>

@@ -2,7 +2,6 @@
 
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { NotificationMenu } from "@/components/portal/notification-menu";
-import { SearchBar } from "@/components/portal/search-bar";
 import { UserMenu } from "@/components/portal/user-menu";
 import { AdminBrandBar } from "@/components/admin/admin-brand-bar";
 
@@ -19,11 +18,6 @@ export function AdminTopBar() {
             <p className="text-[10px] text-amber-600">Admin Portal</p>
           </div>
         </div>
-
-        <SearchBar
-          placeholder="Search students, tests, sessions…"
-          className="relative hidden min-w-0 flex-1 md:block md:max-w-xl"
-        />
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <NotificationMenu />

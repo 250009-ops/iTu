@@ -16,6 +16,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { isUniqueConstraintError } from '../../common/id-allocation';
 import { StorageService } from '../../common/storage/storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PracticeAiPackService } from '../practice-ai/practice-ai-pack.service';
 import {
   assertPracticeUnitCode,
   assertWritingPromptCode,
@@ -53,6 +54,7 @@ export class PracticeContentService {
     private prisma: PrismaService,
     private audit: AuditService,
     private storage: StorageService,
+    private aiPack: PracticeAiPackService,
   ) {}
 
   async listUnits(filters?: {
@@ -306,6 +308,9 @@ export class PracticeContentService {
       entity: 'practice_unit',
       entityId: id,
     });
+
+    // Generate shared AI learning pack once for all students (async).
+    this.aiPack.enqueueGeneration(id);
 
     return published;
   }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
 import { ExamSessionsModule } from '../exam-sessions/exam-sessions.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { PracticeAiModule } from '../practice-ai/practice-ai.module';
 import { PracticeContentModule } from '../practice-content/practice-content.module';
 import { PracticeAccessService } from '../practice-commerce/practice-access.service';
 import { PracticeCommerceService } from '../practice-commerce/practice-commerce.service';
@@ -14,7 +15,12 @@ import {
 } from './practice.controller';
 
 @Module({
-  imports: [PracticeContentModule, ExamSessionsModule, PaymentsModule],
+  imports: [
+    PracticeContentModule,
+    PracticeAiModule,
+    ExamSessionsModule,
+    PaymentsModule,
+  ],
   controllers: [PracticeAdminCommerceController, PracticeStudentController],
   providers: [
     PracticeCommerceService,

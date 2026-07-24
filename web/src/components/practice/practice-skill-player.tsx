@@ -6,12 +6,20 @@ import { QuestionGroup as QuestionGroupView } from "@/components/exam/questions/
 import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
 import { useInstructionGate } from "@/hooks/use-instruction-gate";
 import { Button } from "@/components/ui/button";
+import {
+  GlossedPassage,
+  type GlossLanguage,
+} from "@/components/practice/glossed-passage";
+import type { PracticeGlossaryEntry } from "@/lib/api/practice";
 
 type Props = {
   skill: "reading" | "listening";
   content: ReadingContent | ListeningContent;
   answers: Record<string, string>;
   onAnswerChange: (questionNumber: number, value: string) => void;
+  glossary?: PracticeGlossaryEntry[];
+  glossLanguage?: GlossLanguage;
+  onGlossLanguageChange?: (lang: GlossLanguage) => void;
 };
 
 export function PracticeSkillPlayer({
@@ -19,6 +27,9 @@ export function PracticeSkillPlayer({
   content,
   answers,
   onAnswerChange,
+  glossary = [],
+  glossLanguage = "en",
+  onGlossLanguageChange,
 }: Props) {
   const [activePart, setActivePart] = useState(0);
   const [current, setCurrent] = useState<number | null>(null);
@@ -71,17 +82,13 @@ export function PracticeSkillPlayer({
       {!blocking && (
         <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-2">
           {skill === "reading" && partition && "paragraphs" in partition && (
-            <article className="rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed">
-              <h2 className="mb-3 font-semibold text-navy">{partition.title}</h2>
-              {partition.paragraphs.map((para, idx) => (
-                <p key={idx} className="mb-3">
-                  {para.marker && (
-                    <span className="mr-2 font-semibold">{para.marker}</span>
-                  )}
-                  <span dangerouslySetInnerHTML={{ __html: para.text }} />
-                </p>
-              ))}
-            </article>
+            <GlossedPassage
+              title={partition.title}
+              paragraphs={partition.paragraphs}
+              glossary={glossary}
+              language={glossLanguage}
+              onLanguageChange={onGlossLanguageChange}
+            />
           )}
 
           {skill === "listening" && partition && (

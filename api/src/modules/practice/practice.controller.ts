@@ -15,6 +15,9 @@ import { RequestUser } from '../../common/types/request-user';
 import { PracticeAccessService } from '../practice-commerce/practice-access.service';
 import { PracticeCommerceService } from '../practice-commerce/practice-commerce.service';
 import { PracticePackageContentService } from '../practice-commerce/practice-package-content.service';
+import { PracticeAiPackService } from '../practice-ai/practice-ai-pack.service';
+import { PracticeReviewService } from '../practice-ai/practice-review.service';
+import { PracticeTutorService } from '../practice-ai/practice-tutor.service';
 import { PracticeSessionsService } from '../practice-sessions/practice-sessions.service';
 import {
   WritingImprovementService,
@@ -141,6 +144,9 @@ export class PracticeStudentController {
     private writing: WritingImprovementService,
     private wallet: PracticeWalletService,
     private access: PracticeAccessService,
+    private review: PracticeReviewService,
+    private tutor: PracticeTutorService,
+    private aiPack: PracticeAiPackService,
   ) {}
 
   @Get('wallet')
@@ -191,10 +197,14 @@ export class PracticeStudentController {
 
   @Post('attempts')
   startAttempt(
-    @Body() body: { unitId: string },
+    @Body() body: { unitId: string; mode?: string },
     @CurrentUser() user: RequestUser,
   ) {
-    return this.sessions.startAttempt(user.studentProfileId!, body.unitId);
+    return this.sessions.startAttempt(
+      user.studentProfileId!,
+      body.unitId,
+      body.mode ?? 'practice',
+    );
   }
 
   @Get('attempts/:id')
@@ -218,6 +228,34 @@ export class PracticeStudentController {
   @Post('attempts/:id/submit')
   submitAttempt(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.sessions.submitAttempt(user.studentProfileId!, id);
+  }
+
+  @Get('attempts/:id/review')
+  getAttemptReview(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.review.getReview(user.studentProfileId!, id);
+  }
+
+  @Get('attempts/:id/tutor')
+  listTutorMessages(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tutor.listMessages(user.studentProfileId!, id);
+  }
+
+  @Post('attempts/:id/tutor')
+  askTutor(
+    @Param('id') id: string,
+    @Body()
+    body: { message?: string; chipId?: string; questionN?: number },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tutor.ask(user.studentProfileId!, id, body);
+  }
+
+  @Get('units/:id/ai-pack')
+  getUnitAiPack(@Param('id') id: string) {
+    return this.aiPack.getStudentInAttemptPack(id);
   }
 
   @Get('writing/prompts')

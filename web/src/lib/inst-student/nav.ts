@@ -1,3 +1,5 @@
+import { PRACTICE_STUDENT_VISIBLE } from "@/lib/practice/feature-flags";
+
 export type InstStudentNavIcon =
   | "layout-dashboard"
   | "monitor-play"
@@ -14,7 +16,7 @@ export type InstStudentNavItem = {
 
 export const INST_STUDENT_BASE = "/inst-student";
 
-export const instStudentNav: InstStudentNavItem[] = [
+const INST_STUDENT_NAV_ALL: InstStudentNavItem[] = [
   {
     label: "Dashboard",
     href: "/inst-student",
@@ -42,6 +44,11 @@ export const instStudentNav: InstStudentNavItem[] = [
     icon: "user",
   },
 ];
+
+export const instStudentNav: InstStudentNavItem[] = PRACTICE_STUDENT_VISIBLE
+  ? INST_STUDENT_NAV_ALL
+  : INST_STUDENT_NAV_ALL.filter((item) => item.href !== "/inst-student/practice");
+
 
 export function isInstStudentNavActive(
   pathname: string,

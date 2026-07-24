@@ -356,6 +356,41 @@ export function portalNotificationEmail(
   return { subject: title, text, html };
 }
 
+export function studentReferralInviteEmail(
+  inviteeName: string | null,
+  inviterName: string,
+  signupUrl: string,
+): { subject: string; text: string; html: string } {
+  const greeting = inviteeName?.trim() ? `Hi ${inviteeName.trim()},` : 'Hi,';
+  const subject = `${inviterName} invited you to iTestU`;
+  const text = [
+    greeting,
+    '',
+    `${inviterName} invited you to create a free iTestU student account.`,
+    'New students get free Listening and Reading mocks — sign up with this link so your friend gets credit for the invite:',
+    signupUrl,
+    '',
+    'If you did not expect this email, you can ignore it.',
+  ].join('\n');
+
+  const html = buildEmailHtml({
+    preheader: `${inviterName} invited you to join iTestU.`,
+    title: 'You are invited to iTestU',
+    bodyHtml: `
+      <p>${escapeHtml(greeting)}</p>
+      <p><strong>${escapeHtml(inviterName)}</strong> invited you to create a free <strong>iTestU</strong> student account.</p>
+      <p style="margin-top:12px;">New students get free Listening and Reading mocks. Use the button below to sign up — your friend earns credit when you create your account.</p>
+    `,
+    ctaLabel: 'Create your free account',
+    ctaUrl: signupUrl,
+    footerNote:
+      'If the button does not work, copy and paste this link into your browser: ' +
+      signupUrl,
+  });
+
+  return { subject, text, html };
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

@@ -1,3 +1,5 @@
+import { PRACTICE_STUDENT_VISIBLE } from "@/lib/practice/feature-flags";
+
 export type UserRole = "student" | "teacher" | "admin" | "institution";
 
 export interface AuthSession {
@@ -144,6 +146,9 @@ export function normalizeRole(role: string): UserRole {
 
 /** Practice shop path for the current student session (marketplace vs centre). */
 export function studentPracticeShopPath(session: AuthSession): string {
+  if (!PRACTICE_STUDENT_VISIBLE) {
+    return session.institutionLinked ? "/inst-student" : "/student";
+  }
   if (session.institutionLinked) return "/inst-student/practice/shop";
   return "/student/practice/shop";
 }

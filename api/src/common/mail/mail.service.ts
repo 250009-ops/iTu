@@ -7,6 +7,7 @@ import {
   contactInquiryEmail,
   emailVerificationEmail,
   passwordResetEmail,
+  studentReferralInviteEmail,
   teacherApplicationReceivedEmail,
   teacherApplicationRejectedEmail,
   teacherApprovedEmail,
@@ -285,6 +286,32 @@ export class MailService {
       return;
     }
     this.logger.log(`Institution rejection email sent to ${to}`);
+  }
+
+  /**
+   * Student-to-student referral invite. Returns false when SMTP is not configured
+   * so the API can surface a clear error instead of silently succeeding.
+   */
+  async sendStudentReferralInviteEmail(
+    to: string,
+    inviteeName: string | null,
+    inviterName: string,
+    signupUrl: string,
+  ): Promise<boolean> {
+    const { subject, text, html } = studentReferralInviteEmail(
+      inviteeName,
+      inviterName,
+      signupUrl,
+    );
+    const sent = await this.send({ to, subject, text, html });
+    if (!sent) {
+      this.logger.warn(
+        `SMTP not configured — student referral invite for ${to}: ${signupUrl}`,
+      );
+      return false;
+    }
+    this.logger.log(`Student referral invite sent to ${to}`);
+    return true;
   }
 
   async sendInstitutionStudentInviteEmail(

@@ -3,6 +3,7 @@ import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/pr
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { PracticeCtaButton } from "@/components/marketing/shared/practice-cta-button";
 import { PRODUCT_CLAIMS, PRACTICE_OFFERINGS } from "@/lib/marketing/data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
 const ICONS = {
@@ -19,6 +20,8 @@ type Props = {
 };
 
 export function PracticeOfferingSection({ className, showHeading = true }: Props) {
+  if (!PRACTICE_MARKETING_VISIBLE) return null;
+
   return (
     <Section className={cn("bg-white", className)}>
       {showHeading ? (

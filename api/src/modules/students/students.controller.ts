@@ -7,7 +7,9 @@ import { RequestUser } from '../../common/types/request-user';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { LeaderboardConsentDto } from './dto/leaderboard-consent.dto';
+import { ClaimReferralRewardDto } from './dto/claim-referral-reward.dto';
 import { ClaimWelcomePromoDto } from './dto/claim-welcome-promo.dto';
+import { SendReferralInviteDto } from './dto/send-referral-invite.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { StudentsService } from './students.service';
 
@@ -29,6 +31,27 @@ export class StudentsController {
     @Body() dto: ClaimWelcomePromoDto,
   ) {
     return this.students.claimWelcomePromo(user, dto);
+  }
+
+  @Get('referral')
+  getReferralStatus(@CurrentUser() user: RequestUser) {
+    return this.students.getReferralStatus(user);
+  }
+
+  @Post('referral/invite')
+  sendReferralInvite(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: SendReferralInviteDto,
+  ) {
+    return this.students.sendReferralInvite(user, dto);
+  }
+
+  @Post('referral/claim')
+  claimReferralReward(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: ClaimReferralRewardDto,
+  ) {
+    return this.students.claimReferralReward(user, dto);
   }
 
   @Get('catalog/packages')

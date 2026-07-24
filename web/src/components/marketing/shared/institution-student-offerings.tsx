@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, GraduationCap, Headphones, PenLine } from "lucide
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { INSTITUTION_COPY, PRACTICE_OFFERINGS } from "@/lib/marketing/data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
 const MOCK_FEATURES = [
@@ -19,12 +20,25 @@ export function InstitutionStudentOfferingsSection() {
         <SectionHeading
           align="center"
           eyebrow="For your students"
-          title={INSTITUTION_COPY.headline}
-          subtitle={INSTITUTION_COPY.subtitle}
+          title={
+            PRACTICE_MARKETING_VISIBLE
+              ? INSTITUTION_COPY.headline
+              : "Mocks on one platform for your students"
+          }
+          subtitle={
+            PRACTICE_MARKETING_VISIBLE
+              ? INSTITUTION_COPY.subtitle
+              : "Edu Centers purchase mock sets, schedule cohort mock days, and track every band from the centre dashboard."
+          }
         />
       </Reveal>
 
-      <Stagger className="mt-12 grid gap-6 lg:grid-cols-2">
+      <Stagger
+        className={cn(
+          "mt-12 grid gap-6",
+          PRACTICE_MARKETING_VISIBLE ? "lg:grid-cols-2" : "lg:grid-cols-1 lg:max-w-2xl lg:mx-auto",
+        )}
+      >
         <StaggerItem className="rounded-2xl border border-border bg-white p-8 shadow-sm">
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-navy text-white">
             <GraduationCap className="h-6 w-6" />
@@ -43,48 +57,52 @@ export function InstitutionStudentOfferingsSection() {
           </ul>
         </StaggerItem>
 
-        <StaggerItem className="rounded-2xl border border-border bg-white p-8 shadow-sm">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-violet-600 text-white">
-            <BookOpen className="h-6 w-6" />
-          </span>
-          <h3 className="mt-5 text-xl font-bold text-navy">Practice subscriptions</h3>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            {INSTITUTION_COPY.studentPractice}
-          </p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {PRACTICE_OFFERINGS.slice(0, 4).map((item) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "rounded-xl px-3 py-2.5 text-xs font-semibold",
-                  item.accent,
-                )}
-              >
-                {item.title}
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 flex items-center gap-2 text-xs text-muted">
-            <PenLine className="h-3.5 w-3.5 text-violet-600" /> AI Writing reviews included in
-            practice packages
-          </p>
-          <p className="mt-1 flex items-center gap-2 text-xs text-muted">
-            <Headphones className="h-3.5 w-3.5 text-sky-600" /> Auto-scored Listening &amp; Reading
-            drills
-          </p>
-        </StaggerItem>
+        {PRACTICE_MARKETING_VISIBLE ? (
+          <StaggerItem className="rounded-2xl border border-border bg-white p-8 shadow-sm">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-violet-600 text-white">
+              <BookOpen className="h-6 w-6" />
+            </span>
+            <h3 className="mt-5 text-xl font-bold text-navy">Practice subscriptions</h3>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              {INSTITUTION_COPY.studentPractice}
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {PRACTICE_OFFERINGS.slice(0, 4).map((item) => (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "rounded-xl px-3 py-2.5 text-xs font-semibold",
+                    item.accent,
+                  )}
+                >
+                  {item.title}
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 flex items-center gap-2 text-xs text-muted">
+              <PenLine className="h-3.5 w-3.5 text-violet-600" /> AI Writing reviews included in
+              practice packages
+            </p>
+            <p className="mt-1 flex items-center gap-2 text-xs text-muted">
+              <Headphones className="h-3.5 w-3.5 text-sky-600" /> Auto-scored Listening &amp; Reading
+              drills
+            </p>
+          </StaggerItem>
+        ) : null}
       </Stagger>
 
       <Reveal className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <CtaButton href="#partner" variant="primary" withArrow>
           Partner as an Edu Center
         </CtaButton>
-        <Link
-          href="/practice"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-navy underline-offset-4 hover:underline"
-        >
-          See how practice packages work <ArrowRight className="h-4 w-4" />
-        </Link>
+        {PRACTICE_MARKETING_VISIBLE ? (
+          <Link
+            href="/practice"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-navy underline-offset-4 hover:underline"
+          >
+            See how practice packages work <ArrowRight className="h-4 w-4" />
+          </Link>
+        ) : null}
       </Reveal>
     </Section>
   );

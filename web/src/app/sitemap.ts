@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/marketing/data";
 import { fetchCenters, fetchTeachers } from "@/lib/marketing/server-data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = SITE.domain;
@@ -8,7 +9,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticRoutes = [
     { path: "/", priority: 1, freq: "weekly" as const },
-    { path: "/practice", priority: 0.85, freq: "weekly" as const },
+    ...(PRACTICE_MARKETING_VISIBLE
+      ? [{ path: "/practice", priority: 0.85, freq: "weekly" as const }]
+      : []),
     { path: "/mock-exams", priority: 0.9, freq: "weekly" as const },
     { path: "/how-it-works", priority: 0.8, freq: "monthly" as const },
     { path: "/teachers", priority: 0.8, freq: "weekly" as const },

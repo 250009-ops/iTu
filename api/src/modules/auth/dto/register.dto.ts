@@ -5,7 +5,9 @@ import {
   IsIn,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 
@@ -30,4 +32,10 @@ export class RegisterDto {
 
   @IsBoolean()
   acceptTerms: boolean;
+
+  /** Optional student referral code from /register?ref=… */
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  referralCode?: string;
 }

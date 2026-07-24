@@ -55,6 +55,7 @@ export type RegisterPayload = {
   targetBand: number;
   examType: "academic" | "general_training";
   acceptTerms: boolean;
+  referralCode?: string;
 };
 
 export function login(email: string, password: string, totpCode?: string) {

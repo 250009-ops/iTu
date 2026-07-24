@@ -86,6 +86,8 @@ export interface ProvisionEnrollmentParams {
   complimentary?: boolean;
   /** When true: $0 welcome promo enrollment — separate from admin grants. */
   welcomePromo?: boolean;
+  /** When true: $0 referral reward enrollment (invite-2 bonus). */
+  referralReward?: boolean;
   /** Reappointment of a paid mock — no charge, not flagged adminGranted. */
   isReappointment?: boolean;
   /** When set: enrollment belongs to an institution (credit-funded, off-platform pay). */
@@ -209,8 +211,10 @@ export class BookingsService {
     const { studentProfileId, actorUserId, auditAction } = params;
     const complimentary = params.complimentary ?? false;
     const welcomePromo = params.welcomePromo ?? false;
+    const referralReward = params.referralReward ?? false;
     const institutionGranted = params.institutionGranted ?? false;
-    const zeroCharge = complimentary || institutionGranted || welcomePromo;
+    const zeroCharge =
+      complimentary || institutionGranted || welcomePromo || referralReward;
 
     const pkg = await this.prisma.mockTestPackage.findUnique({
       where: { id: params.packageId },
@@ -232,8 +236,13 @@ export class BookingsService {
     // enrollments must set the speaking time at enroll time.
     const flexibleStart = zeroCharge && !params.mockTime;
     const canDeferSpeakingSlot =
-      (complimentary || welcomePromo) && !institutionGranted;
-    if (complimentary && !params.reappointmentOfId && !welcomePromo) {
+      (complimentary || welcomePromo || referralReward) && !institutionGranted;
+    if (
+      complimentary &&
+      !params.reappointmentOfId &&
+      !welcomePromo &&
+      !referralReward
+    ) {
       await this.assertNoActiveAdminGrant(studentProfileId);
     }
     if (needsSpeaking && !params.speakingTeacherId) {
@@ -383,6 +392,7 @@ export class BookingsService {
           status: EnrollmentStatus.ENROLLED,
           adminGranted: complimentary,
           welcomePromoGranted: welcomePromo,
+          referralRewardGranted: referralReward,
           institutionId: params.institutionId ?? null,
           institutionGranted,
           reappointmentOfId: params.reappointmentOfId ?? null,
@@ -474,6 +484,27 @@ export class BookingsService {
         });
       }
 
+      if (referralReward) {
+        const skill: WelcomePromoSkill | null =
+          pkg.packageKind === 'reading'
+            ? 'reading'
+            : pkg.packageKind === 'listening'
+              ? 'listening'
+              : null;
+        if (!skill) {
+          throw new BadRequestException(
+            'Referral reward only supports listening or reading packages',
+          );
+        }
+        await tx.studentProfile.update({
+          where: { id: studentProfileId },
+          data: {
+            referralRewardClaimedAt: new Date(),
+            referralRewardSkill: skill,
+          },
+        });
+      }
+
       return { enrollment, order, session, slot, speakingSession };
     });
 
@@ -509,6 +540,11 @@ export class BookingsService {
           pkg.packageKind === 'reading' ? 'Reading' : 'Listening';
         title = 'Welcome gift claimed';
         body = `Your free ${skillLabel} mock is ready for ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
+      } else if (referralReward && flexibleStart) {
+        const skillLabel =
+          pkg.packageKind === 'reading' ? 'Reading' : 'Listening';
+        title = 'Referral reward claimed';
+        body = `Your free ${skillLabel} mock from inviting friends is ready for ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
       } else if (complimentary && flexibleStart) {
         title = 'Free mock granted';
         body = `An admin granted you a free mock on ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
@@ -569,6 +605,7 @@ export class BookingsService {
         packageId: params.packageId,
         complimentary,
         welcomePromo,
+        referralReward,
       },
     });
 
@@ -581,7 +618,9 @@ export class BookingsService {
       amount: result.order.amount,
       currency: result.order.currency,
       status:
-        welcomePromo || complimentary ? 'granted' : 'confirmed',
+        welcomePromo || complimentary || referralReward
+          ? 'granted'
+          : 'confirmed',
     };
   }
 

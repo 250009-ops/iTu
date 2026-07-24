@@ -10,6 +10,7 @@ import { PracticeCtaButton } from "@/components/marketing/shared/practice-cta-bu
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchHeroStats, fetchPackages } from "@/lib/marketing/server-data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 
 export const metadata: Metadata = {
   title: "Pricing — iTestU IELTS Mock Exam Plans",
@@ -35,6 +36,7 @@ const SLA = { academic: "Same day*", speaking: "Same day*", writing: "Same day*"
 
 const PRICING_FAQS: MarketingFaq[] = [
   { id: "which", category: "Booking", question: "Which package should I choose?", answer: "If you need a full band score for university or a visa, choose the Full Academic mock. If you only want to practise one skill before your real test, the Speaking Only or Writing Only packages are a cost-effective option. General Training is coming soon." },
+  { id: "welcome-free", category: "Booking", question: "Do new students get anything free?", answer: "Yes — new students can claim a free Listening mock and a free Reading mock within 30 days of signing up. Invite two friends who register with your link to unlock one more free Listening or Reading mock." },
   { id: "multiple", category: "Booking", question: "Can I take multiple mocks?", answer: "Yes — there is no limit. Every mock gives you fresh exam content and a new examiner selection. Your score history is tracked across all attempts so you can see your improvement over time." },
   { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: "We accept Uzcard, Humo, Visa, and Mastercard via our secure Uzum Checkout payment page. All transactions are encrypted." },
   { id: "discount", category: "Booking", question: "Is there a group or institutional discount?", answer: "Institution and Edu Center pricing is available on request. Email support@itestu.uz for a custom quote — student checkout does not include bulk discounts." },
@@ -72,26 +74,28 @@ export default async function PricingPage() {
         <PricingPlans packages={packages} />
       </Section>
 
-      <Section className="bg-slate-50 pt-0">
-        <Reveal>
-          <SectionHeading
-            align="center"
-            eyebrow="Also available"
-            title="Practice subscriptions"
-            subtitle="Flexible Reading, Listening, and AI Writing packages — separate from mock exam bookings. Buy credits in your student dashboard anytime."
-          />
-        </Reveal>
-        <Reveal className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:items-start">
-          <CtaButton href="/practice" variant="primary" withArrow>
-            View practice packages
-          </CtaButton>
-          <PracticeCtaButton
-            variant="secondary"
-            guestLabel="Create student account"
-            studentLabel="Open practice shop"
-          />
-        </Reveal>
-      </Section>
+      {PRACTICE_MARKETING_VISIBLE ? (
+        <Section className="bg-slate-50 pt-0">
+          <Reveal>
+            <SectionHeading
+              align="center"
+              eyebrow="Also available"
+              title="Practice subscriptions"
+              subtitle="Flexible Reading, Listening, and AI Writing packages — separate from mock exam bookings. Buy credits in your student dashboard anytime."
+            />
+          </Reveal>
+          <Reveal className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:items-start">
+            <CtaButton href="/practice" variant="primary" withArrow>
+              View practice packages
+            </CtaButton>
+            <PracticeCtaButton
+              variant="secondary"
+              guestLabel="Create student account"
+              studentLabel="Open practice shop"
+            />
+          </Reveal>
+        </Section>
+      ) : null}
 
       {/* Comparison */}
       <Section className="bg-white pt-0">

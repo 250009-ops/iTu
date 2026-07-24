@@ -4,6 +4,7 @@ import type { MockPackage } from "@/lib/marketing/data";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal } from "@/components/marketing/motion/reveal";
 import { PricingPlans } from "@/components/marketing/shared/pricing-plans";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 
 type Props = {
   packages: MockPackage[];
@@ -30,13 +31,15 @@ export function HomePricingTeaser({ packages }: Props) {
           Compare all plans
         </CtaButton>
       </Reveal>
-      <p className="mt-6 text-center text-sm text-muted">
-        Self-serve practice packages are sold inside your student account —{" "}
-        <Link href="/practice" className="font-medium text-navy hover:underline">
-          learn about practice
-          <ArrowRight className="ml-0.5 inline h-3.5 w-3.5" />
-        </Link>
-      </p>
+      {PRACTICE_MARKETING_VISIBLE ? (
+        <p className="mt-6 text-center text-sm text-muted">
+          Self-serve practice packages are sold inside your student account —{" "}
+          <Link href="/practice" className="font-medium text-navy hover:underline">
+            learn about practice
+            <ArrowRight className="ml-0.5 inline h-3.5 w-3.5" />
+          </Link>
+        </p>
+      ) : null}
     </Section>
   );
 }

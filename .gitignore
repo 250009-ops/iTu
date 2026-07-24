@@ -14,6 +14,8 @@ deploy/.env
 deploy/node_modules/
 deploy/secrets/*
 !deploy/secrets/README.md
+deploy/tmp-*.json
+deploy/tmp-*.mjs
 
 # Build output
 api/dist/

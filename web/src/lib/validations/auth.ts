@@ -25,6 +25,7 @@ export const registerSchema = z
       .regex(/[0-9]/, "Include at least one number"),
     targetBand: z.string().min(1, "Select your target band score"),
     examType: z.enum(["academic", "general_training"]),
+    referralCode: z.string().max(32).optional(),
     acceptTerms: z.boolean().refine((val) => val === true, {
       message: "You must accept the terms to continue",
     }),

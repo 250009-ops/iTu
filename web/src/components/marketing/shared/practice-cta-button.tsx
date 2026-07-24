@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { resolvePracticeCta } from "@/lib/marketing/practice-cta";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 import { CtaButton } from "@/components/marketing/ui/primitives";
 
@@ -44,6 +45,8 @@ export function PracticeCtaButton({
 }: Props) {
   const { session, isAuthenticated, isHydrated } = useAuth();
   const [hint, setHint] = useState<string | null>(null);
+
+  if (!PRACTICE_MARKETING_VISIBLE) return null;
 
   if (!isHydrated) {
     return (

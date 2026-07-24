@@ -3,7 +3,6 @@
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { NotificationMenu } from "@/components/portal/notification-menu";
 import { PortalHeaderDownloadButton } from "@/components/portal/portal-header-download-button";
-import { SearchBar } from "@/components/portal/search-bar";
 import { UserMenu } from "@/components/portal/user-menu";
 import { StudentBrandBar } from "@/components/student/student-brand-bar";
 
@@ -20,11 +19,6 @@ export function StudentTopBar() {
             <p className="text-[10px] text-muted">Student Portal</p>
           </div>
         </div>
-
-        <SearchBar
-          placeholder="Search mocks, tests, sessions…"
-          className="relative hidden min-w-0 flex-1 md:block md:max-w-xl"
-        />
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <PortalHeaderDownloadButton />

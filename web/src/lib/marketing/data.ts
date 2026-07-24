@@ -3,6 +3,7 @@
 // Grade, StudentProfile) so design and data stay 1:1.
 
 import { formatPrice } from "@/lib/format-price";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 
 export type SkillId = "listening" | "reading" | "writing" | "speaking";
 export type AccentColor = "sky" | "emerald" | "violet" | "rose";
@@ -49,6 +50,10 @@ export const PRODUCT_CLAIMS = {
     "Self-paced practice packages for Reading passages, Listening sections, question-type drills, and AI Writing essay reviews — buy credits anytime from your student account. No examiner booking required.",
   practiceVsMock:
     "Mocks are full exam-day simulations with human-graded Writing and Speaking. Practice packages are flexible drills you complete on your own schedule — ideal between mocks.",
+  welcomeFreeRl:
+    "New students get a free Listening mock and a free Reading mock within 30 days of signing up — real computer-delivered format with auto-scored bands.",
+  referralBonus:
+    "Invite two friends by email from your dashboard. They open the signup link, create a student account as usual, and you unlock one free Listening or Reading mock.",
 } as const;
 
 /** Brand + product terms for meta keywords across marketing pages. */
@@ -68,16 +73,21 @@ export const SITE_KEYWORDS = [
   "computer-delivered IELTS practice",
 ] as const;
 
-export const NAV_LINKS = [
+const NAV_LINKS_ALL = [
   { label: "Mock Exams", href: "/mock-exams" },
   { label: "Practice", href: "/practice" },
   { label: "How It Works", href: "/how-it-works" },
   { label: "Teachers", href: "/teachers" },
+  { label: "Edu Centers", href: "/centers" },
   { label: "Pricing", href: "/pricing" },
   { label: "Results", href: "/results" },
 ] as const;
 
-export const FOOTER_COLUMNS = [
+export const NAV_LINKS = PRACTICE_MARKETING_VISIBLE
+  ? NAV_LINKS_ALL
+  : NAV_LINKS_ALL.filter((link) => link.href !== "/practice");
+
+const FOOTER_COLUMNS_ALL = [
   {
     title: "Product",
     links: [
@@ -114,6 +124,17 @@ export const FOOTER_COLUMNS = [
     ],
   },
 ] as const;
+
+export const FOOTER_COLUMNS = PRACTICE_MARKETING_VISIBLE
+  ? FOOTER_COLUMNS_ALL
+  : FOOTER_COLUMNS_ALL.map((col) =>
+      col.title === "Product"
+        ? {
+            ...col,
+            links: col.links.filter((link) => link.href !== "/practice"),
+          }
+        : col,
+    );
 
 export const SKILL_META: Record<
   SkillId,
@@ -379,9 +400,11 @@ export interface MarketingFaq {
   answer: string;
 }
 
-export const MARKETING_FAQS: MarketingFaq[] = [
+const MARKETING_FAQS_ALL: MarketingFaq[] = [
   { id: "practice", category: "Practice", question: "What is the difference between a mock exam and practice packages?", answer: PRODUCT_CLAIMS.practiceVsMock },
   { id: "practice-buy", category: "Practice", question: "How do I buy practice packages?", answer: "Create a free student account, open Practice in your dashboard, and choose a package in the shop. Credits are added to your wallet after checkout — use them whenever you want on Reading, Listening, or AI Writing drills." },
+  { id: "welcome-free", category: "Booking", question: "Do new students get a free mock?", answer: PRODUCT_CLAIMS.welcomeFreeRl },
+  { id: "referral", category: "Booking", question: "Is there a referral bonus?", answer: PRODUCT_CLAIMS.referralBonus },
   { id: "pause", category: "The Exam", question: "Can I pause or rewind during the test?", answer: "No. The exam is server-authoritative — audio plays once, timers run continuously, and there is no pause or rewind. This mirrors the computer-delivered IELTS format used on test day." },
   { id: "results", category: "Results", question: "When do I get my results?", answer: PRODUCT_CLAIMS.resultsTiming },
   { id: "examiner", category: "Examiners", question: "Can I choose my examiner?", answer: PRODUCT_CLAIMS.examinerChoice },
@@ -395,6 +418,10 @@ export const MARKETING_FAQS: MarketingFaq[] = [
   { id: "drop", category: "Technical", question: "What happens if my internet drops during the exam?", answer: "Your section timer pauses automatically and your answers stay saved on our servers. Reconnect on any device and wait for an administrator to resume your session from the live monitor. Prolonged disconnection without resume may invalidate the session." },
   { id: "notes", category: "Results", question: "Can I see the examiner's notes after the exam?", answer: "Yes. Your Writing and Speaking examiner provides structured criteria-level written notes alongside your scores — this is the most valuable part of the report." },
 ];
+
+export const MARKETING_FAQS: MarketingFaq[] = PRACTICE_MARKETING_VISIBLE
+  ? MARKETING_FAQS_ALL
+  : MARKETING_FAQS_ALL.filter((f) => f.category !== "Practice");
 
 export const INSTITUTION_COPY = {
   headline: "Mocks and practice — one platform for your students",

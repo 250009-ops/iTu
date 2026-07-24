@@ -22,6 +22,7 @@ import {
   getWritingSessions,
   startPracticeAttempt,
   type PracticeAllowance,
+  type PracticeAttemptMode,
   type PracticeAttemptSummary,
   type PracticeLibraryUnit,
   type PracticeWallet,
@@ -65,6 +66,7 @@ export function PracticeHubView({ basePath }: Props) {
   );
   const [startingId, setStartingId] = useState<string | null>(null);
   const [startingPromptId, setStartingPromptId] = useState<string | null>(null);
+  const [modeUnit, setModeUnit] = useState<PracticeLibraryUnit | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -102,15 +104,25 @@ export function PracticeHubView({ basePath }: Props) {
   async function handleStartUnit(unit: PracticeLibraryUnit) {
     if (allowance && !hasCreditsForUnit(allowance, unit)) {
       toast("No attempts remaining", {
-        description: "Purchase a practice package to unlock more.",
+        description: "Purchase a package to unlock more.",
         variant: "warning",
       });
       return;
     }
 
+    if (unit.skill === "reading") {
+      setModeUnit(unit);
+      return;
+    }
+
+    await beginUnit(unit, "practice");
+  }
+
+  async function beginUnit(unit: PracticeLibraryUnit, mode: PracticeAttemptMode) {
     setStartingId(unit.id);
+    setModeUnit(null);
     try {
-      const result = await startPracticeAttempt(unit.id);
+      const result = await startPracticeAttempt(unit.id, mode);
       window.location.href = `${basePath}/attempt/${result.attempt.id}`;
     } catch (err) {
       toast("Could not start practice", {
@@ -258,6 +270,43 @@ export function PracticeHubView({ basePath }: Props) {
 
         <RecentAttemptsSection attempts={attempts} basePath={basePath} />
       </div>
+
+      {modeUnit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-navy">Choose Reading mode</h2>
+            <p className="mt-1 text-sm text-muted">{modeUnit.title}</p>
+            <div className="mt-4 grid gap-2">
+              {(
+                [
+                  ["practice", "Practice", "Timed questions with AI review after submit"],
+                  ["skim", "Skim trainer", "Main-idea checks unlock questions"],
+                  ["scan", "Scan trainer", "Timed find-the-detail races"],
+                  ["guided", "Guided coach", "Step-by-step strategy hand-holding"],
+                ] as const
+              ).map(([mode, label, desc]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  disabled={startingId === modeUnit.id}
+                  onClick={() => void beginUnit(modeUnit, mode)}
+                  className="rounded-xl border border-slate-200 px-4 py-3 text-left hover:border-navy hover:bg-slate-50"
+                >
+                  <p className="font-semibold text-navy">{label}</p>
+                  <p className="text-xs text-muted">{desc}</p>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="mt-4 text-sm text-muted hover:text-navy"
+              onClick={() => setModeUnit(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </ApiDataShell>
   );
 }

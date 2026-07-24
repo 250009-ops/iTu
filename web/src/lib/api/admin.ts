@@ -1101,6 +1101,25 @@ export function publishPracticeUnit(id: string) {
   return apiFetch(`/admin/practice/units/${id}/publish`, { method: "POST" });
 }
 
+export function getPracticeUnitAiPackStatus(id: string) {
+  return apiFetch<{
+    unitId: string;
+    status: string;
+    version: number;
+    sectionStatus: Record<string, string>;
+    generatedAt: string | null;
+    errorMessage: string | null;
+    hasInsights?: boolean;
+    hasGlossary?: boolean;
+  }>(`/admin/practice/units/${id}/ai-pack/status`);
+}
+
+export function regeneratePracticeUnitAiPack(id: string) {
+  return apiFetch(`/admin/practice/units/${id}/ai-pack/regenerate`, {
+    method: "POST",
+  });
+}
+
 export function archivePracticeUnit(id: string) {
   return apiFetch(`/admin/practice/units/${id}/archive`, { method: "POST" });
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Mail, User } from "lucide-react";
@@ -22,15 +23,48 @@ import {
 } from "@/lib/validations/auth";
 import { cn } from "@/lib/utils";
 
+const REFERRAL_STORAGE_KEY = "itestu_referral_ref";
+
+function normalizeRef(raw: string | null | undefined): string {
+  return (raw ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 export default function RegisterForm() {
+  const searchParams = useSearchParams();
+  const refFromUrl = normalizeRef(searchParams.get("ref"));
+  const emailFromUrl = (searchParams.get("email") ?? "").trim().toLowerCase();
+  const [storedRef, setStoredRef] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<{ email: string } | null>(null);
+
+  useEffect(() => {
+    if (refFromUrl) {
+      try {
+        sessionStorage.setItem(REFERRAL_STORAGE_KEY, refFromUrl);
+      } catch {
+        // ignore storage failures
+      }
+      setStoredRef(refFromUrl);
+      return;
+    }
+    try {
+      setStoredRef(normalizeRef(sessionStorage.getItem(REFERRAL_STORAGE_KEY)));
+    } catch {
+      setStoredRef("");
+    }
+  }, [refFromUrl]);
+
+  const initialReferralCode = useMemo(
+    () => refFromUrl || storedRef || undefined,
+    [refFromUrl, storedRef],
+  );
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -38,15 +72,32 @@ export default function RegisterForm() {
       examType: "academic",
       targetBand: "7.0",
       acceptTerms: false,
+      email: emailFromUrl || undefined,
+      referralCode: initialReferralCode,
     },
   });
 
+  useEffect(() => {
+    if (initialReferralCode) {
+      setValue("referralCode", initialReferralCode);
+    }
+  }, [initialReferralCode, setValue]);
+
+  useEffect(() => {
+    if (emailFromUrl) {
+      setValue("email", emailFromUrl);
+    }
+  }, [emailFromUrl, setValue]);
+
   const examType = watch("examType");
+  const referralCode = watch("referralCode");
+  const appliedReferral = normalizeRef(referralCode) || refFromUrl || storedRef;
 
   async function onSubmit(data: RegisterFormValues) {
     setLoading(true);
     setError(null);
     try {
+      const code = normalizeRef(data.referralCode) || appliedReferral;
       const response = await apiRegister({
         fullName: data.fullName,
         email: data.email,
@@ -54,7 +105,13 @@ export default function RegisterForm() {
         targetBand: parseFloat(data.targetBand),
         examType: data.examType,
         acceptTerms: data.acceptTerms,
+        ...(code ? { referralCode: code } : {}),
       });
+      try {
+        sessionStorage.removeItem(REFERRAL_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
       setSubmitted({ email: response.email });
     } catch (err) {
       setError(getErrorMessage(err, "Registration failed. Please try again."));
@@ -123,6 +180,12 @@ export default function RegisterForm() {
           Student registration
         </h1>
         <p className="text-muted">Create your account to book and take IELTS mocks</p>
+        {appliedReferral ? (
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+            You were invited by a friend. Sign up as usual — referral code{" "}
+            <strong>{appliedReferral}</strong> is applied automatically.
+          </p>
+        ) : null}
       </div>
 
       {error && (
@@ -171,6 +234,19 @@ export default function RegisterForm() {
             autoComplete="new-password"
             placeholder="Password (min 8 chars)"
             error={!!errors.password}
+          />
+        </FormField>
+
+        <FormField
+          label="Referral code (optional)"
+          error={errors.referralCode?.message}
+          hint="From a friend who invited you — unlocks their invite bonus"
+        >
+          <Input
+            {...register("referralCode")}
+            placeholder="e.g. A1B2C3D4"
+            autoComplete="off"
+            error={!!errors.referralCode}
           />
         </FormField>
 

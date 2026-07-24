@@ -2,6 +2,7 @@
 
 import { WelcomeSection } from "@/components/student/dashboard/welcome-section";
 import { WelcomePromoSection } from "@/components/student/dashboard/welcome-promo-section";
+import { ReferralSection } from "@/components/student/dashboard/referral-section";
 import { ResultsBanner } from "@/components/student/dashboard/results-banner";
 import { MissedMockBanner } from "@/components/student/dashboard/missed-mock-banner";
 import { StatCards } from "@/components/student/dashboard/stat-cards";
@@ -61,6 +62,7 @@ function DashboardContent() {
       <div className="mx-auto max-w-7xl space-y-6">
         <WelcomeSection />
         <WelcomePromoSection />
+        <ReferralSection />
         <ResultsBanner />
         <MissedMockBanner />
         <StatCards />

@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import { Glow, Pill, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal } from "@/components/marketing/motion/reveal";
 import { PracticeCtaButton } from "@/components/marketing/shared/practice-cta-button";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 
 export function FinalCta({
   eyebrow = "Ready to test yourself?",
@@ -45,7 +46,7 @@ export function FinalCta({
             <CtaButton href={primaryHref} variant="primary" size="lg" withArrow>
               {primaryLabel}
             </CtaButton>
-            {secondaryPractice ? (
+            {secondaryPractice && PRACTICE_MARKETING_VISIBLE ? (
               <PracticeCtaButton
                 variant="ghost"
                 size="lg"

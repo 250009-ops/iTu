@@ -1,3 +1,5 @@
+import { PRACTICE_STUDENT_VISIBLE } from "@/lib/practice/feature-flags";
+
 export type StudentPortal = "marketplace" | "institution";
 
 export function studentDashboardHref(portal: StudentPortal): string {
@@ -9,5 +11,8 @@ export function studentMockDayHref(portal: StudentPortal): string {
 }
 
 export function studentPracticeHref(portal: StudentPortal): string {
+  if (!PRACTICE_STUDENT_VISIBLE) {
+    return studentDashboardHref(portal);
+  }
   return portal === "institution" ? "/inst-student/practice" : "/student/practice";
 }

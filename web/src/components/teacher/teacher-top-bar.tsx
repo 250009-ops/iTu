@@ -2,7 +2,6 @@
 
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { NotificationMenu } from "@/components/portal/notification-menu";
-import { SearchBar } from "@/components/portal/search-bar";
 import { UserMenu } from "@/components/portal/user-menu";
 import { TeacherBrandBar } from "@/components/teacher/teacher-brand-bar";
 
@@ -19,11 +18,6 @@ export function TeacherTopBar() {
             <p className="text-[10px] text-emerald-600">Teacher Portal</p>
           </div>
         </div>
-
-        <SearchBar
-          placeholder="Search students, tests, sessions…"
-          className="relative hidden min-w-0 flex-1 md:block md:max-w-xl"
-        />
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <NotificationMenu />

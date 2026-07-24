@@ -2,7 +2,6 @@
 
 import { BrandMarkIcon } from "@/components/brand/brand-mark";
 import { NotificationMenu } from "@/components/portal/notification-menu";
-import { SearchBar } from "@/components/portal/search-bar";
 import { UserMenu } from "@/components/portal/user-menu";
 import { InstStudentBrandBar } from "@/components/inst-student/inst-student-brand-bar";
 import { useInstStudent } from "@/contexts/inst-student-context";
@@ -23,11 +22,6 @@ export function InstStudentTopBar() {
             <p className="text-[10px] text-muted">Centre Student</p>
           </div>
         </div>
-
-        <SearchBar
-          placeholder="Search mocks, results…"
-          className="relative hidden min-w-0 flex-1 md:block md:max-w-xl"
-        />
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           {centerName && (

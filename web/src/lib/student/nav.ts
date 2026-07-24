@@ -1,3 +1,4 @@
+import { PRACTICE_STUDENT_VISIBLE } from "@/lib/practice/feature-flags";
 import {
   STUDENT_VIEW_PATHS,
   type StudentView,
@@ -10,7 +11,7 @@ export type NavItem = {
   badge?: number;
 };
 
-export const studentNav: NavItem[] = [
+const STUDENT_NAV_ALL: NavItem[] = [
   {
     label: "Dashboard",
     href: STUDENT_VIEW_PATHS.dashboard,
@@ -42,6 +43,11 @@ export const studentNav: NavItem[] = [
     icon: "user",
   },
 ];
+
+export const studentNav: NavItem[] = PRACTICE_STUDENT_VISIBLE
+  ? STUDENT_NAV_ALL
+  : STUDENT_NAV_ALL.filter((item) => item.href !== "/student/practice");
+
 
 export function navItemToView(href: string): StudentView | null {
   const entry = Object.entries(STUDENT_VIEW_PATHS).find(([, path]) => path === href);

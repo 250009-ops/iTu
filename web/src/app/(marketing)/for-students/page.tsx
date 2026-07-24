@@ -6,7 +6,9 @@ import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reve
 import { TestimonialCard } from "@/components/marketing/shared/testimonial-card";
 import { StatsBand } from "@/components/marketing/shared/stats-band";
 import { PracticeOfferingSection } from "@/components/marketing/shared/practice-offering-section";
+import { StudentOffersSection } from "@/components/marketing/shared/student-offers-section";
 import { fetchStats, fetchTestimonials } from "@/lib/marketing/server-data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -58,10 +60,17 @@ export default async function ForStudentsPage() {
         <CtaButton href="/mock-exams" variant="primary" size="lg" withArrow className="mt-4">
           Book a Full Mock
         </CtaButton>
-        <CtaButton href="/practice" variant="secondary" size="lg" className="mt-3 sm:ml-3 sm:mt-4">
-          Explore practice packages
+        <CtaButton href="/register/student" variant="secondary" size="lg" className="mt-3 sm:ml-3 sm:mt-4">
+          Claim free Reading & Listening
         </CtaButton>
+        {PRACTICE_MARKETING_VISIBLE ? (
+          <CtaButton href="/practice" variant="secondary" size="lg" className="mt-3 sm:ml-3 sm:mt-4">
+            Explore practice packages
+          </CtaButton>
+        ) : null}
       </PageHero>
+
+      <StudentOffersSection className="pt-16" />
 
       <Section className="pt-16">
         <Reveal>

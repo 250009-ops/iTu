@@ -78,6 +78,19 @@ enum WritingPracticeSessionStatus {
   FAILED
 }
 
+enum PracticeAiPackStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
+enum PracticeGlossLanguage {
+  EN
+  UZ
+  RU
+}
+
 enum CreditTxnType {
   PURCHASE
   CONSUME
@@ -294,11 +307,23 @@ model StudentProfile {
   institutionStatus    InstitutionMemberStatus? @map("institution_status")
   welcomeListeningClaimedAt DateTime?           @map("welcome_listening_claimed_at")
   welcomeReadingClaimedAt   DateTime?           @map("welcome_reading_claimed_at")
+  /// Unique share code for student-to-student invites (e.g. /register/student?ref=CODE).
+  referralCode              String?             @unique @map("referral_code")
+  /// StudentProfile id of the inviter when this account signed up with a referral code.
+  referredById              String?             @map("referred_by_id")
+  referralRewardClaimedAt   DateTime?           @map("referral_reward_claimed_at")
+  /// listening | reading — set when the 2-invite reward is claimed.
+  referralRewardSkill       String?             @map("referral_reward_skill")
+  glossLanguage        PracticeGlossLanguage    @default(EN) @map("gloss_language")
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   institution Institution? @relation(fields: [institutionId], references: [id])
+  referredBy            StudentProfile?  @relation("StudentReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals             StudentProfile[] @relation("StudentReferrals")
+  referralInvitesSent   StudentReferralInvite[] @relation("ReferralInvitesSent")
+  referralInviteAccepted StudentReferralInvite? @relation("ReferralInviteAccepted")
   enrollments           Enrollment[]
   orders                Order[]
   reviews               Review[]
@@ -310,7 +335,25 @@ model StudentProfile {
   practicePromptAccess  StudentPracticePromptAccess[]
 
   @@index([institutionId])
+  @@index([referredById])
   @@map("student_profiles")
+}
+
+/// Email invite a student sent so a friend can sign up via a tracked link.
+model StudentReferralInvite {
+  id          String    @id @default(cuid())
+  inviterId   String    @map("inviter_id")
+  email       String
+  sentAt      DateTime  @default(now()) @map("sent_at")
+  acceptedAt  DateTime? @map("accepted_at")
+  inviteeId   String?   @unique @map("invitee_id")
+
+  inviter StudentProfile  @relation("ReferralInvitesSent", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee StudentProfile? @relation("ReferralInviteAccepted", fields: [inviteeId], references: [id], onDelete: SetNull)
+
+  @@unique([inviterId, email])
+  @@index([email])
+  @@map("student_referral_invites")
 }
 
 model TeacherProfile {
@@ -522,6 +565,7 @@ model Enrollment {
   speakingSlotId     String?          @map("speaking_slot_id")
   adminGranted       Boolean          @default(false) @map("admin_granted")
   welcomePromoGranted Boolean         @default(false) @map("welcome_promo_granted")
+  referralRewardGranted Boolean       @default(false) @map("referral_reward_granted")
   institutionId      String?          @map("institution_id")
   institutionGranted Boolean          @default(false) @map("institution_granted")
   createdAt          DateTime         @default(now()) @map("created_at")
@@ -627,10 +671,36 @@ model PracticeUnit {
   attempts          PracticeAttempt[]
   packageLinks      PracticePackageUnit[]
   studentAccess     StudentPracticeUnitAccess[]
+  aiPack            PracticeUnitAiPack?
 
   @@index([type, status])
   @@index([skill, questionType])
   @@map("practice_units")
+}
+
+/// Publish-time AI learning pack for a practice unit (shared by all students).
+model PracticeUnitAiPack {
+  id                   String              @id @default(cuid())
+  unitId               String              @unique @map("unit_id")
+  status               PracticeAiPackStatus @default(PENDING)
+  version              Int                 @default(1)
+  model                String?
+  generatedAt          DateTime?           @map("generated_at")
+  errorMessage         String?             @map("error_message")
+  /// Section statuses: insights|glossary|vocab|drills|skimScan|playbook → ready|degraded|failed|pending
+  sectionStatus        Json                @default("{}") @map("section_status")
+  questionInsights     Json?               @map("question_insights")
+  glossary             Json?
+  vocabPack            Json?               @map("vocab_pack")
+  paraphraseDrills     Json?               @map("paraphrase_drills")
+  skimScanTasks        Json?               @map("skim_scan_tasks")
+  strategyPlaybook     Json?               @map("strategy_playbook")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  unit PracticeUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@map("practice_unit_ai_packs")
 }
 
 model WritingPracticePrompt {
@@ -777,6 +847,8 @@ model PracticeAttempt {
   attemptCode String                @unique @map("attempt_code")
   studentId   String                @map("student_id")
   unitId      String                @map("unit_id")
+  /// practice | skim | scan | guided
+  mode        String                @default("practice")
   status      PracticeAttemptStatus @default(IN_PROGRESS)
   answers     Json                  @default("{}")
   score       Json?
@@ -785,11 +857,27 @@ model PracticeAttempt {
   createdAt   DateTime              @default(now()) @map("created_at")
   updatedAt   DateTime              @updatedAt @map("updated_at")
 
-  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  unit    PracticeUnit   @relation(fields: [unitId], references: [id])
+  student       StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  unit          PracticeUnit           @relation(fields: [unitId], references: [id])
+  tutorMessages PracticeTutorMessage[]
 
   @@index([studentId])
   @@map("practice_attempts")
+}
+
+model PracticeTutorMessage {
+  id           String   @id @default(cuid())
+  attemptId    String   @map("attempt_id")
+  role         String
+  content      String
+  sourceChipId String?  @map("source_chip_id")
+  questionN    Int?     @map("question_n")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  attempt PracticeAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@map("practice_tutor_messages")
 }
 
 model WritingPracticeSession {

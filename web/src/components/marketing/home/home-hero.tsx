@@ -6,6 +6,7 @@ import { Check, Clock, Play, ArrowRight } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { COPY, fullMockCtaLabel } from "@/lib/marketing/data";
 import type { HeroStats } from "@/lib/marketing/server-data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { Glow } from "@/components/marketing/ui/primitives";
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
 import { EASE } from "@/components/marketing/motion/reveal";
@@ -68,8 +69,17 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
           </motion.h1>
 
           <motion.p variants={item} className="mt-6 max-w-md text-lg leading-relaxed text-slate-300">
-            Full 4-skill mocks with certified examiners — plus Reading, Listening, and AI Writing
-            practice packages you can buy anytime.
+            {PRACTICE_MARKETING_VISIBLE
+              ? "Full 4-skill mocks with certified examiners — plus Reading, Listening, and AI Writing practice packages you can buy anytime."
+              : "Full 4-skill mocks with certified examiners — realistic computer-delivered conditions and real band feedback."}
+          </motion.p>
+
+          <motion.p
+            variants={item}
+            className="mt-4 inline-flex max-w-md items-start gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-2.5 text-sm leading-snug text-emerald-100"
+          >
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+            New students: free Listening + Reading mocks. Invite 2 friends for another free skill mock.
           </motion.p>
 
           <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -81,17 +91,26 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
-              href="/practice"
+              href="/register/student"
               className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-7 py-3.5 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
             >
-              Practice packages
+              Claim free mocks
             </Link>
-            <Link
-              href="/how-it-works"
-              className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-white/10 px-7 py-3.5 text-base font-semibold text-slate-200 transition-colors hover:text-white"
-            >
-              <Play className="h-4 w-4" /> How mocks work
-            </Link>
+            {PRACTICE_MARKETING_VISIBLE ? (
+              <Link
+                href="/practice"
+                className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-white/10 px-7 py-3.5 text-base font-semibold text-slate-200 transition-colors hover:text-white"
+              >
+                Practice packages
+              </Link>
+            ) : (
+              <Link
+                href="/how-it-works"
+                className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-white/10 px-7 py-3.5 text-base font-semibold text-slate-200 transition-colors hover:text-white"
+              >
+                <Play className="h-4 w-4" /> How mocks work
+              </Link>
+            )}
           </motion.div>
 
           {trustLine ? (
@@ -100,7 +119,9 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
             </motion.p>
           ) : (
             <motion.p variants={item} className="mt-8 text-sm text-slate-400">
-              Mocks with certified examiners · Practice subscriptions between test days
+              {PRACTICE_MARKETING_VISIBLE
+                ? "Mocks with certified examiners · Practice subscriptions between test days"
+                : "Free Reading & Listening for new students · Results when all skills are graded"}
             </motion.p>
           )}
         </motion.div>

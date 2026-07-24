@@ -97,7 +97,11 @@ export class PracticeSessionsService {
     }));
   }
 
-  async startAttempt(studentId: string, unitId: string) {
+  async startAttempt(
+    studentId: string,
+    unitId: string,
+    mode: string = 'practice',
+  ) {
     const unit = await this.prisma.practiceUnit.findUnique({
       where: { id: unitId },
       include: { mediaAssets: true },
@@ -105,6 +109,9 @@ export class PracticeSessionsService {
     if (!unit || unit.status !== ContentTestStatus.PUBLISHED) {
       throw new NotFoundException('Practice unit not available');
     }
+
+    const allowedModes = new Set(['practice', 'skim', 'scan', 'guided']);
+    const attemptMode = allowedModes.has(mode) ? mode : 'practice';
 
     const creditType = unitTypeToCreditType(unit.type);
     const attemptCode = await this.generateCode('PRA');
@@ -121,6 +128,7 @@ export class PracticeSessionsService {
           attemptCode,
           studentId,
           unitId,
+          mode: attemptMode,
           status: PracticeAttemptStatus.IN_PROGRESS,
         },
       });
@@ -136,13 +144,14 @@ export class PracticeSessionsService {
       });
 
       return {
-        attempt: {
-          id: attempt.id,
-          attemptCode: attempt.attemptCode,
-          status: attempt.status.toLowerCase(),
-          startedAt: attempt.startedAt,
-        },
-        unit: this.formatUnitForPlayer(unit),
+      attempt: {
+        id: attempt.id,
+        attemptCode: attempt.attemptCode,
+        status: attempt.status.toLowerCase(),
+        mode: attempt.mode,
+        startedAt: attempt.startedAt,
+      },
+      unit: this.formatUnitForPlayer(unit),
       };
     } catch (err) {
       if (attemptId) {
@@ -171,6 +180,7 @@ export class PracticeSessionsService {
         id: attempt.id,
         attemptCode: attempt.attemptCode,
         status: attempt.status.toLowerCase(),
+        mode: attempt.mode,
         answers: attempt.answers,
         score: attempt.score,
         startedAt: attempt.startedAt,
