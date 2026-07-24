@@ -88,7 +88,7 @@ export function PracticeWritingPromptEditor({ promptId }: Props) {
         />
       </div>
       <div className="flex gap-2">
-        <Button variant="primary" disabled={saving || status === "published"} onClick={() => void handleSave()}>
+        <Button variant="primary" disabled={saving || status === "archived"} onClick={() => void handleSave()}>
           Save
         </Button>
         {status === "draft" && (

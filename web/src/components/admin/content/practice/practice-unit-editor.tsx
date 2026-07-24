@@ -307,10 +307,10 @@ export function PracticeUnitEditor({ unitId }: Props) {
       <div className="flex flex-wrap gap-2">
         <Button
           variant="primary"
-          disabled={saving || publishing || status === "published"}
+          disabled={saving || publishing || status === "archived"}
           onClick={() => void handleSave()}
         >
-          Save draft
+          {status === "published" ? "Save changes" : "Save draft"}
         </Button>
         {status === "draft" && (
           <Button

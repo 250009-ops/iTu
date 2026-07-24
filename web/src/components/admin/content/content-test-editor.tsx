@@ -220,7 +220,9 @@ export function ContentTestEditor({
   }
 
   const contentReady = loadedTestId === testId;
-  const isLocked = status === "published" || status === "archived";
+  /** Only retired/archived tests stay locked; published tests are editable in place. */
+  const isLocked = status === "archived";
+  const isPublished = status === "published";
 
   if (loading || !contentReady) {
     return (
@@ -246,7 +248,7 @@ export function ContentTestEditor({
     if (isLocked) {
       toast("Test is locked", {
         description:
-          "Published tests cannot be edited. Duplicate this test from the table to make changes.",
+          "Archived tests cannot be edited. Duplicate this test from the table to make changes.",
         variant: "warning",
       });
       return false;
@@ -260,7 +262,9 @@ export function ContentTestEditor({
         answerKey: showAnswerKey ? normalizeAnswerKeyForSave(answerKey) : undefined,
         durationMin,
       });
-      toast("Draft saved", { variant: "success" });
+      toast(isPublished ? "Changes saved" : "Draft saved", {
+        variant: "success",
+      });
       return true;
     } catch (err) {
       if (handleContentError(err, "Save")) return false;
@@ -420,12 +424,17 @@ export function ContentTestEditor({
           className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
           role="status"
         >
-          This test is{" "}
-          <span className="font-semibold">{status.replace("_", " ")}</span> and
-          locked to protect exam integrity.
-          {status === "published"
-            ? " Use Retire & duplicate to create an editable draft copy."
-            : " Use Clone in the tests table to create an editable copy."}
+          This test is archived and locked. Use Clone in the tests table to
+          create an editable copy.
+        </div>
+      )}
+      {isPublished && (
+        <div
+          className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+          role="status"
+        >
+          This test is published. You can edit and save changes in place — they
+          apply to packages that use this test.
         </div>
       )}
 
@@ -578,12 +587,12 @@ export function ContentTestEditor({
           {!isLocked && (
             <>
               <Button
-                variant="secondary"
+                variant={isPublished ? "primary" : "secondary"}
                 size="sm"
                 loading={saving}
                 onClick={() => void handleSave()}
               >
-                Save draft
+                {isPublished ? "Save changes" : "Save draft"}
               </Button>
               {status === "draft" && features.submitForReview && (
                 <Button
@@ -605,23 +614,27 @@ export function ContentTestEditor({
                   Back to draft
                 </Button>
               )}
-              <Button
-                variant="primary"
-                size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700"
-                loading={publishing}
-                onClick={() => void handlePublish()}
-              >
-                Publish
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                loading={deleting}
-                onClick={() => void handleDelete()}
-              >
-                Delete
-              </Button>
+              {!isPublished && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  loading={publishing}
+                  onClick={() => void handlePublish()}
+                >
+                  Publish
+                </Button>
+              )}
+              {!isPublished && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  loading={deleting}
+                  onClick={() => void handleDelete()}
+                >
+                  Delete
+                </Button>
+              )}
             </>
           )}
         </div>

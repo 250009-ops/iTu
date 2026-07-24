@@ -236,8 +236,8 @@ export class PracticeContentService {
     userId: string,
   ) {
     const existing = await this.getUnit(id);
-    if (existing.status === ContentTestStatus.PUBLISHED) {
-      throw new BadRequestException('Published units cannot be edited directly');
+    if (existing.status === ContentTestStatus.ARCHIVED) {
+      throw new BadRequestException('Archived units cannot be edited');
     }
 
     const content = body.content
@@ -488,8 +488,8 @@ export class PracticeContentService {
     userId: string,
   ) {
     const existing = await this.getWritingPrompt(id);
-    if (existing.status === ContentTestStatus.PUBLISHED) {
-      throw new BadRequestException('Published prompts cannot be edited');
+    if (existing.status === ContentTestStatus.ARCHIVED) {
+      throw new BadRequestException('Archived prompts cannot be edited');
     }
     const prompt = await this.prisma.writingPracticePrompt.update({
       where: { id },

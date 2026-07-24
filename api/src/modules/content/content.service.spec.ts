@@ -3,18 +3,60 @@ import { ContentTestStatus } from '@prisma/client';
 import { ContentService } from './content.service';
 
 function makeService(prisma: object) {
-  return new ContentService(prisma as never, {} as never, {} as never);
+  const audit = { log: () => Promise.resolve() };
+  return new ContentService(prisma as never, audit as never, {} as never);
 }
 
 describe('ContentService test lifecycle', () => {
   describe('updateTest', () => {
-    it('rejects edits to published tests', async () => {
+    it('allows edits to published tests', async () => {
       const prisma = {
         contentTest: {
           findUnique: () =>
             Promise.resolve({
               id: 't1',
               status: ContentTestStatus.PUBLISHED,
+              type: 'LISTENING',
+              institutionId: null,
+              title: 'Old title',
+              content: {},
+              answerKey: {},
+              durationMin: 30,
+              questionCount: 0,
+              mediaAssets: [],
+            }),
+          update: (args: { data: { title?: string } }) =>
+            Promise.resolve({
+              id: 't1',
+              status: ContentTestStatus.PUBLISHED,
+              type: 'LISTENING',
+              institutionId: null,
+              title: args.data.title ?? 'New title',
+              content: {},
+              answerKey: {},
+              durationMin: 30,
+              questionCount: 0,
+              mediaAssets: [],
+              updatedAt: new Date(),
+              createdAt: new Date(),
+              code: 'L-1',
+            }),
+        },
+      };
+      const service = makeService(prisma);
+
+      await expect(
+        service.updateTest('t1', { title: 'New title' }, 'admin'),
+      ).resolves.toMatchObject({ title: 'New title' });
+    });
+
+    it('rejects edits to archived tests', async () => {
+      const prisma = {
+        contentTest: {
+          findUnique: () =>
+            Promise.resolve({
+              id: 't1',
+              status: ContentTestStatus.ARCHIVED,
               type: 'LISTENING',
               institutionId: null,
             }),

@@ -916,27 +916,16 @@ export class ContentService {
     }
   }
 
-  /** Published/archived tests and any test used in an exam must stay immutable. */
+  /**
+   * Archived tests stay immutable. Published tests may be edited in place by
+   * admins (fixes typos / content updates without forcing Retire & duplicate).
+   */
   private async assertTestEditable(
-    testId: string,
+    _testId: string,
     status: ContentTestStatus,
   ) {
-    if (status === ContentTestStatus.PUBLISHED) {
-      throw new BadRequestException(
-        'Published tests cannot be edited. Duplicate the test to make changes, then assign the copy in a new or unlocked package.',
-      );
-    }
     if (status === ContentTestStatus.ARCHIVED) {
       throw new BadRequestException('Archived tests cannot be edited.');
-    }
-
-    const sectionAttempts = await this.prisma.sectionAttempt.count({
-      where: { contentTestId: testId },
-    });
-    if (sectionAttempts > 0) {
-      throw new BadRequestException(
-        `This test was used in ${sectionAttempts} exam section(s) and cannot be edited.`,
-      );
     }
   }
 
