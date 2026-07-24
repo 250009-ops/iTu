@@ -8,6 +8,12 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { getAvailability, rescheduleBooking } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
+import { ExamStartTimePicker } from "@/components/student/shared/exam-start-time-picker";
+import {
+  defaultExamStartTime,
+  isMockTimeSelectionValid,
+} from "@/lib/student/exam-start-times";
+import { clampMockTimeForDate } from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
 type Slot = {
@@ -18,8 +24,6 @@ type Slot = {
   endsAt: string;
   status: string;
 };
-
-const EXAM_START_TIMES = ["08:30", "09:00", "09:30", "10:00", "13:00"];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -50,7 +54,9 @@ export function RescheduleDialog({
 }) {
   const { toast } = useToast();
   const [mockDate, setMockDate] = useState(currentDateIso.slice(0, 10));
-  const [mockTime, setMockTime] = useState(currentTime || EXAM_START_TIMES[0]);
+  const [mockTime, setMockTime] = useState(
+    () => currentTime || defaultExamStartTime(currentDateIso.slice(0, 10)),
+  );
   const [allSlots, setAllSlots] = useState<Slot[]>([]);
   const [filteredSlots, setFilteredSlots] = useState<Slot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -117,9 +123,15 @@ export function RescheduleDialog({
 
   const selectedExaminer = examiners.find((e) => e.id === speakingTeacherId);
 
+  useEffect(() => {
+    setMockTime((current) =>
+      clampMockTimeForDate(mockDate, current || defaultExamStartTime(mockDate)),
+    );
+  }, [mockDate]);
+
   const canConfirm = hasSpeaking
-    ? Boolean(selectedSlot)
-    : Boolean(mockDate && mockTime);
+    ? Boolean(selectedSlot && isMockTimeSelectionValid(mockDate, mockTime))
+    : isMockTimeSelectionValid(mockDate, mockTime);
 
   async function handleConfirm() {
     if (hasSpeaking && !selectedSlot) return;
@@ -188,28 +200,11 @@ export function RescheduleDialog({
           />
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-navy">
-            Exam start time
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {EXAM_START_TIMES.map((time) => (
-              <button
-                key={time}
-                type="button"
-                onClick={() => setMockTime(time)}
-                className={cn(
-                  "rounded-lg border px-4 py-2 text-sm font-semibold",
-                  mockTime === time
-                    ? "border-navy bg-navy text-white"
-                    : "border-border bg-white text-foreground hover:bg-slate-50",
-                )}
-              >
-                {time}
-              </button>
-            ))}
-          </div>
-        </div>
+        <ExamStartTimePicker
+          mockDate={mockDate}
+          mockTime={mockTime}
+          onMockTimeChange={setMockTime}
+        />
 
         {hasSpeaking && (
           <>

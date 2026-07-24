@@ -11,8 +11,10 @@ import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import {
+  buildInstitutionMockSetDefaults,
   buildInstitutionMockSetProductPreview,
   formatMockSetSelectionSummary,
+  slugifyInstitutionMockSetTitle,
   type MockSetPickerTab,
 } from "@/lib/admin/institution-mock-set-content";
 import {
@@ -60,6 +62,11 @@ export function InstitutionMockSetEditorDialog({
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
   const [contentLocked, setContentLocked] = useState(false);
+  /** When false, field stays synced from selection / title (create mode only). */
+  const [titleManual, setTitleManual] = useState(false);
+  const [slugManual, setSlugManual] = useState(false);
+  const [descriptionManual, setDescriptionManual] = useState(false);
+  const [listPriceManual, setListPriceManual] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +77,10 @@ export function InstitutionMockSetEditorDialog({
     setIsListed(set?.isListed ?? true);
     setIsActive(set?.isActive ?? true);
     setContentLocked(set?.contentLocked ?? false);
+    setTitleManual(Boolean(set));
+    setSlugManual(Boolean(set));
+    setDescriptionManual(Boolean(set));
+    setListPriceManual(Boolean(set));
     setSelectedPackageIds(new Set());
     setSelectedTestIds({
       listening: new Set(),
@@ -133,6 +144,38 @@ export function InstitutionMockSetEditorDialog({
     readingCount,
     writingCount,
   );
+
+  // Create mode: keep empty fields synced with the current selection.
+  useEffect(() => {
+    if (!open || set) return;
+
+    const defaults = buildInstitutionMockSetDefaults({
+      listening: listeningCount,
+      reading: readingCount,
+      writing: writingCount,
+    });
+
+    if (!titleManual) setTitle(defaults.title);
+    if (!descriptionManual) setDescription(defaults.description);
+    if (!listPriceManual) {
+      setListPrice(defaults.listPrice > 0 ? String(defaults.listPrice) : "");
+    }
+  }, [
+    open,
+    set,
+    listeningCount,
+    readingCount,
+    writingCount,
+    titleManual,
+    descriptionManual,
+    listPriceManual,
+  ]);
+
+  // Slug follows title until the admin edits it (create mode only).
+  useEffect(() => {
+    if (!open || set || slugManual) return;
+    setSlug(slugifyInstitutionMockSetTitle(title));
+  }, [open, set, slugManual, title]);
 
   const parsedPreviewPrice = listPrice.trim() ? Number(listPrice) : 0;
   const previewListPrice = Number.isFinite(parsedPreviewPrice)
@@ -229,7 +272,7 @@ export function InstitutionMockSetEditorDialog({
         });
       } else {
         await createInstitutionMockSet({
-          slug: slug || title.toLowerCase().replace(/\s+/g, "-"),
+          slug: slug || slugifyInstitutionMockSetTitle(title),
           title,
           description: description.trim() || undefined,
           isActive,
@@ -282,20 +325,37 @@ export function InstitutionMockSetEditorDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label>Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input
+                  value={title}
+                  onChange={(e) => {
+                    setTitleManual(true);
+                    setTitle(e.target.value);
+                  }}
+                  placeholder="Filled from selection"
+                />
               </div>
               {!set && (
                 <div className="sm:col-span-2">
                   <Label>Slug</Label>
-                  <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
+                  <Input
+                    value={slug}
+                    onChange={(e) => {
+                      setSlugManual(true);
+                      setSlug(e.target.value);
+                    }}
+                    placeholder="Filled from title"
+                  />
                 </div>
               )}
               <div className="sm:col-span-2">
                 <Label>Description</Label>
                 <Input
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional note for admins"
+                  onChange={(e) => {
+                    setDescriptionManual(true);
+                    setDescription(e.target.value);
+                  }}
+                  placeholder="Filled from selection"
                 />
               </div>
               <div>
@@ -304,8 +364,11 @@ export function InstitutionMockSetEditorDialog({
                   type="number"
                   min={0}
                   value={listPrice}
-                  onChange={(e) => setListPrice(e.target.value)}
-                  placeholder="B2B price for centres"
+                  onChange={(e) => {
+                    setListPriceManual(true);
+                    setListPrice(e.target.value);
+                  }}
+                  placeholder="Suggested from catalog prices"
                 />
               </div>
               <div className="flex items-center gap-2">

@@ -123,11 +123,14 @@ if [ "${freshPackages}" = "1" ]; then
 fi
 `);
 
+  const publicHost = process.env.DEPLOY_PUBLIC_HOST || `www.${DOMAIN}`;
   console.log('\\n==> Public checks...');
   await exec(conn, `
-curl -sf -o /dev/null -w "health:%{http_code} " https://${DOMAIN}/api/v1/health || echo "health:FAIL "
-curl -sf -o /dev/null -w "home:%{http_code} " https://${DOMAIN}/ || echo "home:FAIL "
-curl -sf -o /dev/null -w "catalog:%{http_code}\\n" https://${DOMAIN}/api/v1/catalog/packages || echo "catalog:FAIL"
+curl -sf -o /dev/null -w "health:%{http_code} " https://${publicHost}/api/v1/health || echo "health:FAIL "
+curl -sf -o /dev/null -w "payments:%{http_code} " https://${publicHost}/api/v1/payments/config || echo "payments:FAIL "
+curl -sf -o /dev/null -w "home:%{http_code} " https://${publicHost}/ || echo "home:FAIL "
+curl -sf -o /dev/null -w "catalog:%{http_code}\\n" https://${publicHost}/api/v1/catalog/packages || echo "catalog:FAIL"
+curl -sf -o /dev/null -w "webhook:%{http_code}\\n" -X POST https://${DOMAIN}/api/v1/payments/webhooks/uzum-checkout -H "Content-Type: application/json" -d '{"orderId":"00000000-0000-0000-0000-000000000001","orderNumber":"ORD-NOTFOUND","operationState":"SUCCESS","operationType":"COMPLETE"}' || echo "webhook:FAIL"
 `);
 
   conn.end();

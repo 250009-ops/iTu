@@ -484,7 +484,7 @@ export const MockCertificate = forwardRef<
           color: TRF.muted,
         }}
       >
-        Recognising organisations must verify this mock score at verify.itestu.uz
+        Recognising organisations: online score verification is coming soon.
       </p>
 
       <style>{`

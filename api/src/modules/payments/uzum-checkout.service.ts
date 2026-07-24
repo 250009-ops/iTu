@@ -57,7 +57,7 @@ export type UzumOrderStatusResult = {
 };
 
 const UZS_CURRENCY_CODE = 860;
-const DEFAULT_BASE_URL = 'https://checkout-api.ipt-merch.com';
+const DEFAULT_BASE_URL = 'https://test-chk-api.uzumcheckout.uz';
 const PAID_STATUSES = new Set(['COMPLETED', 'TOP_UP_COMPLETED']);
 
 @Injectable()
@@ -102,9 +102,11 @@ export class UzumCheckoutService {
     const successPath = input.successPath ?? '/student/mock-day?payment=success';
     const failurePath = input.failurePath ?? '/student/browse?payment=failed';
     const sessionTimeoutSecs = this.clampSessionTimeout(input.sessionTimeoutSecs ?? 900);
+    const amountTiyin = this.amountToTiyin(input.amount);
+    const title = `${input.packageTitle} — ${input.orderCode}`.slice(0, 63);
 
     const body = {
-      amount: this.amountToTiyin(input.amount),
+      amount: amountTiyin,
       clientId: input.clientId,
       currency: UZS_CURRENCY_CODE,
       paymentDetails: `${input.packageTitle} — ${input.orderCode}`.slice(0, 1024),
@@ -115,6 +117,14 @@ export class UzumCheckoutService {
       sessionTimeoutSecs,
       paymentParams: {
         payType: 'ONE_STEP',
+      },
+      merchantParams: {
+        cart: this.buildFiscalCart({
+          cartId: input.orderCode,
+          title,
+          productId: input.orderId,
+          amountTiyin,
+        }),
       },
     };
 
@@ -171,6 +181,46 @@ export class UzumCheckoutService {
 
   private contentLanguage(): string {
     return this.config.get<string>('UZUM_CHECKOUT_CONTENT_LANGUAGE', 'uz-UZ').trim() || 'uz-UZ';
+  }
+
+  /** OFD cart for Uzum auto-fiscalization (required on this terminal). */
+  private buildFiscalCart(input: {
+    cartId: string;
+    title: string;
+    productId: string;
+    amountTiyin: number;
+  }) {
+    const spic =
+      this.config.get<string>('UZUM_CHECKOUT_IKPU_SPIC', '10899001001000000').trim() ||
+      '10899001001000000';
+    const packageCode =
+      this.config.get<string>('UZUM_CHECKOUT_PACKAGE_CODE', '190309').trim() || '190309';
+    const vatPercent = Number(this.config.get<string>('UZUM_CHECKOUT_VAT_PERCENT', '0')) || 0;
+    const tin = this.config.get<string>('UZUM_CHECKOUT_MERCHANT_TIN', '').trim();
+    const pinfl = this.config.get<string>('UZUM_CHECKOUT_MERCHANT_PINFL', '').trim();
+    const receiptParams: Record<string, string | number> = {
+      spic,
+      packageCode,
+      vatPercent,
+    };
+    if (tin) receiptParams.TIN = tin;
+    else if (pinfl) receiptParams.PINFL = pinfl;
+
+    return {
+      cartId: input.cartId,
+      receiptType: 'PURCHASE',
+      total: input.amountTiyin,
+      items: [
+        {
+          title: input.title,
+          productId: input.productId,
+          quantity: 1,
+          unitPrice: input.amountTiyin,
+          total: input.amountTiyin,
+          receiptParams,
+        },
+      ],
+    };
   }
 
   private resolveSignature(): string {

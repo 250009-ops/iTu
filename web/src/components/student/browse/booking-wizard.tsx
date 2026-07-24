@@ -25,6 +25,13 @@ import {
 import { getPaymentConfig } from "@/lib/api/payments";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { BrowseProduct } from "@/lib/api/mappers/student";
+import { ExamStartTimePicker } from "@/components/student/shared/exam-start-time-picker";
+import {
+  defaultExamStartTime,
+  EXAM_START_TIMES,
+  isMockTimeSelectionValid,
+} from "@/lib/student/exam-start-times";
+import { clampMockTimeForDate } from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
 type Teacher = {
@@ -59,8 +66,6 @@ const STEP_LABELS: Record<WizardStepId, string> = {
   speakingSlot: "Speaking time",
   payment: "Payment",
 };
-
-const EXAM_START_TIMES = ["08:30", "09:00", "09:30", "10:00", "13:00"];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -121,7 +126,7 @@ export function BookingWizard({
   const currentStep = steps[stepIndex]!;
 
   const [mockDate, setMockDate] = useState(todayIso());
-  const [mockTime, setMockTime] = useState(EXAM_START_TIMES[0]);
+  const [mockTime, setMockTime] = useState(() => defaultExamStartTime(todayIso()));
 
   const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
   const [writingTeacherId, setWritingTeacherId] = useState<string | null>(
@@ -259,6 +264,7 @@ export function BookingWizard({
     setSpeakingTeacherId(null);
     setSelectedSlot(null);
     setSlots([]);
+    setMockTime((current) => clampMockTimeForDate(mockDate, current));
   }, [mockDate]);
 
   const slotCountByTeacher = useMemo(() => {
@@ -272,9 +278,10 @@ export function BookingWizard({
   const canContinue = useMemo(() => {
     if (purchaseBlocked) return false;
     if (currentStep === "date") {
+      if (!mockDate) return false;
       return showExamStartTime
-        ? Boolean(mockDate && mockTime)
-        : Boolean(mockDate);
+        ? isMockTimeSelectionValid(mockDate, mockTime)
+        : true;
     }
     if (currentStep === "writing") return Boolean(writingTeacherId);
     if (currentStep === "speakingExaminer") return Boolean(speakingTeacherId);
@@ -433,31 +440,11 @@ export function BookingWizard({
                 <p className="mt-1 text-xs text-muted">{dateStepHint(product)}</p>
               </div>
               {showExamStartTime && (
-                <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-navy">
-                    Exam start time
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {EXAM_START_TIMES.map((time) => (
-                      <button
-                        key={time}
-                        type="button"
-                        onClick={() => setMockTime(time)}
-                        className={cn(
-                          "rounded-lg border px-4 py-2 text-sm font-semibold",
-                          mockTime === time
-                            ? "border-navy bg-navy text-white"
-                            : "border-border bg-white text-foreground hover:bg-slate-50",
-                        )}
-                      >
-                        {time}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs text-muted">
-                    Check-in opens 15 minutes before your start time.
-                  </p>
-                </div>
+                <ExamStartTimePicker
+                  mockDate={mockDate}
+                  mockTime={mockTime}
+                  onMockTimeChange={setMockTime}
+                />
               )}
             </div>
           )}

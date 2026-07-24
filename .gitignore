@@ -12,6 +12,8 @@ deploy/env/web.env.local
 deploy/env/postgres.env
 deploy/.env
 deploy/node_modules/
+deploy/secrets/*
+!deploy/secrets/README.md
 
 # Build output
 api/dist/

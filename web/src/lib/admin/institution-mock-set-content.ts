@@ -33,6 +33,55 @@ export function formatMockSetSelectionSummary(
   return `${listening} Listening · ${reading} Reading · ${writing} Writing`;
 }
 
+/** Retail section-mock catalog prices (UZS) — used to suggest B2B list price. */
+const SECTION_LIST_PRICE_UZS: Record<MockSetPickerTab, number> = {
+  listening: 16_000,
+  reading: 16_000,
+  writing: 16_000,
+};
+
+export function slugifyInstitutionMockSetTitle(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Auto-fill defaults for a new set based on selected section counts. */
+export function buildInstitutionMockSetDefaults(counts: {
+  listening: number;
+  reading: number;
+  writing: number;
+}): {
+  title: string;
+  slug: string;
+  description: string;
+  listPrice: number;
+} {
+  const total = counts.listening + counts.reading + counts.writing;
+  if (total === 0) {
+    return { title: "", slug: "", description: "", listPrice: 0 };
+  }
+
+  const title = formatMockSetSelectionSummary(
+    counts.listening,
+    counts.reading,
+    counts.writing,
+  );
+  const listPrice =
+    counts.listening * SECTION_LIST_PRICE_UZS.listening +
+    counts.reading * SECTION_LIST_PRICE_UZS.reading +
+    counts.writing * SECTION_LIST_PRICE_UZS.writing;
+
+  return {
+    title,
+    slug: slugifyInstitutionMockSetTitle(title),
+    description: `B2B mock set with ${total} section mock${total === 1 ? "" : "s"} for centres.`,
+    listPrice,
+  };
+}
+
 const SECTION_SHOP_META: Record<
   MockSetPickerTab,
   {

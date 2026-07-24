@@ -979,6 +979,8 @@ export class BookingsService {
       );
     }
 
+    this.assertMockStartWithinWindow(dto.mockDate, dto.mockTime, mockDayCutoffAt);
+
     const needsSpeaking = packageExamSkills(enrollment.package.skills).includes(
       ExamSkill.SPEAKING,
     );
@@ -1804,6 +1806,23 @@ export class BookingsService {
         availability.blockingReason ??
           'You cannot purchase this package with your current test history.',
       );
+    }
+  }
+
+  private assertMockStartWithinWindow(
+    mockDate: Date | string,
+    mockTime: string,
+    mockDayCutoffAt: Date,
+  ): void {
+    if (!mockTime || !/^\d{2}:\d{2}$/.test(mockTime)) {
+      throw new BadRequestException('mockTime must be in HH:mm format');
+    }
+    const mockStart = mockStartDateTime(new Date(mockDate), mockTime);
+    if (mockStart.getTime() <= Date.now()) {
+      throw new BadRequestException('Mock date and time must be in the future');
+    }
+    if (mockStart.getTime() > mockDayCutoffAt.getTime()) {
+      throw new BadRequestException('Mock start time must be before the day cutoff');
     }
   }
 

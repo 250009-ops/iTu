@@ -32,6 +32,15 @@ Set in `api/.env`:
 - `MEDIA_PUBLIC_URL=https://itestu.uz/media`
 - `SERVE_MEDIA_LOCALLY=false` (nginx serves files; API only writes)
 
+## Uzum Checkout credentials
+
+After Uzum sends Terminal ID / API key / mTLS certs (post-Didox contract):
+
+1. Fill `UZUM_CHECKOUT_*` in `deploy/env/api.env` (gitignored vault copy).
+2. Store PEM files in `/var/www/itestu/secrets/` on the VPS — see `deploy/secrets/README.md`.
+3. Register callback: `https://itestu.uz/api/v1/payments/webhooks/uzum-checkout`
+4. Redeploy or `pm2 restart itestu-api --update-env`.
+
 Reload nginx after updating `deploy/nginx/itestu.uz.conf`.
 
 ## Health checks
