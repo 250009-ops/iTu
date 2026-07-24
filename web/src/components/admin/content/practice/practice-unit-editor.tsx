@@ -34,6 +34,10 @@ import type {
   ReadingPassage,
 } from "@/lib/exam/types";
 import { useToast } from "@/components/ui/toast";
+import {
+  getPracticeUnitAiPackStatus,
+  regeneratePracticeUnitAiPack,
+} from "@/lib/api/admin";
 
 type Props = {
   unitId: string;
@@ -88,6 +92,8 @@ export function PracticeUnitEditor({ unitId }: Props) {
   const [answerKey, setAnswerKey] = useState<AnswerKeyMap>({});
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [aiPackStatus, setAiPackStatus] = useState<string | null>(null);
+  const [regeneratingAiPack, setRegeneratingAiPack] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -102,6 +108,16 @@ export function PracticeUnitEditor({ unitId }: Props) {
         setQuestionType((unit.questionType as QuestionGroup["type"]) ?? "mcq_single");
         setDurationMin(unit.durationMin);
         setStatus(unit.status.toLowerCase());
+        if (
+          unit.status.toLowerCase() === "published" &&
+          unit.skill === "reading"
+        ) {
+          void getPracticeUnitAiPackStatus(unitId)
+            .then((s) => setAiPackStatus(s.status))
+            .catch(() => setAiPackStatus("missing"));
+        } else {
+          setAiPackStatus(null);
+        }
         if (unit.skill === "listening") {
           setListeningContent(
             asListeningContent(
@@ -308,6 +324,30 @@ export function PracticeUnitEditor({ unitId }: Props) {
         {status === "published" && (
           <Button variant="secondary" onClick={() => void archiveUnit(unitId)}>
             Archive
+          </Button>
+        )}
+        {status === "published" && module === "reading" && (
+          <Button
+            variant="secondary"
+            disabled={regeneratingAiPack}
+            onClick={() => {
+              setRegeneratingAiPack(true);
+              void regeneratePracticeUnitAiPack(unitId)
+                .then((s) => {
+                  setAiPackStatus(
+                    (s as { status?: string }).status ?? "generating",
+                  );
+                  toast("AI pack regeneration started", { variant: "success" });
+                })
+                .catch(() =>
+                  toast("AI pack regeneration failed", { variant: "error" }),
+                )
+                .finally(() => setRegeneratingAiPack(false));
+            }}
+          >
+            {regeneratingAiPack
+              ? "Generating AI pack…"
+              : `AI pack: ${aiPackStatus ?? "…"} · Regenerate`}
           </Button>
         )}
         {status === "draft" && (
