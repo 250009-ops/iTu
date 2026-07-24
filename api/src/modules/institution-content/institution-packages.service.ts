@@ -148,12 +148,10 @@ export class InstitutionPackagesService {
         statusLabel = 'Already completed';
       } else if (
         enrollment &&
-        [
-          EnrollmentStatus.ENROLLED,
-          EnrollmentStatus.IN_PROGRESS,
-          EnrollmentStatus.AWAITING_RESULTS,
-          EnrollmentStatus.PENDING_PAYMENT,
-        ].includes(enrollment.status)
+        (enrollment.status === EnrollmentStatus.ENROLLED ||
+          enrollment.status === EnrollmentStatus.IN_PROGRESS ||
+          enrollment.status === EnrollmentStatus.AWAITING_RESULTS ||
+          enrollment.status === EnrollmentStatus.PENDING_PAYMENT)
       ) {
         enrollStatus = 'in_progress';
         statusLabel = 'In progress';
