@@ -245,7 +245,7 @@ export const INSTITUTION_HELP_FAQS: HelpFaq[] = [
   },
   {
     q: "How do purchased / granted test sets work?",
-    a: "iTestU admin grants or you purchase a test set. Open Tests → Purchased set to see the included section tests (read-only). Assemble enrollable mocks on the Mocks page from those tests and/or Content Studio tests, then enroll students from Mocks or Students.",
+    a: "iTestU admin grants or you purchase a test set. Open Tests → Purchased set in the sidebar to see the included section tests (read-only). Assemble enrollable mocks on the Mocks page from those tests and/or Content Studio tests, then enroll students from Mocks or Students.",
   },
   {
     q: "A student is stuck in pending — what should I do?",

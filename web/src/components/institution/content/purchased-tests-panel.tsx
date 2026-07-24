@@ -7,17 +7,22 @@ import { ContentSummaryCards } from "@/components/admin/content/content-summary-
 import { TestsTable } from "@/components/admin/content/tests-table";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { Button } from "@/components/ui/button";
-import { PortalPage } from "@/components/portal/portal-page";
+import { useToast } from "@/components/ui/toast";
 import {
   ContentStudioProvider,
   INSTITUTION_CONTENT_FEATURES,
   type ContentStudioValue,
 } from "@/contexts/content-studio-context";
+import { useCheckoutPaymentReturn } from "@/hooks/use-checkout-payment-return";
 import { getInstitutionPurchasedTests } from "@/lib/api/institution-content";
 import { mapContentTests } from "@/lib/api/mappers/admin";
 import type { ContentModule } from "@/lib/admin/types";
 
-function PurchasedStudioInner() {
+function PurchasedStudioInner({
+  setTitles,
+}: {
+  setTitles: string[];
+}) {
   const [activeModule, setActiveModule] = useState<ContentModule>("listening");
 
   return (
@@ -39,6 +44,12 @@ function PurchasedStudioInner() {
             </Link>{" "}
             page.
           </p>
+          {setTitles.length > 0 && (
+            <p className="mt-3 text-sm font-medium text-navy">
+              Owned test set{setTitles.length > 1 ? "s" : ""}:{" "}
+              {setTitles.join(" · ")}
+            </p>
+          )}
         </div>
         <ContentSummaryCards />
         <ModuleTabs active={activeModule} onChange={setActiveModule} />
@@ -49,26 +60,51 @@ function PurchasedStudioInner() {
 }
 
 export function PurchasedTestsPanel() {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [raw, setRaw] = useState<Awaited<
     ReturnType<typeof getInstitutionPurchasedTests>
   > | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const load = useCallback((opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     return getInstitutionPurchasedTests()
       .then((data) => {
         setRaw(data);
         setError(null);
+        return data;
       })
-      .catch(() => setError("Failed to load purchased tests"))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        setError("Failed to load purchased tests");
+        return null;
+      })
+      .finally(() => {
+        if (!opts?.silent) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const { reconciling, reconcileError, paid } = useCheckoutPaymentReturn({
+    onPaid: async () => {
+      const data = await load({ silent: true });
+      toast("Test set unlocked", {
+        description:
+          data && data.tests.length > 0
+            ? `${data.tests.length} section test${data.tests.length === 1 ? "" : "s"} are ready in Purchased set.`
+            : "Your purchase is confirmed. Refresh if tests do not appear yet.",
+        variant: "success",
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (!paid) return;
+    void load({ silent: true });
+  }, [paid, load]);
 
   const mapped = useMemo(() => {
     if (!raw) return null;
@@ -84,7 +120,7 @@ export function PurchasedTestsPanel() {
       publishedAt: t.publishedAt,
       questionCount: 0,
       mediaCount: 0,
-      authorName: "iTestU",
+      authorName: t.sourceSetTitle ?? "iTestU",
       linkedPackages: 0,
       activePackageLinks: 0,
       assignedMockLabel: t.sourceMockLabel ?? t.sourcePackageTitle,
@@ -116,7 +152,7 @@ export function PurchasedTestsPanel() {
       },
       selectedTestId: null,
       setSelectedTestId: () => undefined,
-      refresh: load,
+      refresh: () => load({ silent: true }).then(() => undefined),
       createTest: async () => ({ id: "", title: "" }),
       updateTest: noop,
       publishTest: noop,
@@ -157,10 +193,15 @@ export function PurchasedTestsPanel() {
     };
   }, [mapped, load]);
 
+  const grantsCount = raw?.grantsCount ?? 0;
+  const hasTests = (raw?.tests.length ?? 0) > 0;
+  const setTitles = (raw?.sets ?? []).map((set) => set.title);
+  const showEmptyCta = !loading && !error && grantsCount === 0 && !hasTests;
+
   return (
-    <ApiDataShell loading={loading} error={error}>
-      {!raw || raw.tests.length === 0 ? (
-        <PortalPage>
+    <ApiDataShell loading={loading || reconciling} error={error ?? reconcileError}>
+      {showEmptyCta ? (
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 lg:px-6 xl:px-8">
           <div className="rounded-xl border border-dashed border-border bg-slate-50 px-6 py-14 text-center">
             <h2 className="text-base font-semibold text-navy">
               No purchased tests yet
@@ -175,10 +216,10 @@ export function PurchasedTestsPanel() {
               </Button>
             </Link>
           </div>
-        </PortalPage>
+        </div>
       ) : (
         <ContentStudioProvider value={studioValue}>
-          <PurchasedStudioInner />
+          <PurchasedStudioInner setTitles={setTitles} />
         </ContentStudioProvider>
       )}
     </ApiDataShell>

@@ -11,12 +11,18 @@ export type InstitutionNavIcon =
   | "radio"
   | "package";
 
-export type InstitutionNavItem = {
+export type InstitutionNavChildItem = {
   label: string;
   href: string;
+};
+
+export type InstitutionNavItem = {
+  label: string;
+  href?: string;
   icon: InstitutionNavIcon;
   /** Shows the pending-students count badge. */
   badge?: "pendingStudents" | "flaggedSessions";
+  children?: InstitutionNavChildItem[];
 };
 
 export type InstitutionNavGroup = {
@@ -33,7 +39,20 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
   {
     label: "Manage",
     items: [
-      { label: "Tests", href: "/institution/tests", icon: "file-text" },
+      {
+        label: "Tests",
+        icon: "file-text",
+        children: [
+          {
+            label: "Purchased set",
+            href: "/institution/tests/purchased",
+          },
+          {
+            label: "Content Studio",
+            href: "/institution/tests/studio",
+          },
+        ],
+      },
       {
         label: "Buy test sets",
         href: "/institution/mocks/shop",
@@ -74,10 +93,26 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
   },
 ];
 
-export const institutionNav = institutionNavGroups.flatMap((g) => g.items);
+/** Flat list for mobile nav (expands Tests children). */
+export const institutionNav: Array<
+  InstitutionNavItem & { href: string }
+> = institutionNavGroups.flatMap((g) =>
+  g.items.flatMap((item) => {
+    if (item.children?.length) {
+      return item.children.map((child) => ({
+        label: child.label,
+        href: child.href,
+        icon: item.icon,
+      }));
+    }
+    return [{ ...item, href: item.href! }];
+  }),
+);
 
-/** `/institution/mocks/shop` must not also activate `/institution/mocks`. */
-export function isInstitutionNavActive(pathname: string, href: string): boolean {
+export function isInstitutionNavItemActive(
+  pathname: string,
+  href: string,
+): boolean {
   if (href === "/institution") {
     return pathname === "/institution";
   }
@@ -88,13 +123,38 @@ export function isInstitutionNavActive(pathname: string, href: string): boolean 
         !pathname.startsWith("/institution/mocks/shop"))
     );
   }
-  if (href === "/institution/tests") {
+  if (href === "/institution/tests/purchased") {
     return (
+      pathname === "/institution/tests/purchased" ||
       pathname === "/institution/tests" ||
-      pathname.startsWith("/institution/tests/") ||
+      pathname.startsWith("/institution/tests?")
+    );
+  }
+  if (href === "/institution/tests/studio") {
+    return (
+      pathname === "/institution/tests/studio" ||
       pathname === "/institution/content" ||
       pathname.startsWith("/institution/content/")
     );
   }
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function isInstitutionNavParentActive(
+  pathname: string,
+  item: InstitutionNavItem,
+): boolean {
+  if (item.href) {
+    return isInstitutionNavItemActive(pathname, item.href);
+  }
+  return (
+    item.children?.some((child) =>
+      isInstitutionNavItemActive(pathname, child.href),
+    ) ?? false
+  );
+}
+
+/** @deprecated Prefer isInstitutionNavItemActive */
+export function isInstitutionNavActive(pathname: string, href: string): boolean {
+  return isInstitutionNavItemActive(pathname, href);
 }

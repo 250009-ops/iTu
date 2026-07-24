@@ -147,6 +147,14 @@ export function getInstitutionPurchasedTests(type?: string) {
   const q = type ? `?type=${encodeURIComponent(type.toUpperCase())}` : "";
   return apiFetch<{
     grantsCount: number;
+    sets: {
+      id: string;
+      title: string;
+      source: string;
+      grantedAt: string;
+      packageCount: number;
+      testCount: number;
+    }[];
     tests: {
       id: string;
       code: string;
@@ -161,6 +169,8 @@ export function getInstitutionPurchasedTests(type?: string) {
       sourcePackageId: string | null;
       sourcePackageTitle: string | null;
       sourceMockLabel: string | null;
+      sourceSetId: string | null;
+      sourceSetTitle: string | null;
     }[];
   }>(`/institution/tests/purchased${q}`);
 }

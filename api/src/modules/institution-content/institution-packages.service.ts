@@ -198,59 +198,121 @@ export class InstitutionPackagesService {
   /** Read-only section tests from purchased / granted platform test sets. */
   async listPurchasedTests(user: RequestUser, type?: ContentTestType) {
     const institutionId = requireInstitutionId(user);
-    const grantedPackageIds =
-      await this.mockSets.listGrantedPackageIds(institutionId);
 
-    if (grantedPackageIds.length === 0) {
-      return { tests: [] as const, grantsCount: 0 };
-    }
-
-    const packages = await this.prisma.mockTestPackage.findMany({
-      where: { id: { in: grantedPackageIds }, isActive: true },
+    // Resolve grants → set items → packages directly (do not depend on a
+    // helper that can drift). Active grants unlock section-test inventory.
+    const grants = await this.prisma.institutionMockSetGrant.findMany({
+      where: {
+        institutionId,
+        set: { isActive: true },
+      },
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
-        title: true,
-        packageKind: true,
-        mockNumber: true,
-        listeningTestId: true,
-        readingTestId: true,
-        writingTestId: true,
-        speakingBankId: true,
-        contentPool: {
-          select: { testId: true, skill: true },
+        setId: true,
+        source: true,
+        createdAt: true,
+        set: {
+          select: {
+            id: true,
+            title: true,
+            items: {
+              orderBy: { sortOrder: 'asc' },
+              select: {
+                package: {
+                  select: {
+                    id: true,
+                    title: true,
+                    isActive: true,
+                    packageKind: true,
+                    mockNumber: true,
+                    listeningTestId: true,
+                    readingTestId: true,
+                    writingTestId: true,
+                    speakingBankId: true,
+                    contentPool: {
+                      select: { testId: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     });
 
+    if (grants.length === 0) {
+      return { tests: [] as const, grantsCount: 0, sets: [] as const };
+    }
+
     const testIds = new Set<string>();
     const sourceByTestId = new Map<
       string,
-      { packageId: string; packageTitle: string; mockLabel: string }
-    >();
-
-    for (const pkg of packages) {
-      const mockLabel = formatMockNumber(pkg.packageKind, pkg.mockNumber);
-      const source = {
-        packageId: pkg.id,
-        packageTitle: pkg.title,
-        mockLabel,
-      };
-      const ids = [
-        pkg.listeningTestId,
-        pkg.readingTestId,
-        pkg.writingTestId,
-        pkg.speakingBankId,
-        ...pkg.contentPool.map((row) => row.testId),
-      ].filter((id): id is string => Boolean(id));
-
-      for (const id of ids) {
-        testIds.add(id);
-        if (!sourceByTestId.has(id)) sourceByTestId.set(id, source);
+      {
+        packageId: string;
+        packageTitle: string;
+        mockLabel: string;
+        setId: string;
+        setTitle: string;
       }
-    }
+    >();
+    const sets = grants.map((grant) => {
+      const packageSummaries: {
+        id: string;
+        title: string;
+        packageKind: string;
+        mockLabel: string;
+        testIds: string[];
+      }[] = [];
+
+      for (const item of grant.set.items) {
+        const pkg = item.package;
+        if (!pkg.isActive) continue;
+        const mockLabel = formatMockNumber(pkg.packageKind, pkg.mockNumber);
+        const ids = [
+          pkg.listeningTestId,
+          pkg.readingTestId,
+          pkg.writingTestId,
+          pkg.speakingBankId,
+          ...pkg.contentPool.map((row) => row.testId),
+        ].filter((id): id is string => Boolean(id));
+
+        packageSummaries.push({
+          id: pkg.id,
+          title: pkg.title,
+          packageKind: pkg.packageKind,
+          mockLabel,
+          testIds: ids,
+        });
+
+        for (const id of ids) {
+          testIds.add(id);
+          if (!sourceByTestId.has(id)) {
+            sourceByTestId.set(id, {
+              packageId: pkg.id,
+              packageTitle: pkg.title,
+              mockLabel,
+              setId: grant.set.id,
+              setTitle: grant.set.title,
+            });
+          }
+        }
+      }
+
+      return {
+        id: grant.set.id,
+        title: grant.set.title,
+        source: grant.source,
+        grantedAt: grant.createdAt,
+        packageCount: packageSummaries.length,
+        testCount: new Set(packageSummaries.flatMap((p) => p.testIds)).size,
+        packages: packageSummaries,
+      };
+    });
 
     if (testIds.size === 0) {
-      return { tests: [], grantsCount: grantedPackageIds.length };
+      return { tests: [], grantsCount: grants.length, sets };
     }
 
     const tests = await this.prisma.contentTest.findMany({
@@ -273,7 +335,8 @@ export class InstitutionPackagesService {
     });
 
     return {
-      grantsCount: grantedPackageIds.length,
+      grantsCount: grants.length,
+      sets,
       tests: tests.map((test) => {
         const source = sourceByTestId.get(test.id);
         return {
@@ -282,6 +345,8 @@ export class InstitutionPackagesService {
           sourcePackageId: source?.packageId ?? null,
           sourcePackageTitle: source?.packageTitle ?? null,
           sourceMockLabel: source?.mockLabel ?? null,
+          sourceSetId: source?.setId ?? null,
+          sourceSetTitle: source?.setTitle ?? null,
         };
       }),
     };

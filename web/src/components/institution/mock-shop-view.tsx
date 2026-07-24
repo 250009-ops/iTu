@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MockProductCard } from "@/components/student/browse/mock-product-card";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
@@ -14,6 +15,7 @@ import {
   getInstitutionMockShop,
   type InstitutionMockShopOffer,
 } from "@/lib/api/institution";
+import { useCheckoutPaymentReturn } from "@/hooks/use-checkout-payment-return";
 import { buildInstitutionMockShopPlaceholder } from "@/lib/institution/mock-set-placeholders";
 import { PageHeader } from "@/components/institution/ui";
 
@@ -37,6 +39,7 @@ function mapShopProduct(
 }
 
 export function InstitutionMockShopView() {
+  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +60,16 @@ export function InstitutionMockShopView() {
   useEffect(() => {
     void loadShop();
   }, [loadShop]);
+
+  const { reconciling, reconcileError } = useCheckoutPaymentReturn({
+    onPaid: async () => {
+      toast("Payment confirmed", {
+        description: "Opening your Purchased set…",
+        variant: "success",
+      });
+      router.replace("/institution/tests/purchased");
+    },
+  });
 
   const displaySets = useMemo(
     () => (sets.length > 0 ? sets : [buildInstitutionMockShopPlaceholder()]),
@@ -87,15 +100,18 @@ export function InstitutionMockShopView() {
         title="Buy test sets"
         description="Purchase B2B test sets for your centre. Included section tests appear under Tests → Purchased set; assemble enrollable mocks on the Mocks page."
         actions={
-          <Link href="/institution/tests">
+          <Link href="/institution/tests/purchased">
             <Button variant="secondary" size="sm">
-              Tests
+              Purchased set
             </Button>
           </Link>
         }
       />
 
-      <ApiDataShell loading={loading} error={error}>
+      <ApiDataShell
+        loading={loading || reconciling}
+        error={error ?? reconcileError}
+      >
         <div className="grid gap-6">
           {displaySets.map((offer) => (
             <MockProductCard

@@ -290,7 +290,7 @@ export function InstitutionMocksView() {
         description="Assemble enrollable mocks from purchased tests and Content Studio tests. Students enroll in mocks created here — not raw tests."
         actions={
           <>
-            <Link href="/institution/tests">
+            <Link href="/institution/tests/purchased">
               <Button variant="secondary" size="sm">
                 Tests
               </Button>

@@ -352,8 +352,8 @@ export class InstitutionService {
       currency: institution.currency,
       packageTitle: set.title,
       clientId: institution.id,
-      successPath: '/institution/mocks?payment=success',
-      failurePath: '/institution/mocks?payment=failed',
+      successPath: '/institution/tests/purchased?payment=success',
+      failurePath: '/institution/mocks/shop?payment=failed',
       sessionTimeoutSecs: 1800,
     });
 

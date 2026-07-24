@@ -219,4 +219,97 @@ describe('InstitutionPackagesService', () => {
     expect(result.platform).toEqual([]);
     expect(result.own).toEqual([]);
   });
+
+  it('lists purchased section tests from granted test sets', async () => {
+    const prisma = {
+      institutionMockSetGrant: {
+        findMany: jest.fn(async () => [
+          {
+            id: 'grant-1',
+            setId: 'set-1',
+            source: 'PURCHASE',
+            createdAt: new Date('2026-07-24'),
+            set: {
+              id: 'set-1',
+              title: '2 Listening · 2 Reading · 2 Writing',
+              items: [
+                {
+                  package: {
+                    id: 'pkg-l',
+                    title: 'Listening Only Mock-A005',
+                    isActive: true,
+                    packageKind: 'listening',
+                    mockNumber: 5,
+                    listeningTestId: 't-l',
+                    readingTestId: null,
+                    writingTestId: null,
+                    speakingBankId: null,
+                    contentPool: [{ testId: 't-l' }],
+                  },
+                },
+                {
+                  package: {
+                    id: 'pkg-r',
+                    title: 'Reading Only Mock-A005',
+                    isActive: true,
+                    packageKind: 'reading',
+                    mockNumber: 5,
+                    listeningTestId: null,
+                    readingTestId: 't-r',
+                    writingTestId: null,
+                    speakingBankId: null,
+                    contentPool: [{ testId: 't-r' }],
+                  },
+                },
+              ],
+            },
+          },
+        ]),
+      },
+      contentTest: {
+        findMany: jest.fn(async () => [
+          {
+            id: 't-l',
+            code: 'LIS-MOCK-A009',
+            title: 'Listening Mock-A009',
+            type: 'LISTENING',
+            status: ContentTestStatus.PUBLISHED,
+            version: 1,
+            durationMin: 40,
+            updatedAt: new Date('2026-07-01'),
+            publishedAt: new Date('2026-07-01'),
+          },
+          {
+            id: 't-r',
+            code: 'REA-MOCK-A009',
+            title: 'Reading Mock-A009',
+            type: 'READING',
+            status: ContentTestStatus.PUBLISHED,
+            version: 1,
+            durationMin: 60,
+            updatedAt: new Date('2026-07-01'),
+            publishedAt: new Date('2026-07-01'),
+          },
+        ]),
+      },
+    };
+    const service = makeService(prisma);
+
+    const result = await service.listPurchasedTests(user);
+
+    expect(result.grantsCount).toBe(1);
+    expect(result.sets).toHaveLength(1);
+    expect(result.sets[0]).toMatchObject({
+      id: 'set-1',
+      title: '2 Listening · 2 Reading · 2 Writing',
+      testCount: 2,
+    });
+    expect(result.tests).toHaveLength(2);
+    expect(result.tests[0]).toMatchObject({
+      id: 't-l',
+      source: 'purchased',
+      sourceSetTitle: '2 Listening · 2 Reading · 2 Writing',
+      sourceMockLabel: expect.stringContaining('Listening'),
+    });
+  });
 });
