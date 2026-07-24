@@ -147,7 +147,7 @@ export function MockProductCard({
               )}
               {isInstitutionShop && (
                 <span className="rounded-full bg-emerald-500/90 px-3 py-0.5 text-xs font-semibold">
-                  B2B mock set
+                  B2B test set
                 </span>
               )}
               {isInstitution && grantSetTitle && (
@@ -300,7 +300,7 @@ export function MockProductCard({
           }}
         >
           {isInstitutionShop
-            ? "Buy mock set"
+            ? "Buy test set"
             : isInstitution
               ? enrollDisabled
                 ? "Purchase to unlock"

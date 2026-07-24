@@ -33,12 +33,13 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
   {
     label: "Manage",
     items: [
-      { label: "Mocks", href: "/institution/mocks", icon: "file-text" },
+      { label: "Tests", href: "/institution/tests", icon: "file-text" },
       {
-        label: "Buy mock sets",
+        label: "Buy test sets",
         href: "/institution/mocks/shop",
         icon: "coins",
       },
+      { label: "Mocks", href: "/institution/mocks", icon: "package" },
       {
         label: "Students",
         href: "/institution/students",
@@ -56,16 +57,6 @@ export const institutionNavGroups: InstitutionNavGroup[] = [
         href: "/institution/monitor",
         icon: "radio",
         badge: "flaggedSessions",
-      },
-      {
-        label: "Content Studio",
-        href: "/institution/content",
-        icon: "file-text",
-      },
-      {
-        label: "Private packages",
-        href: "/institution/packages",
-        icon: "package",
       },
     ],
   },
@@ -95,6 +86,14 @@ export function isInstitutionNavActive(pathname: string, href: string): boolean 
       pathname === "/institution/mocks" ||
       (pathname.startsWith("/institution/mocks/") &&
         !pathname.startsWith("/institution/mocks/shop"))
+    );
+  }
+  if (href === "/institution/tests") {
+    return (
+      pathname === "/institution/tests" ||
+      pathname.startsWith("/institution/tests/") ||
+      pathname === "/institution/content" ||
+      pathname.startsWith("/institution/content/")
     );
   }
   return pathname === href || pathname.startsWith(`${href}/`);

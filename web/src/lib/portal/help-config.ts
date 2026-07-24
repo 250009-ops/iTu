@@ -90,7 +90,7 @@ export const INSTITUTION_HELP_CATEGORIES: HelpCategory[] = [
   {
     value: "payment_dispute",
     label: "Mock sets & billing",
-    hint: "Granted mock sets or wholesale pricing",
+    hint: "Granted test sets or wholesale pricing",
   },
   {
     value: "technical_issue",
@@ -244,8 +244,8 @@ export const INSTITUTION_HELP_FAQS: HelpFaq[] = [
     a: "Open Centre requests in the sidebar. That inbox is separate from this page, which is for contacting iTestU platform support.",
   },
   {
-    q: "How do granted mock sets work?",
-    a: "iTestU admin assigns mock sets to your centre. Open the Mocks page to see listening, reading, and writing section mocks included in your grants, then enroll students from there or the Students page.",
+    q: "How do purchased / granted test sets work?",
+    a: "iTestU admin grants or you purchase a test set. Open Tests → Purchased set to see the included section tests (read-only). Assemble enrollable mocks on the Mocks page from those tests and/or Content Studio tests, then enroll students from Mocks or Students.",
   },
   {
     q: "A student is stuck in pending — what should I do?",

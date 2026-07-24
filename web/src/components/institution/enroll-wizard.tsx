@@ -7,6 +7,7 @@ import {
   enrollStudents,
   getInstitutionEnrollmentPackages,
   getInstitutionExaminers,
+  type EnrollmentMockOption,
   type EnrollmentPackagesGrouped,
 } from "@/lib/api/institution";
 import type { ExaminerRow } from "@/lib/institution/types";
@@ -14,16 +15,21 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  packageMatchesTypeTab,
+  STUDENT_BROWSE_TYPE_TABS,
+  type PackageTypeTabId,
+} from "@/lib/package-type-tabs";
+import { cn } from "@/lib/utils";
 
-type EnrollPackageOption = {
-  id: string;
-  title: string;
-  packageKind: string;
-  mockNumber: number;
-  skills?: string[];
-  needsWriting?: boolean;
-  needsSpeaking?: boolean;
-};
+type StatusFilter = "available" | "in_progress" | "completed" | "all";
+
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: "available", label: "Not taken yet" },
+  { id: "in_progress", label: "In progress" },
+  { id: "completed", label: "Already completed" },
+  { id: "all", label: "All" },
+];
 
 function normalizeTimeInput(value: string) {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -31,7 +37,7 @@ function normalizeTimeInput(value: string) {
   return `${match[1]!.padStart(2, "0")}:${match[2]}`;
 }
 
-function packageNeeds(pkg: EnrollPackageOption | undefined) {
+function packageNeeds(pkg: EnrollmentMockOption | undefined) {
   if (!pkg) return { writing: false, speaking: false };
   if (pkg.needsWriting != null || pkg.needsSpeaking != null) {
     return {
@@ -44,6 +50,19 @@ function packageNeeds(pkg: EnrollPackageOption | undefined) {
     writing: skills.includes("writing"),
     speaking: skills.includes("speaking"),
   };
+}
+
+function statusBadgeClass(status: EnrollmentMockOption["enrollStatus"]) {
+  switch (status) {
+    case "available":
+      return "bg-emerald-50 text-emerald-700";
+    case "in_progress":
+      return "bg-amber-50 text-amber-800";
+    case "completed":
+      return "bg-slate-100 text-slate-600";
+    default:
+      return "bg-rose-50 text-rose-700";
+  }
 }
 
 export function EnrollWizard({
@@ -65,6 +84,8 @@ export function EnrollWizard({
   const [data, setData] = useState<EnrollmentPackagesGrouped | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [examiners, setExaminers] = useState<ExaminerRow[]>([]);
+  const [typeFilter, setTypeFilter] = useState<PackageTypeTabId>("full-academic");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("available");
   const [packageId, setPackageId] = useState("");
   const [mockDate, setMockDate] = useState("");
   const [writingTeacherId, setWritingTeacherId] = useState("");
@@ -79,30 +100,48 @@ export function EnrollWizard({
     setWritingTeacherId("");
     setSpeakingTeacherId("");
     setSpeakingTime("");
+    setStatusFilter("available");
     setLoadingPackages(true);
     void getInstitutionEnrollmentPackages(studentId)
-      .then(setData)
+      .then((res) => {
+        setData(res);
+        if (initialPackageId) {
+          const mock = res.mocks.find((m) => m.id === initialPackageId);
+          if (mock) {
+            const tab = STUDENT_BROWSE_TYPE_TABS.find((t) =>
+              packageMatchesTypeTab(mock, t.id),
+            );
+            if (tab) setTypeFilter(tab.id);
+          }
+        }
+      })
       .catch(() => setData(null))
       .finally(() => setLoadingPackages(false));
     void getInstitutionExaminers()
-      .then((res) => setExaminers(res.examiners.filter((e) => e.status === "active")))
+      .then((res) =>
+        setExaminers(res.examiners.filter((e) => e.status === "active")),
+      )
       .catch(() => setExaminers([]));
   }, [open, studentId, initialPackageId]);
 
+  const mocks = data?.mocks ?? [];
+
+  const filteredMocks = useMemo(() => {
+    return mocks.filter((mock) => {
+      if (!packageMatchesTypeTab(mock, typeFilter)) return false;
+      if (statusFilter === "all") return true;
+      return mock.enrollStatus === statusFilter;
+    });
+  }, [mocks, typeFilter, statusFilter]);
+
   const selectedPackage = useMemo(() => {
-    if (!packageId || !data) return undefined;
-    return (
-      data.platform.find((p) => p.id === packageId) ??
-      data.own.find((p) => p.id === packageId)
-    ) as EnrollPackageOption | undefined;
-  }, [packageId, data]);
+    if (!packageId) return undefined;
+    return mocks.find((p) => p.id === packageId);
+  }, [packageId, mocks]);
 
   const needs = packageNeeds(selectedPackage);
-  const isGrantedPlatform = Boolean(
-    packageId && data?.platform.some((p) => p.id === packageId),
-  );
-  const hasOwnPackages = (data?.own.length ?? 0) > 0;
-  const hasPlatformPackages = (data?.platform.length ?? 0) > 0;
+  const canSelectSelected =
+    !selectedPackage || selectedPackage.enrollStatus === "available";
 
   const writingExaminers = examiners.filter(
     (e) => e.speciality === "writing" || e.speciality === "both",
@@ -113,6 +152,7 @@ export function EnrollWizard({
 
   const canSubmit = Boolean(
     packageId &&
+      canSelectSelected &&
       mockDate &&
       (!needs.writing || writingTeacherId) &&
       (!needs.speaking || (speakingTeacherId && speakingTime)),
@@ -122,8 +162,8 @@ export function EnrollWizard({
     if (!canSubmit) {
       toast("Missing details", {
         description: needs.speaking
-          ? "Choose package, date, examiners, and a speaking time."
-          : "Choose a package, mock date, and required examiners.",
+          ? "Choose an available mock, date, examiners, and a speaking time."
+          : "Choose an available mock, mock date, and required examiners.",
         variant: "warning",
       });
       return;
@@ -136,16 +176,16 @@ export function EnrollWizard({
         mockDate,
         writingTeacherId: writingTeacherId || undefined,
         speakingTeacherId: speakingTeacherId || undefined,
-        speakingTime: speakingTime ? normalizeTimeInput(speakingTime) : undefined,
+        speakingTime: speakingTime
+          ? normalizeTimeInput(speakingTime)
+          : undefined,
       });
       if (res.enrolled > 0) {
         toast(`Enrolled ${studentName ?? "student"}`, {
           description:
             res.failed.length > 0
               ? `${res.failed.length} could not be enrolled.`
-              : isGrantedPlatform
-                ? "Granted platform mock — speaking time set by your centre."
-                : "Centre mock enrolled with assigned examiners and speaking time.",
+              : "Centre mock enrolled with assigned examiners and speaking time.",
           variant: res.failed.length > 0 ? "warning" : "success",
         });
         onEnrolled();
@@ -168,9 +208,15 @@ export function EnrollWizard({
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  const hasAnyMocks = mocks.length > 0;
 
   return (
-    <Modal open={open} onClose={onClose} ariaLabel="Enroll student" className="max-w-lg">
+    <Modal
+      open={open}
+      onClose={onClose}
+      ariaLabel="Enroll student"
+      className="max-w-xl"
+    >
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-base font-bold text-navy">
           Enroll {studentName ?? "student"}
@@ -185,75 +231,131 @@ export function EnrollWizard({
       </div>
 
       <div className="space-y-4 overflow-y-auto p-5">
-        {isGrantedPlatform ? (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-            Granted platform mock from your admin-assigned sets —{" "}
-            <strong>no credit cost</strong>. Assign examiners and speaking time
-            here; the student will not choose them.
-          </p>
-        ) : packageId ? (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-            Your centre&apos;s mock: <strong>no credit cost</strong>. You set
-            examiners and speaking time for the student.
-          </p>
-        ) : (
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-            Choose an owned platform mock set or your centre&apos;s own mock.
-          </p>
-        )}
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+          Enroll in centre mocks assembled on the{" "}
+          <Link
+            href="/institution/mocks"
+            className="font-semibold text-navy underline"
+          >
+            Mocks
+          </Link>{" "}
+          page. Filter by mock type and whether the student has already taken
+          it.
+        </p>
 
-        {!hasPlatformPackages && !hasOwnPackages && !loadingPackages && (
+        {!hasAnyMocks && !loadingPackages && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            No mocks available for this student. Open{" "}
-            <Link href="/institution/mocks/shop" className="font-semibold underline">
-              Buy mock sets
-            </Link>{" "}
-            or{" "}
-            <Link href="/institution/mocks" className="font-semibold underline">
+            No active mocks yet. Create and activate mocks on the{" "}
+            <Link
+              href="/institution/mocks"
+              className="font-semibold underline"
+            >
               Mocks
             </Link>{" "}
-            to see owned sets, or create centre-owned packages in Content Studio.
+            page (from purchased tests or Content Studio).
           </p>
         )}
 
-        <Field label="Mock package">
+        <Field label="Mock type">
+          <div className="flex flex-wrap gap-2">
+            {STUDENT_BROWSE_TYPE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setTypeFilter(tab.id);
+                  setPackageId("");
+                }}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                  typeFilter === tab.id
+                    ? "bg-navy text-white"
+                    : "bg-slate-100 text-muted hover:bg-slate-200 hover:text-navy",
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Status">
+          <div className="flex flex-wrap gap-2">
+            {STATUS_FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => {
+                  setStatusFilter(filter.id);
+                  setPackageId("");
+                }}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                  statusFilter === filter.id
+                    ? "bg-sky-600 text-white"
+                    : "bg-slate-100 text-muted hover:bg-slate-200 hover:text-navy",
+                )}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Mock">
           {loadingPackages ? (
-            <p className="text-sm text-muted">Loading available mocks…</p>
-          ) : !hasPlatformPackages && !hasOwnPackages ? (
+            <p className="text-sm text-muted">Loading mocks…</p>
+          ) : filteredMocks.length === 0 ? (
             <p className="text-sm text-muted">
-              No mocks available for this student right now.
+              No mocks match this type and status filter.
             </p>
           ) : (
-            <select
-              value={packageId}
-              onChange={(e) => {
-                setPackageId(e.target.value);
-                setWritingTeacherId("");
-                setSpeakingTeacherId("");
-                setSpeakingTime("");
-              }}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
-            >
-              <option value="">Select a package…</option>
-              {hasPlatformPackages && (
-                <optgroup label="Granted platform mocks">
-                  {data!.platform.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {hasOwnPackages && (
-                <optgroup label="Your centre's mocks">
-                  {data!.own.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+            <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border p-2">
+              {filteredMocks.map((mock) => {
+                const selectable = mock.enrollStatus === "available";
+                const selected = packageId === mock.id;
+                return (
+                  <button
+                    key={mock.id}
+                    type="button"
+                    disabled={!selectable}
+                    onClick={() => {
+                      if (!selectable) return;
+                      setPackageId(mock.id);
+                      setWritingTeacherId("");
+                      setSpeakingTeacherId("");
+                      setSpeakingTime("");
+                    }}
+                    className={cn(
+                      "flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm transition",
+                      selected
+                        ? "border-navy bg-sky-50"
+                        : selectable
+                          ? "border-border hover:border-navy/40"
+                          : "cursor-not-allowed border-border bg-slate-50 opacity-70",
+                    )}
+                  >
+                    <div>
+                      <p className="font-semibold text-navy">{mock.title}</p>
+                      <p className="text-xs text-muted">
+                        {mock.mockLabel ?? mock.packageKind}
+                        {mock.blockingReason
+                          ? ` · ${mock.blockingReason}`
+                          : ""}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        statusBadgeClass(mock.enrollStatus),
+                      )}
+                    >
+                      {mock.statusLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </Field>
 
@@ -281,11 +383,6 @@ export function EnrollWizard({
                 </option>
               ))}
             </select>
-            {writingExaminers.length === 0 && (
-              <p className="mt-1 text-xs text-amber-800">
-                No active writing examiners. Invite one under Examiners.
-              </p>
-            )}
           </Field>
         )}
 
@@ -307,31 +404,19 @@ export function EnrollWizard({
                   </option>
                 ))}
               </select>
-              {speakingExaminers.length === 0 && (
-                <p className="mt-1 text-xs text-amber-800">
-                  No active speaking examiners. Invite one under Examiners.
-                </p>
-              )}
             </Field>
-
             <Field label="Speaking time">
               {!speakingTeacherId || !mockDate ? (
                 <p className="text-sm text-muted">
                   Select a speaking examiner and mock date first.
                 </p>
               ) : (
-                <>
-                  <input
-                    type="time"
-                    value={speakingTime}
-                    onChange={(e) => setSpeakingTime(e.target.value)}
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
-                  />
-                  <p className="mt-1 text-xs text-muted">
-                    Live speaking session on the mock date (~20 minutes). Each
-                    examiner can only be booked once at the same time.
-                  </p>
-                </>
+                <input
+                  type="time"
+                  value={speakingTime}
+                  onChange={(e) => setSpeakingTime(e.target.value)}
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+                />
               )}
             </Field>
           </>
@@ -347,7 +432,7 @@ export function EnrollWizard({
           size="sm"
           loading={submitting}
           disabled={!canSubmit}
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
         >
           Confirm enrollment
         </Button>

@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { InstitutionPackagesPanel } from "@/components/institution/content/institution-packages-panel";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Private packages" };
-
-export default function InstitutionPackagesPage() {
-  return <InstitutionPackagesPanel />;
+export default function InstitutionPackagesRedirectPage() {
+  redirect("/institution/mocks");
 }

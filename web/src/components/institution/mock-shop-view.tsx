@@ -50,7 +50,7 @@ export function InstitutionMockShopView() {
         setSets(data.sets);
         setError(null);
       })
-      .catch(() => setError("Failed to load mock sets"))
+      .catch(() => setError("Failed to load test sets"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -84,12 +84,12 @@ export function InstitutionMockShopView() {
     <PortalPage innerClassName="space-y-8">
       <PageHeader
         breadcrumb="Institution"
-        title="Buy mock sets"
-        description="Purchase B2B mock sets for your centre — enroll unlimited students on included section mocks."
+        title="Buy test sets"
+        description="Purchase B2B test sets for your centre. Included section tests appear under Tests → Purchased set; assemble enrollable mocks on the Mocks page."
         actions={
-          <Link href="/institution/mocks">
+          <Link href="/institution/tests">
             <Button variant="secondary" size="sm">
-              My mocks
+              Tests
             </Button>
           </Link>
         }

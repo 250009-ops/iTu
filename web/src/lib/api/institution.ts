@@ -389,26 +389,54 @@ export interface EnrollmentPackageOption {
   title: string;
   packageKind: string;
   mockNumber: number;
+  examType?: string;
   costsCredit?: boolean;
   skills?: string[];
   needsWriting?: boolean;
   needsSpeaking?: boolean;
 }
 
-export interface EnrollmentPackagesGrouped {
-  studentId: string;
-  platform: EnrollmentPackageOption[];
-  own: EnrollmentPackageOption[];
+export type EnrollmentMockStatus =
+  | "available"
+  | "in_progress"
+  | "completed"
+  | "blocked";
+
+export interface EnrollmentMockOption extends EnrollmentPackageOption {
+  packageKindLabel?: string;
+  mockLabel?: string;
+  enrollStatus: EnrollmentMockStatus;
+  statusLabel: string;
+  blockingReason?: string;
+  enrollment?: {
+    enrollmentCode: string;
+    mockDate: string;
+    status: string;
+    resultsStatus: string;
+  };
 }
 
-export function getInstitutionEnrollmentPackages(studentId: string) {
-  return fetchEnrollmentPackages(studentId);
+export interface EnrollmentPackagesGrouped {
+  studentId: string;
+  mocks: EnrollmentMockOption[];
+  /** @deprecated Use `mocks` */
+  platform: EnrollmentMockOption[];
+  /** @deprecated Use `mocks` */
+  own: EnrollmentMockOption[];
+}
+
+export function getInstitutionEnrollmentPackages(
+  studentId: string,
+  packageKind?: string,
+) {
+  return fetchEnrollmentPackages(studentId, packageKind);
 }
 
 /** @deprecated Use getInstitutionEnrollmentPackages(studentId) */
 export function getInstitutionPackages() {
   return getInstitutionEnrollmentPackages("").catch(() => ({
     studentId: "",
+    mocks: [],
     platform: [],
     own: [],
   }));

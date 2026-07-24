@@ -53,9 +53,16 @@ interface TestsTableProps {
   module: ContentModule;
   onPreviewTest?: () => void;
   onEditTest?: () => void;
+  /** Hide create/edit/publish actions — used for purchased inventory. */
+  readOnly?: boolean;
 }
 
-export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProps) {
+export function TestsTable({
+  module,
+  onPreviewTest,
+  onEditTest,
+  readOnly = false,
+}: TestsTableProps) {
   const {
     tests: contentTests,
     publishTest,
@@ -244,13 +251,21 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
               <th className="px-5 py-3 sm:px-6">Questions</th>
               <th className="px-5 py-3 sm:px-6">Last Updated</th>
               <th className="px-5 py-3 sm:px-6">Author</th>
-              <th className="px-5 py-3 text-right sm:px-6">Actions</th>
+              {!readOnly && (
+                <th className="px-5 py-3 text-right sm:px-6">Actions</th>
+              )}
+              {readOnly && (
+                <th className="px-5 py-3 sm:px-6">Source</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-muted sm:px-6">
+                <td
+                  colSpan={readOnly ? 7 : 7}
+                  className="px-5 py-8 text-center text-muted sm:px-6"
+                >
                   No tests found.
                 </td>
               </tr>
@@ -299,6 +314,11 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                       {test.lastUpdated}
                     </td>
                     <td className="px-5 py-4 text-muted sm:px-6">{test.author}</td>
+                    {readOnly ? (
+                      <td className="px-5 py-4 text-muted sm:px-6">
+                        {test.assignedMockLabel ?? "Purchased set"}
+                      </td>
+                    ) : (
                     <td className="px-5 py-4 sm:px-6">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -437,6 +457,7 @@ export function TestsTable({ module, onPreviewTest, onEditTest }: TestsTableProp
                         )}
                       </div>
                     </td>
+                    )}
                   </tr>
                 );
               })

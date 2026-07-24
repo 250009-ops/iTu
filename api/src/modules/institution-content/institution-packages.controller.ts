@@ -25,8 +25,22 @@ export class InstitutionPackagesController {
   listEnrollmentPackages(
     @CurrentUser() user: RequestUser,
     @Query('studentId') studentId: string,
+    @Query('packageKind') packageKind?: string,
   ) {
-    return this.packages.listEnrollmentPackages(user, studentId);
+    return this.packages.listEnrollmentPackages(user, studentId, packageKind);
+  }
+
+  @Get('tests/purchased')
+  listPurchasedTests(
+    @CurrentUser() user: RequestUser,
+    @Query('type') type?: string,
+  ) {
+    return this.packages.listPurchasedTests(
+      user,
+      type?.trim()
+        ? (type.trim().toUpperCase() as ContentTestType)
+        : undefined,
+    );
   }
 
   @Get('packages/mine')
@@ -34,17 +48,18 @@ export class InstitutionPackagesController {
     return this.packages.listMine(user);
   }
 
+  /** Dual-source tests for mock assembly (centre + purchased). */
   @Get('packages/content-tests')
-  listPublishedTests(@CurrentUser() user: RequestUser) {
-    return this.packages.listPublishedTests(user);
+  listMockContentTests(@CurrentUser() user: RequestUser) {
+    return this.packages.listMockContentTests(user);
   }
 
   @Get('packages/content-tests/:type')
-  listPublishedTestsByType(
+  listMockContentTestsByType(
     @CurrentUser() user: RequestUser,
     @Param('type') type: string,
   ) {
-    return this.packages.listPublishedTests(
+    return this.packages.listMockContentTests(
       user,
       type.toUpperCase() as ContentTestType,
     );

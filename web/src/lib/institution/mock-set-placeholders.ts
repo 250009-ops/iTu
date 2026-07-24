@@ -100,10 +100,10 @@ export function buildInstitutionMocksPreviewPlaceholder(): InstitutionMockPrevie
 }
 
 export const INSTITUTION_MOCK_SHOP_UNAVAILABLE_REASON =
-  "Mock sets are not available for purchase yet. Contact iTestU admin.";
+  "Test sets are not available for purchase yet. Contact iTestU admin.";
 
 export const INSTITUTION_MOCK_ENROLL_LOCKED_REASON =
-  "Purchase the mock set to enroll students";
+  "Create and activate a mock on the Mocks page to enroll students";
 
 /** Static shop card when no listed sets are returned from the API. */
 export function buildInstitutionMockShopPlaceholder(): InstitutionMockShopOffer {

@@ -6,13 +6,14 @@ import {
 import {
   ContentTestStatus,
   ContentTestType,
+  EnrollmentStatus,
   ExamSkill,
   ExamType,
   Prisma,
+  ResultsStatus,
 } from '@prisma/client';
 import { AuditAction } from '../../common/audit/audit.actions';
 import { AuditService } from '../../common/audit/audit.service';
-import { groupKey } from '../../common/catalog-offers';
 import {
   derivePackageKind,
   formatMockNumber,
@@ -31,10 +32,7 @@ import {
   assertPackageScopeMatch,
   packageScopeKey,
 } from '../content/content-scope';
-import {
-  filterPackagesAvailableToStudent,
-  resolveNextPackageForStudent,
-} from '../content/content-assignment';
+import { evaluatePackageAvailability } from '../content/content-assignment';
 import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import { packageExamSkills } from '../content/package-skills';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -80,115 +78,344 @@ export class InstitutionPackagesService {
     return packages.map((pkg) => this.mapPackage(pkg));
   }
 
-  async listEnrollmentPackages(user: RequestUser, studentId: string) {
+  /**
+   * Centre-assembled mocks only, with per-student completion status for the
+   * enroll wizard filters (Not taken yet / In progress / Already completed).
+   */
+  async listEnrollmentPackages(
+    user: RequestUser,
+    studentId: string,
+    packageKind?: string,
+  ) {
     const institutionId = requireInstitutionId(user);
     if (!studentId?.trim()) {
       throw new BadRequestException('Query parameter "studentId" is required');
     }
 
-    const [student, grantedPackageIds] = await Promise.all([
-      this.prisma.studentProfile.findUnique({
-        where: { id: studentId.trim() },
-        select: { id: true, institutionId: true },
-      }),
-      this.mockSets.listGrantedPackageIds(institutionId),
-    ]);
+    const student = await this.prisma.studentProfile.findUnique({
+      where: { id: studentId.trim() },
+      select: { id: true, institutionId: true },
+    });
 
     if (!student || student.institutionId !== institutionId) {
       throw new NotFoundException('Student not found for this institution');
     }
 
-    const grantedPackages =
-      grantedPackageIds.length > 0
-        ? await this.prisma.mockTestPackage.findMany({
-            where: { id: { in: grantedPackageIds }, isActive: true },
-          })
-        : [];
+    const packages = await this.prisma.mockTestPackage.findMany({
+      where: {
+        institutionId,
+        isActive: true,
+        ...(packageKind?.trim()
+          ? { packageKind: packageKind.trim() }
+          : {}),
+      },
+      orderBy: [{ packageKind: 'asc' }, { mockNumber: 'asc' }],
+    });
 
-    const availableGranted = await filterPackagesAvailableToStudent(
-      this.prisma,
-      student.id,
-      grantedPackages,
-    );
+    const mocks = [];
+    for (const pkg of packages) {
+      const skills = packageExamSkills(pkg.skills);
+      const availability = await evaluatePackageAvailability(
+        this.prisma,
+        student.id,
+        pkg,
+      );
+      const enrollment = await this.prisma.enrollment.findFirst({
+        where: {
+          studentId: student.id,
+          packageId: pkg.id,
+          status: { notIn: [EnrollmentStatus.CANCELLED, EnrollmentStatus.MISSED] },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          enrollmentCode: true,
+          mockDate: true,
+          status: true,
+          resultsStatus: true,
+        },
+      });
 
-    const platform = availableGranted
-      .map((p) => {
-        const skills = packageExamSkills(p.skills);
-        return {
-          id: p.id,
-          title: p.title,
-          packageKind: p.packageKind,
-          mockNumber: p.mockNumber,
-          skills: skills.map((s) => s.toLowerCase()),
-          needsWriting: skills.includes(ExamSkill.WRITING),
-          needsSpeaking: skills.includes(ExamSkill.SPEAKING),
-        };
-      })
-      .sort((a, b) => a.title.localeCompare(b.title));
+      let enrollStatus: 'available' | 'in_progress' | 'completed' | 'blocked' =
+        'available';
+      let statusLabel = 'Not taken yet';
 
-    const own = await this.resolveNextPackagesForStudent(
-      student.id,
-      institutionId,
-    );
+      if (
+        enrollment &&
+        enrollment.status === EnrollmentStatus.COMPLETED &&
+        enrollment.resultsStatus === ResultsStatus.RELEASED
+      ) {
+        enrollStatus = 'completed';
+        statusLabel = 'Already completed';
+      } else if (
+        enrollment &&
+        [
+          EnrollmentStatus.ENROLLED,
+          EnrollmentStatus.IN_PROGRESS,
+          EnrollmentStatus.AWAITING_RESULTS,
+          EnrollmentStatus.PENDING_PAYMENT,
+        ].includes(enrollment.status)
+      ) {
+        enrollStatus = 'in_progress';
+        statusLabel = 'In progress';
+      } else if (!availability.canPurchase) {
+        enrollStatus = 'blocked';
+        statusLabel = 'Not available';
+      }
+
+      mocks.push({
+        id: pkg.id,
+        title: pkg.title,
+        packageKind: pkg.packageKind,
+        packageKindLabel: packageKindLabel(pkg.packageKind),
+        mockNumber: pkg.mockNumber,
+        mockLabel: formatMockNumber(pkg.packageKind, pkg.mockNumber),
+        examType: pkg.examType,
+        skills: skills.map((s) => s.toLowerCase()),
+        needsWriting: skills.includes(ExamSkill.WRITING),
+        needsSpeaking: skills.includes(ExamSkill.SPEAKING),
+        enrollStatus,
+        statusLabel,
+        blockingReason: availability.blockingReason ?? undefined,
+        enrollment: enrollment
+          ? {
+              enrollmentCode: enrollment.enrollmentCode,
+              mockDate: enrollment.mockDate,
+              status: enrollment.status,
+              resultsStatus: enrollment.resultsStatus,
+            }
+          : undefined,
+      });
+    }
 
     return {
       studentId: student.id,
-      platform,
-      own: own.map((p) => ({ ...p, costsCredit: false })),
+      mocks,
+      /** @deprecated Use `mocks` — kept empty for older clients. */
+      platform: [] as unknown[],
+      /** @deprecated Use `mocks` — kept empty for older clients. */
+      own: [] as unknown[],
     };
   }
 
-  private async resolveNextPackagesForStudent(
-    studentId: string,
-    institutionId: string | null,
-  ) {
-    const activePackages = await this.prisma.mockTestPackage.findMany({
-      where: { isActive: true, institutionId },
-      select: { packageKind: true, examType: true },
+  /** Read-only section tests from purchased / granted platform test sets. */
+  async listPurchasedTests(user: RequestUser, type?: ContentTestType) {
+    const institutionId = requireInstitutionId(user);
+    const grantedPackageIds =
+      await this.mockSets.listGrantedPackageIds(institutionId);
+
+    if (grantedPackageIds.length === 0) {
+      return { tests: [] as const, grantsCount: 0 };
+    }
+
+    const packages = await this.prisma.mockTestPackage.findMany({
+      where: { id: { in: grantedPackageIds }, isActive: true },
+      select: {
+        id: true,
+        title: true,
+        packageKind: true,
+        mockNumber: true,
+        listeningTestId: true,
+        readingTestId: true,
+        writingTestId: true,
+        speakingBankId: true,
+        contentPool: {
+          select: { testId: true, skill: true },
+        },
+      },
     });
 
-    const seen = new Map<string, { packageKind: string; examType: ExamType }>();
-    for (const pkg of activePackages) {
-      const key = groupKey(pkg.packageKind, pkg.examType);
-      if (!seen.has(key)) {
-        seen.set(key, {
-          packageKind: pkg.packageKind,
-          examType: pkg.examType,
+    const testIds = new Set<string>();
+    const sourceByTestId = new Map<
+      string,
+      { packageId: string; packageTitle: string; mockLabel: string }
+    >();
+
+    for (const pkg of packages) {
+      const mockLabel = formatMockNumber(pkg.packageKind, pkg.mockNumber);
+      const source = {
+        packageId: pkg.id,
+        packageTitle: pkg.title,
+        mockLabel,
+      };
+      const ids = [
+        pkg.listeningTestId,
+        pkg.readingTestId,
+        pkg.writingTestId,
+        pkg.speakingBankId,
+        ...pkg.contentPool.map((row) => row.testId),
+      ].filter((id): id is string => Boolean(id));
+
+      for (const id of ids) {
+        testIds.add(id);
+        if (!sourceByTestId.has(id)) sourceByTestId.set(id, source);
+      }
+    }
+
+    if (testIds.size === 0) {
+      return { tests: [], grantsCount: grantedPackageIds.length };
+    }
+
+    const tests = await this.prisma.contentTest.findMany({
+      where: {
+        id: { in: [...testIds] },
+        ...(type ? { type } : {}),
+      },
+      orderBy: [{ type: 'asc' }, { code: 'asc' }],
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        type: true,
+        status: true,
+        version: true,
+        durationMin: true,
+        updatedAt: true,
+        publishedAt: true,
+      },
+    });
+
+    return {
+      grantsCount: grantedPackageIds.length,
+      tests: tests.map((test) => {
+        const source = sourceByTestId.get(test.id);
+        return {
+          ...test,
+          source: 'purchased' as const,
+          sourcePackageId: source?.packageId ?? null,
+          sourcePackageTitle: source?.packageTitle ?? null,
+          sourceMockLabel: source?.mockLabel ?? null,
+        };
+      }),
+    };
+  }
+
+  /**
+   * Dual-source picker for mock assembly: centre published tests + purchased
+   * set tests, with centre-mock exclusivity metadata for L/R/W.
+   */
+  async listMockContentTests(user: RequestUser, type?: ContentTestType) {
+    const institutionId = requireInstitutionId(user);
+    const [centreTests, purchased] = await Promise.all([
+      this.prisma.contentTest.findMany({
+        where: {
+          institutionId,
+          status: ContentTestStatus.PUBLISHED,
+          ...(type ? { type } : {}),
+        },
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          type: true,
+          status: true,
+        },
+      }),
+      this.listPurchasedTests(user, type),
+    ]);
+
+    const centreMockAssignments = await this.prisma.packageContentTest.findMany({
+      where: {
+        package: { institutionId },
+        ...(type
+          ? {
+              skill:
+                type === ContentTestType.LISTENING
+                  ? ExamSkill.LISTENING
+                  : type === ContentTestType.READING
+                    ? ExamSkill.READING
+                    : type === ContentTestType.WRITING
+                      ? ExamSkill.WRITING
+                      : ExamSkill.SPEAKING,
+            }
+          : {}),
+      },
+      include: {
+        package: {
+          select: {
+            id: true,
+            title: true,
+            packageKind: true,
+            mockNumber: true,
+          },
+        },
+      },
+    });
+
+    const assignmentByTestId = new Map<
+      string,
+      {
+        assignedMockId: string;
+        assignedMockTitle: string;
+        assignedMockLabel: string;
+      }
+    >();
+    for (const row of centreMockAssignments) {
+      if (!assignmentByTestId.has(row.testId)) {
+        assignmentByTestId.set(row.testId, {
+          assignedMockId: row.package.id,
+          assignedMockTitle: row.package.title,
+          assignedMockLabel: formatMockNumber(
+            row.package.packageKind,
+            row.package.mockNumber,
+          ),
         });
       }
     }
 
-    const options: {
-      id: string;
-      title: string;
-      packageKind: string;
-      mockNumber: number;
-      skills: string[];
-      needsWriting: boolean;
-      needsSpeaking: boolean;
-    }[] = [];
-
-    for (const group of seen.values()) {
-      const resolved = await resolveNextPackageForStudent(
-        this.prisma,
-        studentId,
-        { ...group, institutionId },
-      );
-      if (resolved) {
-        const skills = packageExamSkills(resolved.skills);
-        options.push({
-          id: resolved.id,
-          title: resolved.title,
-          packageKind: resolved.packageKind,
-          mockNumber: resolved.mockNumber,
-          skills: skills.map((s) => s.toLowerCase()),
-          needsWriting: skills.includes(ExamSkill.WRITING),
-          needsSpeaking: skills.includes(ExamSkill.SPEAKING),
-        });
+    const byId = new Map<
+      string,
+      {
+        id: string;
+        code: string;
+        title: string;
+        type: string;
+        status: string;
+        source: 'centre' | 'purchased';
+        isPackaged: boolean;
+        assignedMockId: string | null;
+        assignedMockTitle: string | null;
+        assignedMockLabel: string | null;
       }
+    >();
+
+    for (const test of centreTests) {
+      const assigned = assignmentByTestId.get(test.id);
+      byId.set(test.id, {
+        id: test.id,
+        code: test.code,
+        title: test.title,
+        type: test.type,
+        status: test.status,
+        source: 'centre',
+        isPackaged: Boolean(assigned),
+        assignedMockId: assigned?.assignedMockId ?? null,
+        assignedMockTitle: assigned?.assignedMockTitle ?? null,
+        assignedMockLabel: assigned?.assignedMockLabel ?? null,
+      });
     }
 
-    return options.sort((a, b) => a.title.localeCompare(b.title));
+    for (const test of purchased.tests) {
+      if (byId.has(test.id)) continue;
+      if (test.status !== ContentTestStatus.PUBLISHED) continue;
+      const assigned = assignmentByTestId.get(test.id);
+      byId.set(test.id, {
+        id: test.id,
+        code: test.code,
+        title: test.title,
+        type: test.type,
+        status: test.status,
+        source: 'purchased',
+        isPackaged: Boolean(assigned),
+        assignedMockId: assigned?.assignedMockId ?? null,
+        assignedMockTitle: assigned?.assignedMockTitle ?? null,
+        assignedMockLabel: assigned?.assignedMockLabel ?? null,
+      });
+    }
+
+    return {
+      tests: [...byId.values()].sort((a, b) => a.code.localeCompare(b.code)),
+    };
   }
 
   async suggestNextPackage(
@@ -477,12 +704,42 @@ export class InstitutionPackagesService {
     });
     const byId = new Map(tests.map((t) => [t.id, t]));
 
+    const grantedPackageIds =
+      await this.mockSets.listGrantedPackageIds(institutionId);
+    const grantedTestIds = new Set<string>();
+    if (grantedPackageIds.length > 0) {
+      const grantedPackages = await this.prisma.mockTestPackage.findMany({
+        where: { id: { in: grantedPackageIds } },
+        select: {
+          listeningTestId: true,
+          readingTestId: true,
+          writingTestId: true,
+          speakingBankId: true,
+          contentPool: { select: { testId: true } },
+        },
+      });
+      for (const pkg of grantedPackages) {
+        for (const id of [
+          pkg.listeningTestId,
+          pkg.readingTestId,
+          pkg.writingTestId,
+          pkg.speakingBankId,
+          ...pkg.contentPool.map((row) => row.testId),
+        ]) {
+          if (id) grantedTestIds.add(id);
+        }
+      }
+    }
+
     for (const entry of pool) {
       const test = byId.get(entry.testIds[0]!);
       if (!test) throw new BadRequestException('Selected test not found');
-      if (test.institutionId !== institutionId) {
+      const isCentreTest = test.institutionId === institutionId;
+      const isPurchasedTest =
+        test.institutionId == null && grantedTestIds.has(test.id);
+      if (!isCentreTest && !isPurchasedTest) {
         throw new BadRequestException(
-          'Only your centre\'s published tests can be linked to this package',
+          "Only your centre's published tests or tests from purchased test sets can be linked",
         );
       }
       if (test.status !== ContentTestStatus.PUBLISHED) {

@@ -90,7 +90,7 @@ export function isExcludedPackageTypeTab(tabId: string): boolean {
 }
 
 export function packageMatchesTypeTab(
-  pkg: { packageKind?: string; examType: string },
+  pkg: { packageKind?: string; examType?: string },
   tabId: PackageTypeTabId,
 ): boolean {
   if (tabId === "all") return true;
@@ -98,7 +98,7 @@ export function packageMatchesTypeTab(
   if (!tab?.packageKind) return true;
   return (
     pkg.packageKind === tab.packageKind &&
-    (!tab.examType || pkg.examType === tab.examType)
+    (!tab.examType || !pkg.examType || pkg.examType === tab.examType)
   );
 }
 

@@ -25,18 +25,18 @@ export function InstitutionDashboardView() {
       <PageHeader
         breadcrumb="Institution &gt; Dashboard"
         title={data?.centerName ? `Welcome, ${data.centerName}` : "Dashboard"}
-        description="Overview of your centre's owned mock sets, students, and mock activity."
+        description="Overview of your centre's tests, mocks, students, and mock activity."
         actions={
           <>
             <Link href="/institution/mocks/shop">
               <Button variant="secondary" size="sm">
                 <FileText className="h-4 w-4" />
-                Buy mock sets
+                Buy test sets
               </Button>
             </Link>
             <Link href="/institution/mocks">
               <Button variant="secondary" size="sm">
-                My mocks
+                Mocks
               </Button>
             </Link>
             <Link href="/institution/students">
@@ -65,9 +65,9 @@ export function InstitutionDashboardView() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Owned mock sets"
+          label="Purchased test sets"
           value={data?.grantedSetCount ?? "—"}
-          hint="Purchased or granted platform bundles"
+          hint="Bought or granted platform test sets"
           accent="red"
         />
         <StatCard

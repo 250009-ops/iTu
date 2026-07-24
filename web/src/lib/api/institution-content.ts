@@ -143,6 +143,28 @@ export function deleteInstitutionContentTest(id: string) {
   return apiFetch(`/institution/content/tests/${id}`, { method: "DELETE" });
 }
 
+export function getInstitutionPurchasedTests(type?: string) {
+  const q = type ? `?type=${encodeURIComponent(type.toUpperCase())}` : "";
+  return apiFetch<{
+    grantsCount: number;
+    tests: {
+      id: string;
+      code: string;
+      title: string;
+      type: string;
+      status: string;
+      version: number;
+      durationMin: number;
+      updatedAt: string;
+      publishedAt: string | null;
+      source: "purchased";
+      sourcePackageId: string | null;
+      sourcePackageTitle: string | null;
+      sourceMockLabel: string | null;
+    }[];
+  }>(`/institution/tests/purchased${q}`);
+}
+
 export function getInstitutionPackagesMine() {
   return apiFetch<
     {
@@ -165,42 +187,60 @@ export function getInstitutionPackagesMine() {
   >("/institution/packages/mine");
 }
 
-export function getInstitutionEnrollmentPackages(studentId: string) {
+export type InstitutionEnrollmentMock = {
+  id: string;
+  title: string;
+  packageKind: string;
+  packageKindLabel?: string;
+  mockNumber: number;
+  mockLabel?: string;
+  examType?: string;
+  skills?: string[];
+  needsWriting?: boolean;
+  needsSpeaking?: boolean;
+  enrollStatus: "available" | "in_progress" | "completed" | "blocked";
+  statusLabel: string;
+  blockingReason?: string;
+  enrollment?: {
+    enrollmentCode: string;
+    mockDate: string;
+    status: string;
+    resultsStatus: string;
+  };
+};
+
+export function getInstitutionEnrollmentPackages(
+  studentId: string,
+  packageKind?: string,
+) {
+  const params = new URLSearchParams({ studentId });
+  if (packageKind) params.set("packageKind", packageKind);
   return apiFetch<{
     studentId: string;
-    platform: {
-      id: string;
-      title: string;
-      packageKind: string;
-      mockNumber: number;
-      skills?: string[];
-      needsWriting?: boolean;
-      needsSpeaking?: boolean;
-    }[];
-    own: {
-      id: string;
-      title: string;
-      packageKind: string;
-      mockNumber: number;
-      costsCredit?: boolean;
-      skills?: string[];
-      needsWriting?: boolean;
-      needsSpeaking?: boolean;
-    }[];
-  }>(`/institution/enrollment-packages?studentId=${encodeURIComponent(studentId)}`);
+    mocks: InstitutionEnrollmentMock[];
+    platform: InstitutionEnrollmentMock[];
+    own: InstitutionEnrollmentMock[];
+  }>(`/institution/enrollment-packages?${params.toString()}`);
 }
+
+export type InstitutionMockContentTest = {
+  id: string;
+  code: string;
+  title: string;
+  type: string;
+  status: string;
+  source: "centre" | "purchased";
+  isPackaged: boolean;
+  assignedMockId: string | null;
+  assignedMockTitle: string | null;
+  assignedMockLabel: string | null;
+};
 
 export function getInstitutionPackageContentTests(type?: string) {
   const q = type ? `/${type.toUpperCase()}` : "";
-  return apiFetch<
-    {
-      id: string;
-      code: string;
-      title: string;
-      type: string;
-      status: string;
-    }[]
-  >(`/institution/packages/content-tests${q}`);
+  return apiFetch<{ tests: InstitutionMockContentTest[] }>(
+    `/institution/packages/content-tests${q}`,
+  ).then((data) => data.tests);
 }
 
 export function getInstitutionPackageNextIdentity(params?: {
@@ -228,7 +268,23 @@ export function createInstitutionPackage(body: {
   skills?: string[];
   description?: string;
 }) {
-  return apiFetch("/institution/packages", { method: "POST", body });
+  return apiFetch<{
+    id: string;
+    slug: string;
+    title: string;
+    description: string | null;
+    packageKind: string;
+    packageKindLabel: string;
+    mockNumber: number;
+    mockLabel: string;
+    examType: string;
+    skills: unknown;
+    isActive: boolean;
+    listeningTestId: string | null;
+    readingTestId: string | null;
+    writingTestId: string | null;
+    speakingBankId: string | null;
+  }>("/institution/packages", { method: "POST", body });
 }
 
 export function updateInstitutionPackageLinks(

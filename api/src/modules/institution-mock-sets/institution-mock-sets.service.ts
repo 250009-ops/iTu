@@ -711,7 +711,7 @@ export class InstitutionMockSetsService {
               canPurchase: purchase.canPurchase,
               disabledReason:
                 purchase.disabledReason ??
-                'Mock sets are not available for purchase yet. Contact iTestU admin.',
+                'Test sets are not available for purchase yet. Contact iTestU admin.',
             },
           ],
         };

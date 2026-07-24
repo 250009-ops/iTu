@@ -31,7 +31,7 @@ export function ContentStudioHeader({ activeModule }: Props) {
           </h1>
           <p className="mt-1 text-sm text-muted">
             {isInstitution
-              ? "Digitize your paper mocks — only visible to your centre. Publish tests, then link them in your private packages."
+              ? "Digitize your paper mocks — only visible to your centre. Publish tests, then assemble them into mocks on the Mocks page."
               : "Build tests in the visual editor, preview inline, then publish and link them to packages."}
           </p>
         </div>
