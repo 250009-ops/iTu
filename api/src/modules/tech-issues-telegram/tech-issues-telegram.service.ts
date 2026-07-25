@@ -18,12 +18,20 @@ const MEDIA_GROUP_WAIT_MS = 800;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TELEGRAM_CHAT_ID_RE = /^-?\d+$/;
 
-type WizardStep = 'email' | 'password' | 'issue' | 'cant_reason';
+type WizardStep =
+  | 'email'
+  | 'password'
+  | 'ask_image'
+  | 'await_photos'
+  | 'cant_reason';
 
 interface Wizard {
   step: WizardStep;
   email?: string;
   issueCode?: string;
+  /** Draft issue text while choosing / collecting photos. */
+  issueText?: string;
+  photos?: string[];
   lastAt: number;
 }
 
@@ -230,6 +238,7 @@ export class TechIssuesTelegramService {
           { command: 'start', description: 'Welcome / how to use' },
           { command: 'login', description: 'Sign in as platform admin' },
           { command: 'logout', description: 'Sign out' },
+          { command: 'issues', description: 'Pending issues (status controls)' },
           { command: 'myissues', description: 'List your tech issues' },
           { command: 'cancel', description: 'Cancel current step' },
         ],
@@ -290,9 +299,13 @@ export class TechIssuesTelegramService {
       message_id: Number(messageId),
       text,
       parse_mode: 'HTML',
-      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+      ...(replyMarkup !== undefined ? { reply_markup: replyMarkup } : {}),
     });
     return data?.ok === true;
+  }
+
+  private emptyKeyboard() {
+    return { inline_keyboard: [] as unknown[][] };
   }
 
   private async sendPhoto(
@@ -326,6 +339,19 @@ export class TechIssuesTelegramService {
     );
   }
 
+  private async isChannelAdmin(telegramUserId: number): Promise<boolean> {
+    const data = await this.telegramCall(
+      'getChatMember',
+      {
+        chat_id: this.channelId(),
+        user_id: telegramUserId,
+      },
+      0,
+    );
+    const status = (data?.result as { status?: string } | undefined)?.status;
+    return status === 'creator' || status === 'administrator';
+  }
+
   private statusLabel(status: TechIssueStatus): string {
     switch (status) {
       case TechIssueStatus.PENDING:
@@ -351,6 +377,28 @@ export class TechIssuesTelegramService {
     };
   }
 
+  private imageChoiceKeyboard() {
+    return {
+      inline_keyboard: [
+        [
+          { text: '📷 Add image', callback_data: 'ti:img:add' },
+          { text: '⏭ Skip', callback_data: 'ti:img:skip' },
+        ],
+      ],
+    };
+  }
+
+  private photoSendKeyboard() {
+    return {
+      inline_keyboard: [
+        [
+          { text: '✅ Send', callback_data: 'ti:img:send' },
+          { text: '⏭ Skip photos', callback_data: 'ti:img:skip' },
+        ],
+      ],
+    };
+  }
+
   private formatChannelMessage(opts: {
     code: string;
     status: TechIssueStatus;
@@ -368,6 +416,31 @@ export class TechIssuesTelegramService {
     ];
     if (opts.status === TechIssueStatus.CANT && opts.cantReason) {
       lines.push('', `<b>Reason:</b> ${this.escapeHtml(opts.cantReason)}`);
+    }
+    return lines.join('\n');
+  }
+
+  private formatControlMessage(opts: {
+    code: string;
+    status: TechIssueStatus;
+    message: string;
+    cantReason?: string | null;
+  }): string {
+    const lines = [
+      `<b>Status controls — ${opts.code}</b>`,
+      `<b>Status:</b> ${this.statusLabel(opts.status)}`,
+      '',
+      this.escapeHtml(opts.message.slice(0, 400)) +
+        (opts.message.length > 400 ? '…' : ''),
+      '',
+      'Only tech-issues channel admins can change status.',
+    ];
+    if (opts.status === TechIssueStatus.CANT && opts.cantReason) {
+      lines.splice(
+        2,
+        0,
+        `<b>Reason:</b> ${this.escapeHtml(opts.cantReason)}`,
+      );
     }
     return lines.join('\n');
   }
@@ -494,13 +567,20 @@ export class TechIssuesTelegramService {
       await this.handleLogout(chatId);
       return;
     }
+    if (cmd === '/issues') {
+      await this.handlePendingIssues(chatId);
+      return;
+    }
     if (cmd === '/myissues') {
       await this.handleMyIssues(chatId);
       return;
     }
     if (cmd === '/cancel') {
       this.wizards.delete(chatId);
-      await this.send(chatId, 'Cancelled. Send /login to sign in or describe an issue if already signed in.');
+      await this.send(
+        chatId,
+        'Cancelled. Send /login to sign in or describe an issue if already signed in.',
+      );
       return;
     }
 
@@ -516,6 +596,35 @@ export class TechIssuesTelegramService {
       await this.handleCantReason(chatId, text, wizard);
       return;
     }
+    if (wizard?.step === 'ask_image') {
+      await this.send(
+        chatId,
+        'Use the buttons below: <b>Add image</b> or <b>Skip</b>. Or /cancel.',
+        this.imageChoiceKeyboard(),
+      );
+      return;
+    }
+    if (wizard?.step === 'await_photos') {
+      if (message.photo?.length) {
+        const session = await this.getSession(chatId);
+        if (!session) {
+          this.wizards.delete(chatId);
+          await this.send(
+            chatId,
+            'You are not signed in. Send /login and authenticate with your platform admin email and password.',
+          );
+          return;
+        }
+        await this.handlePhotoDuringAwait(chatId, session.userId, message);
+        return;
+      }
+      await this.send(
+        chatId,
+        'Send photo(s) now, then tap <b>Send</b>. Or tap <b>Skip photos</b> / /cancel.',
+        this.photoSendKeyboard(),
+      );
+      return;
+    }
 
     const session = await this.getSession(chatId);
     if (!session) {
@@ -527,24 +636,45 @@ export class TechIssuesTelegramService {
     }
 
     if (message.photo?.length) {
-      await this.handlePhotoMessage(chatId, session.userId, message);
+      await this.send(
+        chatId,
+        'Send the issue <b>text</b> first. You will then be asked whether to add an image.',
+      );
       return;
     }
 
     if (!text) {
       await this.send(
         chatId,
-        'Send your tech issue as text and/or photos. Use /myissues to list yours, /logout to sign out.',
+        'Send your tech issue as text. You will then choose Add image or Skip.\n\nCommands: /issues · /myissues · /logout · /cancel',
       );
       return;
     }
 
-    await this.createIssue({
-      chatId,
-      userId: session.userId,
-      message: text,
-      photoFileIds: [],
+    await this.beginIssueImageStep(chatId, text);
+  }
+
+  private async beginIssueImageStep(
+    chatId: number,
+    issueText: string,
+  ): Promise<void> {
+    this.wizards.set(chatId, {
+      step: 'ask_image',
+      issueText,
+      photos: [],
+      lastAt: Date.now(),
     });
+    await this.send(
+      chatId,
+      [
+        'Got your issue text.',
+        '',
+        `<i>${this.escapeHtml(issueText.slice(0, 300))}${issueText.length > 300 ? '…' : ''}</i>`,
+        '',
+        '<b>Add an image?</b>',
+      ].join('\n'),
+      this.imageChoiceKeyboard(),
+    );
   }
 
   private async handleStart(chatId: number): Promise<void> {
@@ -552,7 +682,7 @@ export class TechIssuesTelegramService {
     if (session) {
       await this.send(
         chatId,
-        `Authenticated as <b>${this.escapeHtml(session.user.name)}</b>. Send your tech issue (text and/or photos). Send /logout to sign out.\n\nCommands: /myissues · /logout · /cancel`,
+        `Authenticated as <b>${this.escapeHtml(session.user.name)}</b>. Send issue text — you will then choose Add image or Skip.\n\nCommands: /issues · /myissues · /logout · /cancel`,
       );
       return;
     }
@@ -566,9 +696,10 @@ export class TechIssuesTelegramService {
         '1. Send /login',
         '2. Enter your <b>admin</b> email',
         '3. Enter your password',
-        '4. Send the issue text and optional photos',
+        '4. Send the issue text',
+        '5. Choose <b>Add image</b> or <b>Skip</b>, then Send',
         '',
-        'Commands: /login · /myissues · /logout · /cancel',
+        'Commands: /login · /issues · /myissues · /logout · /cancel',
       ].join('\n'),
     );
   }
@@ -664,7 +795,7 @@ export class TechIssuesTelegramService {
     this.wizards.delete(chatId);
     await this.send(
       chatId,
-      `Authenticated as <b>${this.escapeHtml(user.name)}</b>. Send your tech issue (text and/or photos). Send /logout to sign out.`,
+      `Authenticated as <b>${this.escapeHtml(user.name)}</b>. Send issue text — you will then choose Add image or Skip. Send /logout to sign out.`,
     );
   }
 
@@ -701,6 +832,51 @@ export class TechIssuesTelegramService {
     );
   }
 
+  /** Pending issues with private status controls (channel admins only on click). */
+  private async handlePendingIssues(chatId: number): Promise<void> {
+    const session = await this.getSession(chatId);
+    if (!session) {
+      await this.send(chatId, 'You are not signed in. Send /login first.');
+      return;
+    }
+
+    const isAdmin = await this.isChannelAdmin(chatId);
+    if (!isAdmin) {
+      await this.send(
+        chatId,
+        'Only Telegram admins/owners of the tech-issues channel can use /issues status controls. You can still report issues and use /myissues.',
+      );
+      return;
+    }
+
+    const issues = await this.prisma.techIssue.findMany({
+      where: { status: TechIssueStatus.PENDING },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+      include: { reporter: { select: { name: true, email: true } } },
+    });
+    if (!issues.length) {
+      await this.send(chatId, 'No pending tech issues.');
+      return;
+    }
+
+    await this.send(
+      chatId,
+      `<b>Pending tech issues</b> (${issues.length})\nTap buttons on each card to update status.`,
+    );
+    for (const issue of issues) {
+      await this.send(
+        chatId,
+        this.formatControlMessage({
+          code: issue.code,
+          status: issue.status,
+          message: `${issue.reporter.name}: ${issue.message}`,
+        }),
+        this.statusKeyboard(issue.code),
+      );
+    }
+  }
+
   private largestPhotoFileId(photos: TelegramPhotoSize[]): string | null {
     if (!photos.length) return null;
     const best = photos.reduce((a, b) => {
@@ -711,7 +887,7 @@ export class TechIssuesTelegramService {
     return best.file_id || null;
   }
 
-  private async handlePhotoMessage(
+  private async handlePhotoDuringAwait(
     chatId: number,
     userId: string,
     message: TelegramMessage,
@@ -719,17 +895,23 @@ export class TechIssuesTelegramService {
     const fileId = this.largestPhotoFileId(message.photo ?? []);
     if (!fileId) return;
 
+    const wizard = this.wizards.get(chatId);
+    if (!wizard || wizard.step !== 'await_photos' || !wizard.issueText) {
+      await this.send(
+        chatId,
+        'Send the issue text first, then choose Add image.',
+      );
+      return;
+    }
+
     const groupId = message.media_group_id;
     if (groupId) {
       const existing = this.mediaGroups.get(groupId);
       if (existing) {
         existing.photos.push(fileId);
-        if (message.caption?.trim()) {
-          existing.caption = message.caption.trim();
-        }
         clearTimeout(existing.timer);
         existing.timer = setTimeout(() => {
-          void this.flushMediaGroup(groupId);
+          void this.flushMediaGroupIntoWizard(groupId);
         }, MEDIA_GROUP_WAIT_MS);
         return;
       }
@@ -737,34 +919,42 @@ export class TechIssuesTelegramService {
         chatId,
         userId,
         photos: [fileId],
-        caption: message.caption?.trim() || undefined,
         timer: setTimeout(() => {
-          void this.flushMediaGroup(groupId);
+          void this.flushMediaGroupIntoWizard(groupId);
         }, MEDIA_GROUP_WAIT_MS),
       };
       this.mediaGroups.set(groupId, draft);
       return;
     }
 
-    await this.createIssue({
+    wizard.photos = [...(wizard.photos ?? []), fileId];
+    wizard.lastAt = Date.now();
+    this.wizards.set(chatId, wizard);
+    await this.send(
       chatId,
-      userId,
-      message: message.caption?.trim() || 'Photo(s) attached (no description).',
-      photoFileIds: [fileId],
-    });
+      `📷 ${wizard.photos.length} photo(s) ready. Send more, or tap <b>Send</b>.`,
+      this.photoSendKeyboard(),
+    );
   }
 
-  private async flushMediaGroup(groupId: string): Promise<void> {
+  private async flushMediaGroupIntoWizard(groupId: string): Promise<void> {
     const draft = this.mediaGroups.get(groupId);
     if (!draft) return;
     this.mediaGroups.delete(groupId);
     clearTimeout(draft.timer);
-    await this.createIssue({
-      chatId: draft.chatId,
-      userId: draft.userId,
-      message: draft.caption || 'Photo(s) attached (no description).',
-      photoFileIds: draft.photos,
-    });
+
+    const wizard = this.wizards.get(draft.chatId);
+    if (!wizard || wizard.step !== 'await_photos' || !wizard.issueText) {
+      return;
+    }
+    wizard.photos = [...(wizard.photos ?? []), ...draft.photos];
+    wizard.lastAt = Date.now();
+    this.wizards.set(draft.chatId, wizard);
+    await this.send(
+      draft.chatId,
+      `📷 ${wizard.photos.length} photo(s) ready. Send more, or tap <b>Send</b>.`,
+      this.photoSendKeyboard(),
+    );
   }
 
   private async createIssue(opts: {
@@ -806,11 +996,8 @@ export class TechIssuesTelegramService {
       this.logger.error('Invalid TELEGRAM_TECH_ISSUES_CHANNEL_ID');
     }
 
-    const messageId = await this.send(
-      channel,
-      channelText,
-      this.statusKeyboard(issue.code),
-    );
+    // Public channel post: text + photos only — NO inline keyboard (visible to all).
+    const messageId = await this.send(channel, channelText);
 
     if (messageId != null) {
       await this.prisma.techIssue.update({
@@ -826,19 +1013,51 @@ export class TechIssuesTelegramService {
       );
     }
 
+    // Private status controls for the submitting admin (and /issues for channel admins).
     await this.send(
       opts.chatId,
-      `✅ Issue <b>${issue.code}</b> created. Status: Pending.\n\n${this.escapeHtml(issue.message.slice(0, 500))}${issue.message.length > 500 ? '…' : ''}${opts.photoFileIds.length ? `\n\n📷 ${opts.photoFileIds.length} photo(s) attached.` : ''}`,
+      [
+        `✅ Issue <b>${issue.code}</b> created. Status: Pending.`,
+        '',
+        this.escapeHtml(issue.message.slice(0, 500)) +
+          (issue.message.length > 500 ? '…' : ''),
+        opts.photoFileIds.length
+          ? `\n📷 ${opts.photoFileIds.length} photo(s) attached.`
+          : '',
+        '',
+        'Use the buttons below to update status (channel admins only). Or /issues for all pending.',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      this.statusKeyboard(issue.code),
     );
   }
 
   private async handleCallback(query: TelegramCallbackQuery): Promise<void> {
     const data = query.data?.trim() ?? '';
+    const chatId = query.message?.chat?.id ?? query.from.id;
+
+    if (data === 'ti:img:add' || data === 'ti:img:skip' || data === 'ti:img:send') {
+      await this.handleImageStepCallback(query, data, chatId);
+      return;
+    }
+
     const match = /^ti:(PENDING|RESOLVED|CANT):([A-Z0-9-]+)$/.exec(data);
     if (!match) {
       await this.answerCallback(query.id, 'Unknown action');
       return;
     }
+
+    const isAdmin = await this.isChannelAdmin(query.from.id);
+    if (!isAdmin) {
+      await this.answerCallback(
+        query.id,
+        'Only channel admins can update status.',
+        true,
+      );
+      return;
+    }
+
     const status = match[1] as 'PENDING' | 'RESOLVED' | 'CANT';
     const code = match[2];
 
@@ -868,7 +1087,6 @@ export class TechIssuesTelegramService {
         `You marked <b>${code}</b> as Can't.\n\nReply with a short reason (or /cancel).`,
       );
       if (dmOk == null) {
-        // Clicker has never started the bot — keep wizard keyed by user id chat.
         this.logger.warn(
           `Could not DM user ${clickerChatId} for Can't reason on ${code}`,
         );
@@ -891,10 +1109,117 @@ export class TechIssuesTelegramService {
     });
 
     await this.refreshChannelMessage(updated);
+    await this.refreshControlMessage(query, updated);
     await this.answerCallback(
       query.id,
       `${updated.code}: ${this.statusLabel(updated.status)}`,
     );
+  }
+
+  private async handleImageStepCallback(
+    query: TelegramCallbackQuery,
+    data: string,
+    chatId: number,
+  ): Promise<void> {
+    const wizard = this.wizards.get(chatId);
+    if (
+      !wizard ||
+      (wizard.step !== 'ask_image' && wizard.step !== 'await_photos') ||
+      !wizard.issueText
+    ) {
+      await this.answerCallback(query.id, 'No issue draft. Send text first.', true);
+      return;
+    }
+
+    const session = await this.getSession(chatId);
+    if (!session) {
+      this.wizards.delete(chatId);
+      await this.answerCallback(query.id, 'Not signed in', true);
+      await this.send(chatId, 'You are not signed in. Send /login first.');
+      return;
+    }
+
+    if (data === 'ti:img:add') {
+      wizard.step = 'await_photos';
+      wizard.photos = wizard.photos ?? [];
+      wizard.lastAt = Date.now();
+      this.wizards.set(chatId, wizard);
+      await this.answerCallback(query.id, 'Send photo(s)');
+      if (query.message?.message_id != null) {
+        await this.editMessage(
+          chatId,
+          query.message.message_id,
+          [
+            'Got your issue text.',
+            '',
+            `<i>${this.escapeHtml(wizard.issueText.slice(0, 300))}${wizard.issueText.length > 300 ? '…' : ''}</i>`,
+            '',
+            '<b>Send photo(s)</b>, then tap <b>Send</b>. Or <b>Skip photos</b>.',
+          ].join('\n'),
+          this.photoSendKeyboard(),
+        );
+      } else {
+        await this.send(
+          chatId,
+          'Send photo(s) now, then tap <b>Send</b>. Or tap <b>Skip photos</b>.',
+          this.photoSendKeyboard(),
+        );
+      }
+      return;
+    }
+
+    if (data === 'ti:img:skip') {
+      const issueText = wizard.issueText;
+      this.wizards.delete(chatId);
+      await this.answerCallback(query.id, 'Sending without photo');
+      if (query.message?.message_id != null) {
+        await this.editMessage(
+          chatId,
+          query.message.message_id,
+          '⏭ Skipped images — creating issue…',
+          this.emptyKeyboard(),
+        );
+      }
+      await this.createIssue({
+        chatId,
+        userId: session.userId,
+        message: issueText,
+        photoFileIds: [],
+      });
+      return;
+    }
+
+    // ti:img:send
+    if (wizard.step !== 'await_photos') {
+      await this.answerCallback(query.id, 'Add image first, or Skip.', true);
+      return;
+    }
+    const photos = wizard.photos ?? [];
+    if (!photos.length) {
+      await this.answerCallback(
+        query.id,
+        'Send at least one photo, or Skip photos.',
+        true,
+      );
+      return;
+    }
+    const issueText = wizard.issueText;
+    this.wizards.delete(chatId);
+    await this.answerCallback(query.id, 'Sending issue');
+    if (query.message?.message_id != null) {
+      await this.editMessage(
+        chatId,
+        query.message.message_id,
+        `✅ Sending with ${photos.length} photo(s)…`,
+        this.emptyKeyboard(),
+      );
+    }
+    await this.createIssue({
+      chatId,
+      userId: session.userId,
+      message: issueText,
+      photoFileIds: photos,
+    });
   }
 
   private async handleCantReason(
@@ -909,7 +1234,17 @@ export class TechIssuesTelegramService {
     }
     if (!wizard.issueCode) {
       this.wizards.delete(chatId);
-      await this.send(chatId, 'No issue selected. Use the channel buttons again.');
+      await this.send(chatId, 'No issue selected. Use status controls again.');
+      return;
+    }
+
+    const isAdmin = await this.isChannelAdmin(chatId);
+    if (!isAdmin) {
+      this.wizards.delete(chatId);
+      await this.send(
+        chatId,
+        'Only channel admins can update status.',
+      );
       return;
     }
 
@@ -936,6 +1271,7 @@ export class TechIssuesTelegramService {
     await this.send(
       chatId,
       `Updated <b>${updated.code}</b> to Can't with your reason.`,
+      this.statusKeyboard(updated.code),
     );
   }
 
@@ -956,18 +1292,49 @@ export class TechIssuesTelegramService {
       message: issue.message,
       cantReason: issue.cantReason,
     });
+    // Never put status keyboards on the public channel (strip leftover ones too).
     const ok = await this.editMessage(
       this.channelId(),
       issue.channelMessageId,
       text,
-      this.statusKeyboard(issue.code),
+      this.emptyKeyboard(),
     );
     if (!ok) {
-      // Fallback: post a status reply in the channel.
       await this.send(
         this.channelId(),
         `↻ <b>${issue.code}</b> → ${this.statusLabel(issue.status)}${issue.cantReason ? `\nReason: ${this.escapeHtml(issue.cantReason)}` : ''}`,
       );
     }
+  }
+
+  /** Update the private control message the admin clicked (if any). */
+  private async refreshControlMessage(
+    query: TelegramCallbackQuery,
+    issue: {
+      code: string;
+      status: TechIssueStatus;
+      message: string;
+      cantReason: string | null;
+    },
+  ): Promise<void> {
+    const msg = query.message;
+    if (!msg?.message_id || msg.chat.id === Number(this.channelId())) {
+      // Channel callbacks: strip keyboard if somehow still present.
+      if (msg?.message_id != null && msg.chat.id === Number(this.channelId())) {
+        /* already handled in refreshChannelMessage */
+      }
+      return;
+    }
+    await this.editMessage(
+      msg.chat.id,
+      msg.message_id,
+      this.formatControlMessage({
+        code: issue.code,
+        status: issue.status,
+        message: issue.message,
+        cantReason: issue.cantReason,
+      }),
+      this.statusKeyboard(issue.code),
+    );
   }
 }
