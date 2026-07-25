@@ -12,16 +12,14 @@ export const metadata: Metadata = {
   description:
     "iTestU (iTu) — professional computer-delivered IELTS mocks with examiner feedback, plus Reading, Listening, and AI Writing practice packages.",
   icons: {
-    // Google requires a square favicon that is a multiple of 48px; prefer PNGs.
+    // Google wants square PNGs that are multiples of 48px. Keep favicon.ico in
+    // public/ only — app/favicon.ico is auto-injected first as 256x256 (invalid).
     icon: [
       { url: "/icon-96.png", sizes: "96x96", type: "image/png" },
-      { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-    shortcut: [{ url: "/favicon.ico" }],
   },
   manifest: "/manifest.webmanifest",
 };
