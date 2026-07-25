@@ -33,6 +33,7 @@ import { InstitutionModule } from './modules/institution/institution.module';
 import { InstitutionContentModule } from './modules/institution-content/institution-content.module';
 import { InstExaminerModule } from './modules/inst-examiner/inst-examiner.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
+import { TechIssuesTelegramModule } from './modules/tech-issues-telegram/tech-issues-telegram.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { AuditModule } from './common/audit/audit.module';
 import { PracticeModule } from './modules/practice/practice.module';
@@ -83,6 +84,7 @@ import { StorageModule } from './common/storage/storage.module';
     InstitutionContentModule,
     InstExaminerModule,
     TelegramModule,
+    TechIssuesTelegramModule,
     ExamSessionsModule,
     GradingModule,
     ResultsModule,

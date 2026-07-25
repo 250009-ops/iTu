@@ -56,14 +56,19 @@ There is **no** shared ops/alert Telegram channel — admin alerts are in-app no
 | `TELEGRAM_POLLING` | Dev long-poll vs production webhook |
 | `TELEGRAM_WEBHOOK_BASE_URL` | Public HTTPS host for webhook registration |
 | `TELEGRAM_FEEDBACK_CHANNEL_ID` | Private channel for mock feedback only (default `-1004413242735`) — never used as a default for other sends |
+| `TELEGRAM_TECH_ISSUES_BOT_TOKEN` | Separate BotFather token for the admin tech-issues bot |
+| `TELEGRAM_TECH_ISSUES_CHANNEL_ID` | Private channel for admin tech issues (default `-1003941044424`) |
+| `TELEGRAM_TECH_ISSUES_WEBHOOK_SECRET` | Optional webhook auth for `/api/v1/integrations/telegram-tech-issues/webhook` |
+| `TELEGRAM_TECH_ISSUES_POLLING` | Optional override; otherwise follows `TELEGRAM_POLLING` / `NODE_ENV` |
 
 Destinations by path:
 
 - Onboarding replies → chat id from the inbound Telegram update (DM)
 - Institution approve/reject → `institution.telegramChatId` (stored at apply time)
 - Mock feedback → `TELEGRAM_FEEDBACK_CHANNEL_ID` only (`sendToFeedbackChannel`)
+- Admin tech issues → `TELEGRAM_TECH_ISSUES_CHANNEL_ID` via the separate tech-issues bot
 
-If the bot token is missing or Telegram returns 403/wrong-chat, feedback is still saved in the DB; send returns false with a warning log. The bot must be an admin of the feedback channel.
+If the bot token is missing or Telegram returns 403/wrong-chat, feedback is still saved in the DB; send returns false with a warning log. The bot must be an admin of the feedback channel. The tech-issues bot must be an admin of the tech-issues channel.
 
 ## Health checks
 

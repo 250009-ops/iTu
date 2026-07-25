@@ -289,6 +289,8 @@ model User {
   assignedTickets SupportTicket[] @relation("TicketAssignee")
   reportedTickets SupportTicket[] @relation("TicketReporter")
   invitedAdmins   AdminProfile[]  @relation("AdminInvites")
+  techIssues      TechIssue[]
+  telegramAdminSessions TelegramAdminSession[]
 
   @@map("users")
 }
@@ -1305,4 +1307,49 @@ model AuditLog {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
+}
+
+// ─── Admin tech-issues Telegram bot ──────────────────────────────────────────
+
+enum TechIssueStatus {
+  PENDING
+  RESOLVED
+  CANT
+}
+
+/// Authenticated admin DM session for the tech-issues bot (chatId ↔ user).
+model TelegramAdminSession {
+  id             String   @id @default(cuid())
+  telegramChatId String   @unique @map("telegram_chat_id")
+  userId         String   @map("user_id")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("telegram_admin_sessions")
+}
+
+model TechIssue {
+  id                String          @id @default(cuid())
+  code              String          @unique
+  reporterUserId    String          @map("reporter_user_id")
+  telegramChatId    String          @map("telegram_chat_id")
+  status            TechIssueStatus @default(PENDING)
+  message           String
+  cantReason        String?         @map("cant_reason")
+  channelMessageId  String?         @map("channel_message_id")
+  /// Telegram file_id strings for photos uploaded to the tech-issues bot.
+  photoFileIds      Json?           @map("photo_file_ids")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  reporter User @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@index([reporterUserId])
+  @@index([status])
+  @@map("tech_issues")
 }
