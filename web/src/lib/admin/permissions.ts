@@ -117,6 +117,10 @@ export function permissionForAdminPath(
   pathname: string,
 ): AdminPermission | null {
   const path = pathname.split("?")[0] || "";
+  // Self-service account security — any logged-in admin may change their own password.
+  if (path === "/admin/account" || path.startsWith("/admin/account/")) {
+    return null;
+  }
   for (const rule of ROUTE_PERMISSIONS) {
     if (path === rule.prefix || path.startsWith(`${rule.prefix}/`)) {
       return rule.permission;

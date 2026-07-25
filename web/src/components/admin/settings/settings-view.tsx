@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChangePasswordPanel } from "@/components/admin/account/change-password-panel";
 import { BandTablePanel } from "@/components/admin/settings/band-table-panel";
 import { CommissionPanel } from "@/components/admin/settings/commission-panel";
 import { ExamTimersPanel } from "@/components/admin/settings/exam-timers-panel";
@@ -25,12 +26,14 @@ const panels: Record<SettingsTab, React.ComponentType> = {
   band_table: BandTablePanel,
   notifications: NotificationsPanel,
   integrations: IntegrationsPanel,
+  account: ChangePasswordPanel,
 };
 
 function SettingsContent() {
   const { loading, error } = useAdminSettings();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const Panel = panels[activeTab];
+  const isAccountTab = activeTab === "account";
 
   return (
     <ApiDataShell loading={loading} error={error}>
@@ -42,7 +45,7 @@ function SettingsContent() {
             </aside>
             <div className="min-w-0 flex-1 rounded-xl border border-border bg-white shadow-sm">
               <Panel />
-              <SettingsFooter />
+              {!isAccountTab && <SettingsFooter />}
             </div>
           </div>
       </PortalPage>

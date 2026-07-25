@@ -15,7 +15,8 @@ export type AdminNavIcon =
   | "settings"
   | "bell"
   | "help-circle"
-  | "shield";
+  | "shield"
+  | "key-round";
 
 export type AdminNavBadgeKey = "liveSessions" | "openTickets";
 
@@ -162,6 +163,12 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     label: "Account",
     items: [
+      {
+        label: "Account Security",
+        href: "/admin/account",
+        icon: "key-round",
+        // No permission — every admin can change their own password.
+      },
       {
         label: "Notifications",
         href: "/admin/notifications",

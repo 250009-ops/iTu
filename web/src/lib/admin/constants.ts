@@ -19,6 +19,7 @@ export const settingsTabs: {
   { id: "band_table", label: "Band Table", description: "Raw score conversion" },
   { id: "notifications", label: "Notifications", description: "Alerts & email triggers" },
   { id: "integrations", label: "Integrations", description: "Connected services status" },
+  { id: "account", label: "Account", description: "Your password & security" },
 ];
 
 export const allModules: ModuleKey[] = [

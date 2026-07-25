@@ -1,6 +1,7 @@
 import {
   Bell,
   Clock,
+  KeyRound,
   Layers,
   Percent,
   Settings2,
@@ -17,6 +18,7 @@ const tabIcons: Record<SettingsTab, typeof Settings2> = {
   band_table: Table2,
   notifications: Bell,
   integrations: Layers,
+  account: KeyRound,
 };
 
 type SettingsNavProps = {

@@ -12,6 +12,7 @@ import {
   ChevronDown,
   GraduationCap,
   HelpCircle,
+  KeyRound,
   LayoutDashboard,
   Package,
   Radio,
@@ -51,6 +52,7 @@ const iconMap = {
   bell: Bell,
   "help-circle": HelpCircle,
   shield: Shield,
+  "key-round": KeyRound,
 } as const;
 
 function navBadgeCount(

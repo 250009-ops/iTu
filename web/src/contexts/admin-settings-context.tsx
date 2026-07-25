@@ -31,7 +31,7 @@ const AdminSettingsContext = createContext<SettingsValue | null>(null);
 
 const emptySettings = mapAdminSettings({});
 
-const SECTION_SOURCE: Record<SettingsTab, keyof Mapped> = {
+const SECTION_SOURCE: Partial<Record<SettingsTab, keyof Mapped>> = {
   general: "generalSettings",
   commission: "commissionSettings",
   exam_timers: "examTimers",
@@ -88,6 +88,7 @@ export function AdminSettingsProvider({ children }: { children: ReactNode }) {
     if (dirtySections.length === 0) return;
     for (const section of dirtySections) {
       const sourceKey = SECTION_SOURCE[section];
+      if (!sourceKey) continue;
       const base = (mapped[sourceKey] ?? {}) as Record<string, unknown>;
       const payload = { ...base, ...(drafts[section] ?? {}) };
       await updateAdminSettings(section, payload);

@@ -80,7 +80,8 @@ export type SettingsTab =
   | "commission"
   | "band_table"
   | "notifications"
-  | "integrations";
+  | "integrations"
+  | "account";
 
 export type PayoutSchedule = "weekly" | "biweekly" | "monthly";
 

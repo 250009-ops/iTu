@@ -2,7 +2,14 @@
 
 import { useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, CircleHelp, Download, LogOut, Monitor } from "lucide-react";
+import {
+  ChevronDown,
+  CircleHelp,
+  Download,
+  KeyRound,
+  LogOut,
+  Monitor,
+} from "lucide-react";
 import { getInitials, useAuth } from "@/hooks/use-auth";
 import { useDesktopReleases } from "@/hooks/use-desktop-releases";
 import { useClickOutside } from "@/hooks/use-click-outside";
@@ -80,6 +87,16 @@ export function UserMenu() {
           </div>
 
           <div className="py-1">
+            {session?.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => navigate("/admin/account")}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-slate-50"
+              >
+                <KeyRound className="h-4 w-4 text-muted" />
+                Account security
+              </button>
+            )}
             {hasDownload && primaryUrl ? (
               <a
                 href={primaryUrl}
