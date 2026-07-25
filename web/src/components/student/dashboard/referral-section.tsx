@@ -21,6 +21,7 @@ import {
   type StudentReferralStatus,
 } from "@/lib/api/students";
 import { getErrorMessage } from "@/lib/api/errors";
+import { useToast } from "@/components/ui/toast";
 import { SITE } from "@/lib/marketing/data";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ function todayIso() {
 
 export function ReferralSection() {
   const router = useRouter();
+  const { toast } = useToast();
   const [status, setStatus] = useState<StudentReferralStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +84,9 @@ export function ReferralSection() {
   async function handleSendInvite() {
     const email = inviteEmail.trim();
     if (!email) {
-      setInviteError("Enter your friend’s email address");
+      const msg = "Enter your friend’s email address";
+      setInviteError(msg);
+      toast("Invite not sent", { description: msg, variant: "error" });
       return;
     }
     setSendingInvite(true);
@@ -94,11 +98,15 @@ export function ReferralSection() {
         ...(friendName.trim() ? { friendName: friendName.trim() } : {}),
       });
       setStatus(result.status);
-      setInviteMessage(`Invite email sent to ${result.email}`);
+      const successMsg = `Invite email sent to ${result.email}`;
+      setInviteMessage(successMsg);
       setInviteEmail("");
       setFriendName("");
+      toast("Invite sent", { description: successMsg, variant: "success" });
     } catch (err) {
-      setInviteError(getErrorMessage(err, "Could not send invite email"));
+      const msg = getErrorMessage(err, "Could not send invite email");
+      setInviteError(msg);
+      toast("Invite not sent", { description: msg, variant: "error" });
     } finally {
       setSendingInvite(false);
     }

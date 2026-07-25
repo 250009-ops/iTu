@@ -171,16 +171,18 @@ export class StudentsService {
 
     const email = dto.email.trim().toLowerCase();
     if (email === inviter.user.email.trim().toLowerCase()) {
-      throw new BadRequestException('You cannot invite your own email address');
+      throw new BadRequestException(
+        "You can't invite yourself. Enter a friend's email address.",
+      );
     }
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
       select: { id: true },
     });
     if (existingUser) {
       throw new BadRequestException(
-        'That email already has an iTestU account',
+        "This email is already registered on iTestU. Invite someone who doesn't have an account yet.",
       );
     }
 
@@ -193,31 +195,30 @@ export class StudentsService {
     });
     if (sentLastDay >= REFERRAL_EMAIL_DAILY_LIMIT) {
       throw new BadRequestException(
-        `You can send up to ${REFERRAL_EMAIL_DAILY_LIMIT} invite emails per day`,
+        `You can send up to ${REFERRAL_EMAIL_DAILY_LIMIT} invite emails per day. Try again tomorrow.`,
       );
     }
 
-    const existingInvite = await this.prisma.studentReferralInvite.findUnique({
+    const existingInvite = await this.prisma.studentReferralInvite.findFirst({
       where: {
-        inviterId_email: {
-          inviterId: inviter.id,
-          email,
-        },
+        inviterId: inviter.id,
+        email: { equals: email, mode: 'insensitive' },
       },
     });
     if (existingInvite?.acceptedAt) {
       throw new BadRequestException(
-        'That friend already joined with your invite',
+        'This friend already joined with your invite. Invite someone else.',
       );
     }
-    if (
-      existingInvite &&
-      Date.now() - existingInvite.sentAt.getTime() <
-        REFERRAL_EMAIL_RESEND_COOLDOWN_MS
-    ) {
-      throw new BadRequestException(
-        'You already invited this email recently — try again tomorrow',
-      );
+    if (existingInvite) {
+      const withinCooldown =
+        Date.now() - existingInvite.sentAt.getTime() <
+        REFERRAL_EMAIL_RESEND_COOLDOWN_MS;
+      if (withinCooldown) {
+        throw new BadRequestException(
+          "You've already invited this email. Wait until tomorrow to resend, or invite someone else.",
+        );
+      }
     }
 
     const code = await ensureStudentReferralCode(this.prisma, inviter.id);
