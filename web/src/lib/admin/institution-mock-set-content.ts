@@ -3,7 +3,30 @@ import type {
   MockSetContentOptionTest,
 } from "@/lib/api/admin-institution-mock-sets";
 
-export type MockSetPickerTab = "listening" | "reading" | "writing";
+export type MockSetPickerTab =
+  | "listening"
+  | "reading"
+  | "writing"
+  | "speaking";
+
+export const MOCK_SET_PICKER_TABS: MockSetPickerTab[] = [
+  "listening",
+  "reading",
+  "writing",
+  "speaking",
+];
+
+export function emptyMockSetTestSelection(): Record<
+  MockSetPickerTab,
+  Set<string>
+> {
+  return {
+    listening: new Set(),
+    reading: new Set(),
+    writing: new Set(),
+    speaking: new Set(),
+  };
+}
 
 export function isPackageSelectable(
   pkg: MockSetContentOptionPackage,
@@ -29,8 +52,14 @@ export function formatMockSetSelectionSummary(
   listening: number,
   reading: number,
   writing: number,
+  speaking = 0,
 ): string {
-  return `${listening} Listening · ${reading} Reading · ${writing} Writing`;
+  const parts: string[] = [];
+  if (listening > 0) parts.push(`${listening} Listening`);
+  if (reading > 0) parts.push(`${reading} Reading`);
+  if (writing > 0) parts.push(`${writing} Writing`);
+  if (speaking > 0) parts.push(`${speaking} Speaking`);
+  return parts.length > 0 ? parts.join(" · ") : "No mocks selected";
 }
 
 /** Retail section-mock catalog prices (UZS) — used to suggest B2B list price. */
@@ -38,6 +67,7 @@ const SECTION_LIST_PRICE_UZS: Record<MockSetPickerTab, number> = {
   listening: 16_000,
   reading: 16_000,
   writing: 16_000,
+  speaking: 16_000,
 };
 
 export function slugifyInstitutionMockSetTitle(value: string): string {
@@ -53,13 +83,16 @@ export function buildInstitutionMockSetDefaults(counts: {
   listening: number;
   reading: number;
   writing: number;
+  speaking?: number;
 }): {
   title: string;
   slug: string;
   description: string;
   listPrice: number;
 } {
-  const total = counts.listening + counts.reading + counts.writing;
+  const speaking = counts.speaking ?? 0;
+  const total =
+    counts.listening + counts.reading + counts.writing + speaking;
   if (total === 0) {
     return { title: "", slug: "", description: "", listPrice: 0 };
   }
@@ -68,11 +101,13 @@ export function buildInstitutionMockSetDefaults(counts: {
     counts.listening,
     counts.reading,
     counts.writing,
+    speaking,
   );
   const listPrice =
     counts.listening * SECTION_LIST_PRICE_UZS.listening +
     counts.reading * SECTION_LIST_PRICE_UZS.reading +
-    counts.writing * SECTION_LIST_PRICE_UZS.writing;
+    counts.writing * SECTION_LIST_PRICE_UZS.writing +
+    speaking * SECTION_LIST_PRICE_UZS.speaking;
 
   return {
     title,
@@ -88,7 +123,7 @@ const SECTION_SHOP_META: Record<
     name: string;
     badge: string;
     includedBadge: string;
-    color: "sky" | "emerald" | "violet";
+    color: "sky" | "emerald" | "violet" | "rose";
   }
 > = {
   listening: {
@@ -109,6 +144,12 @@ const SECTION_SHOP_META: Record<
     includedBadge: "Human graded",
     color: "violet",
   },
+  speaking: {
+    name: "Speaking",
+    badge: "Not included",
+    includedBadge: "Human graded",
+    color: "rose",
+  },
 };
 
 export function buildInstitutionMockSetProductPreview(input: {
@@ -118,7 +159,7 @@ export function buildInstitutionMockSetProductPreview(input: {
   sectionCounts: Record<MockSetPickerTab, number>;
   sectionDetails: Partial<Record<MockSetPickerTab, string>>;
 }) {
-  const sectionOrder: MockSetPickerTab[] = ["listening", "reading", "writing"];
+  const sectionOrder = MOCK_SET_PICKER_TABS;
   const includedCount = sectionOrder.filter(
     (kind) => input.sectionCounts[kind] > 0,
   ).length;
@@ -152,7 +193,7 @@ export function buildInstitutionMockSetProductPreview(input: {
       trimmedDescription ||
       (includedCount > 0
         ? `B2B mock set with ${includedCount} section mock${includedCount === 1 ? "" : "s"} for your centre.`
-        : "Select listening, reading, and writing mocks to build this set."),
+        : "Select listening, reading, writing, and speaking mocks to build this set."),
     examType: "Academic" as const,
     delivery: "Computer-Based",
     bookCta: "Buy mock set",

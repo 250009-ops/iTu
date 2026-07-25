@@ -43,6 +43,7 @@ export type MockSetContentOptionTest = {
   code: string;
   title: string;
   type: string;
+  status: string;
   isAssigned: boolean;
   assignedSetId: string | null;
   assignedSetTitle: string | null;
@@ -55,11 +56,13 @@ export type MockSetContentOptions = {
     listening: MockSetContentOptionPackage[];
     reading: MockSetContentOptionPackage[];
     writing: MockSetContentOptionPackage[];
+    speaking: MockSetContentOptionPackage[];
   };
   tests: {
     listening: MockSetContentOptionTest[];
     reading: MockSetContentOptionTest[];
     writing: MockSetContentOptionTest[];
+    speaking: MockSetContentOptionTest[];
   };
 };
 
@@ -112,6 +115,7 @@ export function createInstitutionMockSet(body: {
   listeningIds?: string[];
   readingIds?: string[];
   writingIds?: string[];
+  speakingIds?: string[];
 }) {
   return apiFetch<AdminInstitutionMockSetDetail>("/admin/institution-mock-sets", {
     method: "POST",
@@ -132,6 +136,7 @@ export function updateInstitutionMockSet(
     listeningIds?: string[];
     readingIds?: string[];
     writingIds?: string[];
+    speakingIds?: string[];
   },
 ) {
   return apiFetch<AdminInstitutionMockSetDetail>(

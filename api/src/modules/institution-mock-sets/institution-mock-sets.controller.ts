@@ -86,17 +86,19 @@ export class InstitutionMockSetsAdminController {
       listeningIds,
       readingIds,
       writingIds,
+      speakingIds,
     } = body;
     const hasSelection =
       packageIds != null ||
       listeningIds != null ||
       readingIds != null ||
-      writingIds != null;
+      writingIds != null ||
+      speakingIds != null;
     return this.service.updateSet(
       id,
       { slug, title, description, listPrice, isListed, isActive },
       hasSelection
-        ? { packageIds, listeningIds, readingIds, writingIds }
+        ? { packageIds, listeningIds, readingIds, writingIds, speakingIds }
         : undefined,
       user.id,
     );

@@ -10,27 +10,20 @@ import type {
 import {
   isPackageSelectable,
   isTestSelectable,
+  MOCK_SET_PICKER_TABS,
   type MockSetPickerTab,
 } from "@/lib/admin/institution-mock-set-content";
 import { cn } from "@/lib/utils";
 
-const PICKER_TABS: { id: MockSetPickerTab; label: string }[] = [
-  { id: "listening", label: "Listening" },
-  { id: "reading", label: "Reading" },
-  { id: "writing", label: "Writing" },
-];
+const PICKER_TABS: { id: MockSetPickerTab; label: string }[] =
+  MOCK_SET_PICKER_TABS.map((id) => ({
+    id,
+    label: id.charAt(0).toUpperCase() + id.slice(1),
+  }));
 
 type Props = {
-  packages: {
-    listening: MockSetContentOptionPackage[];
-    reading: MockSetContentOptionPackage[];
-    writing: MockSetContentOptionPackage[];
-  };
-  tests: {
-    listening: MockSetContentOptionTest[];
-    reading: MockSetContentOptionTest[];
-    writing: MockSetContentOptionTest[];
-  };
+  packages: Record<MockSetPickerTab, MockSetContentOptionPackage[]>;
+  tests: Record<MockSetPickerTab, MockSetContentOptionTest[]>;
   selectedPackageIds: Set<string>;
   selectedTestIds: Record<MockSetPickerTab, Set<string>>;
   onChangePackages: (ids: Set<string>) => void;
@@ -52,9 +45,9 @@ export function InstitutionMockSetPicker({
   const [activeTab, setActiveTab] = useState<MockSetPickerTab>("listening");
   const [search, setSearch] = useState("");
 
-  const tabPackages = packages[activeTab];
-  const tabTests = tests[activeTab];
-  const tabSelectedTests = selectedTestIds[activeTab];
+  const tabPackages = packages[activeTab] ?? [];
+  const tabTests = tests[activeTab] ?? [];
+  const tabSelectedTests = selectedTestIds[activeTab] ?? new Set<string>();
 
   const filteredPackages = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -118,6 +111,11 @@ export function InstitutionMockSetPicker({
     onChangeTests(activeTab, new Set());
   }
 
+  const testsHeading =
+    activeTab === "speaking"
+      ? "Speaking tests (all statuses)"
+      : "Published tests";
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -137,6 +135,9 @@ export function InstitutionMockSetPicker({
             )}
           >
             {tab.label}
+            <span className="ml-1.5 text-[11px] opacity-80">
+              ({(tests[tab.id]?.length ?? 0) + (packages[tab.id]?.length ?? 0)})
+            </span>
           </button>
         ))}
       </div>
@@ -152,7 +153,7 @@ export function InstitutionMockSetPicker({
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={selectAllAvailable}
@@ -169,9 +170,70 @@ export function InstitutionMockSetPicker({
         >
           Clear {activeTab}
         </button>
+        <p className="text-xs text-muted">
+          Available = not already used in another set. All tests stay visible.
+        </p>
       </div>
 
       <div className="max-h-72 space-y-4 overflow-y-auto rounded-lg border border-slate-200 p-3">
+        <section>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            {testsHeading}
+            {activeTab !== "speaking" && (
+              <span className="ml-1 font-normal normal-case">
+                (auto-create package when selected)
+              </span>
+            )}
+          </p>
+          {filteredTests.length === 0 ? (
+            <p className="text-sm text-muted">No tests match.</p>
+          ) : (
+            <ul className="space-y-1">
+              {filteredTests.map((test) => {
+                const selectable = isTestSelectable(
+                  test,
+                  tabSelectedTests,
+                  currentSetId,
+                );
+                const checked = tabSelectedTests.has(test.id);
+                return (
+                  <li key={test.id}>
+                    <label
+                      className={cn(
+                        "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm",
+                        !selectable && "cursor-not-allowed opacity-50",
+                        checked && "bg-sky-50",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabled || !selectable}
+                        onChange={() => toggleTest(test.id)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-medium">{test.code}</span>
+                        <span className="text-muted"> — {test.title}</span>
+                        {test.status && test.status !== "published" && (
+                          <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                            {test.status.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        {test.isAssigned && test.assignedSetTitle && (
+                          <span className="mt-0.5 block text-xs text-amber-700">
+                            In set: {test.assignedSetTitle}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
         <section>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Section packages
@@ -209,54 +271,6 @@ export function InstitutionMockSetPicker({
                         {pkg.isAssigned && pkg.assignedSetTitle && (
                           <span className="mt-0.5 block text-xs text-amber-700">
                             In set: {pkg.assignedSetTitle}
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            Published tests (auto-create package)
-          </p>
-          {filteredTests.length === 0 ? (
-            <p className="text-sm text-muted">No tests match.</p>
-          ) : (
-            <ul className="space-y-1">
-              {filteredTests.map((test) => {
-                const selectable = isTestSelectable(
-                  test,
-                  tabSelectedTests,
-                  currentSetId,
-                );
-                const checked = tabSelectedTests.has(test.id);
-                return (
-                  <li key={test.id}>
-                    <label
-                      className={cn(
-                        "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm",
-                        !selectable && "cursor-not-allowed opacity-50",
-                        checked && "bg-sky-50",
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={disabled || !selectable}
-                        onChange={() => toggleTest(test.id)}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        <span className="font-medium">{test.code}</span>
-                        <span className="text-muted"> — {test.title}</span>
-                        {test.isAssigned && test.assignedSetTitle && (
-                          <span className="mt-0.5 block text-xs text-amber-700">
-                            In set: {test.assignedSetTitle}
                           </span>
                         )}
                       </span>

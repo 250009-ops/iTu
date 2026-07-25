@@ -7,6 +7,7 @@ import {
 import {
   ContentTestStatus,
   ContentTestType,
+  EnrollmentStatus,
   ExamSkill,
   ExamType,
   InstitutionMockSetGrantSource,
@@ -38,19 +39,21 @@ import { findContentTestPackageAssignments } from '../content/content-package-as
 import { packageExamSkills } from '../content/package-skills';
 import { PrismaService } from '../../prisma/prisma.service';
 
-const SECTION_KINDS = ['listening', 'reading', 'writing'] as const;
+const SECTION_KINDS = ['listening', 'reading', 'writing', 'speaking'] as const;
 type SectionKind = (typeof SECTION_KINDS)[number];
 
 const SKILL_FOR_KIND: Record<SectionKind, ExamSkill> = {
   listening: ExamSkill.LISTENING,
   reading: ExamSkill.READING,
   writing: ExamSkill.WRITING,
+  speaking: ExamSkill.SPEAKING,
 };
 
 const TYPE_FOR_KIND: Record<SectionKind, ContentTestType> = {
   listening: ContentTestType.LISTENING,
   reading: ContentTestType.READING,
   writing: ContentTestType.WRITING,
+  speaking: ContentTestType.SPEAKING,
 };
 
 const SECTION_SKILL_META: Record<
@@ -59,7 +62,7 @@ const SECTION_SKILL_META: Record<
     name: string;
     badge: string;
     includedBadge: string;
-    color: 'sky' | 'emerald' | 'violet';
+    color: 'sky' | 'emerald' | 'violet' | 'rose';
   }
 > = {
   listening: {
@@ -80,6 +83,12 @@ const SECTION_SKILL_META: Record<
     includedBadge: 'Human graded',
     color: 'violet',
   },
+  speaking: {
+    name: 'Speaking',
+    badge: 'Not included',
+    includedBadge: 'Human graded',
+    color: 'rose',
+  },
 };
 
 export type MockSetContentOptionPackage = {
@@ -98,6 +107,7 @@ export type MockSetContentOptionTest = {
   code: string;
   title: string;
   type: string;
+  status: string;
   isAssigned: boolean;
   assignedSetId: string | null;
   assignedSetTitle: string | null;
@@ -110,6 +120,7 @@ export type MockSetSelectionInput = {
   listeningIds?: string[];
   readingIds?: string[];
   writingIds?: string[];
+  speakingIds?: string[];
 };
 
 @Injectable()
@@ -145,7 +156,8 @@ export class InstitutionMockSetsService {
       isActive: set.isActive,
       grantCount: set._count.grants,
       contentSummary: this.formatContentSummary(set.items),
-      contentLocked: set._count.grants > 0,
+      /** Content stays editable; grants reference the set live. */
+      contentLocked: false,
       updatedAt: set.updatedAt,
     }));
   }
@@ -170,7 +182,7 @@ export class InstitutionMockSetsService {
       isActive: set.isActive,
       packageIds: set.items.map((i) => i.packageId),
       grantCount: set._count.grants,
-      contentLocked: set._count.grants > 0,
+      contentLocked: false,
     };
   }
 
@@ -190,14 +202,29 @@ export class InstitutionMockSetsService {
           mockNumber: true,
         },
       }),
+      // L/R/W: published only. Speaking: every platform bank (any status).
       this.prisma.contentTest.findMany({
         where: {
           institutionId: null,
-          status: ContentTestStatus.PUBLISHED,
-          type: { in: [ContentTestType.LISTENING, ContentTestType.READING, ContentTestType.WRITING] },
+          OR: [
+            {
+              status: ContentTestStatus.PUBLISHED,
+              type: {
+                in: [
+                  ContentTestType.LISTENING,
+                  ContentTestType.READING,
+                  ContentTestType.WRITING,
+                ],
+              },
+            },
+            {
+              type: ContentTestType.SPEAKING,
+              status: { not: ContentTestStatus.ARCHIVED },
+            },
+          ],
         },
         orderBy: [{ type: 'asc' }, { code: 'asc' }],
-        select: { id: true, code: true, title: true, type: true },
+        select: { id: true, code: true, title: true, type: true, status: true },
       }),
       this.prisma.institutionMockSetItem.findMany({
         include: {
@@ -208,6 +235,7 @@ export class InstitutionMockSetsService {
               listeningTestId: true,
               readingTestId: true,
               writingTestId: true,
+              speakingBankId: true,
               contentPool: { select: { testId: true } },
             },
           },
@@ -247,6 +275,7 @@ export class InstitutionMockSetsService {
       listening: [],
       reading: [],
       writing: [],
+      speaking: [],
     };
 
     for (const pkg of packages) {
@@ -269,6 +298,7 @@ export class InstitutionMockSetsService {
       listening: [],
       reading: [],
       writing: [],
+      speaking: [],
     };
 
     for (const test of tests) {
@@ -281,6 +311,7 @@ export class InstitutionMockSetsService {
         code: test.code,
         title: test.title,
         type: test.type.toLowerCase(),
+        status: test.status.toLowerCase(),
         isAssigned: Boolean(assigned),
         assignedSetId: assigned?.setId ?? null,
         assignedSetTitle: assigned?.setTitle ?? null,
@@ -361,12 +392,6 @@ export class InstitutionMockSetsService {
     });
     if (!set) throw new NotFoundException('Institution mock set not found');
 
-    if (selection && set._count.grants > 0) {
-      throw new BadRequestException(
-        'Set content cannot be changed after it has been granted to a centre',
-      );
-    }
-
     const nextIsListed = data.isListed ?? set.isListed;
     const nextListPrice = data.listPrice ?? set.listPrice;
     this.assertValidListingPrice(nextIsListed, nextListPrice);
@@ -392,6 +417,11 @@ export class InstitutionMockSetsService {
 
     if (selection) {
       const packageIds = await this.resolveSelectionToPackageIds(selection, id);
+      // Grants reference this set live — updates reach centres immediately.
+      // Block only removals that would strand active enrolments.
+      if (set._count.grants > 0) {
+        await this.assertSafePackageRemovals(id, packageIds);
+      }
       await this.syncSetItems(id, packageIds);
     }
 
@@ -1004,11 +1034,12 @@ export class InstitutionMockSetsService {
     }[],
     currency: string,
   ) {
-    const sectionOrder = ['listening', 'reading', 'writing'] as const;
+    const sectionOrder = SECTION_KINDS;
     const countsByKind: Record<SectionKind, number> = {
       listening: 0,
       reading: 0,
       writing: 0,
+      speaking: 0,
     };
     const packagesByKind = new Map<
       SectionKind,
@@ -1148,6 +1179,7 @@ export class InstitutionMockSetsService {
       listening: 0,
       reading: 0,
       writing: 0,
+      speaking: 0,
     };
     for (const item of items) {
       const kind = item.package.packageKind as SectionKind;
@@ -1155,15 +1187,17 @@ export class InstitutionMockSetsService {
         counts[kind] += 1;
       }
     }
-    return SECTION_KINDS.map(
+    const parts = SECTION_KINDS.filter((kind) => counts[kind] > 0).map(
       (kind) => `${counts[kind]} ${packageKindLabel(kind)}`,
-    ).join(' · ');
+    );
+    return parts.length > 0 ? parts.join(' · ') : 'No mocks';
   }
 
   private collectPackageTestIds(pkg: {
-    listeningTestId: string | null;
-    readingTestId: string | null;
-    writingTestId: string | null;
+    listeningTestId?: string | null;
+    readingTestId?: string | null;
+    writingTestId?: string | null;
+    speakingBankId?: string | null;
     contentPool: { testId: string }[];
   }): Set<string> {
     const ids = new Set<string>();
@@ -1171,6 +1205,7 @@ export class InstitutionMockSetsService {
     if (pkg.listeningTestId) ids.add(pkg.listeningTestId);
     if (pkg.readingTestId) ids.add(pkg.readingTestId);
     if (pkg.writingTestId) ids.add(pkg.writingTestId);
+    if (pkg.speakingBankId) ids.add(pkg.speakingBankId);
     return ids;
   }
 
@@ -1188,6 +1223,7 @@ export class InstitutionMockSetsService {
       ['listening', selection.listeningIds],
       ['reading', selection.readingIds],
       ['writing', selection.writingIds],
+      ['speaking', selection.speakingIds],
     ];
 
     for (const [kind, testIds] of testSelections) {
@@ -1217,8 +1253,15 @@ export class InstitutionMockSetsService {
     if (!test || test.institutionId != null) {
       throw new BadRequestException('Selected test not found');
     }
-    if (test.status !== ContentTestStatus.PUBLISHED) {
+    // Speaking banks are selectable at any status; L/R/W still require published.
+    if (
+      kind !== 'speaking' &&
+      test.status !== ContentTestStatus.PUBLISHED
+    ) {
       throw new BadRequestException(`Test ${test.code} is not published`);
+    }
+    if (test.status === ContentTestStatus.ARCHIVED) {
+      throw new BadRequestException(`Test ${test.code} is archived`);
     }
     if (test.type !== TYPE_FOR_KIND[kind]) {
       throw new BadRequestException(`Test ${test.code} is not a ${kind} test`);
@@ -1333,7 +1376,7 @@ export class InstitutionMockSetsService {
       }
       if (!SECTION_KINDS.includes(pkg.packageKind as SectionKind)) {
         throw new BadRequestException(
-          `Package "${pkg.title}" must be a listening, reading, or writing section mock`,
+          `Package "${pkg.title}" must be a listening, reading, writing, or speaking section mock`,
         );
       }
       if (
@@ -1357,6 +1400,7 @@ export class InstitutionMockSetsService {
             listeningTestId: true,
             readingTestId: true,
             writingTestId: true,
+            speakingBankId: true,
             contentPool: { select: { testId: true, skill: true } },
           },
         },
@@ -1380,6 +1424,7 @@ export class InstitutionMockSetsService {
               listeningTestId: true,
               readingTestId: true,
               writingTestId: true,
+              speakingBankId: true,
               contentPool: { select: { testId: true } },
             },
           },
@@ -1404,6 +1449,60 @@ export class InstitutionMockSetsService {
           );
         }
       }
+    }
+  }
+
+  /**
+   * When a set is already granted/purchased, removals must not drop packages
+   * that centres still have students actively enrolled on.
+   */
+  private async assertSafePackageRemovals(
+    setId: string,
+    nextPackageIds: string[],
+  ) {
+    const currentItems = await this.prisma.institutionMockSetItem.findMany({
+      where: { setId },
+      select: {
+        packageId: true,
+        package: { select: { title: true } },
+      },
+    });
+    const next = new Set(nextPackageIds);
+    const removed = currentItems.filter((item) => !next.has(item.packageId));
+    if (removed.length === 0) return;
+
+    const grantInstitutionIds = (
+      await this.prisma.institutionMockSetGrant.findMany({
+        where: { setId },
+        select: { institutionId: true },
+      })
+    ).map((g) => g.institutionId);
+
+    if (grantInstitutionIds.length === 0) return;
+
+    const removedIds = removed.map((r) => r.packageId);
+    const blocking = await this.prisma.enrollment.findFirst({
+      where: {
+        packageId: { in: removedIds },
+        institutionId: { in: grantInstitutionIds },
+        status: {
+          in: [
+            EnrollmentStatus.ENROLLED,
+            EnrollmentStatus.IN_PROGRESS,
+            EnrollmentStatus.AWAITING_RESULTS,
+          ],
+        },
+      },
+      select: {
+        packageId: true,
+        package: { select: { title: true } },
+      },
+    });
+
+    if (blocking) {
+      throw new BadRequestException(
+        `Cannot remove "${blocking.package.title}" — a granted centre still has active enrolments on it. Keep it in the set or wait until those sessions finish.`,
+      );
     }
   }
 

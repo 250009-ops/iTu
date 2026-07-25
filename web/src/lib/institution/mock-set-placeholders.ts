@@ -11,6 +11,7 @@ const PLACEHOLDER_SECTION_COUNTS = {
   listening: 1,
   reading: 1,
   writing: 1,
+  speaking: 0,
 } as const;
 
 const PLACEHOLDER_SET_TITLE = "Academic Section Mock Set";

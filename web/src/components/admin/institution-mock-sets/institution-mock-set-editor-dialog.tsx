@@ -13,7 +13,9 @@ import { useToast } from "@/components/ui/toast";
 import {
   buildInstitutionMockSetDefaults,
   buildInstitutionMockSetProductPreview,
+  emptyMockSetTestSelection,
   formatMockSetSelectionSummary,
+  MOCK_SET_PICKER_TABS,
   slugifyInstitutionMockSetTitle,
   type MockSetPickerTab,
 } from "@/lib/admin/institution-mock-set-content";
@@ -26,6 +28,7 @@ import {
   type MockSetContentOptions,
 } from "@/lib/api/admin-institution-mock-sets";
 import type { BrowseProduct, SkillId } from "@/lib/api/mappers/student";
+import { getErrorMessage } from "@/lib/api/errors";
 
 type Props = {
   open: boolean;
@@ -34,11 +37,21 @@ type Props = {
   onSaved: () => void;
 };
 
-const EMPTY_TESTS: Record<MockSetPickerTab, Set<string>> = {
-  listening: new Set(),
-  reading: new Set(),
-  writing: new Set(),
-};
+function hydrateTestSelection(
+  options: MockSetContentOptions,
+  packageIds: string[],
+): Record<MockSetPickerTab, Set<string>> {
+  const next = emptyMockSetTestSelection();
+  const packageIdSet = new Set(packageIds);
+  for (const tab of MOCK_SET_PICKER_TABS) {
+    for (const test of options.tests[tab] ?? []) {
+      if (test.assignedPackageId && packageIdSet.has(test.assignedPackageId)) {
+        next[tab].add(test.id);
+      }
+    }
+  }
+  return next;
+}
 
 export function InstitutionMockSetEditorDialog({
   open,
@@ -56,12 +69,13 @@ export function InstitutionMockSetEditorDialog({
   const [selectedPackageIds, setSelectedPackageIds] = useState<Set<string>>(
     new Set(),
   );
-  const [selectedTestIds, setSelectedTestIds] =
-    useState<Record<MockSetPickerTab, Set<string>>>(EMPTY_TESTS);
+  const [selectedTestIds, setSelectedTestIds] = useState<
+    Record<MockSetPickerTab, Set<string>>
+  >(emptyMockSetTestSelection);
   const [options, setOptions] = useState<MockSetContentOptions | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [contentLocked, setContentLocked] = useState(false);
+  const [grantCount, setGrantCount] = useState(0);
   /** When false, field stays synced from selection / title (create mode only). */
   const [titleManual, setTitleManual] = useState(false);
   const [slugManual, setSlugManual] = useState(false);
@@ -76,17 +90,13 @@ export function InstitutionMockSetEditorDialog({
     setListPrice(set?.listPrice != null ? String(set.listPrice) : "");
     setIsListed(set?.isListed ?? true);
     setIsActive(set?.isActive ?? true);
-    setContentLocked(set?.contentLocked ?? false);
+    setGrantCount(set?.grantCount ?? 0);
     setTitleManual(Boolean(set));
     setSlugManual(Boolean(set));
     setDescriptionManual(Boolean(set));
     setListPriceManual(Boolean(set));
     setSelectedPackageIds(new Set());
-    setSelectedTestIds({
-      listening: new Set(),
-      reading: new Set(),
-      writing: new Set(),
-    });
+    setSelectedTestIds(emptyMockSetTestSelection());
   }, [open, set]);
 
   useEffect(() => {
@@ -100,7 +110,10 @@ export function InstitutionMockSetEditorDialog({
         setOptions(contentOptions);
         if (detail) {
           setSelectedPackageIds(new Set(detail.packageIds));
-          setContentLocked(detail.contentLocked);
+          setSelectedTestIds(
+            hydrateTestSelection(contentOptions, detail.packageIds),
+          );
+          setGrantCount(detail.grantCount);
           setListPrice(
             detail.listPrice != null ? String(detail.listPrice) : "",
           );
@@ -113,36 +126,35 @@ export function InstitutionMockSetEditorDialog({
       .finally(() => setLoadingOptions(false));
   }, [open, set, toast]);
 
-  const listeningInPackages = options
-    ? [...selectedPackageIds].filter((id) =>
-        options.packages.listening.some((p) => p.id === id),
-      ).length
-    : 0;
-  const readingInPackages = options
-    ? [...selectedPackageIds].filter((id) =>
-        options.packages.reading.some((p) => p.id === id),
-      ).length
-    : 0;
-  const writingInPackages = options
-    ? [...selectedPackageIds].filter((id) =>
-        options.packages.writing.some((p) => p.id === id),
-      ).length
-    : 0;
+  function countInPackages(tab: MockSetPickerTab) {
+    if (!options) return 0;
+    return [...selectedPackageIds].filter((id) =>
+      (options.packages[tab] ?? []).some((p) => p.id === id),
+    ).length;
+  }
+
+  const listeningInPackages = countInPackages("listening");
+  const readingInPackages = countInPackages("reading");
+  const writingInPackages = countInPackages("writing");
+  const speakingInPackages = countInPackages("speaking");
 
   const selectionCount =
     selectedPackageIds.size +
     selectedTestIds.listening.size +
     selectedTestIds.reading.size +
-    selectedTestIds.writing.size;
+    selectedTestIds.writing.size +
+    selectedTestIds.speaking.size;
 
   const listeningCount = selectedTestIds.listening.size + listeningInPackages;
   const readingCount = selectedTestIds.reading.size + readingInPackages;
   const writingCount = selectedTestIds.writing.size + writingInPackages;
+  const speakingCount = selectedTestIds.speaking.size + speakingInPackages;
 
   const summary = formatMockSetSelectionSummary(
     listeningCount,
     readingCount,
     writingCount,
+    speakingCount,
   );
 
   // Create mode: keep empty fields synced with the current selection.
@@ -153,6 +165,7 @@ export function InstitutionMockSetEditorDialog({
       listening: listeningCount,
       reading: readingCount,
       writing: writingCount,
+      speaking: speakingCount,
     });
 
     if (!titleManual) setTitle(defaults.title);
@@ -166,6 +179,7 @@ export function InstitutionMockSetEditorDialog({
     listeningCount,
     readingCount,
     writingCount,
+    speakingCount,
     titleManual,
     descriptionManual,
     listPriceManual,
@@ -184,11 +198,11 @@ export function InstitutionMockSetEditorDialog({
 
   function sectionDetail(tab: MockSetPickerTab): string | undefined {
     if (!options) return undefined;
-    const selectedPackage = options.packages[tab].find((pkg) =>
+    const selectedPackage = (options.packages[tab] ?? []).find((pkg) =>
       selectedPackageIds.has(pkg.id),
     );
     if (selectedPackage) return selectedPackage.title;
-    const selectedTest = options.tests[tab].find((test) =>
+    const selectedTest = (options.tests[tab] ?? []).find((test) =>
       selectedTestIds[tab].has(test.id),
     );
     return selectedTest?.title;
@@ -203,11 +217,13 @@ export function InstitutionMockSetEditorDialog({
         listening: listeningCount,
         reading: readingCount,
         writing: writingCount,
+        speaking: speakingCount,
       },
       sectionDetails: {
         listening: sectionDetail("listening"),
         reading: sectionDetail("reading"),
         writing: sectionDetail("writing"),
+        speaking: sectionDetail("speaking"),
       },
     });
     const skillIds = product.skills.map(
@@ -218,7 +234,7 @@ export function InstitutionMockSetEditorDialog({
       rating: 0,
       skillIds,
       needsWriting: skillIds.includes("writing"),
-      needsSpeaking: false,
+      needsSpeaking: skillIds.includes("speaking"),
       skills: product.skills.map((skill) => ({
         ...skill,
         id: skill.id as SkillId,
@@ -232,7 +248,7 @@ export function InstitutionMockSetEditorDialog({
 
   async function handleSave() {
     if (selectionCount === 0) {
-      toast("Select at least one listening, reading, or writing mock", {
+      toast("Select at least one listening, reading, writing, or speaking mock", {
         variant: "warning",
       });
       return;
@@ -252,14 +268,13 @@ export function InstitutionMockSetEditorDialog({
         listPrice: parsedListPrice,
         isListed,
       };
-      const contentPayload = contentLocked
-        ? {}
-        : {
-            packageIds: [...selectedPackageIds],
-            listeningIds: [...selectedTestIds.listening],
-            readingIds: [...selectedTestIds.reading],
-            writingIds: [...selectedTestIds.writing],
-          };
+      const contentPayload = {
+        packageIds: [...selectedPackageIds],
+        listeningIds: [...selectedTestIds.listening],
+        readingIds: [...selectedTestIds.reading],
+        writingIds: [...selectedTestIds.writing],
+        speakingIds: [...selectedTestIds.speaking],
+      };
 
       if (set) {
         await updateInstitutionMockSet(set.id, {
@@ -277,16 +292,22 @@ export function InstitutionMockSetEditorDialog({
           description: description.trim() || undefined,
           isActive,
           ...pricingPayload,
-          packageIds: [...selectedPackageIds],
-          listeningIds: [...selectedTestIds.listening],
-          readingIds: [...selectedTestIds.reading],
-          writingIds: [...selectedTestIds.writing],
+          ...contentPayload,
         });
       }
-      toast("Mock set saved", { variant: "success" });
+      toast("Mock set saved", {
+        description:
+          grantCount > 0
+            ? "Granted centres will see the updated content immediately."
+            : undefined,
+        variant: "success",
+      });
       onSaved();
-    } catch {
-      toast("Save failed", { variant: "error" });
+    } catch (err) {
+      toast("Save failed", {
+        description: getErrorMessage(err, "Save failed"),
+        variant: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -381,10 +402,12 @@ export function InstitutionMockSetEditorDialog({
               </div>
             </div>
 
-            {contentLocked && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Content is locked because this set has been granted to at least
-                one centre.
+            {grantCount > 0 && (
+              <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                This set is granted to {grantCount} centre
+                {grantCount === 1 ? "" : "s"}. Content edits apply to those
+                centres immediately. You cannot remove a mock that still has
+                active student enrolments.
               </p>
             )}
 
@@ -399,7 +422,6 @@ export function InstitutionMockSetEditorDialog({
                 onChangePackages={setSelectedPackageIds}
                 onChangeTests={handleChangeTests}
                 currentSetId={set?.id}
-                disabled={contentLocked}
               />
             )}
           </div>
