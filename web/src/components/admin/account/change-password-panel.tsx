@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/components/ui/toast";
 import { changePassword } from "@/lib/api/auth";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -76,8 +76,7 @@ export function ChangePasswordPanel() {
             Current password
           </label>
           <div className="mt-1.5">
-            <Input
-              type="password"
+            <PasswordInput
               autoComplete="current-password"
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
@@ -92,8 +91,7 @@ export function ChangePasswordPanel() {
               New password
             </label>
             <div className="mt-1.5">
-              <Input
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
@@ -106,8 +104,7 @@ export function ChangePasswordPanel() {
               Confirm new password
             </label>
             <div className="mt-1.5">
-              <Input
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
