@@ -333,6 +333,7 @@ model StudentProfile {
   writingPracticeSessions WritingPracticeSession[]
   practiceUnitAccess    StudentPracticeUnitAccess[]
   practicePromptAccess  StudentPracticePromptAccess[]
+  mockFeedbacks         StudentMockFeedback[]
 
   @@index([institutionId])
   @@index([referredById])
@@ -583,9 +584,31 @@ model Enrollment {
   examSession     ExamSession?
   tickets         SupportTicket[]
   review          Review?
+  mockFeedback    StudentMockFeedback?
 
   @@index([institutionId])
   @@map("enrollments")
+}
+
+/// Marketplace (system) student feedback after completing a mock. Not used for
+/// institution students. Telegram delivery is best-effort (`telegramSentAt`).
+model StudentMockFeedback {
+  id             String    @id @default(cuid())
+  studentId      String    @map("student_id")
+  enrollmentId   String    @unique @map("enrollment_id")
+  rating         Int?
+  comment        String?
+  wouldRecommend Boolean?  @map("would_recommend")
+  skippedAt      DateTime? @map("skipped_at")
+  telegramSentAt DateTime? @map("telegram_sent_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment     @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("student_mock_feedbacks")
 }
 
 model Review {

@@ -27,6 +27,7 @@ import {
   speakingJoinAccess,
 } from "@/lib/speaking/slot-access";
 import { useToast } from "@/components/ui/toast";
+import { MarketplaceMockFeedbackGate } from "@/components/student/feedback/marketplace-mock-feedback-gate";
 import { cn } from "@/lib/utils";
 
 type Stage = "waiting" | "rules" | "live" | "complete";
@@ -92,12 +93,10 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
   }, [speakingState?.examinerReady, stage, toast]);
 
   useEffect(() => {
-    if (speakingState?.status !== "completed" || stage !== "waiting") return;
-    const id = window.setTimeout(() => {
-      router.replace("/student/mock-day");
-    }, 2000);
-    return () => window.clearTimeout(id);
-  }, [speakingState?.status, stage, router]);
+    if (speakingState?.status === "completed" && stage === "waiting") {
+      setStage("complete");
+    }
+  }, [speakingState?.status, stage]);
 
   useEffect(() => {
     if (speakingState?.needsSpeakingSlot) {
@@ -119,7 +118,10 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
         <SpeakingLiveSession
           sessionId={sessionId}
           content={content}
-          onComplete={() => router.replace("/student/mock-day")}
+          onComplete={() => {
+            exitExamFullscreen();
+            setStage("complete");
+          }}
         />
       </SpeakingRoomProvider>
     );
@@ -138,19 +140,13 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
-        {stage === "waiting" &&
-          (speakingState?.status === "completed" ? (
-            <SessionComplete onReturn={() => {
-              exitExamFullscreen();
-              router.push("/student/mock-day");
-            }} />
-          ) : (
-            <WaitingRoom
-              content={content}
-              speakingState={speakingState}
-              onJoin={() => setStage("rules")}
-            />
-          ))}
+        {stage === "waiting" && (
+          <WaitingRoom
+            content={content}
+            speakingState={speakingState}
+            onJoin={() => setStage("rules")}
+          />
+        )}
         {stage === "rules" && (
           <RulesConsent
             onJoin={() => {
@@ -160,10 +156,12 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
           />
         )}
         {stage === "complete" && (
-          <SessionComplete onReturn={() => {
-            exitExamFullscreen();
-            router.push("/student/mock-day");
-          }} />
+          <SessionComplete
+            onReturn={() => {
+              exitExamFullscreen();
+              router.push("/student/mock-day");
+            }}
+          />
         )}
       </main>
 
@@ -520,33 +518,37 @@ function RulesConsent({ onJoin }: { onJoin: () => void }) {
 
 function SessionComplete({ onReturn }: { onReturn: () => void }) {
   return (
-    <div className="mx-auto flex max-w-lg flex-col items-center px-5 py-16 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-        <CheckCircle2 size={32} />
-      </div>
-      <h1 className="mt-5 text-2xl font-bold text-navy">
-        Speaking Test Complete
-      </h1>
-      <p className="mt-2 text-sm text-slate-600">
-        Thank you. Your examiner will finalise your evaluation.
-      </p>
-
-      <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-6 py-5">
-        <p className="text-[13px] text-slate-600">
-          Your complete results will be available once all grading is finished.
-          You will receive an email notification when your band scores are
-          released.
+    <>
+      <div className="mx-auto flex max-w-lg flex-col items-center px-5 py-16 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+          <CheckCircle2 size={32} />
+        </div>
+        <h1 className="mt-5 text-2xl font-bold text-navy">
+          Speaking Test Complete
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Thank you. Your examiner will finalise your evaluation.
         </p>
-      </div>
 
-      <button
-        type="button"
-        onClick={onReturn}
-        className="mt-6 rounded-xl bg-navy px-6 py-3 text-sm font-semibold text-white hover:bg-navy-light"
-      >
-        Return to Dashboard
-      </button>
-    </div>
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-6 py-5">
+          <p className="text-[13px] text-slate-600">
+            Your complete results will be available once all grading is finished.
+            You will receive an email notification when your band scores are
+            released.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onReturn}
+          className="mt-6 rounded-xl bg-navy px-6 py-3 text-sm font-semibold text-white hover:bg-navy-light"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+      {/* Marketplace students only — institution calls 403 and gate no-ops. */}
+      <MarketplaceMockFeedbackGate />
+    </>
   );
 }
 

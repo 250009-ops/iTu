@@ -25,6 +25,9 @@ const RATE_LIMIT_MS = 700;
 const TELEGRAM_TIMEOUT_MS = 8_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[\d\s().-]{7,20}$/;
+/** Marketplace mock-feedback channel only — never used as a default for other sends. */
+const DEFAULT_TELEGRAM_FEEDBACK_CHANNEL_ID = '-1004413242735';
+const TELEGRAM_CHAT_ID_RE = /^-?\d+$/;
 
 // Button labels for the reply keyboard ("attached" buttons that auto-send text).
 const BTN_APPLY = '🏫 Apply as institution';
@@ -161,29 +164,83 @@ export class TelegramService {
     return null;
   }
 
-  /** Public sender for other modules (e.g. admin approval notify). */
+  /**
+   * Resolve the mock-feedback channel id from env (never a shared ops default).
+   * Other Telegram destinations must pass an explicit chat id.
+   */
+  feedbackChannelId(): string {
+    return (
+      this.config.get<string>('TELEGRAM_FEEDBACK_CHANNEL_ID')?.trim() ||
+      DEFAULT_TELEGRAM_FEEDBACK_CHANNEL_ID
+    );
+  }
+
+  /**
+   * Post to the dedicated mock-feedback channel only
+   * (`TELEGRAM_FEEDBACK_CHANNEL_ID`, default `-1004413242735`).
+   * Never falls back to applicant DMs or any other chat.
+   * Failures are logged and return false — never throws.
+   */
+  async sendToFeedbackChannel(text: string): Promise<boolean> {
+    return this.notifyChat(this.feedbackChannelId(), text);
+  }
+
+  /**
+   * Send to an explicit chat id (applicant DM, institution.telegramChatId, etc.).
+   * Callers must supply the destination — this never reads TELEGRAM_FEEDBACK_CHANNEL_ID.
+   * Failures are logged and return false — never throws.
+   */
   async notifyChat(
     chatId: string | number,
     text: string,
     replyMarkup?: unknown,
   ): Promise<boolean> {
-    const id = typeof chatId === 'string' ? Number(chatId) : chatId;
-    if (!Number.isFinite(id)) return false;
-    const messageId = await this.send(id, text, replyMarkup);
-    return messageId != null;
+    try {
+      const id = this.normalizeChatId(chatId);
+      if (id == null) return false;
+      const messageId = await this.send(id, text, replyMarkup);
+      return messageId != null;
+    } catch (err) {
+      this.logger.warn(
+        `Telegram notifyChat failed: ${this.errDetail(err)}`,
+      );
+      return false;
+    }
+  }
+
+  /** Alias for applicant approve/reject DMs — explicit chat id required. */
+  async notifyApplicant(
+    chatId: string | number,
+    text: string,
+  ): Promise<boolean> {
+    return this.notifyChat(chatId, text);
+  }
+
+  private normalizeChatId(chatId: string | number): string | number | null {
+    if (typeof chatId === 'number') {
+      return Number.isFinite(chatId) ? chatId : null;
+    }
+    const trimmed = chatId.trim();
+    if (!TELEGRAM_CHAT_ID_RE.test(trimmed)) return null;
+    // Keep as string so large channel ids stay exact for the Bot API.
+    return trimmed;
   }
 
   /** Show the native "typing…" indicator so the user knows we received them. */
   private async sendTyping(chatId: number): Promise<void> {
-    await this.telegramCall('sendChatAction', {
-      chat_id: chatId,
-      action: 'typing',
-    }, 0);
+    try {
+      await this.telegramCall('sendChatAction', {
+        chat_id: chatId,
+        action: 'typing',
+      }, 0);
+    } catch {
+      /* best-effort UX hint */
+    }
   }
 
-  /** Sends a message; returns Telegram message_id (or null). */
+  /** Sends a message; returns Telegram message_id (or null). Never throws. */
   private async send(
-    chatId: number,
+    chatId: string | number,
     text: string,
     replyMarkup?: unknown,
   ): Promise<number | null> {
@@ -191,25 +248,36 @@ export class TelegramService {
       this.logger.warn(`Telegram not configured — message to ${chatId}: ${text}`);
       return null;
     }
-    const data = await this.telegramCall('sendMessage', {
-      chat_id: chatId,
-      text,
-      parse_mode: 'HTML',
-      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-    });
-    const result = data?.result as { message_id?: number } | undefined;
-    return result?.message_id ?? null;
+    try {
+      const data = await this.telegramCall('sendMessage', {
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+      });
+      const result = data?.result as { message_id?: number } | undefined;
+      return result?.message_id ?? null;
+    } catch (err) {
+      this.logger.warn(
+        `Telegram sendMessage to ${chatId} failed: ${this.errDetail(err)}`,
+      );
+      return null;
+    }
   }
 
   private async deleteMessage(
     chatId: number,
     messageId: number,
   ): Promise<void> {
-    await this.telegramCall(
-      'deleteMessage',
-      { chat_id: chatId, message_id: messageId },
-      0,
-    );
+    try {
+      await this.telegramCall(
+        'deleteMessage',
+        { chat_id: chatId, message_id: messageId },
+        0,
+      );
+    } catch {
+      /* best-effort cleanup */
+    }
   }
 
   /**

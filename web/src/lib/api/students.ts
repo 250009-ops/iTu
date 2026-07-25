@@ -265,6 +265,41 @@ export function submitReview(body: {
   });
 }
 
+export type PendingMockFeedback = {
+  enrollmentId: string;
+  enrollmentCode: string;
+  packageTitle: string;
+  sessionCode: string | null;
+  mockDate: string;
+};
+
+export function getPendingMockFeedback() {
+  return apiFetch<PendingMockFeedback | null>("/students/mock-feedback/pending");
+}
+
+export function submitMockFeedback(body: {
+  enrollmentId: string;
+  rating: number;
+  comment?: string;
+  wouldRecommend?: boolean;
+}) {
+  return apiFetch<{
+    id: string;
+    submitted: boolean;
+    telegramSent: boolean;
+  }>("/students/mock-feedback", {
+    method: "POST",
+    body,
+  });
+}
+
+export function skipMockFeedback(enrollmentId: string) {
+  return apiFetch<{ skipped: boolean }>("/students/mock-feedback/skip", {
+    method: "POST",
+    body: { enrollmentId },
+  });
+}
+
 export function setLeaderboardConsent(publish: boolean) {
   return apiFetch<{ publishToLeaderboard: boolean }>(
     "/students/leaderboard-consent",

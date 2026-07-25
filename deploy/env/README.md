@@ -43,6 +43,28 @@ After Uzum sends Terminal ID / API key / mTLS certs (post-Didox contract):
 
 Reload nginx after updating `deploy/nginx/itestu.uz.conf`.
 
+## Telegram
+
+Used for institution/student onboarding bot DMs and marketplace mock-feedback posts.
+There is **no** shared ops/alert Telegram channel — admin alerts are in-app notifications + email.
+
+| Variable | Purpose |
+|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | Bot API token (`@BotFather`) — required for any send |
+| `TELEGRAM_BOT_USERNAME` | Public bot handle for deep links |
+| `TELEGRAM_WEBHOOK_SECRET` | Webhook auth header secret |
+| `TELEGRAM_POLLING` | Dev long-poll vs production webhook |
+| `TELEGRAM_WEBHOOK_BASE_URL` | Public HTTPS host for webhook registration |
+| `TELEGRAM_FEEDBACK_CHANNEL_ID` | Private channel for mock feedback only (default `-1004413242735`) — never used as a default for other sends |
+
+Destinations by path:
+
+- Onboarding replies → chat id from the inbound Telegram update (DM)
+- Institution approve/reject → `institution.telegramChatId` (stored at apply time)
+- Mock feedback → `TELEGRAM_FEEDBACK_CHANNEL_ID` only (`sendToFeedbackChannel`)
+
+If the bot token is missing or Telegram returns 403/wrong-chat, feedback is still saved in the DB; send returns false with a warning log. The bot must be an admin of the feedback channel.
+
 ## Health checks
 
 - API: `GET /api/v1/health` — reports `database` and `redis` status

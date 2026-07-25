@@ -10,6 +10,8 @@ import { LeaderboardConsentDto } from './dto/leaderboard-consent.dto';
 import { ClaimReferralRewardDto } from './dto/claim-referral-reward.dto';
 import { ClaimWelcomePromoDto } from './dto/claim-welcome-promo.dto';
 import { SendReferralInviteDto } from './dto/send-referral-invite.dto';
+import { SkipMockFeedbackDto } from './dto/skip-mock-feedback.dto';
+import { SubmitMockFeedbackDto } from './dto/submit-mock-feedback.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { StudentsService } from './students.service';
 
@@ -90,6 +92,28 @@ export class StudentsController {
   @Post('reviews')
   submitReview(@CurrentUser() user: RequestUser, @Body() dto: CreateReviewDto) {
     return this.students.submitReview(user, dto);
+  }
+
+  /** Marketplace-only: pending post-mock feedback prompt (null when none). */
+  @Get('mock-feedback/pending')
+  getPendingMockFeedback(@CurrentUser() user: RequestUser) {
+    return this.students.getPendingMockFeedback(user);
+  }
+
+  @Post('mock-feedback')
+  submitMockFeedback(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: SubmitMockFeedbackDto,
+  ) {
+    return this.students.submitMockFeedback(user, dto);
+  }
+
+  @Post('mock-feedback/skip')
+  skipMockFeedback(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: SkipMockFeedbackDto,
+  ) {
+    return this.students.skipMockFeedback(user, dto);
   }
 
   @Patch('leaderboard-consent')

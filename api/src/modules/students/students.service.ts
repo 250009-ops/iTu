@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -52,10 +53,13 @@ import { ClaimReferralRewardDto } from './dto/claim-referral-reward.dto';
 import { ClaimWelcomePromoDto } from './dto/claim-welcome-promo.dto';
 import { SendReferralInviteDto } from './dto/send-referral-invite.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
+import { SkipMockFeedbackDto } from './dto/skip-mock-feedback.dto';
+import { SubmitMockFeedbackDto } from './dto/submit-mock-feedback.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { packageExamSkills } from '../content/package-skills';
 import { selectMockDayEnrollment } from './mock-day-enrollment';
 import { EnrollmentLifecycleService } from '../bookings/enrollment-lifecycle.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 const TICKET_TYPE_MAP: Record<
   NonNullable<CreateSupportTicketDto['type']>,
@@ -78,6 +82,8 @@ const DEFAULT_TICKET_PRIORITY: Record<TicketType, TicketPriority> = {
 
 @Injectable()
 export class StudentsService {
+  private readonly logger = new Logger(StudentsService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
@@ -86,6 +92,7 @@ export class StudentsService {
     private bookings: BookingsService,
     private mail: MailService,
     private config: ConfigService,
+    private telegram: TelegramService,
   ) {}
 
   async listCatalogPackages(user: RequestUser) {
@@ -895,6 +902,123 @@ export class StudentsService {
     return { id: review.id, submitted: true };
   }
 
+  /**
+   * Next completed marketplace mock that still needs platform feedback
+   * (neither submitted nor skipped). Institution students always get null
+   * (no error — same exam UI is shared).
+   */
+  async getPendingMockFeedback(user: RequestUser) {
+    this.requireStudent(user);
+
+    const profile = await this.prisma.studentProfile.findUnique({
+      where: { id: user.studentProfileId },
+      select: { id: true, institutionId: true },
+    });
+    if (!profile || profile.institutionId) return null;
+
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: {
+        studentId: profile.id,
+        institutionId: null,
+        status: { in: ['AWAITING_RESULTS', 'COMPLETED'] },
+        mockFeedback: null,
+      },
+      include: {
+        package: { select: { title: true } },
+        examSession: { select: { sessionCode: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!enrollment) return null;
+
+    return {
+      enrollmentId: enrollment.id,
+      enrollmentCode: enrollment.enrollmentCode,
+      packageTitle: enrollment.package.title,
+      sessionCode: enrollment.examSession?.sessionCode ?? null,
+      mockDate: enrollment.mockDate,
+    };
+  }
+
+  async submitMockFeedback(user: RequestUser, dto: SubmitMockFeedbackDto) {
+    const profile = await this.requireMarketplaceStudent(user);
+    const enrollment = await this.findFeedbackEligibleEnrollment(
+      profile.id,
+      dto.enrollmentId,
+    );
+
+    const existing = await this.prisma.studentMockFeedback.findUnique({
+      where: { enrollmentId: enrollment.id },
+    });
+    if (existing?.rating != null) {
+      throw new BadRequestException('Feedback already submitted for this mock');
+    }
+    if (existing?.skippedAt) {
+      throw new BadRequestException('Feedback was already dismissed for this mock');
+    }
+
+    const comment = dto.comment?.trim() || null;
+    const feedback = await this.prisma.studentMockFeedback.create({
+      data: {
+        studentId: profile.id,
+        enrollmentId: enrollment.id,
+        rating: dto.rating,
+        comment,
+        wouldRecommend: dto.wouldRecommend ?? null,
+      },
+    });
+
+    const telegramSent = await this.postMockFeedbackToTelegram({
+      studentName: profile.user.name,
+      studentEmail: profile.user.email,
+      studentId: profile.id,
+      enrollmentCode: enrollment.enrollmentCode,
+      sessionCode: enrollment.examSession?.sessionCode ?? null,
+      packageTitle: enrollment.package.title,
+      rating: dto.rating,
+      comment,
+      wouldRecommend: dto.wouldRecommend ?? null,
+    });
+
+    if (telegramSent) {
+      await this.prisma.studentMockFeedback.update({
+        where: { id: feedback.id },
+        data: { telegramSentAt: new Date() },
+      });
+    }
+
+    return { id: feedback.id, submitted: true, telegramSent };
+  }
+
+  async skipMockFeedback(user: RequestUser, dto: SkipMockFeedbackDto) {
+    const profile = await this.requireMarketplaceStudent(user);
+    const enrollment = await this.findFeedbackEligibleEnrollment(
+      profile.id,
+      dto.enrollmentId,
+    );
+
+    const existing = await this.prisma.studentMockFeedback.findUnique({
+      where: { enrollmentId: enrollment.id },
+    });
+    if (existing?.rating != null) {
+      throw new BadRequestException('Feedback already submitted for this mock');
+    }
+    if (existing?.skippedAt) {
+      return { skipped: true };
+    }
+
+    await this.prisma.studentMockFeedback.create({
+      data: {
+        studentId: profile.id,
+        enrollmentId: enrollment.id,
+        skippedAt: new Date(),
+      },
+    });
+
+    return { skipped: true };
+  }
+
   async setLeaderboardConsent(user: RequestUser, publish: boolean) {
     this.requireStudent(user);
     await this.prisma.studentProfile.update({
@@ -1288,4 +1412,113 @@ export class StudentsService {
       throw new ForbiddenException('Student profile required');
     }
   }
+
+  /** System / marketplace students only (no centre membership). */
+  private async requireMarketplaceStudent(user: RequestUser) {
+    this.requireStudent(user);
+    const profile = await this.prisma.studentProfile.findUnique({
+      where: { id: user.studentProfileId },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    if (!profile) {
+      throw new NotFoundException('Student profile not found');
+    }
+    if (profile.institutionId) {
+      throw new ForbiddenException(
+        'Mock feedback is only available for marketplace students',
+      );
+    }
+    return profile;
+  }
+
+  private async findFeedbackEligibleEnrollment(
+    studentId: string,
+    enrollmentId: string,
+  ) {
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: {
+        id: enrollmentId,
+        studentId,
+        institutionId: null,
+        status: { in: ['AWAITING_RESULTS', 'COMPLETED'] },
+      },
+      include: {
+        package: { select: { title: true } },
+        examSession: { select: { sessionCode: true } },
+      },
+    });
+    if (!enrollment) {
+      throw new NotFoundException('Enrollment not found or not eligible');
+    }
+    return enrollment;
+  }
+
+  private async postMockFeedbackToTelegram(input: {
+    studentName: string;
+    studentEmail: string;
+    studentId: string;
+    enrollmentCode: string;
+    sessionCode: string | null;
+    packageTitle: string;
+    rating: number;
+    comment: string | null;
+    wouldRecommend: boolean | null;
+  }): Promise<boolean> {
+    if (!this.telegram.isConfigured()) {
+      this.logger.warn(
+        'TELEGRAM_BOT_TOKEN missing — mock feedback saved but not posted to Telegram',
+      );
+      return false;
+    }
+
+    const stars = `${'★'.repeat(input.rating)}${'☆'.repeat(5 - input.rating)}`;
+    const recommend =
+      input.wouldRecommend == null
+        ? '—'
+        : input.wouldRecommend
+          ? 'Yes'
+          : 'No';
+    const comment = input.comment
+      ? escapeTelegramHtml(input.comment)
+      : '<i>(none)</i>';
+    const when = new Date().toISOString();
+
+    const text =
+      `📝 <b>Mock feedback</b>\n\n` +
+      `<b>Name:</b> ${escapeTelegramHtml(input.studentName)}\n` +
+      `<b>Email:</b> ${escapeTelegramHtml(input.studentEmail)}\n` +
+      `<b>Student ID:</b> <code>${escapeTelegramHtml(input.studentId)}</code>\n` +
+      `<b>Enrollment:</b> ${escapeTelegramHtml(input.enrollmentCode)}\n` +
+      (input.sessionCode
+        ? `<b>Session:</b> ${escapeTelegramHtml(input.sessionCode)}\n`
+        : '') +
+      `<b>Package:</b> ${escapeTelegramHtml(input.packageTitle)}\n` +
+      `<b>Rating:</b> ${stars} (${input.rating}/5)\n` +
+      `<b>Would recommend:</b> ${recommend}\n` +
+      `<b>Comment:</b> ${comment}\n` +
+      `<b>Time:</b> ${when}`;
+
+    try {
+      // Explicit feedback-channel API — never uses applicant DMs or other chats.
+      const ok = await this.telegram.sendToFeedbackChannel(text);
+      if (!ok) {
+        this.logger.warn(
+          `Telegram mock-feedback post returned false for ${input.enrollmentCode}`,
+        );
+      }
+      return ok;
+    } catch (err) {
+      this.logger.warn(
+        `Telegram mock-feedback post failed: ${err instanceof Error ? err.message : err}`,
+      );
+      return false;
+    }
+  }
+}
+
+function escapeTelegramHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

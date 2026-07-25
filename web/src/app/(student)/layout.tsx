@@ -2,6 +2,7 @@
 
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { SidebarProvider } from "@/contexts/sidebar-context";
+import { MarketplaceMockFeedbackGate } from "@/components/student/feedback/marketplace-mock-feedback-gate";
 import { InstitutionStudentRedirect } from "@/components/student/institution-student-redirect";
 import { StudentMobileNav } from "@/components/student/student-mobile-nav";
 import { StudentSidebar } from "@/components/student/student-sidebar";
@@ -24,6 +25,7 @@ export default function StudentLayout() {
                 </main>
               </div>
             </div>
+            <MarketplaceMockFeedbackGate />
           </div>
         </SidebarProvider>
       </InstitutionStudentRedirect>

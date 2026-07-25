@@ -215,7 +215,7 @@ export class AdminInstitutionsService implements OnModuleInit {
     // have a chat id — skip silently in that case.
     if (institution.telegramChatId) {
       void this.telegram
-        .notifyChat(
+        .notifyApplicant(
           institution.telegramChatId,
           `🎉 Great news! Your application for <b>${institution.name}</b> has been approved.\n\n` +
             `Please check <b>${email}</b> for a link to set your password and open your institution panel.\n\n` +
@@ -264,7 +264,7 @@ export class AdminInstitutionsService implements OnModuleInit {
 
     if (institution.telegramChatId) {
       void this.telegram
-        .notifyChat(
+        .notifyApplicant(
           institution.telegramChatId,
           `Thank you for your interest in partnering with iTestU.\n\n` +
             `After review we’re unable to approve <b>${institution.name}</b> at this time. ` +
