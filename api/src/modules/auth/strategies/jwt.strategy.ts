@@ -1,9 +1,14 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { UserRole } from '@prisma/client';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  isMainAdminEmail,
+  resolveAdminPermissions,
+} from '../../../common/admin-permissions/admin-permissions';
 import { RequestUser } from '../../../common/types/request-user';
+import { PrismaService } from '../../../prisma/prisma.service';
 // RequestUser is a class (required for decorator metadata)
 
 interface JwtPayload {
@@ -14,6 +19,8 @@ interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly mainAdminEmail: string;
+
   constructor(
     config: ConfigService,
     private prisma: PrismaService,
@@ -30,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
+    this.mainAdminEmail = config.get<string>('MAIN_ADMIN_EMAIL') ?? '';
   }
 
   async validate(payload: JwtPayload): Promise<RequestUser> {
@@ -38,6 +46,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       include: {
         studentProfile: { select: { id: true } },
         teacherProfile: { select: { id: true } },
+        adminProfile: {
+          select: { active: true, permissions: true },
+        },
       },
     });
 
@@ -53,6 +64,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     requestUser.studentProfileId = user.studentProfile?.id;
     requestUser.teacherProfileId = user.teacherProfile?.id;
     requestUser.institutionId = user.institutionId ?? undefined;
+
+    if (user.role === UserRole.ADMIN) {
+      const isMain = isMainAdminEmail(user.email, this.mainAdminEmail);
+      requestUser.isMainAdmin = isMain;
+      requestUser.adminActive = user.adminProfile?.active ?? true;
+      requestUser.adminPermissions = resolveAdminPermissions({
+        email: user.email,
+        mainAdminEmail: this.mainAdminEmail,
+        profile: user.adminProfile,
+      });
+
+      if (!isMain && user.adminProfile && !user.adminProfile.active) {
+        throw new UnauthorizedException('Admin account is deactivated');
+      }
+    }
+
     return requestUser;
   }
 }

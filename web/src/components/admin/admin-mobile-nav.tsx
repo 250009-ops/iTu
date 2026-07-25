@@ -2,22 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMemo } from "react";
 import {
   AlertTriangle,
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   GraduationCap,
+  HelpCircle,
   LayoutDashboard,
   Package,
   Radio,
   Receipt,
   Settings,
+  Shield,
   UserCheck,
   Users,
 } from "lucide-react";
 import { adminNav, isAdminNavItemActive, type AdminNavItem } from "@/lib/admin/nav";
 import { useAdminNavBadges } from "@/contexts/admin-nav-badges-context";
+import { useAdminPermissions } from "@/contexts/admin-permissions-context";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -33,6 +38,9 @@ const iconMap = {
   "bar-chart": BarChart3,
   building: Building2,
   settings: Settings,
+  bell: Bell,
+  "help-circle": HelpCircle,
+  shield: Shield,
 } as const;
 
 function navBadgeCount(
@@ -47,12 +55,20 @@ function navBadgeCount(
 export function AdminMobileNav() {
   const pathname = usePathname();
   const badges = useAdminNavBadges();
+  const { can, loading } = useAdminPermissions();
+
+  const items = useMemo(() => {
+    if (loading) return [];
+    return adminNav.filter(
+      (item): item is AdminNavItem & { href: string } =>
+        Boolean(item.href) &&
+        (!item.permission || can(item.permission)),
+    );
+  }, [can, loading]);
 
   return (
     <nav className="flex gap-1 overflow-x-auto border-b border-border bg-white px-2 py-2 md:hidden">
-      {adminNav
-        .filter((item): item is AdminNavItem & { href: string } => Boolean(item.href))
-        .map((item) => {
+      {items.map((item) => {
         const Icon = iconMap[item.icon];
         const badge = navBadgeCount(item, badges);
         const active = isAdminNavItemActive(pathname, item.href);

@@ -366,6 +366,31 @@ export class MailService {
     this.logger.log(`Institution examiner invite sent to ${to}`);
   }
 
+  async sendAdminInviteEmail(
+    to: string,
+    name: string,
+    setupUrl: string,
+  ): Promise<void> {
+    const { text, html } = this.actionLinkHtml(
+      name,
+      `You have been invited as an <strong>administrator</strong> on iTestU. Set your password to access the admin portal.`,
+      'Set your password',
+      setupUrl,
+      'This link expires in 24 hours. Your access is limited to the capabilities assigned by the main admin.',
+    );
+    const sent = await this.send({
+      to,
+      subject: 'You are invited to the iTestU admin team',
+      text,
+      html,
+    });
+    if (!sent) {
+      this.logger.warn(`SMTP not configured — admin invite link for ${to}: ${setupUrl}`);
+      return;
+    }
+    this.logger.log(`Admin invite email sent to ${to}`);
+  }
+
   async verifyConnection(): Promise<{ ok: boolean; message: string }> {
     const transporter = this.getTransporter();
     if (!transporter) {

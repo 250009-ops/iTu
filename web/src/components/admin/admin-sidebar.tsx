@@ -2,29 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   ChevronDown,
   GraduationCap,
+  HelpCircle,
   LayoutDashboard,
   Package,
   Radio,
   Receipt,
   Settings,
+  Shield,
   UserCheck,
   Users,
 } from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
 import { PortalSidebarDownload } from "@/components/portal/portal-sidebar-download";
 import { useAdminNavBadges } from "@/contexts/admin-nav-badges-context";
+import { useAdminPermissions } from "@/contexts/admin-permissions-context";
 import {
   adminNavGroups,
   isAdminNavItemActive,
   isAdminNavParentActive,
+  type AdminNavChildItem,
+  type AdminNavGroup,
   type AdminNavItem,
 } from "@/lib/admin/nav";
 import { cn } from "@/lib/utils";
@@ -42,6 +48,9 @@ const iconMap = {
   "bar-chart": BarChart3,
   building: Building2,
   settings: Settings,
+  bell: Bell,
+  "help-circle": HelpCircle,
+  shield: Shield,
 } as const;
 
 function navBadgeCount(
@@ -120,13 +129,16 @@ function AdminNavDropdown({
   item,
   collapsed,
   badge,
+  childItems,
 }: {
   item: AdminNavItem;
   collapsed: boolean;
   badge: number | null;
+  childItems: AdminNavChildItem[];
 }) {
   const pathname = usePathname();
-  const parentActive = isAdminNavParentActive(pathname, item);
+  const filteredItem = { ...item, children: childItems };
+  const parentActive = isAdminNavParentActive(pathname, filteredItem);
   const Icon = iconMap[item.icon];
   const [open, setOpen] = useState(parentActive);
 
@@ -135,7 +147,7 @@ function AdminNavDropdown({
   }, [parentActive]);
 
   if (collapsed) {
-    const firstChild = item.children![0];
+    const firstChild = childItems[0];
     return (
       <Link
         href={firstChild.href}
@@ -195,7 +207,7 @@ function AdminNavDropdown({
       </button>
       {open && (
         <div className="mt-1 space-y-1">
-          {item.children!.map((child) => {
+          {childItems.map((child) => {
             const active = isAdminNavItemActive(pathname, child.href);
             return (
               <Link
@@ -224,6 +236,29 @@ function AdminNavDropdown({
 export function AdminSidebar() {
   const { collapsed } = useSidebar();
   const badges = useAdminNavBadges();
+  const { can, loading } = useAdminPermissions();
+
+  const groups = useMemo(() => {
+    if (loading) return [] as AdminNavGroup[];
+    return adminNavGroups
+      .map((group) => ({
+        ...group,
+        items: group.items
+          .map((item) => {
+            if (item.children?.length) {
+              const children = item.children.filter((child) =>
+                can(child.permission),
+              );
+              if (!children.length) return null;
+              return { ...item, children };
+            }
+            if (item.permission && !can(item.permission)) return null;
+            return item;
+          })
+          .filter((item): item is AdminNavItem => item != null),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [can, loading]);
 
   return (
     <aside
@@ -233,7 +268,7 @@ export function AdminSidebar() {
       )}
     >
       <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
-        {adminNavGroups.map((group, gi) => (
+        {groups.map((group, gi) => (
           <div key={gi}>
             {group.label && !collapsed && (
               <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">
@@ -250,6 +285,7 @@ export function AdminSidebar() {
                       item={item}
                       collapsed={collapsed}
                       badge={badge}
+                      childItems={item.children}
                     />
                   );
                 }

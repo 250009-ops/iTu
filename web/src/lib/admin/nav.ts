@@ -1,3 +1,5 @@
+import type { AdminPermission } from "@/lib/admin/permissions";
+
 export type AdminNavIcon =
   | "layout-dashboard"
   | "book-open"
@@ -10,13 +12,17 @@ export type AdminNavIcon =
   | "alert-triangle"
   | "bar-chart"
   | "building"
-  | "settings";
+  | "settings"
+  | "bell"
+  | "help-circle"
+  | "shield";
 
 export type AdminNavBadgeKey = "liveSessions" | "openTickets";
 
 export type AdminNavChildItem = {
   label: string;
   href: string;
+  permission: AdminPermission;
 };
 
 export type AdminNavItem = {
@@ -24,6 +30,8 @@ export type AdminNavItem = {
   href?: string;
   icon: AdminNavIcon;
   badgeKey?: AdminNavBadgeKey;
+  /** Required when the item has a direct href (no children). */
+  permission?: AdminPermission;
   children?: AdminNavChildItem[];
 };
 
@@ -35,7 +43,12 @@ export type AdminNavGroup = {
 export const adminNavGroups: AdminNavGroup[] = [
   {
     items: [
-      { label: "Dashboard", href: "/admin/dashboard", icon: "layout-dashboard" },
+      {
+        label: "Dashboard",
+        href: "/admin/dashboard",
+        icon: "layout-dashboard",
+        permission: "dashboard",
+      },
     ],
   },
   {
@@ -45,17 +58,37 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Content Studio",
         icon: "book-open",
         children: [
-          { label: "Mock Creation", href: "/admin/content" },
-          { label: "Practice Creation", href: "/admin/content/practice" },
+          {
+            label: "Mock Creation",
+            href: "/admin/content",
+            permission: "content",
+          },
+          {
+            label: "Practice Creation",
+            href: "/admin/content/practice",
+            permission: "practice",
+          },
         ],
       },
       {
         label: "Packages & Pricing",
         icon: "package",
         children: [
-          { label: "Mock Packages", href: "/admin/packages" },
-          { label: "Practice & AI Packages", href: "/admin/packages/practice" },
-          { label: "Institution Mock Sets", href: "/admin/packages/institution-sets" },
+          {
+            label: "Mock Packages",
+            href: "/admin/packages",
+            permission: "packages",
+          },
+          {
+            label: "Practice & AI Packages",
+            href: "/admin/packages/practice",
+            permission: "packages",
+          },
+          {
+            label: "Institution Mock Sets",
+            href: "/admin/packages/institution-sets",
+            permission: "institution-sets",
+          },
         ],
       },
     ],
@@ -63,30 +96,90 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     label: "Management",
     items: [
-      { label: "Teachers", href: "/admin/teachers", icon: "user-check" },
-      { label: "Students", href: "/admin/students", icon: "graduation-cap" },
-      { label: "Institutions", href: "/admin/institutions", icon: "building" },
+      {
+        label: "Teachers",
+        href: "/admin/teachers",
+        icon: "user-check",
+        permission: "teachers",
+      },
+      {
+        label: "Students",
+        href: "/admin/students",
+        icon: "graduation-cap",
+        permission: "students",
+      },
+      {
+        label: "Institutions",
+        href: "/admin/institutions",
+        icon: "building",
+        permission: "institutions",
+      },
       {
         label: "Live Monitor",
         href: "/admin/sessions",
         icon: "radio",
         badgeKey: "liveSessions",
+        permission: "sessions",
       },
-      { label: "Enrollments", href: "/admin/enrollments", icon: "users" },
-      { label: "Orders", href: "/admin/orders", icon: "receipt" },
+      {
+        label: "Enrollments",
+        href: "/admin/enrollments",
+        icon: "users",
+        permission: "enrollments",
+      },
+      {
+        label: "Orders",
+        href: "/admin/orders",
+        icon: "receipt",
+        permission: "orders",
+      },
       {
         label: "Disputes",
         href: "/admin/disputes",
         icon: "alert-triangle",
         badgeKey: "openTickets",
+        permission: "disputes",
       },
     ],
   },
   {
     label: "Analytics",
     items: [
-      { label: "Reports", href: "/admin/reports", icon: "bar-chart" },
-      { label: "Settings", href: "/admin/settings", icon: "settings" },
+      {
+        label: "Reports",
+        href: "/admin/reports",
+        icon: "bar-chart",
+        permission: "reports",
+      },
+      {
+        label: "Settings",
+        href: "/admin/settings",
+        icon: "settings",
+        permission: "settings",
+      },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      {
+        label: "Notifications",
+        href: "/admin/notifications",
+        icon: "bell",
+        permission: "notifications",
+      },
+      {
+        label: "Help",
+        href: "/admin/help",
+        icon: "help-circle",
+        permission: "help",
+      },
+      {
+        label: "Team",
+        href: "/admin/admins",
+        icon: "shield",
+        permission: "admins",
+      },
     ],
   },
 ];
@@ -118,6 +211,7 @@ export const adminNav: AdminNavItem[] = adminNavGroups.flatMap((group) =>
         label: child.label,
         href: child.href,
         icon: item.icon,
+        permission: child.permission,
       }));
     }
     return [item];

@@ -282,13 +282,33 @@ model User {
 
   studentProfile  StudentProfile?
   teacherProfile  TeacherProfile?
+  adminProfile    AdminProfile?
   institution     Institution?    @relation("InstitutionAdmins", fields: [institutionId], references: [id])
   notifications   Notification[]
   auditLogs       AuditLog[]
   assignedTickets SupportTicket[] @relation("TicketAssignee")
   reportedTickets SupportTicket[] @relation("TicketReporter")
+  invitedAdmins   AdminProfile[]  @relation("AdminInvites")
 
   @@map("users")
+}
+
+/// Capability profile for ADMIN users. Missing row or null permissions = full access (legacy).
+model AdminProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique @map("user_id")
+  /// JSON string[] of permission keys; null means full access (legacy / unrestricted).
+  permissions Json?
+  invitedById String?  @map("invited_by_id")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User? @relation("AdminInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([invitedById])
+  @@map("admin_profiles")
 }
 
 model StudentProfile {

@@ -9,6 +9,12 @@ export type ApiUser = {
   name: string;
   role: UserRole;
   totpEnabled?: boolean;
+  /** Admin only: true for MAIN_ADMIN_EMAIL */
+  isMainAdmin?: boolean;
+  /** Admin only: null = full access; string[] = explicit capabilities */
+  adminPermissions?: string[] | null;
+  /** Admin only: first allowed portal path */
+  adminHomePath?: string;
   institution?: {
     id: string;
     name: string;

@@ -11,6 +11,8 @@ import { AdminService } from './admin.service';
 import { InstitutionMockSetsModule } from '../institution-mock-sets/institution-mock-sets.module';
 import { AdminInstitutionsController } from './admin-institutions.controller';
 import { AdminInstitutionsService } from './admin-institutions.service';
+import { AdminAdminsController } from './admin-admins.controller';
+import { AdminAdminsService } from './admin-admins.service';
 
 @Module({
   imports: [
@@ -23,8 +25,12 @@ import { AdminInstitutionsService } from './admin-institutions.service';
     BookingsModule,
     InstitutionMockSetsModule,
   ],
-  controllers: [AdminController, AdminInstitutionsController],
-  providers: [AdminService, AdminInstitutionsService],
+  controllers: [
+    AdminController,
+    AdminInstitutionsController,
+    AdminAdminsController,
+  ],
+  providers: [AdminService, AdminInstitutionsService, AdminAdminsService],
   exports: [AdminService],
 })
 export class AdminModule {}

@@ -10,6 +10,12 @@ import { UserRole, TeacherSpeciality } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { extname } from 'path';
+import {
+  adminHasFullAccess,
+  isMainAdminEmail,
+  resolveAdminPermissions,
+  type AdminPermission,
+} from '../../common/admin-permissions/admin-permissions';
 import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { AuditAction } from '../../common/audit/audit.actions';
@@ -35,6 +41,39 @@ const DASHBOARD_PATHS: Record<UserRole, string> = {
   ADMIN: '/admin/dashboard',
   INSTITUTION: '/institution',
 };
+
+const ADMIN_HOME_BY_PERMISSION: Array<{
+  permission: AdminPermission;
+  path: string;
+}> = [
+  { permission: 'dashboard', path: '/admin/dashboard' },
+  { permission: 'content', path: '/admin/content' },
+  { permission: 'practice', path: '/admin/content/practice' },
+  { permission: 'packages', path: '/admin/packages' },
+  { permission: 'institution-sets', path: '/admin/packages/institution-sets' },
+  { permission: 'teachers', path: '/admin/teachers' },
+  { permission: 'students', path: '/admin/students' },
+  { permission: 'institutions', path: '/admin/institutions' },
+  { permission: 'sessions', path: '/admin/sessions' },
+  { permission: 'enrollments', path: '/admin/enrollments' },
+  { permission: 'orders', path: '/admin/orders' },
+  { permission: 'disputes', path: '/admin/disputes' },
+  { permission: 'reports', path: '/admin/reports' },
+  { permission: 'settings', path: '/admin/settings' },
+  { permission: 'notifications', path: '/admin/notifications' },
+  { permission: 'help', path: '/admin/help' },
+  { permission: 'admins', path: '/admin/admins' },
+];
+
+function resolveAdminHomePath(
+  permissions: AdminPermission[] | null,
+): string {
+  if (adminHasFullAccess(permissions)) return '/admin/dashboard';
+  for (const entry of ADMIN_HOME_BY_PERMISSION) {
+    if (permissions?.includes(entry.permission)) return entry.path;
+  }
+  return '/admin/help';
+}
 
 const CERT_MIME_TYPES = new Set([
   'application/pdf',
@@ -72,6 +111,7 @@ export class AuthService {
         studentProfile: true,
         teacherProfile: true,
         institution: true,
+        adminProfile: true,
       },
     });
 
@@ -97,6 +137,7 @@ export class AuthService {
     }
 
     this.assertTeacherCanLogin(user);
+    this.assertAdminCanLogin(user);
 
     if (!user.emailVerifiedAt) {
       if (
@@ -451,6 +492,7 @@ export class AuthService {
         studentProfile: true,
         teacherProfile: true,
         institution: true,
+        adminProfile: true,
       },
     });
 
@@ -723,14 +765,33 @@ export class AuthService {
     return `examiner-${randomBytes(4).toString('hex')}`;
   }
 
+  private assertAdminCanLogin(user: {
+    id: string;
+    email: string;
+    role: UserRole;
+    adminProfile?: { active: boolean } | null;
+  }) {
+    if (user.role !== UserRole.ADMIN) return;
+    if (isMainAdminEmail(user.email, this.config.get('MAIN_ADMIN_EMAIL'))) {
+      return;
+    }
+    if (user.adminProfile && !user.adminProfile.active) {
+      throw new UnauthorizedException(
+        'This admin account has been deactivated. Contact the main admin.',
+      );
+    }
+  }
+
   private buildAuthResponse(user: {
     id: string;
     email: string;
     name: string;
     role: UserRole;
+    totpEnabled?: boolean;
     studentProfile: { id: string } | null;
     teacherProfile: { id: string } | null;
     institution?: { id: string; name: string; status: string } | null;
+    adminProfile?: { active: boolean; permissions: unknown } | null;
   }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwt.sign(payload, {
@@ -746,6 +807,13 @@ export class AuthService {
       } else if (user.role === UserRole.TEACHER) {
         dashboardPath = '/inst-examiner';
       }
+    } else if (user.role === UserRole.ADMIN) {
+      const permissions = resolveAdminPermissions({
+        email: user.email,
+        mainAdminEmail: this.config.get('MAIN_ADMIN_EMAIL'),
+        profile: user.adminProfile,
+      });
+      dashboardPath = resolveAdminHomePath(permissions);
     }
 
     return {
@@ -780,14 +848,34 @@ export class AuthService {
         name: string;
         status: string;
       } | null;
+      adminProfile?: { active: boolean; permissions: unknown } | null;
     },
   ) {
+    const isMainAdmin =
+      user.role === UserRole.ADMIN &&
+      isMainAdminEmail(user.email, this.config.get('MAIN_ADMIN_EMAIL'));
+    const adminPermissions =
+      user.role === UserRole.ADMIN
+        ? resolveAdminPermissions({
+            email: user.email,
+            mainAdminEmail: this.config.get('MAIN_ADMIN_EMAIL'),
+            profile: user.adminProfile,
+          })
+        : undefined;
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role.toLowerCase(),
       totpEnabled: user.totpEnabled ?? false,
+      ...(user.role === UserRole.ADMIN
+        ? {
+            isMainAdmin,
+            adminPermissions,
+            adminHomePath: resolveAdminHomePath(adminPermissions ?? null),
+          }
+        : {}),
       institution: user.institution
         ? {
             id: user.institution.id,

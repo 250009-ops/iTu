@@ -58,6 +58,11 @@ export const AuditAction = {
   ADMIN_INSTITUTION_REJECT: 'admin.institution.reject',
   ADMIN_INSTITUTION_UPDATE: 'admin.institution.update',
   ADMIN_INSTITUTION_CREDIT_ADJUST: 'admin.institution.credit_adjust',
+  ADMIN_TEAM_INVITE: 'admin.team.invite',
+  ADMIN_TEAM_UPDATE: 'admin.team.update',
+  ADMIN_TEAM_DEACTIVATE: 'admin.team.deactivate',
+  ADMIN_TEAM_REACTIVATE: 'admin.team.reactivate',
+  ADMIN_TEAM_RESEND_INVITE: 'admin.team.resend_invite',
 
   INSTITUTION_APPLICATION: 'institution.application',
   INSTITUTION_STUDENT_JOIN: 'institution.student.join',

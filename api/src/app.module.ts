@@ -8,6 +8,7 @@ import {
   shouldSkipContactThrottler,
 } from './common/throttler/throttler.utils';
 import { AppController } from './app.controller';
+import { AdminPermissionGuard } from './common/guards/admin-permission.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AdminModule } from './modules/admin/admin.module';
@@ -99,6 +100,7 @@ import { StorageModule } from './common/storage/storage.module';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: AdminPermissionGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
