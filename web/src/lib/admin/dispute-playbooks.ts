@@ -85,7 +85,7 @@ export function getDisputePlaybook(
     return {
       checklist: [
         { id: "read", label: "Review earnings or payout concern" },
-        { id: "verify", label: "Check payout records and bank details" },
+        { id: "verify", label: "Check payout records and card details" },
         { id: "notify", label: "Confirm outcome with the teacher" },
       ],
       actions: ["open_payouts"],

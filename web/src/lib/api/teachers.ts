@@ -124,10 +124,13 @@ export function getTeacherEarnings() {
     };
     nextUnlockAt?: string | null;
     payoutDetails: {
+      cardHolderName?: string;
+      cardNumber?: string;
+      method?: string;
+      /** @deprecated legacy bank transfer fields */
       bankName?: string;
       accountName?: string;
       accountLast4?: string;
-      method?: string;
     } | null;
     weeklyRevenue: {
       days: { day: string; speaking: number; writing: number }[];
@@ -183,9 +186,8 @@ export type UpdateTeacherProfileBody = {
   avatarUrl?: string;
   notificationPrefs?: Record<string, boolean>;
   payoutDetails?: {
-    bankName?: string;
-    accountName?: string;
-    accountLast4?: string;
+    cardHolderName: string;
+    cardNumber: string;
     method?: string;
   };
 };

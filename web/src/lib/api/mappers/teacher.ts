@@ -527,14 +527,21 @@ export function mapTeacherEarnings(data: Earnings) {
   const currentPeriodLocked = lockedPayouts.reduce((sum, p) => sum + p.amount, 0);
 
   const payoutDetails = data.payoutDetails;
-  const hasBankDetails = Boolean(payoutDetails?.accountLast4?.trim());
+  const cardDigits = payoutDetails?.cardNumber?.replace(/\D/g, "") ?? "";
+  const hasBankDetails = Boolean(
+    payoutDetails?.cardHolderName?.trim() && cardDigits.length >= 13,
+  );
   const canRequestPayout = availableBalance > 0 && hasBankDetails;
+  // Prefer card mask; keep legacy bank last4 readable until teacher re-saves.
   const bankLabel =
-    payoutDetails?.bankName && payoutDetails?.accountLast4
-      ? `${payoutDetails.bankName} ···${payoutDetails.accountLast4}`
-      : "No bank details on file";
-  const methodLabel =
-    payoutDetails?.method ?? "Bank transfer (2–3 business days)";
+    cardDigits.length >= 4
+      ? `Card ···${cardDigits.slice(-4)}`
+      : payoutDetails?.bankName && payoutDetails?.accountLast4
+        ? `${payoutDetails.bankName} ···${payoutDetails.accountLast4}`
+        : payoutDetails?.accountLast4?.trim()
+          ? `····${payoutDetails.accountLast4.trim()}`
+          : "No card details on file";
+  const methodLabel = payoutDetails?.method ?? "Bank card";
 
   const currentPeriodLabel =
     data.currentPeriod?.label ??
@@ -585,7 +592,7 @@ export function mapTeacherEarnings(data: Earnings) {
     type: "payout" as const,
     label:
       payout.status === "paid"
-        ? "Bank Payout"
+        ? "Card Payout"
         : payout.status === "processing"
           ? "Payout Requested"
           : payout.requestable
@@ -621,7 +628,7 @@ export function mapTeacherEarnings(data: Earnings) {
             ? `Earned this period — available to request after ${nextUnlockLabel}`
             : hasBankDetails
               ? "No completed earnings to request yet"
-              : "Add bank details to request payouts",
+              : "Add card details to request payouts",
       thisMonth,
       thisMonthTrend: "—",
       thisMonthLabel: billingCycle,
@@ -641,6 +648,16 @@ export function mapTeacherEarnings(data: Earnings) {
     weeklyRevenue,
     hasWeeklyRevenue,
     nextPayout,
+    payoutDetails: payoutDetails
+      ? {
+          cardHolderName:
+            payoutDetails.cardHolderName?.trim() ||
+            payoutDetails.accountName?.trim() ||
+            "",
+          cardNumber: cardDigits,
+          method: payoutDetails.method ?? "Bank card",
+        }
+      : null,
     transactions,
   };
 }

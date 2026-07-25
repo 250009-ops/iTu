@@ -1,10 +1,34 @@
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+
+export class TeacherPayoutDetailsDto {
+  @IsString()
+  @MaxLength(120)
+  cardHolderName: string;
+
+  /** Digits only after strip (spaces/dashes accepted in input). */
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.replace(/\D/g, '') : value,
+  )
+  @IsString()
+  @Matches(/^\d{13,19}$/, {
+    message: 'cardNumber must be 13–19 digits',
+  })
+  cardNumber: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  method?: string;
+}
 
 export class UpdateTeacherProfileDto {
   @IsOptional()
@@ -31,11 +55,7 @@ export class UpdateTeacherProfileDto {
   notificationPrefs?: Record<string, boolean>;
 
   @IsOptional()
-  @IsObject()
-  payoutDetails?: {
-    bankName?: string;
-    accountName?: string;
-    accountLast4?: string;
-    method?: string;
-  };
+  @ValidateNested()
+  @Type(() => TeacherPayoutDetailsDto)
+  payoutDetails?: TeacherPayoutDetailsDto;
 }

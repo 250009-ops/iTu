@@ -21,6 +21,12 @@ import {
 import { RequestUser } from '../../common/types/request-user';
 import { formatMoney } from '../../common/format-money';
 import {
+  hasPayoutCardDetails,
+  isValidCardNumber,
+  normalizeCardNumber,
+  type TeacherPayoutDetails,
+} from '../../common/payout-card';
+import {
   isPayoutRowRequestable,
   summarizeTeacherPayouts,
 } from '../../common/payout-balances';
@@ -44,13 +50,6 @@ function isWritingVisibleToTeacher(
   const status = aiEvaluation.status.toUpperCase();
   return status === 'READY' || status === 'FAILED';
 }
-
-type PayoutDetails = {
-  bankName?: string;
-  accountName?: string;
-  accountLast4?: string;
-  method?: string;
-};
 
 @Injectable()
 export class TeachersService {
@@ -591,7 +590,8 @@ export class TeachersService {
         label: summary.currentPeriod.label,
       },
       nextUnlockAt: summary.nextUnlockAt,
-      payoutDetails: (teacher.payoutDetails as PayoutDetails | null) ?? null,
+      payoutDetails:
+        (teacher.payoutDetails as TeacherPayoutDetails | null) ?? null,
       weeklyRevenue,
       payouts: payouts.map((p) => ({
         id: p.id,
@@ -608,11 +608,11 @@ export class TeachersService {
 
   async requestPayout(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
-    const details = teacher.payoutDetails as PayoutDetails | null;
+    const details = teacher.payoutDetails as TeacherPayoutDetails | null;
 
-    if (!details?.accountLast4?.trim()) {
+    if (!hasPayoutCardDetails(details)) {
       throw new BadRequestException(
-        'Add your payout bank details before requesting a payout',
+        'Add your payout card details before requesting a payout',
       );
     }
 
@@ -798,7 +798,22 @@ export class TeachersService {
         teacherData.notificationPrefs = dto.notificationPrefs;
       }
       if (dto.payoutDetails !== undefined) {
-        teacherData.payoutDetails = dto.payoutDetails;
+        const cardNumber = normalizeCardNumber(dto.payoutDetails.cardNumber);
+        if (!isValidCardNumber(cardNumber)) {
+          throw new BadRequestException(
+            'Invalid card number. Check the number and try again.',
+          );
+        }
+        const cardHolderName = dto.payoutDetails.cardHolderName.trim();
+        if (!cardHolderName) {
+          throw new BadRequestException('Card holder name is required');
+        }
+        // Store card fields only — do not persist legacy bank account fields.
+        teacherData.payoutDetails = {
+          cardHolderName,
+          cardNumber,
+          method: dto.payoutDetails.method?.trim() || 'Bank card',
+        };
       }
 
       if (Object.keys(teacherData).length > 0) {

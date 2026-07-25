@@ -8,27 +8,58 @@ import { updateTeacherProfile } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/api/errors";
 import { formatPrice } from "@/lib/format-price";
 
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+/** Lightweight Luhn check (same rule as API). */
+function isLuhnValid(digits: string) {
+  if (!/^\d{13,19}$/.test(digits)) return false;
+  let sum = 0;
+  let alt = false;
+  for (let i = digits.length - 1; i >= 0; i -= 1) {
+    let n = Number(digits[i]);
+    if (alt) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+
+function formatCardDisplay(digits: string) {
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+}
+
 export function NextPayoutCard() {
   const { toast } = useToast();
   const { earnings, refresh } = useTeacherEarnings();
   const nextPayout = earnings.nextPayout;
+  const saved = earnings.payoutDetails;
   const currency = earnings.summary.currency;
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [bankName, setBankName] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [accountLast4, setAccountLast4] = useState("");
-  const [method, setMethod] = useState("Bank transfer");
+  const [cardHolderName, setCardHolderName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [method, setMethod] = useState("Bank card");
 
   function openForm() {
+    setCardHolderName(saved?.cardHolderName ?? "");
+    setCardNumber(saved?.cardNumber ?? "");
+    setMethod(saved?.method ?? "Bank card");
     setOpen(true);
   }
 
   async function saveDetails(e: React.FormEvent) {
     e.preventDefault();
-    if (!bankName.trim() || !accountName.trim() || accountLast4.trim().length !== 4) {
-      toast("Complete all bank fields", {
-        description: "Bank name, account holder, and last 4 digits are required.",
+    const holder = cardHolderName.trim();
+    const number = digitsOnly(cardNumber);
+    if (!holder || !isLuhnValid(number)) {
+      toast("Complete all card fields", {
+        description:
+          "Card holder name and a valid 13–19 digit card number are required.",
         variant: "warning",
       });
       return;
@@ -38,10 +69,9 @@ export function NextPayoutCard() {
     try {
       await updateTeacherProfile({
         payoutDetails: {
-          bankName: bankName.trim(),
-          accountName: accountName.trim(),
-          accountLast4: accountLast4.trim(),
-          method: method.trim() || "Bank transfer",
+          cardHolderName: holder,
+          cardNumber: number,
+          method: method.trim() || "Bank card",
         },
       });
       await refresh();
@@ -82,7 +112,7 @@ export function NextPayoutCard() {
             )}
             {!nextPayout.hasBankDetails && (
               <p className="mt-1 text-xs font-medium text-amber-700">
-                Add bank details before requesting a payout.
+                Add card details before requesting a payout.
               </p>
             )}
           </div>
@@ -108,7 +138,7 @@ export function NextPayoutCard() {
             onClick={openForm}
             className="flex items-center gap-1 text-sm font-semibold text-sky-600 hover:text-sky-700"
           >
-            Manage
+            Manage card
             <ExternalLink className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -120,32 +150,35 @@ export function NextPayoutCard() {
             onSubmit={(e) => void saveDetails(e)}
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
           >
-            <h3 className="text-lg font-bold text-navy">Payout bank details</h3>
+            <h3 className="text-lg font-bold text-navy">Payout card details</h3>
             <p className="mt-1 text-sm text-muted">
-              Used for manual bank transfers after you request a payout.
+              Used for manual card transfers after you request a payout. Your
+              card number is shown masked here after saving.
             </p>
             <div className="mt-5 space-y-3">
               <input
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="Bank name"
+                value={cardHolderName}
+                onChange={(e) => setCardHolderName(e.target.value)}
+                placeholder="Card holder name"
+                autoComplete="cc-name"
                 className="h-10 w-full rounded-lg border border-border px-3 text-sm"
               />
               <input
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder="Account holder name"
-                className="h-10 w-full rounded-lg border border-border px-3 text-sm"
-              />
-              <input
-                value={accountLast4}
+                value={formatCardDisplay(cardNumber)}
                 onChange={(e) =>
-                  setAccountLast4(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  setCardNumber(digitsOnly(e.target.value).slice(0, 19))
                 }
                 inputMode="numeric"
-                placeholder="Last 4 digits"
-                className="h-10 w-full rounded-lg border border-border px-3 text-sm"
+                autoComplete="cc-number"
+                placeholder="Card number"
+                className="h-10 w-full rounded-lg border border-border px-3 text-sm tracking-wide"
               />
+              {cardNumber.length >= 4 && (
+                <p className="text-xs text-muted">
+                  Displayed as Card ···{cardNumber.slice(-4)} on your earnings
+                  page.
+                </p>
+              )}
               <input
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}

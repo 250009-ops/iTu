@@ -113,7 +113,7 @@ export function PayoutsTable() {
           {accruedCount > 0
             ? ` · ${accruedCount} accrued (pending teacher request)`
             : ""}
-          . Transfer offline using bank details, then mark Paid.
+          . Transfer offline using the card details below, then mark Paid.
         </p>
       </div>
 
@@ -123,7 +123,7 @@ export function PayoutsTable() {
             <tr className="border-b border-border bg-slate-50 text-xs font-semibold uppercase tracking-wide text-muted">
               <th className="px-5 py-3 sm:px-6">Teacher</th>
               <th className="px-5 py-3 sm:px-6">Period</th>
-              <th className="px-5 py-3 sm:px-6">Bank</th>
+              <th className="px-5 py-3 sm:px-6">Card</th>
               <th className="px-5 py-3 sm:px-6">Amount</th>
               <th className="px-5 py-3 sm:px-6">Status</th>
               <th className="px-5 py-3 text-right sm:px-6">Actions</th>
@@ -161,7 +161,28 @@ export function PayoutsTable() {
                       {formatDate(payout.periodEnd)}
                     </td>
                     <td className="px-5 py-4 text-muted sm:px-6">
-                      {payout.bankLabel ? (
+                      {payout.cardNumber || payout.cardHolderName ? (
+                        <div className="space-y-0.5">
+                          <span className="block font-medium text-navy">
+                            {payout.cardHolderName ||
+                              payout.accountName ||
+                              "—"}
+                          </span>
+                          {payout.cardNumber ? (
+                            <span className="block font-mono text-sm tracking-wide text-navy">
+                              {payout.cardNumber.replace(
+                                /(\d{4})(?=\d)/g,
+                                "$1 ",
+                              )}
+                            </span>
+                          ) : null}
+                          {payout.payoutMethod ? (
+                            <span className="block text-xs">
+                              {payout.payoutMethod}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : payout.bankLabel ? (
                         <>
                           {payout.bankLabel}
                           {payout.accountName ? (
@@ -172,7 +193,7 @@ export function PayoutsTable() {
                         </>
                       ) : (
                         <span className="text-amber-700">
-                          No bank details on file
+                          No card details on file
                         </span>
                       )}
                     </td>
@@ -202,7 +223,7 @@ export function PayoutsTable() {
                                 payout,
                                 status: "PAID",
                                 title: `Mark ${payout.teacherName}'s payout as paid?`,
-                                message: `Confirm ${formatPrice(payout.amount, payout.currency)} has been transferred.`,
+                                message: `Confirm ${formatPrice(payout.amount, payout.currency)} has been transferred to their card.`,
                                 confirmLabel: "Mark as paid",
                               })
                             }
@@ -221,7 +242,7 @@ export function PayoutsTable() {
                                 payout,
                                 status: "FAILED",
                                 title: `Mark ${payout.teacherName}'s payout as failed?`,
-                                message: "The teacher will be notified to update their bank details.",
+                                message: "The teacher will be notified to update their card details.",
                                 confirmLabel: "Mark failed",
                               })
                             }

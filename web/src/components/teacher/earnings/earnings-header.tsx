@@ -85,7 +85,7 @@ export function EarningsHeader() {
 
       {!hasBankDetails && (
         <p className="text-xs text-amber-700">
-          Add payout bank details below before you can request a transfer.
+          Add payout card details below before you can request a transfer.
         </p>
       )}
 
@@ -99,7 +99,7 @@ export function EarningsHeader() {
       <ConfirmDialog
         open={payoutOpen}
         title="Request payout"
-        message={`Request a payout of ${formatPrice(nextPayout.projectedAmount, currency)} to ${nextPayout.bank}? Our finance team will process it within 2 business days.`}
+        message={`Request a payout of ${formatPrice(nextPayout.projectedAmount, currency)} to ${nextPayout.bank}? Our finance team will transfer it to your card within 2 business days.`}
         confirmLabel="Request payout"
         onConfirm={handleRequestPayout}
         onCancel={() => setPayoutOpen(false)}

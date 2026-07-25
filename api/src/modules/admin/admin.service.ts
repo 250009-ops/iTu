@@ -37,6 +37,10 @@ import {
 import { CATALOG_CURRENCY } from '../../common/catalog-pricing';
 import { tierDefaultsForBands } from '../../common/examiner-rate-tiers';
 import { formatMoney } from '../../common/format-money';
+import {
+  cardLast4,
+  type TeacherPayoutDetails,
+} from '../../common/payout-card';
 import { MailService } from '../../common/mail/mail.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -3204,16 +3208,19 @@ export class AdminService {
         return !(seedEmails.has(email) && seedAmounts.has(p.amount));
       })
       .map((p) => {
-        const details = p.teacher.payoutDetails as {
-          bankName?: string;
-          accountLast4?: string;
-          accountName?: string;
-          method?: string;
-        } | null;
+        const details = p.teacher.payoutDetails as TeacherPayoutDetails | null;
+        const cardHolderName =
+          details?.cardHolderName?.trim() ||
+          details?.accountName?.trim() ||
+          null;
+        const cardNumber = details?.cardNumber?.replace(/\D/g, '') || null;
+        // Legacy fallback label only when no card number is on file.
         const bankLabel =
-          details?.bankName && details?.accountLast4
-            ? `${details.bankName} ···${details.accountLast4}`
-            : null;
+          cardNumber
+            ? null
+            : details?.bankName && details?.accountLast4
+              ? `${details.bankName} ···${details.accountLast4}`
+              : null;
 
         return {
           id: p.id,
@@ -3226,9 +3233,11 @@ export class AdminService {
           periodEnd: p.periodEnd,
           paidAt: p.paidAt,
           createdAt: p.createdAt,
+          cardHolderName,
+          cardNumber,
           bankLabel,
-          accountName: details?.accountName ?? null,
-          payoutMethod: details?.method ?? null,
+          accountName: cardHolderName,
+          payoutMethod: details?.method ?? (cardNumber ? 'Bank card' : null),
         };
       });
   }
@@ -3313,12 +3322,17 @@ export class AdminService {
     });
 
     if (dto.status === 'PAID' || dto.status === 'FAILED') {
+      const details = payout.teacher.payoutDetails as TeacherPayoutDetails | null;
+      const last4 =
+        cardLast4(details?.cardNumber) ?? details?.accountLast4?.trim() ?? null;
       const title =
-        dto.status === 'PAID' ? 'Payout processed' : 'Payout failed';
+        dto.status === 'PAID' ? 'Payout sent' : 'Payout failed';
       const body =
         dto.status === 'PAID'
-          ? `${formatMoney(payout.amount, payout.currency)} has been marked as paid for the period ending ${payout.periodEnd.toLocaleDateString()}.`
-          : `Your payout of ${formatMoney(payout.amount, payout.currency)} could not be processed. Update your bank details or contact support.`;
+          ? last4
+            ? `Your payout of ${formatMoney(payout.amount, payout.currency)} was sent successfully to your card ending ···${last4}.`
+            : `Your payout of ${formatMoney(payout.amount, payout.currency)} was sent successfully.`
+          : `Your payout could not be completed (e.g. card not found or invalid). Please update your card details on Earnings and contact support if needed.`;
 
       await this.notifications.create(
         payout.teacher.userId,

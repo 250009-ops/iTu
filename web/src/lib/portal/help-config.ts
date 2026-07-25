@@ -58,7 +58,7 @@ export const TEACHER_HELP_CATEGORIES: HelpCategory[] = [
   {
     value: "payment_dispute",
     label: "Earnings & payouts",
-    hint: "Pay cycles, bank details, or missing earnings",
+    hint: "Pay cycles, card details, or missing earnings",
   },
   {
     value: "technical_issue",
@@ -211,7 +211,7 @@ export const TEACHER_HELP_FAQS: HelpFaq[] = [
   },
   {
     q: "When do I get paid?",
-    a: "Earnings accrue per completed graded session. Request a payout from Earnings once bank details are saved and the cycle allows transfers.",
+    a: "Earnings accrue per completed graded session. Request a payout from Earnings once card details are saved and the cycle allows transfers.",
   },
   {
     q: "A student misbehaved or broke integrity rules — what should I do?",

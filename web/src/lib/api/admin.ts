@@ -532,6 +532,10 @@ export type AdminPayout = {
   periodEnd: string;
   paidAt: string | null;
   createdAt: string;
+  /** Full card holder name for offline transfer */
+  cardHolderName?: string | null;
+  /** Full card number (digits) for offline transfer */
+  cardNumber?: string | null;
   bankLabel?: string | null;
   accountName?: string | null;
   payoutMethod?: string | null;
