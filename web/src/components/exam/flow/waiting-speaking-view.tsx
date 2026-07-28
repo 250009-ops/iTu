@@ -22,6 +22,7 @@ import {
   formatJoinOpensAt,
   speakingJoinAccess,
 } from "@/lib/speaking/slot-access";
+import { studentMockDayHref } from "@/lib/student/portal";
 import { cn } from "@/lib/utils";
 
 function formatSlotRange(scheduledAt: string) {
@@ -76,8 +77,8 @@ export function WaitingSpeakingView({ sessionId }: { sessionId: string }) {
     Boolean(speakingState?.adminGranted) &&
     canScheduleSpeakingSlot;
   const mockDayHref = speakingState?.institutionGranted
-    ? "/inst-student/my-mock"
-    : "/student/mock-day";
+    ? studentMockDayHref("institution")
+    : studentMockDayHref("marketplace");
 
   let primaryAction: {
     label: string;

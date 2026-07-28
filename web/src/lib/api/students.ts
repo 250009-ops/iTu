@@ -24,7 +24,7 @@ export type StudentDashboardResponse = {
   upcomingMock: {
     enrollmentCode: string;
     mockDate: string;
-    mockTime: string;
+    mockTime: string | null;
     package: string;
     sessionCode?: string;
     status: string;
@@ -235,16 +235,29 @@ export function getMockDayHub() {
       packageTitle?: string;
       packageSkills?: string[];
       checkInCompleted?: boolean;
+      rescheduleBlocked?: boolean;
+      rescheduleHasSpeaking?: boolean;
+      linkedEnrollmentIds?: string[];
     } | null;
     sections: {
       skill: string;
       completed: boolean;
       active: boolean;
       unlocked?: boolean;
+      missed?: boolean;
       band?: number | null;
       rawScore?: number | null;
+      sessionCode?: string;
+      enrollmentId?: string;
     }[];
-    speaking: { scheduledAt?: string; examiner?: string } | null;
+    speaking: {
+      scheduledAt?: string;
+      examiner?: string;
+      sessionCode?: string;
+      enrollmentId?: string;
+      checkInCompleted?: boolean;
+      missed?: boolean;
+    } | null;
     writing?: { examiner?: string | null } | null;
   }>("/students/mock-day");
 }

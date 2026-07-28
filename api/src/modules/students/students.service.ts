@@ -23,6 +23,7 @@ import {
   overallBandFromSkillBands,
   resolveAttemptBand,
 } from '../../common/band-resolution';
+import { studentResultsPath } from '../../common/student-portal-paths';
 import { toPublicTeacher } from '../../common/public-teacher';
 import {
   buildStudentLeaderboard,
@@ -57,7 +58,13 @@ import { SkipMockFeedbackDto } from './dto/skip-mock-feedback.dto';
 import { SubmitMockFeedbackDto } from './dto/submit-mock-feedback.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { packageExamSkills } from '../content/package-skills';
-import { selectMockDayEnrollment } from './mock-day-enrollment';
+import {
+  buildSkillOwners,
+  collectSameDayEnrollments,
+  combinedPackageTitle,
+  orderedSkillsFromOwners,
+  selectMockDayEnrollment,
+} from './mock-day-enrollment';
 import { EnrollmentLifecycleService } from '../bookings/enrollment-lifecycle.service';
 import { TelegramService } from '../telegram/telegram.service';
 
@@ -358,12 +365,28 @@ export class StudentsService {
       orderBy: { mockDate: 'desc' },
     });
 
-    const upcoming = refreshed.find(
+    const activeForHub = refreshed.filter(
       (e) =>
         e.status === 'ENROLLED' ||
         e.status === 'IN_PROGRESS' ||
         e.status === 'AWAITING_RESULTS',
     );
+    const upcomingPrimary =
+      selectMockDayEnrollment(activeForHub) ??
+      activeForHub.find(
+        (e) =>
+          e.status === 'ENROLLED' ||
+          e.status === 'IN_PROGRESS' ||
+          e.status === 'AWAITING_RESULTS',
+      ) ??
+      null;
+    const upcomingDayGroup = upcomingPrimary
+      ? collectSameDayEnrollments(upcomingPrimary, activeForHub)
+      : [];
+    const upcoming =
+      upcomingDayGroup.length > 0
+        ? upcomingPrimary
+        : null;
 
     const missed = !upcoming
       ? refreshed.find((e) => e.status === 'MISSED')
@@ -418,17 +441,23 @@ export class StudentsService {
       mockStarted = countdown.started;
     }
 
-    const completedSkills =
-      upcoming?.examSession?.sectionAttempts
-        .filter((a) => {
-          if (a.submittedAt) return true;
-          return false;
-        })
-        .map((a) => a.skill.toLowerCase()) ?? [];
-
-    const upcomingPackageSkills = upcoming
-      ? packageExamSkills(upcoming.package.skills)
-      : [];
+    const upcomingSkillOwners = upcoming
+      ? buildSkillOwners(upcomingDayGroup)
+      : new Map<ExamSkill, (typeof upcomingDayGroup)[number]>();
+    const upcomingPackageSkills = orderedSkillsFromOwners(upcomingSkillOwners);
+    const completedSkills = upcomingPackageSkills
+      .filter((skill) => {
+        const owner = upcomingSkillOwners.get(skill);
+        const attempt = owner?.examSession?.sectionAttempts.find(
+          (a: { skill: ExamSkill; submittedAt: Date | null }) =>
+            a.skill === skill,
+        );
+        return Boolean(attempt?.submittedAt);
+      })
+      .map((skill) => skill.toLowerCase());
+    const upcomingPackageTitle = upcoming
+      ? combinedPackageTitle(upcomingDayGroup, upcoming.package.title)
+      : null;
 
     const welcomePromos = profile
       ? await buildWelcomePromosForDashboard(
@@ -462,7 +491,9 @@ export class StudentsService {
         ? {
             title: unreadResultNotification.title,
             message: unreadResultNotification.body,
-            href: unreadResultNotification.link ?? '/student/results',
+            href:
+              unreadResultNotification.link ??
+              studentResultsPath(user.institutionId),
           }
         : null,
       upcomingMock: upcoming
@@ -470,11 +501,15 @@ export class StudentsService {
             enrollmentCode: upcoming.enrollmentCode,
             mockDate: upcoming.mockDate,
             mockTime: upcoming.mockTime,
-            package: upcoming.package.title,
+            package: upcomingPackageTitle ?? upcoming.package.title,
             sessionCode: upcoming.examSession?.sessionCode,
             status: upcoming.status.toLowerCase(),
-            writingExaminer: upcoming.writingTeacher?.user.name,
-            speakingExaminer: upcoming.speakingTeacher?.user.name,
+            writingExaminer:
+              upcomingSkillOwners.get(ExamSkill.WRITING)?.writingTeacher?.user
+                .name ?? upcoming.writingTeacher?.user.name,
+            speakingExaminer:
+              upcomingSkillOwners.get(ExamSkill.SPEAKING)?.speakingTeacher?.user
+                .name ?? upcoming.speakingTeacher?.user.name,
             daysUntil,
             hoursUntil,
             minutesUntil,
@@ -482,13 +517,12 @@ export class StudentsService {
             hasPastResults: resolvedCompleted.length > 0,
             skills: upcomingPackageSkills.map((skill) => {
               const key = skill.toLowerCase();
+              const owner = upcomingSkillOwners.get(skill);
               return {
                 name: key.charAt(0).toUpperCase() + key.slice(1),
                 status: completedSkills.includes(key)
                   ? 'completed'
-                  : upcoming.examSession?.state
-                        .toLowerCase()
-                        .includes(key)
+                  : owner?.examSession?.state.toLowerCase().includes(key)
                     ? 'active'
                     : 'scheduled',
               };
@@ -562,10 +596,16 @@ export class StudentsService {
       writingTeacher: { include: { user: true } },
     } as const;
 
+    const hubStatuses = [
+      'ENROLLED',
+      'IN_PROGRESS',
+      'AWAITING_RESULTS',
+    ] as const;
+
     const activeEnrollments = await this.prisma.enrollment.findMany({
       where: {
         studentId: user.studentProfileId,
-        status: { in: ['ENROLLED', 'IN_PROGRESS'] },
+        status: { in: [...hubStatuses] },
       },
       include: mockDayEnrollmentInclude,
     });
@@ -580,7 +620,7 @@ export class StudentsService {
     const refreshed = await this.prisma.enrollment.findMany({
       where: {
         studentId: user.studentProfileId,
-        status: { in: ['ENROLLED', 'IN_PROGRESS'] },
+        status: { in: [...hubStatuses] },
       },
       include: mockDayEnrollmentInclude,
     });
@@ -605,35 +645,104 @@ export class StudentsService {
       return { enrollment: null };
     }
 
-    const session = enrollment.examSession;
-    const isMissed = enrollment.status === 'MISSED';
-    const completedSkills = session.sectionAttempts
-      .filter((a) => {
-        if (a.submittedAt) return true;
-        // Speaking is "over" for the student once the live session has ended or
-        // been graded, even if the attempt's submittedAt wasn't stamped.
-        const speaking = a.speakingSession;
-        return Boolean(
-          speaking &&
-            (speaking.status === 'COMPLETED' ||
-              speaking.status === 'NO_SHOW' ||
-              speaking.grade),
-        );
-      })
-      .map((a) => a.skill.toLowerCase());
-
-    const packageSkills = packageExamSkills(enrollment.package.skills);
-    const checkInCompleted = Boolean(session.checkInAt);
-    const sessionState = session.state.toLowerCase();
-
-    let nextSkill: string | null = null;
-    for (const skill of packageSkills) {
-      const key = skill.toLowerCase();
-      if (!completedSkills.includes(key)) {
-        nextSkill = key;
-        break;
-      }
+    // Include same-day MISSED siblings so a purchased Speaking booking still
+    // appears on the hub even if it was marked missed while Reading remains active.
+    const sameDayMissed = await this.prisma.enrollment.findMany({
+      where: {
+        studentId: user.studentProfileId,
+        status: 'MISSED',
+        id: { not: enrollment.id },
+      },
+      include: mockDayEnrollmentInclude,
+    });
+    const dayPool = [...refreshed, ...sameDayMissed];
+    if (enrollment.status === 'MISSED') {
+      dayPool.push(enrollment);
     }
+    const dayGroup = collectSameDayEnrollments(enrollment, dayPool);
+    const skillOwners = buildSkillOwners(dayGroup);
+    const packageSkills = orderedSkillsFromOwners(skillOwners);
+    const sectionCompleted = (
+      owner: (typeof dayGroup)[number],
+      skill: ExamSkill,
+    ): boolean => {
+      const attempt = owner.examSession?.sectionAttempts.find(
+        (a) => a.skill === skill,
+      );
+      if (!attempt) return false;
+      if (attempt.submittedAt) return true;
+      const speaking = attempt.speakingSession;
+      return Boolean(
+        speaking &&
+          (speaking.status === 'COMPLETED' ||
+            speaking.status === 'NO_SHOW' ||
+            speaking.grade),
+      );
+    };
+
+    const completedSkills = packageSkills
+      .filter((skill) => {
+        const owner = skillOwners.get(skill);
+        return owner ? sectionCompleted(owner, skill) : false;
+      })
+      .map((skill) => skill.toLowerCase());
+
+    const checkInCompleted = dayGroup.every((e) =>
+      Boolean(e.examSession?.checkInAt),
+    );
+    const rescheduleBlocked = dayGroup.some(
+      (e) => Boolean(e.examStartedAt) || Boolean(e.examSession?.checkInAt),
+    );
+    const checkInEnrollment =
+      dayGroup.find((e) => !e.examSession?.checkInAt) ?? enrollment;
+    const speakingOwner = skillOwners.get(ExamSkill.SPEAKING);
+    const writingOwner = skillOwners.get(ExamSkill.WRITING);
+    const primaryPackageSkills = packageExamSkills(enrollment.package.skills);
+
+    const sections = packageSkills.map((skill) => {
+      const owner = skillOwners.get(skill)!;
+      const session = owner.examSession!;
+      const key = skill.toLowerCase();
+      const ownerSkills = packageExamSkills(owner.package.skills);
+      const ownerCompleted = ownerSkills
+        .filter((s) => sectionCompleted(owner, s))
+        .map((s) => s.toLowerCase());
+      const ownerCheckIn = Boolean(session.checkInAt);
+      const ownerState = session.state.toLowerCase();
+      const ownerMissed = owner.status === 'MISSED';
+
+      let nextSkill: string | null = null;
+      for (const s of ownerSkills) {
+        const sk = s.toLowerCase();
+        if (!ownerCompleted.includes(sk)) {
+          nextSkill = sk;
+          break;
+        }
+      }
+
+      const attempt = session.sectionAttempts.find((a) => a.skill === skill);
+      const completed = completedSkills.includes(key);
+      const active =
+        !ownerMissed && ownerState.includes(key) && !completed;
+      const unlocked =
+        !ownerMissed &&
+        !completed &&
+        !active &&
+        ownerCheckIn &&
+        nextSkill === key;
+
+      return {
+        skill: key,
+        completed,
+        active,
+        unlocked,
+        missed: ownerMissed,
+        band: attempt?.band ?? null,
+        rawScore: attempt?.rawScore ?? null,
+        sessionCode: session.sessionCode,
+        enrollmentId: owner.id,
+      };
+    });
 
     return {
       enrollment: {
@@ -643,47 +752,37 @@ export class StudentsService {
         mockTime: enrollment.mockTime,
         mockDayCutoffAt: enrollment.mockDayCutoffAt,
         adminGranted: enrollment.adminGranted,
-        institutionGranted: enrollment.institutionGranted,
+        institutionGranted: dayGroup.some((e) => e.institutionGranted),
         examStartedAt: enrollment.examStartedAt,
-        speakingTeacherId: enrollment.speakingTeacherId,
-        speakingSlotId: enrollment.speakingSlotId,
-        sessionCode: session.sessionCode,
-        state: sessionState,
+        speakingTeacherId:
+          speakingOwner?.speakingTeacherId ?? enrollment.speakingTeacherId,
+        speakingSlotId:
+          speakingOwner?.speakingSlotId ?? enrollment.speakingSlotId,
+        sessionCode: checkInEnrollment.examSession!.sessionCode,
+        state: enrollment.examSession.state.toLowerCase(),
         status: enrollment.status.toLowerCase(),
-        packageTitle: enrollment.package.title,
+        packageTitle: combinedPackageTitle(dayGroup, enrollment.package.title),
         packageSkills: packageSkills.map((s) => s.toLowerCase()),
         checkInCompleted,
+        rescheduleBlocked,
+        /** Primary enrollment's package includes speaking — drives reschedule slot UX. */
+        rescheduleHasSpeaking: primaryPackageSkills.includes(ExamSkill.SPEAKING),
+        linkedEnrollmentIds: dayGroup.map((e) => e.id),
       },
-      sections: packageSkills.map((skill) => {
-        const key = skill.toLowerCase();
-        const attempt = session.sectionAttempts.find((a) => a.skill === skill);
-        const completed = completedSkills.includes(key);
-        const active =
-          !isMissed && sessionState.includes(key) && !completed;
-        const unlocked =
-          !isMissed &&
-          !completed &&
-          !active &&
-          checkInCompleted &&
-          nextSkill === key;
-        return {
-          skill: key,
-          completed,
-          active,
-          unlocked,
-          band: attempt?.band ?? null,
-          rawScore: attempt?.rawScore ?? null,
-        };
-      }),
-      speaking: packageSkills.includes(ExamSkill.SPEAKING)
+      sections,
+      speaking: speakingOwner
         ? {
-            scheduledAt: enrollment.speakingSlot?.startsAt,
-            examiner: enrollment.speakingTeacher?.user.name,
+            scheduledAt: speakingOwner.speakingSlot?.startsAt,
+            examiner: speakingOwner.speakingTeacher?.user.name,
+            sessionCode: speakingOwner.examSession!.sessionCode,
+            enrollmentId: speakingOwner.id,
+            checkInCompleted: Boolean(speakingOwner.examSession?.checkInAt),
+            missed: speakingOwner.status === 'MISSED',
           }
         : null,
-      writing: packageSkills.includes(ExamSkill.WRITING)
+      writing: writingOwner
         ? {
-            examiner: enrollment.writingTeacher?.user.name,
+            examiner: writingOwner.writingTeacher?.user.name,
           }
         : null,
     };

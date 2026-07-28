@@ -66,16 +66,19 @@ export function BreakView({
     try {
       const session = await getExamSession(sessionId);
       const skills = session.enrollment.package.skills;
+      const hubOpts = {
+        institutionGranted: session.enrollment.institutionGranted,
+      };
       const expected = expectedNextSkillFromSessionState(session.state, skills);
 
       if (!expected) {
-        router.replace(examResumeRoute(sessionId, session.state, skills));
+        router.replace(examResumeRoute(sessionId, session.state, skills, hubOpts));
         return;
       }
 
       const expectedSection = session.sections.find((s) => s.skill === expected);
       if (expectedSection?.submittedAt) {
-        router.replace(examRouteAfterSection(sessionId, skills, expected));
+        router.replace(examRouteAfterSection(sessionId, skills, expected, hubOpts));
         return;
       }
 
@@ -90,7 +93,12 @@ export function BreakView({
       try {
         const session = await getExamSession(sessionId);
         router.replace(
-          examResumeRoute(sessionId, session.state, session.enrollment.package.skills),
+          examResumeRoute(
+            sessionId,
+            session.state,
+            session.enrollment.package.skills,
+            { institutionGranted: session.enrollment.institutionGranted },
+          ),
         );
       } catch {
         // leave user on break with button enabled for retry
@@ -110,11 +118,14 @@ export function BreakView({
         if (!active) return;
 
         const skills = session.enrollment.package.skills;
+        const hubOpts = {
+          institutionGranted: session.enrollment.institutionGranted,
+        };
         const expected = expectedNextSkillFromSessionState(session.state, skills);
         const nextSkill = toExamSkill(next);
 
         if (!expected) {
-          router.replace(examResumeRoute(sessionId, session.state, skills));
+          router.replace(examResumeRoute(sessionId, session.state, skills, hubOpts));
           return;
         }
 
@@ -125,7 +136,7 @@ export function BreakView({
 
         const expectedSection = session.sections.find((s) => s.skill === expected);
         if (expectedSection?.submittedAt) {
-          router.replace(examRouteAfterSection(sessionId, skills, expected));
+          router.replace(examRouteAfterSection(sessionId, skills, expected, hubOpts));
           return;
         }
 
@@ -135,7 +146,7 @@ export function BreakView({
             router.replace(examBreakRoute(sessionId, submitted, expected));
             return;
           }
-          router.replace(examResumeRoute(sessionId, session.state, skills));
+          router.replace(examResumeRoute(sessionId, session.state, skills, hubOpts));
           return;
         }
       } finally {

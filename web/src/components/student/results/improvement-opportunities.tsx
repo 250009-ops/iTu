@@ -16,7 +16,12 @@ const toneStyles: Record<PartTone, { badge: string; circle: string }> = {
 export function ImprovementOpportunities() {
   const { toast } = useToast();
   const { data } = useStudentResultsData();
-  if (!data?.released || !data.improvementOpportunities.length) return null;
+  if (
+    (!data?.released && !data?.partial) ||
+    !data.improvementOpportunities.length
+  ) {
+    return null;
+  }
 
   function openOpportunity(item: ImprovementOpportunity) {
     toast(item.title, {

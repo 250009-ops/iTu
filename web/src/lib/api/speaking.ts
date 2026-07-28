@@ -27,6 +27,7 @@ export type SpeakingState = {
   institutionGranted?: boolean;
   mockDate?: string;
   speakingTeacherId?: string | null;
+  packageSkills?: string[];
   needsSpeakingSlot?: boolean;
   canScheduleSpeakingSlot?: boolean;
   slotLocked?: boolean;

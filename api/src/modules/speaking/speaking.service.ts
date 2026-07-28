@@ -18,6 +18,7 @@ import { LivekitService } from './livekit.service';
 import { SettingsService } from '../settings/settings.service';
 import { EnrollmentLifecycleService } from '../bookings/enrollment-lifecycle.service';
 import { speakingJoinWindow } from '../../common/mock-day-policy';
+import { packageExamSkills } from '../content/package-skills';
 
 type PartTimestamps = Record<string, string> & {
   egressId?: string;
@@ -56,7 +57,9 @@ export class SpeakingService {
     const examSession = await this.prisma.examSession.findUnique({
       where: { sessionCode },
       include: {
-        enrollment: { include: { student: true, speakingSlot: true } },
+        enrollment: {
+          include: { student: true, speakingSlot: true, package: true },
+        },
         sectionAttempts: { include: { speakingSession: true } },
       },
     });
@@ -99,6 +102,9 @@ export class SpeakingService {
       institutionGranted: examSession.enrollment.institutionGranted,
       mockDate: examSession.enrollment.mockDate,
       speakingTeacherId: examSession.enrollment.speakingTeacherId,
+      packageSkills: packageExamSkills(examSession.enrollment.package.skills).map(
+        (s) => s.toLowerCase(),
+      ),
       needsSpeakingSlot:
         !speakingSession.scheduledAt &&
         Boolean(examSession.enrollment.speakingTeacherId),

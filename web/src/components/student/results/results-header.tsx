@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Award, ChevronDown, Download, Zap } from "lucide-react";
+import { Award, CalendarDays, Download, Zap } from "lucide-react";
 import { ResultsShellHeader } from "@/components/student/results/results-shell-header";
 import { CertificateDialog } from "@/components/student/results/certificate/certificate-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -11,6 +11,7 @@ import { getErrorMessage } from "@/lib/api/errors";
 import { formatBandDisplay } from "@/lib/api/mappers/student";
 import { downloadResultsPdf } from "@/lib/student/export";
 import type { StudentPortal } from "@/lib/student/portal";
+import { cn } from "@/lib/utils";
 
 export function ResultsHeader({ portal = "marketplace" }: { portal?: StudentPortal }) {
   const router = useRouter();
@@ -41,26 +42,68 @@ export function ResultsHeader({ portal = "marketplace" }: { portal?: StudentPort
 
   const attemptPicker =
     data.availableAttempts.length > 1 ? (
-      <div className="relative">
-        <label htmlFor="attempt-select" className="sr-only">
-          Select mock attempt
-        </label>
-        <select
-          id="attempt-select"
-          value={data.selectedEnrollmentCode}
-          onChange={(e) => selectAttempt(e.target.value)}
-          className="appearance-none rounded-xl border border-gray-200 bg-white py-2.5 pl-4 pr-10 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-        >
-          {data.availableAttempts.map((attempt) => (
-            <option key={attempt.enrollmentCode} value={attempt.enrollmentCode}>
-              {attempt.label}
-              {attempt.overallBand != null
-                ? ` · ${formatBandDisplay(attempt.overallBand)}`
-                : ""}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <div
+        role="tablist"
+        aria-label="Select exam date"
+        className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-2xl border border-gray-200 bg-slate-50/80 p-1 shadow-sm [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {data.availableAttempts.map((attempt) => {
+          const selected = attempt.enrollmentCode === data.selectedEnrollmentCode;
+          const band =
+            attempt.overallBand != null
+              ? formatBandDisplay(attempt.overallBand)
+              : null;
+          const bandLine =
+            attempt.partial
+              ? band != null
+                ? ` · Partial ${band}`
+                : " · Partial"
+              : band != null
+                ? ` · Band ${band}`
+                : "";
+          return (
+            <button
+              key={attempt.enrollmentCode}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => selectAttempt(attempt.enrollmentCode)}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-left transition-colors",
+                selected
+                  ? "bg-navy text-white shadow-sm"
+                  : "text-gray-600 hover:bg-white hover:text-navy",
+              )}
+            >
+              <CalendarDays
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0",
+                  selected ? "text-sky-300" : "text-gray-400",
+                )}
+              />
+              <span className="flex flex-col leading-tight">
+                <span
+                  className={cn(
+                    "text-[13px] font-semibold tabular-nums",
+                    selected ? "text-white" : "text-gray-800",
+                  )}
+                >
+                  {attempt.dateLabel}
+                </span>
+                <span
+                  className={cn(
+                    "text-[11px] font-medium",
+                    selected ? "text-white/70" : "text-gray-500",
+                    attempt.partial && (selected ? "text-amber-200" : "text-amber-600"),
+                  )}
+                >
+                  {attempt.skillSummary}
+                  {bandLine}
+                </span>
+              </span>
+            </button>
+          );
+        })}
       </div>
     ) : null;
 

@@ -26,12 +26,14 @@ import { getPaymentConfig } from "@/lib/api/payments";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { BrowseProduct } from "@/lib/api/mappers/student";
 import { ExamStartTimePicker } from "@/components/student/shared/exam-start-time-picker";
+import { SpeakingSlotPicker } from "@/components/student/shared/speaking-slot-picker";
 import {
   defaultExamStartTime,
   EXAM_START_TIMES,
   isMockTimeSelectionValid,
 } from "@/lib/student/exam-start-times";
 import { clampMockTimeForDate } from "@/lib/student/datetime";
+import { formatSpeakingWallTime } from "@/lib/speaking/slot-grid";
 import { cn } from "@/lib/utils";
 
 type Teacher = {
@@ -69,14 +71,6 @@ const STEP_LABELS: Record<WizardStepId, string> = {
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatSlotTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 }
 
 function buildWizardSteps(product: BrowseProduct): WizardStepId[] {
@@ -143,11 +137,6 @@ export function BookingWizard({
   const [slots, setSlots] = useState<Slot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [redirectingToCheckout, setRedirectingToCheckout] = useState(false);
@@ -287,10 +276,7 @@ export function BookingWizard({
     if (currentStep === "writing") return Boolean(writingTeacherId);
     if (currentStep === "speakingExaminer") return Boolean(speakingTeacherId);
     if (currentStep === "speakingSlot") return Boolean(selectedSlot);
-    if (currentStep === "payment") {
-      if (paymentsEnabled) return true;
-      return Boolean(cardName && cardNumber && cardExpiry && cardCvc);
-    }
+    if (currentStep === "payment") return true;
     return false;
   }, [
     currentStep,
@@ -300,12 +286,7 @@ export function BookingWizard({
     writingTeacherId,
     speakingTeacherId,
     selectedSlot,
-    cardName,
-    cardNumber,
-    cardExpiry,
-    cardCvc,
     purchaseBlocked,
-    paymentsEnabled,
   ]);
 
   function goNext() {
@@ -585,31 +566,13 @@ export function BookingWizard({
                 <div className="flex items-center justify-center py-10 text-slate-400">
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
-              ) : slots.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted">
-                  No open slots for this examiner on this date. Go back and pick
-                  another examiner or change the date.
-                </div>
               ) : (
-                <div className="max-h-[40vh] overflow-y-auto rounded-xl border border-border bg-slate-50/50 p-3">
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                    {slots.map((slot) => (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        onClick={() => setSelectedSlot(slot)}
-                        className={cn(
-                          "rounded-lg border px-3 py-2 text-sm font-semibold",
-                          selectedSlot?.id === slot.id
-                            ? "border-rose-500 bg-rose-500 text-white"
-                            : "border-border bg-white text-foreground hover:bg-slate-50",
-                        )}
-                      >
-                        {formatSlotTime(slot.startsAt)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <SpeakingSlotPicker
+                  slots={slots}
+                  selectedSlot={selectedSlot}
+                  onSelect={setSelectedSlot}
+                  emptyMessage="No open :00 / :20 / :40 slots for this examiner on this date. Go back and pick another examiner or change the date."
+                />
               )}
             </div>
           )}
@@ -655,7 +618,7 @@ export function BookingWizard({
                         <dt className="text-muted">Speaking time</dt>
                         <dd className="font-medium text-foreground">
                           {selectedSlot
-                            ? formatSlotTime(selectedSlot.startsAt)
+                            ? formatSpeakingWallTime(selectedSlot.startsAt)
                             : "—"}
                         </dd>
                       </div>
@@ -671,54 +634,31 @@ export function BookingWizard({
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-navy">
                   <CreditCard size={15} />
-                  {paymentsEnabled ? "Secure checkout" : "Card details"}
+                  {paymentsEnabled ? "Secure checkout" : "Confirm booking"}
                 </div>
                 {paymentsEnabled ? (
-                  <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-900">
-                    <p className="font-medium">Pay with card via Uzum Checkout</p>
-                    <p className="mt-1 text-muted">
-                      Uzcard, Humo, Visa, and Mastercard are accepted. Your speaking
-                      slot is held for 15 minutes while you complete checkout.
-                    </p>
-                  </div>
-                ) : (
                   <>
-                    <Input
-                      placeholder="Name on card"
-                      value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
-                    />
-                    <Input
-                      placeholder="Card number"
-                      inputMode="numeric"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        placeholder="MM / YY"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                      />
-                      <Input
-                        placeholder="CVC"
-                        inputMode="numeric"
-                        value={cardCvc}
-                        onChange={(e) => setCardCvc(e.target.value)}
-                      />
+                    <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-900">
+                      <p className="font-medium">Pay with card via Uzum Checkout</p>
+                      <p className="mt-1 text-muted">
+                        Uzcard, Humo, Visa, and Mastercard are accepted. Your speaking
+                        slot is held for 15 minutes while you complete checkout.
+                      </p>
                     </div>
                     <p className="flex items-center gap-1.5 text-xs text-muted">
                       <Lock size={12} />
-                      Demo checkout — no real card is charged until Uzum
-                      Checkout is configured.
+                      Encrypted checkout · International cards supported
                     </p>
                   </>
-                )}
-                {paymentsEnabled && (
-                  <p className="flex items-center gap-1.5 text-xs text-muted">
-                    <Lock size={12} />
-                    Encrypted checkout · International cards supported
-                  </p>
+                ) : (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+                    <p className="font-medium">Demo booking — no card required</p>
+                    <p className="mt-1 text-amber-900/80">
+                      Online payments are not enabled in this environment. Confirming
+                      creates the enrollment without charging a card. Production uses
+                      Uzum Checkout when payments are configured.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

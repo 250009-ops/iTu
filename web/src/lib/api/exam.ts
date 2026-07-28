@@ -16,6 +16,7 @@ export type ExamSessionResponse = {
     mockDate: string;
     status: string;
     resultsStatus: string;
+    institutionGranted?: boolean;
     package: {
       slug: string;
       title: string;

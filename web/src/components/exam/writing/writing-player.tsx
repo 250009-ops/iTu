@@ -9,7 +9,7 @@ import { ExamTimer } from "@/components/exam/shell/exam-timer";
 import { SubmitDialog } from "@/components/exam/shell/submit-dialog";
 import { TaskVisual } from "@/components/exam/writing/task-visual";
 import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
-import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
+import { useExamState, textSizeProps } from "@/lib/exam/use-exam-state";
 import { countWords } from "@/lib/exam/helpers";
 import { cn } from "@/lib/utils";
 import { useExamContent } from "@/hooks/use-exam-content";
@@ -22,7 +22,11 @@ import { useExamPresence } from "@/hooks/use-exam-presence";
 import { ExamSuspendedView } from "@/components/exam/shell/exam-suspended-view";
 import { EssayEditor } from "@/components/exam/writing/essay-editor";
 import { startSection, submitSection, submitWriting, getExamSession } from "@/lib/api/exam";
-import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
+import {
+  examRouteAfterSection,
+  examResumeRoute,
+  isExamHubExit,
+} from "@/lib/exam/package-skills";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
 import { ExamRemoteNotice } from "@/components/exam/shell/exam-remote-notice";
@@ -73,7 +77,12 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
         try {
           const session = await getExamSession(sessionId);
           router.replace(
-            examResumeRoute(sessionId, session.state, session.enrollment.package.skills),
+            examResumeRoute(
+              sessionId,
+              session.state,
+              session.enrollment.package.skills,
+              { institutionGranted: session.enrollment.institutionGranted },
+            ),
           );
         } catch {
           setStarted(true);
@@ -145,8 +154,9 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
         sessionId,
         updated.enrollment.package.skills,
         "writing",
+        { institutionGranted: updated.enrollment.institutionGranted },
       );
-      if (destination === "/mock-day") exitExamFullscreen();
+      if (isExamHubExit(destination)) exitExamFullscreen();
       router.push(destination);
     } finally {
       setSubmitting(false);
@@ -202,7 +212,7 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
           className="min-h-0 overflow-y-auto bg-white px-6 py-6"
           style={{ width: `${leftPct}%` }}
         >
-          <div className={`space-y-5 ${TEXT_SIZE_CLASS[state.textSize]}`}>
+          <div className="space-y-5" {...textSizeProps(state.textSize)}>
             <span className="inline-block rounded-md bg-violet-100 px-2.5 py-1 text-[12px] font-bold text-violet-700">
               Task {activeTask.taskNumber} · {activeTask.minWords}+ words ·{" "}
               {activeTask.minutes} min
@@ -235,7 +245,7 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
               setEssays((prev) => ({ ...prev, [activeTask.id]: v }))
             }
             placeholder="Type your answer here. Use Ctrl+X to cut, Ctrl+V to paste, and Ctrl+Z to undo."
-            textSizeClass={TEXT_SIZE_CLASS[state.textSize]}
+            textSize={state.textSize}
             style={{ backgroundColor: "#ffffff", color: "#1e293b" }}
           />
           <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-2.5">

@@ -16,7 +16,7 @@ import {
   ListeningAudioPlayer,
   type ListeningAudioPlayerHandle,
 } from "@/components/exam/listening/listening-audio-player";
-import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
+import { useExamState, textSizeProps } from "@/lib/exam/use-exam-state";
 import { EXAM_FONT_STYLE } from "@/lib/exam/typography";
 import { CONTRAST_THEMES } from "@/lib/exam/contrast";
 import { useExamContrast } from "@/hooks/use-exam-contrast";
@@ -30,7 +30,11 @@ import { useExamProgressHydration } from "@/hooks/use-exam-progress-hydration";
 import { useExamPresence } from "@/hooks/use-exam-presence";
 import { ExamSuspendedView } from "@/components/exam/shell/exam-suspended-view";
 import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
-import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
+import {
+  examRouteAfterSection,
+  examResumeRoute,
+  isExamHubExit,
+} from "@/lib/exam/package-skills";
 import { cn } from "@/lib/utils";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
@@ -96,7 +100,12 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         try {
           const session = await getExamSession(sessionId);
           router.replace(
-            examResumeRoute(sessionId, session.state, session.enrollment.package.skills),
+            examResumeRoute(
+              sessionId,
+              session.state,
+              session.enrollment.package.skills,
+              { institutionGranted: session.enrollment.institutionGranted },
+            ),
           );
         } catch {
           setSectionStarted(true);
@@ -108,14 +117,27 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
     if (expired) setSubmitOpen(true);
   }, [expired]);
 
+  /** Stable unique keys — duplicate/missing content IDs used to trap navigation on Part 1. */
+  const partsWithKeys = useMemo(() => {
+    if (!content) return [];
+    const seen = new Set<string>();
+    return content.parts.map((p, index) => {
+      const fallback = `part-${p.part || index + 1}`;
+      let id = (p.id && String(p.id).trim()) || fallback;
+      if (seen.has(id)) id = `${fallback}-${index}`;
+      seen.add(id);
+      return { ...p, id };
+    });
+  }, [content]);
+
   const paletteParts: PalettePart[] = useMemo(
     () =>
-      content?.parts.map((p) => ({
+      partsWithKeys.map((p) => ({
         id: p.id,
         label: `Part ${p.part}`,
         numbers: questionNumbers(p.groups),
-      })) ?? [],
-    [content?.parts],
+      })),
+    [partsWithKeys],
   );
 
   const allNumbers = useMemo(
@@ -125,7 +147,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   const answered = answeredCount(state.answers, allNumbers);
 
   const activePart =
-    content?.parts.find((p) => p.id === state.activePart) ?? content?.parts[0];
+    partsWithKeys.find((p) => p.id === state.activePart) ?? partsWithKeys[0];
 
   const questionGroups = useMemo(
     () =>
@@ -146,6 +168,12 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
   }, [sectionStarted, audioReadyToStart, startAudio]);
 
   useEffect(() => {
+    if (!partsWithKeys.length) return;
+    if (partsWithKeys.some((p) => p.id === state.activePart)) return;
+    state.setActivePart(partsWithKeys[0]!.id);
+  }, [partsWithKeys, state.activePart, state.setActivePart]);
+
+  useEffect(() => {
     setAudioReadyToStart(sectionStarted);
   }, [sectionStarted]);
 
@@ -157,8 +185,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
 
   const goToQuestion = useCallback(
     (n: number) => {
-      if (!content) return;
-      const part = content.parts.find((p) =>
+      const part = partsWithKeys.find((p) =>
         questionNumbers(p.groups).includes(n),
       );
       if (part && part.id !== state.activePart) state.setActivePart(part.id);
@@ -169,7 +196,25 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
           ?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     },
-    [content, state.activePart, state.setActivePart, state.setCurrent],
+    [partsWithKeys, state.activePart, state.setActivePart, state.setCurrent],
+  );
+
+  const goToPart = useCallback(
+    (partId: string) => {
+      const part = partsWithKeys.find((p) => p.id === partId);
+      if (!part) return;
+      state.setActivePart(part.id);
+      const first = questionNumbers(part.groups)[0];
+      if (first != null) {
+        state.setCurrent(first);
+        requestAnimationFrame(() => {
+          document
+            .getElementById(`q-${first}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
+    },
+    [partsWithKeys, state.setActivePart, state.setCurrent],
   );
 
   if (loading || !content || !activePart) {
@@ -209,8 +254,9 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         sessionId,
         updated.enrollment.package.skills,
         "listening",
+        { institutionGranted: updated.enrollment.institutionGranted },
       );
-      if (destination === "/mock-day") exitExamFullscreen();
+      if (isExamHubExit(destination)) exitExamFullscreen();
       router.push(destination);
     } finally {
       setSubmitting(false);
@@ -267,11 +313,13 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         }}
       >
         <div
-          className={`mx-auto max-w-3xl space-y-8 px-5 py-6 ${TEXT_SIZE_CLASS[state.textSize]}`}
+          key={activePart.id}
+          className="mx-auto max-w-3xl space-y-8 px-5 py-6"
+          {...textSizeProps(state.textSize)}
         >
           {questionGroups.map((group) => (
             <QuestionGroup
-              key={group.id}
+              key={`${activePart.id}-${group.id}`}
               group={group}
               answers={state.answers}
               current={state.current}
@@ -336,7 +384,7 @@ export function ListeningPlayer({ sessionId }: { sessionId: string }) {
         answers={state.answers}
         activePart={state.activePart}
         current={state.current}
-        onSelectPart={state.setActivePart}
+        onSelectPart={goToPart}
         onSelectQuestion={goToQuestion}
         onSubmit={() => setSubmitOpen(true)}
         submitLabel="End Listening"

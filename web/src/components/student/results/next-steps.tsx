@@ -11,7 +11,9 @@ export function NextSteps() {
   const { data } = useStudentResultsData();
   const [done, setDone] = useState<boolean[]>([]);
 
-  if (!data?.released || !data.nextSteps.length) return null;
+  if ((!data?.released && !data?.partial) || !data.nextSteps.length) {
+    return null;
+  }
 
   const steps = data.nextSteps;
 

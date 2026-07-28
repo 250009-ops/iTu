@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookOpen,
   CalendarDays,
+  GraduationCap,
   LayoutDashboard,
   Search,
   Trophy,
@@ -17,6 +19,8 @@ const iconMap = {
   "layout-dashboard": LayoutDashboard,
   search: Search,
   "calendar-days": CalendarDays,
+  "book-open": BookOpen,
+  "graduation-cap": GraduationCap,
   trophy: Trophy,
   user: User,
 } as const;
@@ -32,7 +36,8 @@ export function StudentMobileNav() {
         const active =
           view != null
             ? isStudentViewActive(pathname, view)
-            : pathname === item.href;
+            : pathname === item.href ||
+              pathname.startsWith(`${item.href}/`);
 
         return (
           <Link

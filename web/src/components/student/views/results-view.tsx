@@ -88,7 +88,12 @@ function ResultsContent({
     );
   }
 
-  if (!data.released) {
+  const hasVisibleScores =
+    data.released ||
+    !!data.partial ||
+    data.skills.some((s) => s.band != null);
+
+  if (!hasVisibleScores) {
     return <ResultsPendingState data={data} portal={portal} />;
   }
 

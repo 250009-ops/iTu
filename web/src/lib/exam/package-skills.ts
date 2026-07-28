@@ -1,4 +1,5 @@
 import type { ExamSkill } from "@/lib/exam/types";
+import { studentMockDayHref } from "@/lib/student/portal";
 
 export const EXAM_SKILL_ORDER: ExamSkill[] = [
   "listening",
@@ -45,17 +46,35 @@ export function nextExamSkill(
   return ordered[idx + 1] ?? null;
 }
 
-/**
- * Computes where to navigate after submitting `current`, honoring the package's
- * actual skill set (supports section-only and arbitrary skill subsets).
- */
+export type ExamHubRouteOptions = {
+  institutionGranted?: boolean | null;
+};
+
+/** Portal-aware Mock Day / My Mock destination after exam sections finish. */
+export function examMockDayPath(options?: ExamHubRouteOptions): string {
+  return studentMockDayHref(
+    options?.institutionGranted ? "institution" : "marketplace",
+  );
+}
+
+/** True when a post-section route leaves the exam shell for the hub. */
+export function isExamHubExit(path: string): boolean {
+  return (
+    path === "/mock-day" ||
+    path === "/student/mock-day" ||
+    path === "/inst-student/my-mock"
+  );
+}
+
 /** Where to send the student when resuming from check-in (or after Begin). */
 export function examResumeRoute(
   sessionId: string,
   state: string | undefined,
   skills: unknown,
+  options?: ExamHubRouteOptions,
 ): string {
   const first = checkInDestination(skills);
+  const hub = examMockDayPath(options);
 
   if (!state || state === "enrolled") {
     return `/exam/${sessionId}/${first}`;
@@ -83,7 +102,7 @@ export function examResumeRoute(
     const ordered = packageExamSkills(skills);
     const from = ordered[0] ?? "listening";
     const next = nextExamSkill(skills, from);
-    if (!next) return `/mock-day`;
+    if (!next) return hub;
     return `/exam/${sessionId}/break?from=${from}&next=${next}`;
   }
 
@@ -95,11 +114,11 @@ export function examResumeRoute(
   };
   const from = submittedByState[state];
   if (from) {
-    return examRouteAfterSection(sessionId, skills, from);
+    return examRouteAfterSection(sessionId, skills, from, options);
   }
 
   if (state === "awaiting_grading" || state === "results_released") {
-    return "/mock-day";
+    return hub;
   }
 
   return `/exam/${sessionId}/${first}`;
@@ -109,6 +128,7 @@ export function examRouteAfterSection(
   sessionId: string,
   skills: unknown,
   current: ExamSkill,
+  options?: ExamHubRouteOptions,
 ): string {
   const next = nextExamSkill(skills, current);
   if (!next) {
@@ -116,7 +136,7 @@ export function examRouteAfterSection(
     // above; otherwise the mock is finished and results will be released.
     return current === "speaking"
       ? `/exam/${sessionId}/waiting-speaking`
-      : `/mock-day`;
+      : examMockDayPath(options);
   }
   if (next === "speaking") {
     return `/exam/${sessionId}/waiting-speaking`;

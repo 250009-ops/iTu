@@ -34,11 +34,15 @@ export const STUDENT_VIEW_LABELS: Record<StudentView, string> = {
 
 const VALID_VIEWS = new Set<string>(Object.keys(STUDENT_VIEW_PATHS));
 
+/** True when `:view` is a known student SPA segment (including `dashboard`). */
+export function isStudentSpaViewSegment(slug: string): boolean {
+  return slug === "dashboard" || VALID_VIEWS.has(slug);
+}
+
 export function parseStudentView(segments: string[] | undefined): StudentView {
   if (!segments || segments.length === 0) return "dashboard";
   const slug = segments[0];
-  if (slug === "dashboard") return "dashboard";
-  if (VALID_VIEWS.has(slug)) return slug as StudentView;
+  if (isStudentSpaViewSegment(slug)) return slug as StudentView;
   return "dashboard";
 }
 

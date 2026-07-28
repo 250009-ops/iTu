@@ -21,7 +21,7 @@ const skillConfig: Record<
   speaking: { icon: Mic, iconBg: "bg-rose-500/20 text-rose-300", bar: "bg-rose-400" },
 };
 
-function OverallGauge({ band }: { band: number }) {
+function OverallGauge({ band, partial = false }: { band: number; partial?: boolean }) {
   const pct = band / 9;
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
@@ -36,7 +36,7 @@ function OverallGauge({ band }: { band: number }) {
           cy="60"
           r={radius}
           fill="none"
-          stroke="#38bdf8"
+          stroke={partial ? "#fbbf24" : "#38bdf8"}
           strokeWidth="9"
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -48,7 +48,7 @@ function OverallGauge({ band }: { band: number }) {
           {formatBandDisplay(band)}
         </span>
         <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">
-          Overall
+          {partial ? "Partial" : "Overall"}
         </span>
       </div>
     </div>
@@ -57,7 +57,7 @@ function OverallGauge({ band }: { band: number }) {
 
 export function OverallScoreCard() {
   const { data } = useStudentResultsData();
-  if (!data?.released) return null;
+  if (!data?.released && !data?.partial) return null;
 
   const {
     overallBand,
@@ -70,9 +70,13 @@ export function OverallScoreCard() {
     skills,
     mockId,
     examFormat,
+    partial,
+    message,
   } = data;
 
   const packageTitle = data.title.split(" — ")[0] ?? data.title;
+  const scoredCount = skills.filter((s) => s.band != null).length;
+  const showOverall = data.released || (partial && scoredCount > 0);
   const examinerInfo = [
     { label: "Exam Number", value: mockId },
     { label: "Exam Format", value: examFormat },
@@ -91,12 +95,30 @@ export function OverallScoreCard() {
       <div className="flex flex-col gap-8 xl:flex-row xl:items-stretch xl:justify-between">
         <div className="flex flex-1 flex-col gap-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <OverallGauge band={overallBand} />
+            {showOverall ? (
+              <OverallGauge band={overallBand} partial={!!partial} />
+            ) : (
+              <div className="relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.04]">
+                <div className="flex flex-col items-center justify-center px-3 text-center">
+                  <span className="text-sm font-bold uppercase tracking-wider text-white/50">
+                    Pending
+                  </span>
+                  <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">
+                    Overall
+                  </span>
+                </div>
+              </div>
+            )}
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="font-black text-white" style={{ fontSize: "26px", letterSpacing: "-0.02em" }}>
                   {bandLabelText}
                 </h2>
+                {partial && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-200">
+                    Partial release
+                  </span>
+                )}
                 {targetAchieved && targetBand != null && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -115,6 +137,9 @@ export function OverallScoreCard() {
                   </p>
                 )}
               </div>
+              {partial && message && (
+                <p className="mt-2 max-w-xl text-sm text-amber-100/80">{message}</p>
+              )}
             </div>
           </div>
 

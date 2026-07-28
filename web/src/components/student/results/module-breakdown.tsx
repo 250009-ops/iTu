@@ -107,7 +107,7 @@ export function ModuleBreakdown() {
     setWritingTab("overall");
   }, [active, data?.selectedEnrollmentCode]);
 
-  if (!data?.released || !active) return null;
+  if ((!data?.released && !data?.partial) || !active) return null;
 
   const detail = data.moduleDetails[active];
   if (!detail) return null;

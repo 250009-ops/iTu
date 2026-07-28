@@ -66,8 +66,10 @@ export function CurrentStatusBanner() {
   } = data;
 
   const examLocked = status === "missed" || mockDayClosed;
+  const awaitingResults = status === "awaiting_results";
 
   const inSession =
+    !awaitingResults &&
     seconds === 0 &&
     (currentPhase.badge.includes("ACTIVE") ||
       currentPhase.badge.includes("IN PROGRESS") ||
@@ -153,9 +155,11 @@ export function CurrentStatusBanner() {
             >
               {examLocked
                 ? "MOCK DAY UNAVAILABLE"
-                : inSession
-                  ? "MOCK IN SESSION"
-                  : (countdownLabel ?? "TIME UNTIL MOCK START")}
+                : awaitingResults
+                  ? "GRADING IN PROGRESS"
+                  : inSession
+                    ? "MOCK IN SESSION"
+                    : (countdownLabel ?? "TIME UNTIL MOCK START")}
             </p>
             <div className="flex gap-2">
               {countdownBoxes.map((box) => (
@@ -179,6 +183,22 @@ export function CurrentStatusBanner() {
               >
                 Exam access closed
               </p>
+            ) : awaitingResults ? (
+              <Link
+                href={
+                  data.institutionGranted
+                    ? "/inst-student/results"
+                    : "/student/results"
+                }
+                className="flex items-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-white transition-opacity hover:opacity-90"
+                style={{
+                  background: "rgba(255,255,255,0.15)",
+                  fontSize: "14px",
+                }}
+              >
+                <Zap size={16} />
+                View Results status
+              </Link>
             ) : (
               <Link
                 href={`/exam/${sessionCode}/check-in`}

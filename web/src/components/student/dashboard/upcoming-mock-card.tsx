@@ -82,7 +82,9 @@ export function UpcomingMockCard() {
           : `${upcoming.skills.length} skill${upcoming.skills.length === 1 ? "" : "s"} · ${upcoming.package}`}
       </p>
       <p className="mt-1 text-xs text-slate-500">
-        Check-in at {upcoming.mockTime}
+        {upcoming.mockTime
+          ? `Check-in at ${upcoming.mockTime}`
+          : "Flexible start — check in anytime before the day cutoff"}
         {upcoming.enrollmentCode ? ` · ${upcoming.enrollmentCode}` : ""}
       </p>
 

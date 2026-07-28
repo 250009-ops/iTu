@@ -18,7 +18,7 @@ import { SelectablePassage } from "@/components/exam/reading/selectable-passage"
 import { PassageSelectionToolbar } from "@/components/exam/reading/passage-selection-toolbar";
 import { ReadingNotesPanel } from "@/components/exam/reading/reading-notes-panel";
 import { InstructionScreen } from "@/components/exam/questions/instruction-screen";
-import { useExamState, TEXT_SIZE_CLASS } from "@/lib/exam/use-exam-state";
+import { useExamState, textSizeProps } from "@/lib/exam/use-exam-state";
 import { EXAM_FONT_STYLE } from "@/lib/exam/typography";
 import { CONTRAST_THEMES } from "@/lib/exam/contrast";
 import { getPassageSelection, type PendingSelection } from "@/lib/exam/reading-marks";
@@ -35,7 +35,11 @@ import { useExamProgressHydration } from "@/hooks/use-exam-progress-hydration";
 import { useExamPresence } from "@/hooks/use-exam-presence";
 import { ExamSuspendedView } from "@/components/exam/shell/exam-suspended-view";
 import { startSection, submitSection, logIntegrity, getExamSession } from "@/lib/api/exam";
-import { examRouteAfterSection, examResumeRoute } from "@/lib/exam/package-skills";
+import {
+  examRouteAfterSection,
+  examResumeRoute,
+  isExamHubExit,
+} from "@/lib/exam/package-skills";
 import { cn } from "@/lib/utils";
 import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
@@ -106,7 +110,12 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
         try {
           const session = await getExamSession(sessionId);
           router.replace(
-            examResumeRoute(sessionId, session.state, session.enrollment.package.skills),
+            examResumeRoute(
+              sessionId,
+              session.state,
+              session.enrollment.package.skills,
+              { institutionGranted: session.enrollment.institutionGranted },
+            ),
           );
         } catch {
           setStarted(true);
@@ -261,8 +270,9 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
         sessionId,
         updated.enrollment.package.skills,
         "reading",
+        { institutionGranted: updated.enrollment.institutionGranted },
       );
-      if (destination === "/mock-day") exitExamFullscreen();
+      if (isExamHubExit(destination)) exitExamFullscreen();
       router.push(destination);
     } finally {
       setSubmitting(false);
@@ -324,7 +334,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
               groups={activePassage.groups}
               answers={state.answers}
               current={state.current}
-              textSizeClass={TEXT_SIZE_CLASS[state.textSize]}
+              textSize={state.textSize}
               marks={marks}
               fgColor={contrastTheme.fg}
               onMarkClick={handleMarkClick}
@@ -335,7 +345,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
             <SelectablePassage
               passage={activePassage}
               marks={marks}
-              textSizeClass={TEXT_SIZE_CLASS[state.textSize]}
+              textSize={state.textSize}
               fgColor={contrastTheme.fg}
               onMarkClick={handleMarkClick}
             />
@@ -384,7 +394,7 @@ export function ReadingPlayer({ sessionId }: { sessionId: string }) {
               marginRight: notesOpen ? "20rem" : undefined,
             }}
           >
-            <div className={`space-y-8 ${TEXT_SIZE_CLASS[state.textSize]}`}>
+            <div className="space-y-8" {...textSizeProps(state.textSize)}>
               {questionGroups.map((group) => (
                 <QuestionGroup
                   key={group.id}

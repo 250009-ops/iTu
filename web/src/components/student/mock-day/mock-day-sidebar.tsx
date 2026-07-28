@@ -32,13 +32,16 @@ export function MockDaySidebar({ portal = "marketplace" }: { portal?: StudentPor
   if (!data) return null;
   const { checkIn, speakingTip, sessionCode, hasSpeaking, checkInCompleted } = data;
   const isMissed = data.status === "missed";
+  const awaitingResults = data.status === "awaiting_results";
   const examLocked = isMissed || data.mockDayClosed;
   const isInstitution = portal === "institution";
   const canReschedule =
     !isInstitution && !examLocked && data.canReschedule && data.state === "enrolled";
   const speakingDone = data.speaking.status === "completed";
   const showCheckIn =
-    !examLocked && (!checkInCompleted || (hasSpeaking && !speakingDone));
+    !examLocked &&
+    !awaitingResults &&
+    (!checkInCompleted || (hasSpeaking && !speakingDone));
 
   return (
     <div className="space-y-4">
@@ -147,7 +150,7 @@ export function MockDaySidebar({ portal = "marketplace" }: { portal?: StudentPor
           enrollmentId={data.enrollmentId}
           currentDateIso={data.mockDateIso}
           currentTime={data.mockTime ?? "09:00"}
-          hasSpeaking={hasSpeaking}
+          hasSpeaking={data.rescheduleHasSpeaking}
           onClose={() => setRescheduleOpen(false)}
           onDone={refresh}
         />

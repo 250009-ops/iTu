@@ -91,6 +91,7 @@ rm -f web/src/components/teacher/availability/availability-grid.tsx \\
   web/src/components/marketing/shared/trust-marquee.tsx \\
   web/src/components/marketing/shared/center-logo.tsx \\
   web/src/app/favicon.ico
+rm -rf "web/src/app/(student)/student/[[...view]]"
 mkdir -p /var/www/itestu/deploy/nginx
 for f in deploy-rebuild.sh ensure-local-media.sh; do
   if [ -f "/var/www/itestu/app/deploy/$f" ]; then

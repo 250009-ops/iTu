@@ -84,6 +84,23 @@ function formatShortDate(value: string | Date) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/** Day-first exam date for attempt pickers, e.g. "26 Jul 2026". */
+function formatAttemptDateLabel(value: string | Date) {
+  const d = typeof value === "string" ? new Date(value) : value;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function skillSummaryLabel(skills: SkillId[]): string {
+  if (skills.length === 0) return "Mock";
+  if (skills.length >= 4) return "Full";
+  if (skills.length === 1) return SKILL_META[skills[0]]?.name ?? skills[0];
+  return skills.map((id) => SKILL_META[id]?.name ?? id).join(" · ");
+}
+
 function formatMonthDay(value: string | Date) {
   const d = typeof value === "string" ? new Date(value) : value;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -91,10 +108,11 @@ function formatMonthDay(value: string | Date) {
 
 function formatTime(value: string | Date) {
   const d = typeof value === "string" ? new Date(value) : value;
-  return d.toLocaleTimeString("en-US", {
+  return d.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Asia/Tashkent",
   });
 }
 
@@ -344,6 +362,7 @@ export function mapMockDayHub(data: MockDayApi) {
 
   const { enrollment, sections = [], speaking, writing } = data;
   const isMissed = enrollment.status === "missed";
+  const isAwaitingResults = enrollment.status === "awaiting_results";
   const flexibleStart =
     (Boolean(enrollment.adminGranted) ||
       Boolean(enrollment.institutionGranted)) &&
@@ -363,6 +382,15 @@ export function mapMockDayHub(data: MockDayApi) {
     hasSpeaking && !speakingScheduled && Boolean(enrollment.speakingTeacherId);
   const institutionGranted = Boolean(enrollment.institutionGranted);
   const canScheduleSpeakingSlot = needsSpeakingSlot && !institutionGranted;
+  const speakingSessionCode =
+    speaking?.sessionCode ?? enrollment.sessionCode;
+  const speakingEnrollmentId =
+    speaking?.enrollmentId ?? enrollment.id;
+  const speakingCheckInCompleted =
+    speaking?.checkInCompleted ?? Boolean(enrollment.checkInCompleted);
+  /** Reschedule targets the primary enrollment only — speaking slot only if that package includes speaking. */
+  const rescheduleHasSpeaking =
+    enrollment.rescheduleHasSpeaking ?? hasSpeaking;
   const mockDate = new Date(enrollment.mockDate);
   const now = Date.now();
   const checkInCompleted = Boolean(enrollment.checkInCompleted);
@@ -422,6 +450,8 @@ export function mapMockDayHub(data: MockDayApi) {
             ? formatTime(speakingScheduled)
             : "Scheduled",
       done: s.completed,
+      sessionCode: s.sessionCode ?? enrollment.sessionCode,
+      enrollmentId: s.enrollmentId ?? enrollment.id,
     };
   });
 
@@ -498,6 +528,8 @@ export function mapMockDayHub(data: MockDayApi) {
     timeRange: string;
     color: string;
     result: ScoreResult | StatusResult;
+    sessionCode: string;
+    enrollmentId: string;
   }[] = sections
     .filter((s) => s.skill !== "speaking")
     .map((s) => {
@@ -516,6 +548,8 @@ export function mapMockDayHub(data: MockDayApi) {
         detail: SKILL_META[skill]?.detail ?? "",
         timeRange: displayTime,
         color: SKILL_COLORS[skill] ?? "#2563EB",
+        sessionCode: s.sessionCode ?? enrollment.sessionCode,
+        enrollmentId: s.enrollmentId ?? enrollment.id,
         result: s.completed
           ? s.band != null
             ? { score: formatBandDisplay(coerceBand(s.band)), label: "Band score" }
@@ -547,9 +581,16 @@ export function mapMockDayHub(data: MockDayApi) {
     : displayTime;
 
   return {
-    status: isMissed ? ("missed" as const) : ("active" as const),
+    status: isMissed
+      ? ("missed" as const)
+      : isAwaitingResults
+        ? ("awaiting_results" as const)
+        : ("active" as const),
     enrollmentId: enrollment.id,
+    speakingEnrollmentId,
     sessionCode: enrollment.sessionCode,
+    speakingSessionCode,
+    rescheduleHasSpeaking,
     dateLabel: formatLongDate(mockDate),
     dateShort: formatMonthDay(mockDate),
     examTitle: enrollment.packageTitle ?? "Mock Exam",
@@ -567,7 +608,12 @@ export function mapMockDayHub(data: MockDayApi) {
     institutionGranted,
     speakingTeacherId: enrollment.speakingTeacherId ?? null,
     canReschedule:
-      !isMissed && !mockDayClosed && !examStarted && !checkInCompleted,
+      !isMissed &&
+      !isAwaitingResults &&
+      !mockDayClosed &&
+      !enrollment.rescheduleBlocked &&
+      !examStarted &&
+      !checkInCompleted,
     progressPct: Math.round((completedCount / totalModules) * 100),
     modulesComplete: completedCount,
     totalModules,
@@ -579,54 +625,62 @@ export function mapMockDayHub(data: MockDayApi) {
     currentPhase: {
       label: isMissed
         ? "Missed"
-        : mockDayClosed
-          ? "Window closed"
-          : activeSection
-            ? SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill
-            : completedCount === totalModules
-              ? "Complete"
-              : checkInCompleted
-                ? "Break"
-                : "Check-in",
+        : isAwaitingResults
+          ? "Awaiting results"
+          : mockDayClosed
+            ? "Window closed"
+            : activeSection
+              ? SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill
+              : completedCount === totalModules
+                ? "Complete"
+                : checkInCompleted
+                  ? "Break"
+                  : "Check-in",
       badge: isMissed
         ? "MOCK DAY · MISSED"
-        : mockDayClosed
-          ? "MOCK DAY · CLOSED"
-          : activeSection
-            ? `${(activeSection.skill as string).toUpperCase()} · ACTIVE`
-            : checkInCompleted
-              ? "MOCK DAY · IN PROGRESS"
-              : "CHECK-IN REQUIRED",
+        : isAwaitingResults
+          ? "MOCK DAY · AWAITING RESULTS"
+          : mockDayClosed
+            ? "MOCK DAY · CLOSED"
+            : activeSection
+              ? `${(activeSection.skill as string).toUpperCase()} · ACTIVE`
+              : checkInCompleted
+                ? "MOCK DAY · IN PROGRESS"
+                : "CHECK-IN REQUIRED",
       headline: isMissed
         ? enrollment.examStartedAt
           ? "Speaking marked absent"
           : "Mock day missed"
-        : mockDayClosed
-          ? "The mock day window has closed"
-          : activeSection
-            ? `${SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill} in progress`
-            : completedCount === totalModules
-              ? "All modules complete"
-              : hasSpeaking && speakingScheduled
-                ? `Speaking starts at ${formatTime(speakingScheduled)} · ${speaking?.examiner ?? "Your examiner"}`
-                : checkInCompleted
-                  ? "Continue your mock exam"
-                  : flexibleStart
-                    ? "Start your mock anytime before the day cutoff"
-                    : "Complete check-in to begin",
+        : isAwaitingResults
+          ? "All exam sections submitted"
+          : mockDayClosed
+            ? "The mock day window has closed"
+            : activeSection
+              ? `${SKILL_META[activeSection.skill as SkillId]?.name ?? activeSection.skill} in progress`
+              : completedCount === totalModules
+                ? "All modules complete"
+                : hasSpeaking && speakingScheduled
+                  ? `Speaking starts at ${formatTime(speakingScheduled)} · ${speaking?.examiner ?? "Your examiner"}`
+                  : checkInCompleted
+                    ? "Continue your mock exam"
+                    : flexibleStart
+                      ? "Start your mock anytime before the day cutoff"
+                      : "Complete check-in to begin",
       message: isMissed
         ? enrollment.examStartedAt
           ? "You were marked absent after missing the speaking late-join window. Contact your centre admin to reappoint, or book a new mock from Browse."
           : "This session was marked missed. Contact your centre admin to reappoint, or book a new mock from Browse."
-        : mockDayClosed
-          ? "You did not start before the day cutoff. Check your dashboard for next steps."
-          : activeSection
-            ? "Stay in fullscreen and follow the on-screen instructions for this section."
-            : hasSpeaking && speakingScheduled
-              ? "Return to this hub before your speaking slot. Ensure microphone and webcam are active."
-              : checkInCompleted
-                ? "Follow the schedule and complete each section in order."
-                : "Verify your identity and device setup before starting your first section.",
+        : isAwaitingResults
+          ? "Your answers are with examiners for grading. Band scores appear on Results once Writing and Speaking are graded — typically within 24 hours."
+          : mockDayClosed
+            ? "You did not start before the day cutoff. Check your dashboard for next steps."
+            : activeSection
+              ? "Stay in fullscreen and follow the on-screen instructions for this section."
+              : hasSpeaking && speakingScheduled
+                ? "Return to this hub before your speaking slot. Ensure microphone and webcam are active."
+                : checkInCompleted
+                  ? "Follow the schedule and complete each section in order."
+                  : "Verify your identity and device setup before starting your first section.",
     },
     moduleRail,
     rules: getMockDayRules(enrollment.packageSkills),
@@ -634,7 +688,10 @@ export function mapMockDayHub(data: MockDayApi) {
     sections: cbtSections,
     hasSpeaking,
     speaking: {
-      status: (isMissed || mockDayClosed
+      status: (isMissed ||
+      mockDayClosed ||
+      speaking?.missed ||
+      sections.find((s) => s.skill === "speaking")?.missed
         ? "locked"
         : sections.find((s) => s.skill === "speaking")?.completed
           ? "completed"
@@ -646,19 +703,26 @@ export function mapMockDayHub(data: MockDayApi) {
       scheduledAt: speakingScheduled?.toISOString() ?? null,
       scheduledLabel: speakingScheduled
         ? formatTime(speakingScheduled)
-        : needsSpeakingSlot
-          ? institutionGranted
-            ? "Awaiting centre"
-            : "Select slot"
-          : displayTime,
+        : speaking?.missed ||
+            sections.find((s) => s.skill === "speaking")?.missed
+          ? "Missed"
+          : needsSpeakingSlot
+            ? institutionGranted
+              ? "Awaiting centre"
+              : "Select slot"
+            : displayTime,
       examiner: speaking?.examiner ?? "Your examiner",
       examinerTitle: "Speaking Examiner · IELTS Certified",
       checklist: [
-        { label: "Identity verified", done: checkInCompleted },
-        { label: "Diagnostics passed", done: checkInCompleted },
-        { label: "Rules acknowledged", done: checkInCompleted },
-        { label: "Mic & camera ready", done: checkInCompleted },
+        { label: "Identity verified", done: speakingCheckInCompleted },
+        { label: "Diagnostics passed", done: speakingCheckInCompleted },
+        { label: "Rules acknowledged", done: speakingCheckInCompleted },
+        { label: "Mic & camera ready", done: speakingCheckInCompleted },
       ],
+      missed: Boolean(
+        speaking?.missed ||
+          sections.find((s) => s.skill === "speaking")?.missed,
+      ),
     },
     checkIn: {
       title: checkInCompleted ? "Check-in Complete" : "Check-in Required",
@@ -724,6 +788,8 @@ export type SkillResult = {
 export type AttemptRow = {
   id: string;
   date: string;
+  /** Short skill/module label for the attempt, e.g. "Reading", "Full". */
+  skillSummary: string;
   listening: number | null;
   reading: number | null;
   writing: number | null;
@@ -731,6 +797,10 @@ export type AttemptRow = {
   overall: number | null;
   overallDelta?: number;
   latest?: boolean;
+  /** True when some modules are scored but the full report is not released. */
+  partial?: boolean;
+  /** True when the full report (PDF/certificate) is available. */
+  released?: boolean;
 };
 
 export type ProgressionPoint = {
@@ -752,6 +822,8 @@ export type ImprovementOpportunity = {
 
 export type StudentResultsData = {
   released: boolean;
+  /** True when some modules are graded but the full report is not released yet. */
+  partial?: boolean;
   message?: string;
   mockId: string;
   enrollmentCode: string;
@@ -778,8 +850,15 @@ export type StudentResultsData = {
   selectedEnrollmentCode: string;
   availableAttempts: {
     enrollmentCode: string;
+    /** Date-first composed label, e.g. "26 Jul 2026 · Reading". */
     label: string;
+    /** Exam/mock date, e.g. "26 Jul 2026". */
+    dateLabel: string;
+    /** Short skill/module summary, e.g. "Reading", "Writing", "Full". */
+    skillSummary: string;
     overallBand: number | null;
+    /** True when some modules are scored but the full report is not released. */
+    partial?: boolean;
   }[];
   certificate: CertificateData;
 };
@@ -1169,20 +1248,24 @@ export function mapStudentResults(
   targetBand: number | null = null,
   examTypeLabel = "Academic IELTS",
 ): StudentResultsData | null {
-  if (!list.length) return null;
-
   const detail =
-    detailByCode[selectedCode] ?? detailByCode[list[0]!.enrollmentCode];
+    detailByCode[selectedCode] ??
+    (list[0] ? detailByCode[list[0].enrollmentCode] : undefined);
   if (!detail) return null;
 
-  if (!detail.released) {
+  const hasSkillScores = (detail.skills ?? []).some((s) => s.band != null);
+  const showScores = detail.released || detail.partial || hasSkillScores;
+
+  if (!showScores) {
+    if (!list.length && !detail.enrollmentCode) return null;
     return {
       ...mapPendingStudentResults(
         {
           enrollmentCode: detail.enrollmentCode ?? selectedCode,
-          mockDate: detail.mockDate ?? list[0]!.mockDate,
-          package: detail.package ?? list[0]!.package,
+          mockDate: detail.mockDate ?? list[0]?.mockDate ?? new Date().toISOString(),
+          package: detail.package ?? list[0]?.package ?? "Mock",
           message: detail.message ?? "Results are not yet available.",
+          packageSkills: detail.packageSkills,
         },
         targetBand,
         examTypeLabel,
@@ -1195,9 +1278,13 @@ export function mapStudentResults(
   }
 
   const latest =
-    list.find((item) => item.enrollmentCode === selectedCode) ?? list[0]!;
+    list.find((item) => item.enrollmentCode === selectedCode) ?? list[0];
   const skillsApi = detail.skills ?? [];
-  const packageSkillIds = skillsApi.map((s) => s.skill as SkillId);
+  const packageSkillIds = (
+    detail.packageSkills?.length
+      ? detail.packageSkills
+      : skillsApi.map((s) => s.skill)
+  ) as SkillId[];
   const selectedIndex = list.findIndex(
     (item) => item.enrollmentCode === selectedCode,
   );
@@ -1234,7 +1321,7 @@ export function mapStudentResults(
 
   const overallBand =
     coerceBand(detail.overallBand) ??
-    coerceBand(latest.overallBand) ??
+    coerceBand(latest?.overallBand) ??
     overallFromSkills(skills.map((s) => ({ skill: s.id, band: s.band }))) ??
     0;
 
@@ -1280,7 +1367,22 @@ export function mapStudentResults(
 
   const attempts: AttemptRow[] = list.map((item, index) => {
     const itemDetail = detailByCode[item.enrollmentCode];
-    const itemSkills = itemDetail?.skills ?? [];
+    const itemSkillsApi = itemDetail?.skills ?? [];
+    const attemptSkillIds = packageExamSkills(
+      itemDetail?.packageSkills?.length
+        ? itemDetail.packageSkills
+        : itemSkillsApi.map((s) => s.skill),
+    ) as SkillId[];
+    const itemReleased =
+      !!itemDetail?.released || item.resultsStatus === "released";
+    const itemHasScores =
+      itemSkillsApi.some((s) => coerceBand(s.band) != null) ||
+      coerceBand(item.overallBand) != null;
+    const itemPartial =
+      !itemReleased &&
+      (!!itemDetail?.partial ||
+        item.resultsStatus === "partial" ||
+        itemHasScores);
     const overall =
       coerceBand(item.overallBand) ?? coerceBand(itemDetail?.overallBand);
     const prev =
@@ -1289,38 +1391,57 @@ export function mapStudentResults(
     return {
       id: item.enrollmentCode,
       date: formatLongDate(item.mockDate),
-      listening: skillBand(itemSkills, "listening"),
-      reading: skillBand(itemSkills, "reading"),
-      writing: skillBand(itemSkills, "writing"),
-      speaking: skillBand(itemSkills, "speaking"),
+      skillSummary: skillSummaryLabel(attemptSkillIds),
+      listening: skillBand(itemSkillsApi, "listening"),
+      reading: skillBand(itemSkillsApi, "reading"),
+      writing: skillBand(itemSkillsApi, "writing"),
+      speaking: skillBand(itemSkillsApi, "speaking"),
       overall,
       overallDelta:
         overall != null && prev != null
           ? Math.round((overall - prev) * 2) / 2
           : undefined,
-      latest: item.enrollmentCode === list[0]!.enrollmentCode,
+      latest: item.enrollmentCode === (list[0]?.enrollmentCode ?? selectedCode),
+      released: itemReleased,
+      partial: itemPartial,
     };
   });
 
-  const targetAchieved = targetBand != null && overallBand >= targetBand;
+  const isPartial = !detail.released && showScores;
+  // Don't celebrate a target on an incomplete overall — wait for full release.
+  const targetAchieved =
+    !isPartial && targetBand != null && overallBand >= targetBand;
   const moduleCount = packageSkillIds.length;
+  const enrollmentCode =
+    detail.enrollmentCode ?? latest?.enrollmentCode ?? selectedCode;
+  const mockDate = detail.mockDate ?? latest?.mockDate ?? new Date().toISOString();
+  const packageTitle = detail.package ?? latest?.package ?? "Mock";
+  const scoredCount = skills.filter((s) => s.band != null).length;
 
   return {
-    released: true,
-    mockId: detail.enrollmentCode ?? latest.enrollmentCode,
-    enrollmentCode: detail.enrollmentCode ?? latest.enrollmentCode,
-    pdfUrl: detail.pdfUrl ?? latest.pdfUrl ?? null,
-    dateLabel: formatLongDate(detail.mockDate ?? latest.mockDate),
-    title: `${detail.package ?? latest.package} — ${formatLongDate(detail.mockDate ?? latest.mockDate)}`,
-    subtitle: `Mock ID: ${detail.enrollmentCode ?? latest.enrollmentCode} · ${moduleCount} module${moduleCount === 1 ? "" : "s"}`,
+    released: !!detail.released,
+    partial: isPartial,
+    message: detail.message,
+    mockId: enrollmentCode,
+    enrollmentCode,
+    pdfUrl: detail.pdfUrl ?? latest?.pdfUrl ?? null,
+    dateLabel: formatLongDate(mockDate),
+    title: `${packageTitle} — ${formatLongDate(mockDate)}`,
+    subtitle: isPartial
+      ? `Mock ID: ${enrollmentCode} · ${scoredCount}/${moduleCount} modules scored`
+      : `Mock ID: ${enrollmentCode} · ${moduleCount} module${moduleCount === 1 ? "" : "s"}`,
     examType: examTypeLabel,
     examFormat: examTypeLabel.includes("General") ? "General Training" : "Academic",
     overallBand,
-    bandLabel: bandLabel(overallBand),
+    bandLabel: isPartial
+      ? scoredCount > 0
+        ? `Partial overall — Band ${formatBandDisplay(overallBand)}`
+        : "Partial results"
+      : bandLabel(overallBand),
     targetBand,
     targetAchieved,
-    improvement,
-    overallImprovement,
+    improvement: isPartial ? 0 : improvement,
+    overallImprovement: isPartial ? 0 : overallImprovement,
     skills,
     moduleDetails,
     scoreProgression,
@@ -1328,19 +1449,47 @@ export function mapStudentResults(
     improvementOpportunities: deriveImprovements(skillsApi, targetBand),
     targetMessage: targetAchieved
       ? `Excellent result. Ready to push further? Band ${(targetBand ?? overallBand) + 0.5} is within reach.`
-      : `You're ${targetBand != null ? `${(targetBand - overallBand).toFixed(1)} bands` : "making progress"} from your target. Focus on your weakest module next.`,
+      : isPartial
+        ? detail.message ??
+          `Some modules are graded. Full overall unlocks when all ${moduleCount} modules are complete.`
+        : `You're ${targetBand != null ? `${(targetBand - overallBand).toFixed(1)} bands` : "making progress"} from your target. Focus on your weakest module next.`,
     nextSteps: deriveImprovements(skillsApi, targetBand).map(
       (o) => `Review ${o.title.split(" — ")[0]} feedback`,
     ),
     packageSkills: packageSkillIds,
     selectedEnrollmentCode: selectedCode,
-    availableAttempts: list.map((item) => ({
-      enrollmentCode: item.enrollmentCode,
-      label: `${item.package} · ${formatShortDate(item.mockDate)}`,
-      overallBand: coerceBand(item.overallBand) ??
-        coerceBand(detailByCode[item.enrollmentCode]?.overallBand) ??
-        null,
-    })),
+    availableAttempts: list.map((item) => {
+      const itemDetail = detailByCode[item.enrollmentCode];
+      const itemSkills = packageExamSkills(
+        itemDetail?.packageSkills?.length
+          ? itemDetail.packageSkills
+          : (itemDetail?.skills ?? []).map((s) => s.skill),
+      ) as SkillId[];
+      const dateLabel = formatAttemptDateLabel(item.mockDate);
+      const skillSummary = skillSummaryLabel(itemSkills);
+      const itemReleased =
+        !!itemDetail?.released || item.resultsStatus === "released";
+      const itemHasScores =
+        (itemDetail?.skills ?? []).some((s) => coerceBand(s.band) != null) ||
+        coerceBand(item.overallBand) != null;
+      const itemPartial =
+        !itemReleased &&
+        (!!itemDetail?.partial ||
+          item.resultsStatus === "partial" ||
+          itemHasScores);
+      const overallBand =
+        coerceBand(item.overallBand) ??
+        coerceBand(itemDetail?.overallBand) ??
+        null;
+      return {
+        enrollmentCode: item.enrollmentCode,
+        dateLabel,
+        skillSummary,
+        label: `${dateLabel} · ${skillSummary}`,
+        overallBand,
+        partial: itemPartial,
+      };
+    }),
     certificate: {
       candidateName: detail.candidateName ?? "Candidate",
       candidateEmail: detail.candidateEmail ?? null,
@@ -1354,8 +1503,8 @@ export function mapStudentResults(
         .includes("GENERAL")
         ? "General Training"
         : "Academic",
-      mockDate: detail.mockDate ?? latest.mockDate ?? null,
-      issueDate: detail.issueDate ?? detail.mockDate ?? latest.mockDate ?? null,
+      mockDate: detail.mockDate ?? latest?.mockDate ?? null,
+      issueDate: detail.issueDate ?? detail.mockDate ?? latest?.mockDate ?? null,
       centre: detail.centre ?? null,
     },
   };

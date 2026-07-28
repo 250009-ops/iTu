@@ -72,7 +72,12 @@ export function CheckInView({ sessionId }: { sessionId: string }) {
         currentState = updated.state;
       }
       router.push(
-        examResumeRoute(sessionId, currentState, session?.enrollment.package.skills),
+        examResumeRoute(
+          sessionId,
+          currentState,
+          session?.enrollment.package.skills,
+          { institutionGranted: session?.enrollment.institutionGranted },
+        ),
       );
     } finally {
       setCheckingIn(false);

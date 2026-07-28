@@ -29,7 +29,12 @@ const series = [
 
 export function ScoreProgressionChart() {
   const { data: results } = useStudentResultsData();
-  if (!results?.released || !results.scoreProgression.length) return null;
+  if (
+    (!results?.released && !results?.partial) ||
+    !results.scoreProgression.length
+  ) {
+    return null;
+  }
 
   const chartData = results.scoreProgression;
   const packageSkills = new Set(results.packageSkills);

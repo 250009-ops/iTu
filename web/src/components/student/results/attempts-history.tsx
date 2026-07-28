@@ -45,7 +45,7 @@ function BandCell({ value, delta }: { value: number | null; delta?: number }) {
 export function AttemptsHistory() {
   const { toast } = useToast();
   const { data, selectAttempt } = useStudentResultsData();
-  if (!data?.released) return null;
+  if (!data?.released && !data?.partial) return null;
 
   const visibleColumns = skillColumns.filter((col) =>
     data.packageSkills.length ? data.packageSkills.includes(col.key) : true,
@@ -111,9 +111,14 @@ export function AttemptsHistory() {
                 >
                   <td className="px-5 py-4 sm:px-6">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-gray-500">
-                        {attempt.id}
-                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800">
+                          {attempt.skillSummary}
+                        </p>
+                        <p className="font-mono text-[11px] text-gray-400">
+                          {attempt.id}
+                        </p>
+                      </div>
                       {attempt.latest && (
                         <span className="rounded-md bg-navy px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                           Latest
@@ -133,31 +138,44 @@ export function AttemptsHistory() {
                     </td>
                   ))}
                   <td className="px-3 py-4">
-                    <div className="inline-flex items-center gap-1.5">
-                      <span className="font-bold text-navy">
-                        {attempt.overall != null
-                          ? formatBandDisplay(attempt.overall)
-                          : "—"}
-                      </span>
-                      {attempt.overallDelta != null && attempt.overallDelta > 0 && (
-                        <span className="inline-flex items-center text-[11px] font-semibold text-emerald-600">
-                          <TrendingUp className="h-3 w-3" />+{attempt.overallDelta}
+                    <div className="inline-flex flex-col items-start gap-0.5">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className="font-bold text-navy">
+                          {attempt.overall != null
+                            ? formatBandDisplay(attempt.overall)
+                            : "—"}
+                        </span>
+                        {attempt.overallDelta != null &&
+                          attempt.overallDelta > 0 &&
+                          !attempt.partial && (
+                          <span className="inline-flex items-center text-[11px] font-semibold text-emerald-600">
+                            <TrendingUp className="h-3 w-3" />+{attempt.overallDelta}
+                          </span>
+                        )}
+                      </div>
+                      {attempt.partial && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+                          Partial
                         </span>
                       )}
                     </div>
                   </td>
                   <td className="px-5 py-4 text-right sm:px-6">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handlePdfDownload(attempt.id);
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-navy"
-                    >
-                      PDF
-                      <Download className="h-3.5 w-3.5" />
-                    </button>
+                    {attempt.released !== false && !attempt.partial ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handlePdfDownload(attempt.id);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-navy"
+                      >
+                        PDF
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-300">PDF soon</span>
+                    )}
                   </td>
                 </tr>
               );

@@ -28,7 +28,10 @@ import {
 } from "@/lib/speaking/slot-access";
 import { useToast } from "@/components/ui/toast";
 import { MarketplaceMockFeedbackGate } from "@/components/student/feedback/marketplace-mock-feedback-gate";
+import { packageExamSkills } from "@/lib/exam/package-skills";
+import { studentMockDayHref } from "@/lib/student/portal";
 import { cn } from "@/lib/utils";
+import type { ExamSkill } from "@/lib/exam/types";
 
 type Stage = "waiting" | "rules" | "live" | "complete";
 
@@ -159,7 +162,13 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
           <SessionComplete
             onReturn={() => {
               exitExamFullscreen();
-              router.push("/student/mock-day");
+              router.push(
+                studentMockDayHref(
+                  speakingState?.institutionGranted
+                    ? "institution"
+                    : "marketplace",
+                ),
+              );
             }}
           />
         )}
@@ -167,21 +176,40 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
 
       <footer className="flex shrink-0 items-center justify-center gap-4 border-t border-slate-200 bg-white px-5 py-3">
         <span className="text-[12px] font-semibold uppercase tracking-wider text-slate-400">
-          Full mock progress
+          Mock progress
         </span>
-        <ProgressDots current={stage === "complete" ? "done" : "speaking"} />
+        <ProgressDots
+          skills={packageExamSkills(speakingState?.packageSkills)}
+          current={stage === "complete" ? "done" : "speaking"}
+        />
       </footer>
     </>
   );
 }
 
-function ProgressDots({ current }: { current: "speaking" | "done" }) {
-  const items = [
-    { key: "L", done: true },
-    { key: "R", done: true },
-    { key: "W", done: true },
-    { key: "S", done: current === "done" },
-  ];
+const SKILL_DOT_LABEL: Record<ExamSkill, string> = {
+  listening: "L",
+  reading: "R",
+  writing: "W",
+  speaking: "S",
+};
+
+function ProgressDots({
+  skills,
+  current,
+}: {
+  skills: ExamSkill[];
+  current: "speaking" | "done";
+}) {
+  const items =
+    skills.length > 0
+      ? skills.map((skill) => ({
+          key: SKILL_DOT_LABEL[skill],
+          // Prior package skills are already submitted when the student is on speaking.
+          complete: skill === "speaking" ? current === "done" : true,
+        }))
+      : [{ key: "S", complete: current === "done" }];
+
   return (
     <div className="flex items-center gap-2">
       {items.map((it) => (
@@ -189,12 +217,12 @@ function ProgressDots({ current }: { current: "speaking" | "done" }) {
           key={it.key}
           className={cn(
             "flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold",
-            it.done
+            it.complete
               ? "bg-emerald-100 text-emerald-700"
               : "bg-rose-100 text-rose-700",
           )}
         >
-          {it.done ? <CheckCircle2 size={15} /> : it.key}
+          {it.complete ? <CheckCircle2 size={15} /> : it.key}
         </span>
       ))}
     </div>

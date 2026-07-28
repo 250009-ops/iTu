@@ -1383,6 +1383,7 @@ export class ExamSessionsService {
         mockDate: session.enrollment.mockDate,
         status: session.enrollment.status.toLowerCase(),
         resultsStatus: session.enrollment.resultsStatus.toLowerCase(),
+        institutionGranted: session.enrollment.institutionGranted,
         package: {
           slug: session.enrollment.package.slug,
           title: session.enrollment.package.title,

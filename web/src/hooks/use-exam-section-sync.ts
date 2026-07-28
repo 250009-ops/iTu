@@ -40,6 +40,7 @@ export function useExamSectionSync(
         sessionId,
         session.enrollment.package.skills,
         skill,
+        { institutionGranted: session.enrollment.institutionGranted },
       );
       setRemoteNotice(
         "This section was ended by an administrator. Continuing with the next part of your mock…",

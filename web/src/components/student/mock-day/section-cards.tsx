@@ -62,7 +62,7 @@ function StatusBadge({ status }: { status: SectionStatus }) {
       className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 font-semibold text-gray-500"
       style={{ fontSize: "11px" }}
     >
-      Scheduled
+      Locked
     </span>
   );
 }
@@ -94,10 +94,12 @@ export function SectionCards({
 
   if (!data) return null;
   const isMissed = data.status === "missed";
-  const examLocked = isMissed || data.mockDayClosed;
+  const examLocked =
+    isMissed || data.mockDayClosed || data.status === "awaiting_results";
   const isInstitution = portal === "institution" || data.institutionGranted;
   const canScheduleSpeaking = data.canScheduleSpeakingSlot && !isInstitution;
-  const { sections, speaking, sessionCode, hasSpeaking } = data;
+  const { sections, speaking, sessionCode, speakingSessionCode, hasSpeaking } =
+    data;
   const speakingDone = speaking.status === "completed";
   const slotAccess = speakingJoinAccess(speaking.scheduledAt);
   const canJoinSpeaking = slotAccess.allowed && !speakingDone;
@@ -201,7 +203,7 @@ export function SectionCards({
                 )}
                 {section.status === "in_progress" ? (
                   <Link
-                    href={`/exam/${sessionCode}/${section.id}`}
+                    href={`/exam/${section.sessionCode || sessionCode}/${section.id}`}
                     className="flex items-center gap-2 rounded-xl bg-[#1B2A4A] px-4 py-2 font-semibold text-white hover:bg-[#243660]"
                     style={{ fontSize: "13px" }}
                   >
@@ -210,7 +212,7 @@ export function SectionCards({
                   </Link>
                 ) : section.status === "ready" ? (
                   <Link
-                    href={`/exam/${sessionCode}/${section.id}`}
+                    href={`/exam/${section.sessionCode || sessionCode}/${section.id}`}
                     className="flex items-center gap-2 rounded-xl bg-[#1B2A4A] px-4 py-2 font-semibold text-white hover:bg-[#243660]"
                     style={{ fontSize: "13px" }}
                   >
@@ -383,7 +385,7 @@ export function SectionCards({
             ) : (
               <>
                 <Link
-                  href={`/exam/${sessionCode}/speaking`}
+                  href={`/exam/${speakingSessionCode || sessionCode}/speaking`}
                   aria-disabled={!canJoinSpeaking}
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-4 py-2.5 font-semibold text-white",
@@ -399,7 +401,7 @@ export function SectionCards({
                     : "Join Session"}
                 </Link>
                 <Link
-                  href={`/exam/${sessionCode}/check-in`}
+                  href={`/exam/${speakingSessionCode || sessionCode}/check-in`}
                   className="flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 font-semibold text-rose-700 hover:bg-rose-50"
                   style={{ fontSize: "13px" }}
                 >
@@ -444,7 +446,7 @@ export function SectionCards({
         canScheduleSpeaking &&
         data.speakingTeacherId && (
         <SpeakingSlotDialog
-          enrollmentId={data.enrollmentId}
+          enrollmentId={data.speakingEnrollmentId || data.enrollmentId}
           mockDateIso={data.mockDateIso}
           teacherId={data.speakingTeacherId}
           examinerName={speaking.examiner}

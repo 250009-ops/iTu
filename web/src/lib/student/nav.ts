@@ -7,7 +7,14 @@ import {
 export type NavItem = {
   label: string;
   href: string;
-  icon: "layout-dashboard" | "search" | "calendar-days" | "trophy" | "user";
+  icon:
+    | "layout-dashboard"
+    | "search"
+    | "calendar-days"
+    | "book-open"
+    | "graduation-cap"
+    | "trophy"
+    | "user";
   badge?: number;
 };
 
@@ -23,6 +30,11 @@ const STUDENT_NAV_ALL: NavItem[] = [
     icon: "search",
   },
   {
+    label: "Examiners",
+    href: STUDENT_VIEW_PATHS.teachers,
+    icon: "graduation-cap",
+  },
+  {
     label: "Mock Day Hub",
     href: STUDENT_VIEW_PATHS["mock-day"],
     icon: "calendar-days",
@@ -30,7 +42,7 @@ const STUDENT_NAV_ALL: NavItem[] = [
   {
     label: "Practice",
     href: "/student/practice",
-    icon: "search",
+    icon: "book-open",
   },
   {
     label: "Results",
