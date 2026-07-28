@@ -187,7 +187,7 @@ export const STUDENT_HELP_FAQS: HelpFaq[] = [
   },
   {
     q: "I disagree with my Writing or Speaking band — what can I do?",
-    a: "Submit a Regrade request from this page and link the related mock. A second review follows the published SLA.",
+    a: "Submit a Regrade request from this page and link the related mock after results are released. Support will review your case and, where appropriate, reopen Writing or Speaking so an examiner can re-check the submission. Please contact us promptly after release.",
   },
   {
     q: "What do I need for device check?",

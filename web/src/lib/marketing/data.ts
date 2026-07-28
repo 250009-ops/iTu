@@ -30,7 +30,7 @@ export const LEGAL = {
   paymentMethods:
     "We accept Uzcard, Humo, Visa, and Mastercard via our secure Uzum Checkout payment page. All transactions are encrypted. iTestU does not store your full card details.",
   refundPolicy:
-    "You may reschedule an upcoming mock from your account before check-in. Cancellations more than 48 hours before your scheduled session are typically eligible for a full refund. Cancellations within 48 hours may receive a partial refund or a free reschedule, at our discretion. If we cancel a session for reasons within our control, you are entitled to a full refund or a rescheduled session at no extra cost. For refund requests, email support@itestu.uz with your booking reference — our support team handles refunds on a case-by-case basis.",
+    "You may reschedule an upcoming mock from your account before check-in. Refunds are handled case by case — email support@itestu.uz with your booking reference, or open a Help request in your account. As a general guideline, we typically consider full refunds when you cancel well ahead of the session, and may offer a partial refund or a free reschedule closer to the scheduled time, at our discretion — these are not automatic cutoffs enforced by the app. If we cancel a session for reasons within our control, you are entitled to a full refund or a rescheduled session at no extra cost. Approved refunds are returned through the original Uzum Checkout payment method where possible; card reverse may require operations follow-up.",
   /** Uzum Bank antifraud (ДИБ) disclosure on the public offer (/terms). */
   antifraudTitle:
     "Measures to limit and control the risks of fraudulent operations",

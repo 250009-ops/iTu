@@ -45,7 +45,7 @@ const BAND_FAQS: MarketingFaq[] = [
   { id: "overall", category: "Results", question: "How is the Overall Band calculated?", answer: "The four skill bands (L, R, W, S) are averaged and rounded to the nearest 0.5. For example, L:9.0 + R:8.5 + W:8.0 + S:8.5 = 34 ÷ 4 = 8.5 Overall." },
   { id: "held", category: "Results", question: "Why are all scores held until Speaking?", answer: "To mirror real IELTS exam behaviour — official test providers release all four bands together after all grading is complete. Seeing partial results before Speaking would influence your performance." },
   { id: "accuracy", category: "Results", question: "How accurate is the Writing grade vs the real test?", answer: "All our examiners hold CELTA or higher and most are current or former certified IELTS examiners. Band variance is typically ±0.5, which matches inter-rater reliability in the real exam." },
-  { id: "dispute", category: "Results", question: "Can I dispute my band score?", answer: "Yes. If you believe your Writing or Speaking grade is incorrect, you can request a re-mark within 7 days of release. A second examiner reviews the submission independently." },
+  { id: "dispute", category: "Results", question: "Can I dispute my band score?", answer: "Yes. After results are released, you can request a Writing or Speaking re-mark via Help & Support in your account. An examiner will re-check the submission. Please contact support promptly after release so we can review your case." },
 ];
 
 // Score progression data: mock attempts → overall band

@@ -89,9 +89,10 @@ const SECTIONS: LegalSection[] = [
       <>
         <p>{LEGAL.refundPolicy}</p>
         <p>
-          Refund timing reference: the cancellation window above is{" "}
-          {LEGAL.refundWindowHours} hours before the scheduled session. Approved refunds are
-          returned through the original Uzum Checkout payment method where possible.
+          Timing notes above are guidelines for how we typically review requests — they are not
+          automated cutoffs enforced by the app. Where a rough reference helps, we often look at
+          cancellations around {LEGAL.refundWindowHours} hours before the scheduled session when
+          deciding between a full refund, a partial refund, or a free reschedule.
         </p>
       </>
     ),
