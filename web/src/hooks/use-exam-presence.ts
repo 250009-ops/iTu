@@ -30,7 +30,10 @@ export function useExamPresence(
         setSuspended(result.suspended);
         setSuspendReason(result.reason);
       } catch {
-        // server may have already suspended via missed heartbeat
+        // Optimistic local pause when the suspend call cannot reach the API
+        // (offline). Server heartbeat monitor will also suspend shortly.
+        setSuspended(true);
+        setSuspendReason(reason);
       } finally {
         suspendingRef.current = false;
       }

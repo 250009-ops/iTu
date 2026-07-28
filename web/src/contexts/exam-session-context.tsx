@@ -60,6 +60,15 @@ export function ExamSessionProvider({
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!error) return;
+    function onOnline() {
+      void refresh();
+    }
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [error, refresh]);
+
   return (
     <ExamSessionContext.Provider
       value={{ sessionCode, session, loading, error, refresh, performCheckIn }}

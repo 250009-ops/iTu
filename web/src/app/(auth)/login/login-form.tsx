@@ -19,7 +19,10 @@ import { getDashboardPath,
   normalizeRole,
   setSession,
 } from "@/lib/auth/session";
-import { isDesktopShell } from "@/lib/desktop/shim";
+import {
+  isDesktopShell,
+  resolveDesktopLastPath,
+} from "@/lib/desktop/shim";
 import { loginSchema, type LoginFormValues } from "@/lib/validations/auth";
 
 const SESSION_MESSAGES: Record<string, string> = {
@@ -84,12 +87,24 @@ export default function LoginForm() {
       { rememberMe },
     );
 
-    router.push(
+    const dashboard =
       response.dashboardPath ??
-        getDashboardPath(role, {
-          institutionLinked: verified.institution != null,
-        }),
-    );
+      getDashboardPath(role, {
+        institutionLinked: verified.institution != null,
+      });
+
+    // Desktop: reopen the last exam/portal route after reconnect / reinstall flow.
+    const resumePath = desktop ? await resolveDesktopLastPath() : null;
+    const canResume =
+      !!resumePath &&
+      (resumePath.startsWith("/exam/") ||
+        resumePath.startsWith("/student/") ||
+        resumePath.startsWith("/teacher/") ||
+        resumePath.startsWith("/inst-") ||
+        resumePath.startsWith("/admin/") ||
+        resumePath.startsWith("/institution/"));
+
+    router.push(canResume ? resumePath : dashboard);
   }
 
   async function onSubmit(data: LoginFormValues) {

@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef, useState } from "react";
 import {
   Bell,
   Camera,
+  Loader2,
   Mail,
   MapPin,
   Shield,
@@ -12,6 +14,7 @@ import {
 import { getInitials, useAuth } from "@/hooks/use-auth";
 import { useStudentProfileData } from "@/contexts/student-profile-context";
 import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
 export type ProfileTab = "overview" | "plan" | "security" | "notifications";
@@ -24,6 +27,8 @@ const dotTexture = {
     "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
   backgroundSize: "28px 28px",
 };
+
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
 const marketplaceTabs: { id: ProfileTab; label: string; icon: typeof User }[] = [
   { id: "overview", label: "Overview", icon: User },
@@ -54,10 +59,13 @@ export function ProfileHero({
 }: ProfileHeroProps) {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { profile } = useStudentProfileData();
+  const { profile, update } = useStudentProfileData();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
   if (!profile) return null;
   const name = session?.name ?? profile.name;
-  const { candidateType, memberSince, heroStats, contact } = profile;
+  const { candidateType, memberSince, heroStats, contact, avatarUrl } = profile;
   const country = profile.country?.trim();
   const tabs = portal === "institution" ? institutionTabs : marketplaceTabs;
   const subtitle =
@@ -66,32 +74,86 @@ export function ProfileHero({
       : `${candidateType} · Member since ${memberSince}`;
   const statusLabel = portal === "institution" ? "Centre student" : "Active";
 
+  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Unsupported file", {
+        description: "Please choose an image file.",
+        variant: "error",
+      });
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast("Image too large", {
+        description: "Choose an image under 2 MB.",
+        variant: "error",
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setUploading(true);
+      try {
+        await update({ avatarUrl: dataUrl });
+        toast("Photo updated", {
+          description: "Your profile photo has been saved.",
+          variant: "success",
+        });
+      } catch (err) {
+        toast("Could not update photo", {
+          description: getErrorMessage(err, "Please try again."),
+          variant: "error",
+        });
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="relative text-white" style={{ background: navyGradient }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoChange}
+      />
       <div className="absolute inset-0 opacity-[0.04]" style={dotTexture} />
       <div className="relative mx-auto max-w-6xl px-6 pt-8 lg:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex gap-5">
             <div className="relative shrink-0">
               <div
-                className="flex h-20 w-20 items-center justify-center rounded-2xl font-black text-white"
+                className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl font-black text-white"
                 style={{
                   background: "linear-gradient(135deg, #2d4a8a, #1B2A4A)",
                   fontSize: "28px",
                 }}
               >
-                {getInitials(name)}
+                {uploading ? (
+                  <Loader2 className="h-7 w-7 animate-spin text-white/80" />
+                ) : avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt={name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  getInitials(name)
+                )}
               </div>
               <button
                 type="button"
                 aria-label="Change profile photo"
-                onClick={() =>
-                  toast("Photo upload", {
-                    description: "Profile photo uploads are coming soon.",
-                    variant: "info",
-                  })
-                }
-                className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1B2A4A] bg-white text-gray-600 shadow hover:bg-gray-50"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1B2A4A] bg-white text-gray-600 shadow hover:bg-gray-50 disabled:opacity-50"
               >
                 <Camera size={13} />
               </button>

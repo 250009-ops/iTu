@@ -331,6 +331,8 @@ model StudentProfile {
   dateOfBirth          DateTime?                @map("date_of_birth")
   sex                  String?
   firstLanguage        String?                  @map("first_language")
+  /// Data URL or external URL for the student profile photo (same pattern as TeacherProfile.avatarUrl).
+  avatarUrl            String?                  @map("avatar_url")
   publishToLeaderboard Boolean                  @default(false) @map("publish_to_leaderboard")
   notificationPrefs    Json?                    @map("notification_prefs")
   institutionId        String?                  @map("institution_id")

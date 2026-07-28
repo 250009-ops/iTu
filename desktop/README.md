@@ -33,5 +33,7 @@ Upload artifacts to `/var/www/releases/desktop/` on the VPS and update Admin →
 ## Features
 
 - Loads hosted Next.js app (SSR-compatible)
+- Native offline/boot screen with toast + retry (no Chromium error pages)
+- Persists last portal/exam path via Tauri IPC so relaunch continues where left off
 - Dispatches `itestu:exam-suspend` on network loss / low battery
-- Deep link scheme `itestu://exam/{sessionCode}`
+- Deep link scheme `itestu://exam/{sessionCode}` (planned)

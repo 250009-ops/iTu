@@ -1,0 +1,6 @@
+"$schema" = "../gen/schemas/schema.json"
+
+[[permission]]
+identifier = "allow-desktop-resume"
+description = "Allow saving and loading the last desktop portal/exam path for resume."
+commands.allow = ["save_desktop_resume", "load_desktop_resume"]

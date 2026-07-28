@@ -843,6 +843,7 @@ export class StudentsService {
       dateOfBirth: profile.dateOfBirth,
       sex: profile.sex,
       firstLanguage: profile.firstLanguage,
+      avatarUrl: profile.avatarUrl,
       memberSince: profile.user.createdAt,
       publishToLeaderboard: profile.publishToLeaderboard,
       notificationPrefs: profile.notificationPrefs as
@@ -901,6 +902,7 @@ export class StudentsService {
         dateOfBirth?: Date | null;
         sex?: string | null;
         firstLanguage?: string | null;
+        avatarUrl?: string | null;
         notificationPrefs?: Prisma.InputJsonValue;
       } = {};
       if (dto.phone !== undefined) profileData.phone = dto.phone.trim();
@@ -918,6 +920,9 @@ export class StudentsService {
       if (dto.examType !== undefined) {
         profileData.examType =
           dto.examType === 'general_training' ? 'GENERAL_TRAINING' : 'ACADEMIC';
+      }
+      if (dto.avatarUrl !== undefined) {
+        profileData.avatarUrl = dto.avatarUrl || null;
       }
       if (dto.notificationPrefs !== undefined) {
         profileData.notificationPrefs = dto.notificationPrefs;

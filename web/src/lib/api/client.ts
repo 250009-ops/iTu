@@ -45,8 +45,13 @@ export async function apiFetch<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
+    const inDesktop =
+      typeof window !== "undefined" &&
+      Boolean((window as Window & { __TAURI__?: unknown }).__TAURI__);
     throw new ApiError(
-      `Cannot reach API at ${API_BASE_URL}. Start the backend: cd api && npm run start:dev`,
+      inDesktop
+        ? "Cannot reach iTestU servers. Check your internet connection and try again."
+        : `Cannot reach API at ${API_BASE_URL}. Start the backend: cd api && npm run start:dev`,
       0,
     );
   }

@@ -1525,6 +1525,7 @@ export type StudentProfileUi = {
   dateOfBirthRaw: string | null;
   sex: string | null;
   firstLanguage: string | null;
+  avatarUrl: string | null;
   notificationPrefs: Record<string, boolean> | null;
   contact: {
     email: string;
@@ -1644,6 +1645,7 @@ export function mapStudentProfile(
     dateOfBirthRaw: api?.dateOfBirth ?? null,
     sex: api?.sex ?? null,
     firstLanguage: api?.firstLanguage ?? null,
+    avatarUrl: api?.avatarUrl ?? null,
     notificationPrefs: api?.notificationPrefs ?? null,
     contact: {
       email: api?.email ?? "",

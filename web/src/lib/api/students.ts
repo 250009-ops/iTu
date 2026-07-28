@@ -95,6 +95,7 @@ export type StudentProfileResponse = {
   dateOfBirth: string | null;
   sex: string | null;
   firstLanguage: string | null;
+  avatarUrl: string | null;
   memberSince?: string;
   publishToLeaderboard: boolean;
   notificationPrefs: Record<string, boolean> | null;
@@ -126,6 +127,7 @@ export type UpdateProfileBody = {
   sex?: "M" | "F" | "X";
   firstLanguage?: string;
   notificationPrefs?: Record<string, boolean>;
+  avatarUrl?: string;
 };
 
 export function updateStudentProfile(body: UpdateProfileBody) {

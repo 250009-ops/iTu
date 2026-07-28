@@ -52,4 +52,10 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsObject()
   notificationPrefs?: Record<string, boolean>;
+
+  /** Data URL or external URL — same pattern as teacher avatarUrl. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(3_000_000)
+  avatarUrl?: string;
 }

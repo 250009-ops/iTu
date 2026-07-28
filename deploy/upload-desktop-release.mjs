@@ -59,12 +59,21 @@ function artifactMeta(localPath) {
   const bytes = readFileSync(localPath);
   const fileName = path.basename(localPath);
   const domain = process.env.DEPLOY_DOMAIN || 'www.itestu.uz';
+  // Only persist public fields — localPath leaked into production settings before.
   return {
-    fileName,
-    localPath,
     sha256: createHash('sha256').update(bytes).digest('hex'),
     size: statSync(localPath).size,
     url: `https://${domain}/releases/desktop/${fileName}`,
+    fileName,
+    localPath,
+  };
+}
+
+function publicArtifact(meta) {
+  return {
+    url: meta.url,
+    sha256: meta.sha256,
+    size: meta.size,
   };
 }
 
@@ -175,9 +184,15 @@ async function main() {
     version: VERSION,
     releasedAt: new Date().toISOString(),
     platforms: {
-      windows: platforms.windows ?? { url: '', sha256: '', size: 0 },
-      macos: platforms.macos ?? { url: '', sha256: '', size: 0 },
-      linux: platforms.linux ?? { url: '', sha256: '', size: 0 },
+      windows: platforms.windows
+        ? publicArtifact(platforms.windows)
+        : { url: '', sha256: '', size: 0 },
+      macos: platforms.macos
+        ? publicArtifact(platforms.macos)
+        : { url: '', sha256: '', size: 0 },
+      linux: platforms.linux
+        ? publicArtifact(platforms.linux)
+        : { url: '', sha256: '', size: 0 },
     },
   };
 

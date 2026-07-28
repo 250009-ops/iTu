@@ -32,6 +32,9 @@ if (!existsSync(path.join(desktopDir, 'node_modules'))) {
 console.log('Generating Tauri icons from brand favicon…');
 run('node', ['deploy/generate-tauri-icons.mjs'], { cwd: root });
 
+console.log('Generating NSIS installer branding assets…');
+run('python', ['deploy/generate-nsis-branding.py'], { cwd: root });
+
 const script =
   process.platform === 'win32'
     ? 'build:windows'
