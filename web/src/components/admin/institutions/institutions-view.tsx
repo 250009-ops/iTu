@@ -158,14 +158,14 @@ export function AdminInstitutionsView() {
     setBusyId(id);
     try {
       await rejectInstitutionMarketingLogo(id, "Logo not suitable for marketing");
-      toast("Marketing logo rejected", {
+      toast("Marketing logo disapproved", {
         description: "Marketing will show the centre name instead.",
         variant: "info",
       });
       await refresh({ silent: true });
     } catch (err) {
-      toast("Logo rejection failed", {
-        description: getErrorMessage(err, "Could not reject logo."),
+      toast("Logo disapproval failed", {
+        description: getErrorMessage(err, "Could not disapprove logo."),
         variant: "error",
       });
     } finally {
@@ -251,7 +251,12 @@ export function AdminInstitutionsView() {
                       <StatusPill status={inst.status} />
                     </td>
                     <td className="px-5 py-3">
-                      <MarketingLogoCell institution={inst} />
+                      <MarketingLogoCell
+                        institution={inst}
+                        busy={busyId === inst.id}
+                        onApprove={() => handleApproveLogo(inst.id)}
+                        onDisapprove={() => handleRejectLogo(inst.id)}
+                      />
                     </td>
                     <td className="px-5 py-3 font-semibold text-navy">
                       {inst.status === "active" || inst.status === "suspended"
@@ -310,33 +315,6 @@ export function AdminInstitutionsView() {
                         ) : inst.status === "active" ||
                           inst.status === "suspended" ? (
                           <>
-                            {inst.logoUrl &&
-                            (inst.marketingLogoStatus === "pending" ||
-                              inst.marketingLogoStatus === "rejected") ? (
-                              <>
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  loading={busyId === inst.id}
-                                  onClick={() => handleApproveLogo(inst.id)}
-                                  title="Approve logo for marketing site"
-                                >
-                                  <Check className="h-4 w-4" />
-                                  Logo
-                                </Button>
-                                {inst.marketingLogoStatus === "pending" ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={busyId === inst.id}
-                                    onClick={() => handleRejectLogo(inst.id)}
-                                    title="Reject logo for marketing site"
-                                  >
-                                    <ImageOff className="h-4 w-4" />
-                                  </Button>
-                                ) : null}
-                              </>
-                            ) : null}
                             <Button
                               variant="secondary"
                               size="sm"
@@ -436,31 +414,64 @@ function formatApplicationSource(source: string | null | undefined): string {
   return source;
 }
 
-function MarketingLogoCell({ institution }: { institution: AdminInstitution }) {
+function MarketingLogoCell({
+  institution,
+  busy,
+  onApprove,
+  onDisapprove,
+}: {
+  institution: AdminInstitution;
+  busy: boolean;
+  onApprove: () => void;
+  onDisapprove: () => void;
+}) {
   if (!institution.logoUrl) {
     return <span className="text-xs text-muted">Name only</span>;
   }
 
   const status = institution.marketingLogoStatus ?? "none";
-  const label =
-    status === "approved"
-      ? "Approved"
-      : status === "pending"
-        ? "Pending"
-        : status === "rejected"
-          ? "Rejected"
-          : "Uploaded";
+  const canApprove = status === "pending" || status === "rejected";
+  const canDisapprove = status === "approved" || status === "pending";
 
   return (
-    <div className="flex items-center gap-2">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={institution.logoUrl}
-        alt=""
-        className="h-8 w-8 rounded border border-border bg-white object-contain p-0.5"
-      />
-      <StatusPill status={status === "none" ? "pending" : status} />
-      <span className="sr-only">{label}</span>
+    <div className="flex min-w-[10.5rem] flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={institution.logoUrl}
+          alt=""
+          className="h-8 w-8 shrink-0 rounded border border-border bg-white object-contain p-0.5"
+        />
+        <StatusPill status={status === "none" ? "pending" : status} />
+      </div>
+      {canApprove || canDisapprove ? (
+        <div className="flex flex-wrap gap-1">
+          {canApprove ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={busy}
+              onClick={onApprove}
+              title="Approve logo for marketing Trusted-by strip"
+            >
+              <Check className="h-3.5 w-3.5" />
+              Approve
+            </Button>
+          ) : null}
+          {canDisapprove ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={onDisapprove}
+              title="Disapprove logo — marketing shows centre name"
+            >
+              <ImageOff className="h-3.5 w-3.5" />
+              Disapprove
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
