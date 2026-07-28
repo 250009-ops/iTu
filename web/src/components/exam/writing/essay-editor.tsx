@@ -5,11 +5,15 @@ import {
   handleEssayEditorKeyDown,
   useEssayEditor,
 } from "@/hooks/use-essay-editor";
+import {
+  textSizeProps,
+  type TextSize,
+} from "@/lib/exam/use-exam-state";
 
 type Props = {
   value: string;
   onChange: (value: string) => void;
-  textSizeClass: string;
+  textSize: TextSize;
   placeholder?: string;
   style?: React.CSSProperties;
 };
@@ -17,12 +21,13 @@ type Props = {
 export function EssayEditor({
   value,
   onChange,
-  textSizeClass,
+  textSize,
   placeholder,
   style,
 }: Props) {
   const { text, onChange: edit, undo, redo, replaceRange } = useEssayEditor(value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const size = textSizeProps(textSize);
 
   const applyEdit = (next: string, cursor?: number) => {
     edit(next);
@@ -66,8 +71,9 @@ export function EssayEditor({
       }}
       spellCheck={false}
       placeholder={placeholder}
-      className={`min-h-0 flex-1 resize-none px-6 py-5 leading-7 outline-none ${textSizeClass}`}
-      style={style}
+      className="min-h-0 flex-1 resize-none px-6 py-5 leading-7 outline-none"
+      data-exam-text-size={size["data-exam-text-size"]}
+      style={{ ...style, ...size.style }}
     />
   );
 }

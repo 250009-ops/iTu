@@ -8,11 +8,15 @@ import {
   type ReadingMark,
 } from "@/lib/exam/reading-marks";
 import { PASSAGE_FONT_STYLE } from "@/lib/exam/typography";
+import {
+  textSizeProps,
+  type TextSize,
+} from "@/lib/exam/use-exam-state";
 
 type Props = {
   passage: ReadingPassage;
   marks: ReadingMark[];
-  textSizeClass: string;
+  textSize: TextSize;
   fgColor?: string;
   onMarkClick: (id: string) => void;
 };
@@ -25,14 +29,16 @@ function plainParagraphText(text: string): string {
 export function SelectablePassage({
   passage,
   marks,
-  textSizeClass,
+  textSize,
   fgColor,
   onMarkClick,
 }: Props) {
+  const size = textSizeProps(textSize);
   return (
     <div
-      className={`mx-auto max-w-prose ${textSizeClass}`}
-      style={{ ...PASSAGE_FONT_STYLE, color: fgColor }}
+      className="mx-auto max-w-prose"
+      data-exam-text-size={size["data-exam-text-size"]}
+      style={{ ...PASSAGE_FONT_STYLE, color: fgColor, ...size.style }}
     >
       <h2 className="mb-2 text-center text-xl font-bold">{passage.title}</h2>
       {passage.subtitle?.trim() && (

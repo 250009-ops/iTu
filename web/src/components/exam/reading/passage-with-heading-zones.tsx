@@ -16,6 +16,10 @@ import {
   type ReadingMark,
 } from "@/lib/exam/reading-marks";
 import { PASSAGE_FONT_STYLE } from "@/lib/exam/typography";
+import {
+  textSizeProps,
+  type TextSize,
+} from "@/lib/exam/use-exam-state";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -23,7 +27,7 @@ type Props = {
   groups: QuestionGroup[];
   answers: AnswerMap;
   current: number | null;
-  textSizeClass: string;
+  textSize: TextSize;
   marks?: ReadingMark[];
   fgColor?: string;
   onMarkClick?: (id: string) => void;
@@ -129,7 +133,7 @@ export function PassageWithHeadingZones({
   groups,
   answers,
   current,
-  textSizeClass,
+  textSize,
   marks = [],
   fgColor,
   onMarkClick,
@@ -138,6 +142,7 @@ export function PassageWithHeadingZones({
 }: Props) {
   const headingGroups = matchingHeadingsForPassage(groups);
   const markers = passageSectionLabels(passage.paragraphs);
+  const size = textSizeProps(textSize);
 
   const zoneBySection = new Map<
     string,
@@ -164,8 +169,9 @@ export function PassageWithHeadingZones({
 
   return (
     <div
-      className={`mx-auto max-w-prose ${textSizeClass}`}
-      style={{ ...PASSAGE_FONT_STYLE, color: fgColor }}
+      className="mx-auto max-w-prose"
+      data-exam-text-size={size["data-exam-text-size"]}
+      style={{ ...PASSAGE_FONT_STYLE, color: fgColor, ...size.style }}
     >
       <h2 className="mb-2 text-center text-xl font-bold">{passage.title}</h2>
       {passage.subtitle?.trim() && (
