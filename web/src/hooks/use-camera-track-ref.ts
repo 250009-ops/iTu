@@ -5,14 +5,48 @@ import type { TrackReference } from "@livekit/components-react";
 import {
   ParticipantEvent,
   Track,
+  TrackEvent,
   type Participant,
+  type RemoteTrackPublication,
 } from "livekit-client";
+
+function buildCameraTrackRef(
+  participant: Participant,
+): TrackReference | undefined {
+  const publication = participant.getTrackPublication(Track.Source.Camera);
+  if (!publication) return undefined;
+
+  return {
+    participant,
+    publication,
+    source: Track.Source.Camera,
+  };
+}
+
+function cameraPublicationVisible(
+  participant: Participant,
+  publication: RemoteTrackPublication | ReturnType<
+    Participant["getTrackPublication"]
+  >,
+): boolean {
+  if (!publication || publication.isMuted) return false;
+
+  const videoTrack = publication.videoTrack ?? publication.track;
+  if (videoTrack) return true;
+
+  if (!participant.isCameraEnabled) return false;
+
+  if (participant.isLocal) return true;
+
+  return "isSubscribed" in publication ? publication.isSubscribed : false;
+}
 
 /** Keeps a camera TrackReference in sync with participant publish/subscribe events. */
 export function useCameraTrackRef(
   participant: Participant | undefined,
 ): TrackReference | undefined {
   const [trackRef, setTrackRef] = useState<TrackReference | undefined>();
+  const [, setRevision] = useState(0);
 
   useEffect(() => {
     if (!participant) {
@@ -20,39 +54,68 @@ export function useCameraTrackRef(
       return;
     }
 
+    const bump = () => setRevision((n) => n + 1);
+
     const sync = () => {
       const publication = participant.getTrackPublication(Track.Source.Camera);
-      if (!publication) {
+      if (!publication || !cameraPublicationVisible(participant, publication)) {
         setTrackRef(undefined);
+        bump();
         return;
       }
 
-      setTrackRef({
-        participant,
-        publication,
-        source: Track.Source.Camera,
-      });
+      setTrackRef(buildCameraTrackRef(participant));
+      bump();
     };
 
     sync();
-    participant.on(ParticipantEvent.TrackSubscribed, sync);
-    participant.on(ParticipantEvent.TrackUnsubscribed, sync);
-    participant.on(ParticipantEvent.TrackPublished, sync);
-    participant.on(ParticipantEvent.TrackUnpublished, sync);
-    participant.on(ParticipantEvent.LocalTrackPublished, sync);
-    participant.on(ParticipantEvent.LocalTrackUnpublished, sync);
-    participant.on(ParticipantEvent.TrackMuted, sync);
-    participant.on(ParticipantEvent.TrackUnmuted, sync);
+
+    const onCameraTrackChanged = (
+      _track: unknown,
+      publication?: { source?: Track.Source },
+    ) => {
+      if (!publication || publication.source === Track.Source.Camera) sync();
+    };
+
+    participant.on(ParticipantEvent.TrackSubscribed, onCameraTrackChanged);
+    participant.on(ParticipantEvent.TrackUnsubscribed, onCameraTrackChanged);
+    participant.on(ParticipantEvent.TrackPublished, onCameraTrackChanged);
+    participant.on(ParticipantEvent.TrackUnpublished, onCameraTrackChanged);
+    participant.on(ParticipantEvent.LocalTrackPublished, onCameraTrackChanged);
+    participant.on(ParticipantEvent.LocalTrackUnpublished, onCameraTrackChanged);
+    participant.on(ParticipantEvent.TrackMuted, onCameraTrackChanged);
+    participant.on(ParticipantEvent.TrackUnmuted, onCameraTrackChanged);
+    participant.on(ParticipantEvent.TrackSubscriptionStatusChanged, sync);
+    participant.on(ParticipantEvent.ParticipantMetadataChanged, sync);
+
+    const publication = participant.getTrackPublication(Track.Source.Camera);
+    const publicationListeners: Array<() => void> = [];
+    if (publication) {
+      const onTrackEvent = () => sync();
+      publication.on(TrackEvent.Subscribed, onTrackEvent);
+      publication.on(TrackEvent.Unsubscribed, onTrackEvent);
+      publication.on(TrackEvent.Muted, onTrackEvent);
+      publication.on(TrackEvent.Unmuted, onTrackEvent);
+      publicationListeners.push(() => {
+        publication.off(TrackEvent.Subscribed, onTrackEvent);
+        publication.off(TrackEvent.Unsubscribed, onTrackEvent);
+        publication.off(TrackEvent.Muted, onTrackEvent);
+        publication.off(TrackEvent.Unmuted, onTrackEvent);
+      });
+    }
 
     return () => {
-      participant.off(ParticipantEvent.TrackSubscribed, sync);
-      participant.off(ParticipantEvent.TrackUnsubscribed, sync);
-      participant.off(ParticipantEvent.TrackPublished, sync);
-      participant.off(ParticipantEvent.TrackUnpublished, sync);
-      participant.off(ParticipantEvent.LocalTrackPublished, sync);
-      participant.off(ParticipantEvent.LocalTrackUnpublished, sync);
-      participant.off(ParticipantEvent.TrackMuted, sync);
-      participant.off(ParticipantEvent.TrackUnmuted, sync);
+      participant.off(ParticipantEvent.TrackSubscribed, onCameraTrackChanged);
+      participant.off(ParticipantEvent.TrackUnsubscribed, onCameraTrackChanged);
+      participant.off(ParticipantEvent.TrackPublished, onCameraTrackChanged);
+      participant.off(ParticipantEvent.TrackUnpublished, onCameraTrackChanged);
+      participant.off(ParticipantEvent.LocalTrackPublished, onCameraTrackChanged);
+      participant.off(ParticipantEvent.LocalTrackUnpublished, onCameraTrackChanged);
+      participant.off(ParticipantEvent.TrackMuted, onCameraTrackChanged);
+      participant.off(ParticipantEvent.TrackUnmuted, onCameraTrackChanged);
+      participant.off(ParticipantEvent.TrackSubscriptionStatusChanged, sync);
+      participant.off(ParticipantEvent.ParticipantMetadataChanged, sync);
+      publicationListeners.forEach((dispose) => dispose());
     };
   }, [participant]);
 
@@ -81,4 +144,12 @@ export function pickRemoteParticipant(
     return role === null;
   });
   return humans[0] ?? remotes[0];
+}
+
+export function cameraFeedVisible(
+  participant: Participant | undefined,
+  trackRef: TrackReference | undefined,
+): boolean {
+  if (!participant || !trackRef?.publication) return false;
+  return cameraPublicationVisible(participant, trackRef.publication);
 }

@@ -16,7 +16,10 @@ import {
   Video,
 } from "lucide-react";
 import { useSpeakingRoom } from "@/contexts/speaking-room-context";
-import { useCameraTrackRef } from "@/hooks/use-camera-track-ref";
+import {
+  cameraFeedVisible,
+  useCameraTrackRef,
+} from "@/hooks/use-camera-track-ref";
 import { cn } from "@/lib/utils";
 
 function QualityBadge({ participant }: { participant: Participant }) {
@@ -47,21 +50,20 @@ function QualityBadge({ participant }: { participant: Participant }) {
 
 function CameraTile({
   trackRef,
+  participant,
   label,
   placeholder,
   className,
   pip,
 }: {
   trackRef: ReturnType<typeof useCameraTrackRef>;
+  participant: Participant | undefined;
   label: string;
   placeholder: string;
   className?: string;
   pip?: boolean;
 }) {
-  const hasVideo =
-    trackRef?.publication?.track &&
-    !trackRef.publication.isMuted &&
-    trackRef.publication.isEnabled;
+  const hasVideo = cameraFeedVisible(participant, trackRef);
 
   return (
     <div className={cn("relative overflow-hidden bg-slate-900", className)}>
@@ -100,21 +102,20 @@ function CameraTile({
 
 function RemoteVideoLayer({
   trackRef,
+  participant,
   label,
   placeholder,
   className,
   videoClassName,
 }: {
   trackRef: ReturnType<typeof useCameraTrackRef>;
+  participant: Participant | undefined;
   label: string;
   placeholder: string;
   className?: string;
   videoClassName?: string;
 }) {
-  const hasVideo =
-    trackRef?.publication?.track &&
-    !trackRef.publication.isMuted &&
-    trackRef.publication.isEnabled;
+  const hasVideo = cameraFeedVisible(participant, trackRef);
 
   return (
     <div className={cn("relative overflow-hidden bg-slate-900", className)}>
@@ -220,6 +221,7 @@ export function SpeakingVideoLayout({
           <div className="relative aspect-video h-full min-w-0 max-h-full max-w-full shrink overflow-hidden rounded-xl shadow-2xl shadow-black/40">
             <RemoteVideoLayer
               trackRef={remoteTrack}
+              participant={remoteParticipant}
               label={remoteLabel}
               placeholder={remotePlaceholder}
               className="h-full w-full bg-slate-900"
@@ -242,6 +244,7 @@ export function SpeakingVideoLayout({
         >
           <RemoteVideoLayer
             trackRef={remoteTrack}
+            participant={remoteParticipant}
             label={remoteLabel}
             placeholder={remotePlaceholder}
             className="h-full w-full bg-transparent"
@@ -265,6 +268,7 @@ export function SpeakingVideoLayout({
       >
         <CameraTile
           trackRef={localTrack}
+          participant={localParticipant}
           label={localLabel}
           placeholder={localPlaceholder}
           className="h-full w-full"

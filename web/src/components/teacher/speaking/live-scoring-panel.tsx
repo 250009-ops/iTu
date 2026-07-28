@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Award, Save } from "lucide-react";
 import { BandScoreStepper } from "@/components/teacher/grading/band-score-stepper";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
 import {
+  assertSpeakingScoresComplete,
   computeOverall,
+  emptySpeakingScores,
   speakingGradeIsDirty,
   speakingCriteria,
+  speakingScoresComplete,
   toSpeakingCriteriaPayload,
   type ScoringCriterion,
+  type SpeakingScoreValues,
 } from "@/lib/speaking/scoring";
 import { scoreSpeaking } from "@/lib/api/grading";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -19,25 +23,24 @@ import { useToast } from "@/components/ui/toast";
 
 export function LiveScoringPanel() {
   const { session, sessionId, refreshSession, refreshHub } = useTeacherSpeaking();
-  const [scores, setScores] = useState(
-    session?.defaultScores ?? {
-      fluency: 7,
-      lexical: 7,
-      grammar: 7,
-      pronunciation: 7,
-    },
-  );
-  const [notes, setNotes] = useState(session?.teacherNotes ?? "");
+  const [scores, setScores] = useState<SpeakingScoreValues>(emptySpeakingScores());
+  const [notes, setNotes] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const syncedGradeKeyRef = useRef<string | null>(null);
+
+  const savedGradeKey = session
+    ? `${session.id}:${session.graded}:${JSON.stringify(session.defaultScores)}:${session.teacherNotes ?? ""}`
+    : null;
 
   useEffect(() => {
-    if (session) {
-      setScores(session.defaultScores);
-      setNotes(session.teacherNotes);
-    }
-  }, [session]);
+    if (!session || !savedGradeKey) return;
+    if (syncedGradeKeyRef.current === savedGradeKey) return;
+    syncedGradeKeyRef.current = savedGradeKey;
+    setScores(session.defaultScores);
+    setNotes(session.teacherNotes);
+  }, [session, savedGradeKey]);
 
   const overall = useMemo(() => computeOverall(scores), [scores]);
   const alreadyGraded = session?.graded ?? false;
@@ -48,7 +51,8 @@ export function LiveScoringPanel() {
       notes: session.teacherNotes ?? "",
     });
   }, [session, scores, notes]);
-  const canSubmit = !alreadyGraded || gradeDirty;
+  const allCriteriaScored = speakingScoresComplete(scores);
+  const canSubmit = allCriteriaScored && (!alreadyGraded || gradeDirty);
 
   if (!session) return null;
 
@@ -57,12 +61,13 @@ export function LiveScoringPanel() {
   }
 
   async function submitGrade() {
-    if (!session || !sessionId) return;
+    if (!session || !sessionId || overall == null) return;
     setConfirmOpen(false);
     setSubmitting(true);
     try {
+      const completeScores = assertSpeakingScoresComplete(scores);
       await scoreSpeaking(sessionId, {
-        criteriaScores: toSpeakingCriteriaPayload(scores),
+        criteriaScores: toSpeakingCriteriaPayload(completeScores),
         overallBand: overall,
         feedback: notes.trim() || undefined,
         teacherNotes: notes.trim() || undefined,
@@ -101,20 +106,40 @@ export function LiveScoringPanel() {
                 {criterion.label}
               </p>
               <p className="text-[11px] font-bold tabular-nums text-sky-600">
-                {scores[criterion.id]}
+                {scores[criterion.id] ?? "—"}
               </p>
             </div>
-            <BandScoreStepper
-              value={scores[criterion.id]}
-              onChange={(v) => setScore(criterion.id, v)}
-            />
+            {scores[criterion.id] != null ? (
+              <BandScoreStepper
+                value={scores[criterion.id]!}
+                onChange={(v) => setScore(criterion.id, v)}
+              />
+            ) : (
+              <select
+                aria-label={`Select ${criterion.label} band`}
+                value=""
+                onChange={(e) => setScore(criterion.id, Number(e.target.value))}
+                className="h-8 rounded-lg border border-border bg-white px-2 text-xs font-semibold text-navy"
+              >
+                <option value="" disabled>
+                  Select
+                </option>
+                {Array.from({ length: 19 }, (_, i) => i * 0.5).map((score) => (
+                  <option key={score} value={score}>
+                    {Number.isInteger(score) ? score.toFixed(0) : score.toFixed(1)}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         ))}
       </div>
 
       <div className="mt-5 rounded-lg bg-sky-50 px-4 py-3">
         <p className="text-xs font-medium text-muted">Overall Band</p>
-        <p className="text-3xl font-bold text-sky-600">{overall.toFixed(1)}</p>
+        <p className="text-3xl font-bold text-sky-600">
+          {overall != null ? overall.toFixed(1) : "—"}
+        </p>
       </div>
 
       <textarea
@@ -160,7 +185,7 @@ export function LiveScoringPanel() {
       <ConfirmDialog
         open={confirmOpen}
         title={alreadyGraded ? "Update speaking grade" : "Submit speaking grade"}
-        message={`${alreadyGraded ? "Update" : "Submit"} an overall band of ${overall.toFixed(1)} for ${session.studentName}? This is recorded against the candidate's results.`}
+        message={`${alreadyGraded ? "Update" : "Submit"} an overall band of ${overall?.toFixed(1) ?? "—"} for ${session.studentName}? This is recorded against the candidate's results.`}
         confirmLabel={alreadyGraded ? "Update grade" : "Submit grade"}
         onConfirm={submitGrade}
         onCancel={() => setConfirmOpen(false)}

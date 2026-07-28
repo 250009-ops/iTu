@@ -86,7 +86,20 @@ export function TeacherSpeakingProvider({ children }: { children: ReactNode }) {
       contentError: bankQuery.error,
       refreshSession: sessionQuery.refresh,
     };
-  }, [urlSessionId, hubQuery, sessionQuery, bankQuery]);
+  }, [
+    urlSessionId,
+    hubQuery.loading,
+    hubQuery.error,
+    hubQuery.data,
+    hubQuery.refresh,
+    sessionQuery.loading,
+    sessionQuery.error,
+    sessionQuery.data,
+    sessionQuery.refresh,
+    bankQuery.loading,
+    bankQuery.error,
+    bankQuery.data,
+  ]);
 
   return (
     <TeacherSpeakingContext.Provider value={value}>

@@ -14,9 +14,8 @@ import type {
   WritingHubRow,
 } from "@/lib/api/grading";
 import {
-  fromSpeakingCriteriaPayload,
   speakingCriteria,
-  type ScoringCriterion,
+  speakingScoresFromSaved,
   type SpeakingPart,
 } from "@/lib/speaking/scoring";
 import {
@@ -979,16 +978,7 @@ export function mapWeeklyAvailability(
 }
 
 export function mapSpeakingSession(data: SpeakingSession) {
-  const defaultScores: Record<ScoringCriterion, number> = {
-    fluency: 7,
-    lexical: 7,
-    grammar: 7,
-    pronunciation: 7,
-  };
-
-  if (data.grade?.criteriaScores) {
-    Object.assign(defaultScores, fromSpeakingCriteriaPayload(data.grade.criteriaScores));
-  }
+  const defaultScores = speakingScoresFromSaved(data.grade?.criteriaScores);
 
   let timeRange = "TBD";
   if (data.scheduledAt) {
@@ -1018,7 +1008,7 @@ export function mapSpeakingSession(data: SpeakingSession) {
           : "Waiting to connect",
     criteria: speakingCriteria,
     defaultScores,
-    overallBand: data.grade?.overallBand ?? 7.0,
+    overallBand: data.grade?.overallBand ?? null,
     graded: Boolean(data.grade),
     gradedBand: data.grade?.overallBand ?? null,
     teacherNotes: data.teacherNotes ?? "",

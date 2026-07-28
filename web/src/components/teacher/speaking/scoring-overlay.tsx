@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
 import {
+  assertSpeakingScoresComplete,
   bandOptions,
   computeOverall,
+  emptySpeakingScores,
   speakingGradeIsDirty,
+  speakingScoresComplete,
   toSpeakingCriteriaPayload,
   type ScoringCriterion,
+  type SpeakingScoreValues,
 } from "@/lib/speaking/scoring";
 import { scoreSpeaking } from "@/lib/api/grading";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -26,15 +30,20 @@ function ScoreRow({
   onChange,
 }: {
   label: string;
-  value: number;
+  value: number | null;
   onChange: (score: number) => void;
 }) {
   return (
     <div className="space-y-2">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium leading-snug text-white/85">{label}</p>
-        <span className="shrink-0 text-lg font-bold tabular-nums text-sky-300">
-          {value}
+        <span
+          className={cn(
+            "shrink-0 text-lg font-bold tabular-nums",
+            value != null ? "text-sky-300" : "text-white/35",
+          )}
+        >
+          {value != null ? value : "—"}
         </span>
       </div>
       <div className="grid grid-cols-5 gap-1.5">
@@ -62,26 +71,25 @@ export function ScoringSidebar() {
   const router = useRouter();
   const { speaking } = useExaminerPaths();
   const { session, sessionId, refreshSession, refreshHub } = useTeacherSpeaking();
-  const [scores, setScores] = useState(
-    session?.defaultScores ?? {
-      fluency: 7,
-      lexical: 7,
-      grammar: 7,
-      pronunciation: 7,
-    },
-  );
-  const [notes, setNotes] = useState(session?.teacherNotes ?? "");
+  const [scores, setScores] = useState<SpeakingScoreValues>(emptySpeakingScores());
+  const [notes, setNotes] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { endSession, leaveRoom } = useSpeakingRoom();
+  const syncedGradeKeyRef = useRef<string | null>(null);
+
+  const savedGradeKey = session
+    ? `${session.id}:${session.graded}:${JSON.stringify(session.defaultScores)}:${session.teacherNotes ?? ""}`
+    : null;
 
   useEffect(() => {
-    if (session) {
-      setScores(session.defaultScores);
-      setNotes(session.teacherNotes);
-    }
-  }, [session]);
+    if (!session || !savedGradeKey) return;
+    if (syncedGradeKeyRef.current === savedGradeKey) return;
+    syncedGradeKeyRef.current = savedGradeKey;
+    setScores(session.defaultScores);
+    setNotes(session.teacherNotes);
+  }, [session, savedGradeKey]);
 
   const overall = useMemo(() => computeOverall(scores), [scores]);
   const alreadyGraded = session?.graded ?? false;
@@ -92,7 +100,8 @@ export function ScoringSidebar() {
       notes: session.teacherNotes ?? "",
     });
   }, [session, scores, notes]);
-  const canSubmit = !alreadyGraded || gradeDirty;
+  const allCriteriaScored = speakingScoresComplete(scores);
+  const canSubmit = allCriteriaScored && (!alreadyGraded || gradeDirty);
 
   if (!session) return null;
 
@@ -101,12 +110,13 @@ export function ScoringSidebar() {
   }
 
   async function submitGrade() {
-    if (!session || !sessionId) return;
+    if (!session || !sessionId || overall == null) return;
     setConfirmOpen(false);
     setSubmitting(true);
     try {
+      const completeScores = assertSpeakingScoresComplete(scores);
       await scoreSpeaking(sessionId, {
-        criteriaScores: toSpeakingCriteriaPayload(scores),
+        criteriaScores: toSpeakingCriteriaPayload(completeScores),
         overallBand: overall,
         feedback: notes.trim() || undefined,
         teacherNotes: notes.trim() || undefined,
@@ -150,7 +160,7 @@ export function ScoringSidebar() {
               Band score
             </p>
             <p className="mt-1 text-5xl font-bold tabular-nums leading-none text-white">
-              {overall.toFixed(1)}
+              {overall != null ? overall.toFixed(1) : "—"}
             </p>
           </div>
 
@@ -203,7 +213,7 @@ export function ScoringSidebar() {
       <ConfirmDialog
         open={confirmOpen}
         title={alreadyGraded ? "Update speaking grade" : "Submit speaking grade"}
-        message={`${alreadyGraded ? "Update" : "Submit"} band ${overall.toFixed(1)} for ${session.studentName}?`}
+        message={`${alreadyGraded ? "Update" : "Submit"} band ${overall?.toFixed(1) ?? "—"} for ${session.studentName}?`}
         confirmLabel={alreadyGraded ? "Update grade" : "Submit grade"}
         onConfirm={submitGrade}
         onCancel={() => setConfirmOpen(false)}

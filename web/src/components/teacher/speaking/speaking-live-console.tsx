@@ -40,11 +40,14 @@ import { mapTeacherSpeakingSessions } from "@/lib/api/mappers/teacher";
 import { pickNextSpeakingSession } from "@/lib/speaking/session-queue";
 import { useToast } from "@/components/ui/toast";
 import { EXAMINER_INTEGRITY_ALERTS } from "@/hooks/use-speaking-integrity";
+import { useAuth, getInitials } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 export function SpeakingLiveConsole() {
   const router = useRouter();
   const { toast } = useToast();
+  const { session: authSession } = useAuth();
+  const examinerInitials = getInitials(authSession?.name ?? "Examiner");
   const { speaking } = useExaminerPaths();
   const {
     session,
@@ -387,22 +390,22 @@ export function SpeakingLiveConsole() {
                 remoteLabel={session.studentName}
                 localLabel="You"
                 remotePlaceholder={session.studentInitials}
-                localPlaceholder={session.studentInitials.slice(0, 1)}
+                localPlaceholder={examinerInitials}
                 className="h-full min-h-[280px]"
                 overlay={
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-28 pt-16 sm:px-8">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/65 to-transparent px-4 pb-28 pt-20 sm:px-8">
                     {contentLoading ? (
                       <div className="flex items-center gap-2 text-white/70">
                         <Loader2 className="h-5 w-5 animate-spin" />
                         Loading examiner prompts…
                       </div>
                     ) : contentError ? (
-                      <p className="text-sm text-amber-300">
+                      <p className="text-sm text-amber-300 [text-shadow:0_1px_8px_rgba(0,0,0,0.85)]">
                         Could not load content bank — using defaults.
                       </p>
                     ) : (
-                      <>
-                        <p className="text-xs font-bold uppercase tracking-widest text-sky-300">
+                      <div className="max-w-3xl rounded-xl bg-black/45 px-4 py-3 backdrop-blur-sm sm:px-5 sm:py-4">
+                        <p className="text-xs font-bold uppercase tracking-widest text-sky-300 [text-shadow:0_1px_6px_rgba(0,0,0,0.9)]">
                           Part {partNum} · {current?.title ?? "Speaking"}
                           {activeTopic?.title && activePart !== 2 && (
                             <span className="ml-2 text-white/70">
@@ -417,12 +420,12 @@ export function SpeakingLiveConsole() {
                             </span>
                           )}
                         </p>
-                        <p className="mt-2 max-w-3xl text-xl font-semibold leading-snug text-white sm:text-2xl lg:text-3xl">
+                        <p className="mt-2 text-xl font-semibold leading-snug text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.95),0_1px_3px_rgba(0,0,0,0.85)] sm:text-2xl lg:text-3xl">
                           {displayPrompt || "Select a part to begin."}
                         </p>
                         {activePart === 2 && current?.cueCard && (
-                          <div className="mt-4 max-w-lg rounded-lg border border-amber-400/40 bg-amber-950/60 px-4 py-3">
-                            <p className="text-sm font-bold text-amber-100">
+                          <div className="mt-4 max-w-lg rounded-lg border border-amber-400/40 bg-amber-950/70 px-4 py-3 backdrop-blur-sm">
+                            <p className="text-sm font-bold text-amber-100 [text-shadow:0_1px_6px_rgba(0,0,0,0.8)]">
                               {current.cueCard.topic}
                             </p>
                             <ul className="mt-1 list-disc pl-5 text-xs text-amber-100/90">
@@ -435,7 +438,7 @@ export function SpeakingLiveConsole() {
                             </p>
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 }

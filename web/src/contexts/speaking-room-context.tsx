@@ -361,6 +361,7 @@ function OfflineSpeakingRoomProvider({
 }
 
 function EnsureMediaEnabled() {
+  const room = useRoomContext();
   const connectionState = useConnectionState();
   const { localParticipant } = useLocalParticipant();
 
@@ -373,20 +374,33 @@ function EnsureMediaEnabled() {
 
     async function enableMedia() {
       try {
-        await localParticipant.setMicrophoneEnabled(true);
-        if (!cancelled) {
-          await localParticipant.setCameraEnabled(true);
+        if (!localParticipant.isMicrophoneEnabled) {
+          await localParticipant.setMicrophoneEnabled(true);
+        }
+        if (!localParticipant.isCameraEnabled) {
+          await localParticipant.setCameraEnabled(true, {
+            facingMode: "user",
+            resolution: { width: 1280, height: 720, frameRate: 24 },
+          });
         }
       } catch (err) {
-        console.warn("Could not enable camera/microphone:", err);
+        if (!cancelled) {
+          console.warn("Could not enable camera/microphone:", err);
+        }
       }
     }
 
+    const onReconnect = () => {
+      void enableMedia();
+    };
+
     void enableMedia();
+    room.on(RoomEvent.Reconnected, onReconnect);
     return () => {
       cancelled = true;
+      room.off(RoomEvent.Reconnected, onReconnect);
     };
-  }, [connectionState, localParticipant]);
+  }, [connectionState, localParticipant, room]);
 
   return null;
 }

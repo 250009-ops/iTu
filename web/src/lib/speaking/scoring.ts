@@ -6,6 +6,40 @@ export type ScoringCriterion =
   | "grammar"
   | "pronunciation";
 
+/** Live scoring values; null means the examiner has not selected a band yet. */
+export type SpeakingScoreValues = Record<ScoringCriterion, number | null>;
+
+export function emptySpeakingScores(): SpeakingScoreValues {
+  return {
+    fluency: null,
+    lexical: null,
+    grammar: null,
+    pronunciation: null,
+  };
+}
+
+export function speakingScoresFromSaved(
+  criteriaScores?: Record<string, number> | null,
+): SpeakingScoreValues {
+  const scores = emptySpeakingScores();
+  if (criteriaScores) {
+    for (const [key, value] of Object.entries(
+      fromSpeakingCriteriaPayload(criteriaScores),
+    )) {
+      scores[key as ScoringCriterion] = value;
+    }
+  }
+  return scores;
+}
+
+export function speakingScoresComplete(
+  scores: SpeakingScoreValues,
+): scores is Record<ScoringCriterion, number> {
+  return (Object.keys(scores) as ScoringCriterion[]).every(
+    (key) => scores[key] != null,
+  );
+}
+
 /** Full IELTS band scale: 0, 0.5, 1, … 9. */
 export const ieltsBandOptions = Array.from(
   { length: 19 },
@@ -21,9 +55,8 @@ export function formatElapsed(seconds: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export function computeOverall(
-  scores: Record<ScoringCriterion, number>,
-): number {
+export function computeOverall(scores: SpeakingScoreValues): number | null {
+  if (!speakingScoresComplete(scores)) return null;
   const values = Object.values(scores);
   const avg = values.reduce((a, b) => a + b, 0) / values.length;
   return Math.round(avg * 2) / 2;
@@ -64,6 +97,15 @@ export function toSpeakingCriteriaPayload(
   );
 }
 
+export function assertSpeakingScoresComplete(
+  scores: SpeakingScoreValues,
+): Record<ScoringCriterion, number> {
+  if (!speakingScoresComplete(scores)) {
+    throw new Error("All speaking criteria must be scored before submit");
+  }
+  return scores;
+}
+
 export function fromSpeakingCriteriaPayload(
   criteriaScores: Record<string, number>,
 ): Partial<Record<ScoringCriterion, number>> {
@@ -78,9 +120,9 @@ export function fromSpeakingCriteriaPayload(
 }
 
 export function speakingGradeIsDirty(
-  scores: Record<ScoringCriterion, number>,
+  scores: SpeakingScoreValues,
   notes: string,
-  saved: { scores: Record<ScoringCriterion, number>; notes: string },
+  saved: { scores: SpeakingScoreValues; notes: string },
 ): boolean {
   if (notes.trim() !== saved.notes.trim()) return true;
   return (Object.keys(saved.scores) as ScoringCriterion[]).some(
