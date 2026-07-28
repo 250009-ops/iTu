@@ -28,7 +28,7 @@ export function exportEnrollmentsCsv(enrollments: Enrollment[]) {
       e.enrollmentId,
       e.studentName,
       e.country,
-      e.targetBand,
+      e.targetBand ?? "",
       e.examDate,
       e.examTime,
       e.lifecycle,

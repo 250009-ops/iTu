@@ -6,11 +6,11 @@ import { LEGAL } from "@/lib/marketing/data";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "The terms governing your use of the iTestU platform — bookings, payments, exam conduct, refunds, and your rights and responsibilities as a candidate.",
+    "The terms governing your use of the iTestU platform — bookings, payments, exam conduct, refunds, antifraud measures, and your rights and responsibilities as a candidate.",
   alternates: { canonical: "/terms" },
 };
 
-const UPDATED = "1 June 2026";
+const UPDATED = "27 July 2026";
 
 const SECTIONS: LegalSection[] = [
   {
@@ -24,8 +24,9 @@ const SECTIONS: LegalSection[] = [
           agree, you must not use the Service.
         </p>
         <p>
-          These terms form a binding agreement between you and iTestU. We may update them from
-          time to time; the &ldquo;last updated&rdquo; date above reflects the current version.
+          These terms form a binding agreement between you and iTestU (the public offer / оферта). We
+          may update them from time to time; the &ldquo;last updated&rdquo; date above reflects the
+          current version.
         </p>
       </>
     ),
@@ -67,12 +68,12 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "payments",
-    heading: "Payments & pricing",
+    heading: "Payments & payment methods",
     body: (
       <>
         <p>
-          Prices are shown at checkout and are charged in the currency displayed. Payments are
-          processed securely by our payment provider; we do not store your card details.
+          Prices are shown at checkout and are charged in the currency displayed.{" "}
+          {LEGAL.paymentMethods}
         </p>
         <p>
           We may change prices for future bookings at any time. Any applicable taxes are your
@@ -86,20 +87,34 @@ const SECTIONS: LegalSection[] = [
     heading: "Cancellations & refunds",
     body: (
       <>
+        <p>{LEGAL.refundPolicy}</p>
         <p>
-          You may reschedule an upcoming mock from your account before check-in. For refund requests,
-          contact {LEGAL.supportEmail} with your booking reference — our support team handles refunds
-          on a case-by-case basis.
+          Refund timing reference: the cancellation window above is{" "}
+          {LEGAL.refundWindowHours} hours before the scheduled session. Approved refunds are
+          returned through the original Uzum Checkout payment method where possible.
         </p>
-        <p>
-          Cancellations more than {LEGAL.refundWindowHours} hours before your scheduled session are
-          typically eligible for a full refund. Cancellations within {LEGAL.refundWindowHours} hours
-          may receive a partial refund or a free reschedule, at our discretion.
-        </p>
-        <p>
-          If we cancel a session for reasons within our control, you are entitled to a full refund or a
-          rescheduled session at no extra cost.
-        </p>
+      </>
+    ),
+  },
+  {
+    id: "antifraud",
+    heading: LEGAL.antifraudTitle,
+    body: (
+      <>
+        <p>{LEGAL.antifraudIntro}</p>
+        <p>{LEGAL.antifraudMeasuresLead}</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          {LEGAL.antifraudMeasures.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <p>{LEGAL.antifraudClientLead}</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          {LEGAL.antifraudClientDuties.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <p>{LEGAL.antifraudClosing}</p>
       </>
     ),
   },
@@ -181,10 +196,10 @@ const SECTIONS: LegalSection[] = [
       <p>
         Questions about these terms can be sent to{" "}
         <a
-          href="mailto:support@itestu.uz"
+          href={`mailto:${LEGAL.supportEmail}`}
           className="font-medium text-navy underline underline-offset-2 hover:text-brand-red"
         >
-          support@itestu.uz
+          {LEGAL.supportEmail}
         </a>
         .
       </p>
@@ -198,7 +213,7 @@ export default function TermsPage() {
       <PageHero
         eyebrow="Legal"
         title="Terms of Service"
-        subtitle="The agreement that governs your use of the iTestU platform — bookings, payments, exam conduct, and your rights as a candidate."
+        subtitle="The public offer that governs your use of the iTestU platform — bookings, payments, refunds, antifraud measures, exam conduct, and your rights as a candidate."
       />
       <LegalDoc
         updated={UPDATED}
@@ -206,8 +221,8 @@ export default function TermsPage() {
         intro={
           <p>
             Please read these terms carefully before using iTestU. They explain how bookings and
-            payments work, what we expect during exam sessions, and how results and refunds are
-            handled. Together with our{" "}
+            payments work, what we expect during exam sessions, how results and refunds are handled,
+            and the measures we take to limit fraudulent payment risks. Together with our{" "}
             <a
               href="/privacy"
               className="font-medium text-navy underline underline-offset-2 hover:text-brand-red"

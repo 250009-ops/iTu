@@ -11,7 +11,11 @@ export function GuestGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isHydrated || !isAuthenticated || !session) return;
-    router.replace(getDashboardPath(session.role));
+    router.replace(
+      getDashboardPath(session.role, {
+        institutionLinked: session.institutionLinked,
+      }),
+    );
   }, [isAuthenticated, isHydrated, router, session]);
 
   if (!isHydrated) {

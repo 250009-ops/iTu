@@ -23,7 +23,7 @@ interface QuestionPaletteProps {
   onSubmit: () => void;
   submitLabel?: string;
   theme?: ContrastTheme;
-  /** IDP Listening: equal-width part columns; active column shows question boxes. */
+  /** IDP Listening: equal-width part columns with all question numbers visible. */
   layout?: "inline" | "segmented";
 }
 
@@ -55,10 +55,7 @@ function QuestionBoxes({
           <button
             key={n}
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectQuestion(n);
-            }}
+            onClick={() => onSelectQuestion(n)}
             className={cn(
               "relative flex shrink-0 flex-col items-center px-0.5 pb-0.5 pt-0.5 text-[11px] font-normal transition",
               isCurrent
@@ -106,7 +103,7 @@ export function QuestionPalette({
   if (layout === "segmented") {
     return (
       <footer
-        className="z-20 flex h-10 shrink-0 items-stretch border-t"
+        className="z-20 flex h-11 shrink-0 items-stretch border-t"
         style={{
           ...EXAM_FONT_STYLE,
           backgroundColor: bar,
@@ -117,14 +114,11 @@ export function QuestionPalette({
         <div className="flex min-w-0 flex-1">
           {parts.map((p) => {
             const isActive = p.id === activePart;
-            const count = answeredCount(answers, p.numbers);
             return (
-              <button
+              <div
                 key={p.id}
-                type="button"
-                onClick={() => onSelectPart(p.id)}
                 className={cn(
-                  "flex min-w-0 flex-1 items-center gap-1.5 border-r px-2 text-left transition",
+                  "flex min-w-0 flex-1 items-center gap-1.5 border-r px-2 text-left",
                   isActive ? "bg-white" : "hover:bg-white/60",
                 )}
                 style={{
@@ -133,8 +127,16 @@ export function QuestionPalette({
                   color: fg,
                 }}
               >
-                <span className="shrink-0 text-[12px] font-bold">{p.label}</span>
-                {isActive ? (
+                <button
+                  type="button"
+                  onClick={() => onSelectPart(p.id)}
+                  className="shrink-0 text-[12px] font-bold transition hover:opacity-80"
+                  style={{ color: fg }}
+                  aria-current={isActive ? "true" : undefined}
+                >
+                  {p.label}
+                </button>
+                <div className="min-w-0 flex-1">
                   <QuestionBoxes
                     numbers={p.numbers}
                     answers={answers}
@@ -143,12 +145,8 @@ export function QuestionPalette({
                     fg={fg}
                     border={border}
                   />
-                ) : (
-                  <span className="truncate text-[12px] font-normal" style={{ color: muted }}>
-                    {count} of {p.numbers.length}
-                  </span>
-                )}
-              </button>
+                </div>
+              </div>
             );
           })}
         </div>

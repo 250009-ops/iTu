@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChangePasswordPanel } from "@/components/admin/account/change-password-panel";
 import { BandTablePanel } from "@/components/admin/settings/band-table-panel";
 import { CommissionPanel } from "@/components/admin/settings/commission-panel";
+import { ExamIntegrityPanel } from "@/components/admin/settings/exam-integrity-panel";
 import { ExamTimersPanel } from "@/components/admin/settings/exam-timers-panel";
 import { GeneralSettingsPanel } from "@/components/admin/settings/general-settings-panel";
 import { IntegrationsPanel } from "@/components/admin/settings/integrations-panel";
@@ -22,6 +23,7 @@ import type { SettingsTab } from "@/lib/admin/types";
 const panels: Record<SettingsTab, React.ComponentType> = {
   general: GeneralSettingsPanel,
   exam_timers: ExamTimersPanel,
+  exam_integrity: ExamIntegrityPanel,
   commission: CommissionPanel,
   band_table: BandTablePanel,
   notifications: NotificationsPanel,
@@ -33,7 +35,7 @@ function SettingsContent() {
   const { loading, error } = useAdminSettings();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const Panel = panels[activeTab];
-  const isAccountTab = activeTab === "account";
+  const hideFooter = activeTab === "account" || activeTab === "band_table";
 
   return (
     <ApiDataShell loading={loading} error={error}>
@@ -45,7 +47,7 @@ function SettingsContent() {
             </aside>
             <div className="min-w-0 flex-1 rounded-xl border border-border bg-white shadow-sm">
               <Panel />
-              {!isAccountTab && <SettingsFooter />}
+              {!hideFooter && <SettingsFooter />}
             </div>
           </div>
       </PortalPage>

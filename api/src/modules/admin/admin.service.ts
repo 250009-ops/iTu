@@ -520,6 +520,7 @@ export class AdminService {
     const enrollments = await this.prisma.enrollment.findMany({
       include: {
         student: { include: { user: true } },
+        package: { select: { skills: true } },
         writingTeacher: { include: { user: true } },
         speakingTeacher: { include: { user: true } },
         examSession: { include: { sectionAttempts: true } },
@@ -532,7 +533,7 @@ export class AdminService {
       IN_PROGRESS: 'in_progress',
       AWAITING_RESULTS: 'awaiting_results',
       COMPLETED: 'complete',
-      CANCELLED: 'complete',
+      CANCELLED: 'cancelled',
       MISSED: 'missed',
     };
 
@@ -545,24 +546,32 @@ export class AdminService {
           (e) => e.status === 'AWAITING_RESULTS',
         ).length,
         missed: enrollments.filter((e) => e.status === 'MISSED').length,
+        cancelled: enrollments.filter((e) => e.status === 'CANCELLED').length,
         completed: enrollments.filter((e) => e.status === 'COMPLETED').length,
       },
-      enrollments: enrollments.map((e) => ({
-        id: e.id,
-        enrollmentId: e.enrollmentCode,
-        studentName: e.student.user.name,
-        targetBand: e.student.targetBand,
-        country: e.student.country ?? '—',
-        examDate: e.mockDate,
-        examTime: e.mockTime,
-        completedModules: e.examSession?.sectionAttempts
-          .filter((a) => a.submittedAt)
-          .map((a) => a.skill.toLowerCase()) ?? [],
-        speakingExaminer: e.speakingTeacher?.user.name ?? '—',
-        writingExaminer: e.writingTeacher?.user.name ?? '—',
-        adminGranted: e.adminGranted,
-        lifecycle: lifecycleMap[e.status] ?? 'in_progress',
-      })),
+      enrollments: enrollments.map((e) => {
+        const includedModules = packageExamSkills(e.package.skills).map((s) =>
+          s.toLowerCase(),
+        );
+        return {
+          id: e.id,
+          enrollmentId: e.enrollmentCode,
+          studentName: e.student.user.name,
+          targetBand: e.student.targetBand,
+          country: e.student.country ?? '—',
+          examDate: e.mockDate,
+          examTime: e.mockTime,
+          includedModules,
+          completedModules: e.examSession?.sectionAttempts
+            .filter((a) => a.submittedAt)
+            .map((a) => a.skill.toLowerCase())
+            .filter((skill) => includedModules.includes(skill)) ?? [],
+          speakingExaminer: e.speakingTeacher?.user.name ?? '—',
+          writingExaminer: e.writingTeacher?.user.name ?? '—',
+          adminGranted: e.adminGranted,
+          lifecycle: lifecycleMap[e.status] ?? 'in_progress',
+        };
+      }),
     };
   }
 
@@ -594,7 +603,8 @@ export class AdminService {
       IN_PROGRESS: 'in_progress',
       AWAITING_RESULTS: 'awaiting_results',
       COMPLETED: 'complete',
-      CANCELLED: 'complete',
+      CANCELLED: 'cancelled',
+      MISSED: 'missed',
     };
 
     const packageSkills = packageExamSkills(enrollment.package.skills);

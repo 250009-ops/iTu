@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModuleTabs } from "@/components/admin/content/module-tabs";
 import { ContentSummaryCards } from "@/components/admin/content/content-summary-cards";
@@ -60,6 +61,7 @@ function PurchasedStudioInner({
 }
 
 export function PurchasedTestsPanel() {
+  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,18 +90,20 @@ export function PurchasedTestsPanel() {
     void load();
   }, [load]);
 
-  const { reconciling, reconcileError, paid } = useCheckoutPaymentReturn({
-    onPaid: async () => {
-      const data = await load({ silent: true });
-      toast("Test set unlocked", {
-        description:
-          data && data.tests.length > 0
-            ? `${data.tests.length} section test${data.tests.length === 1 ? "" : "s"} are ready in Purchased set.`
-            : "Your purchase is confirmed. Refresh if tests do not appear yet.",
-        variant: "success",
-      });
-    },
-  });
+  const { reconciling, reconcileError, paid, retryReconcile } =
+    useCheckoutPaymentReturn({
+      onPaid: async () => {
+        const data = await load({ silent: true });
+        toast("Test set unlocked", {
+          description:
+            data && data.tests.length > 0
+              ? `${data.tests.length} section test${data.tests.length === 1 ? "" : "s"} are ready in Purchased set.`
+              : "Your purchase is confirmed. Refresh if tests do not appear yet.",
+          variant: "success",
+        });
+        router.replace("/institution/tests/purchased");
+      },
+    });
 
   useEffect(() => {
     if (!paid) return;
@@ -196,32 +200,60 @@ export function PurchasedTestsPanel() {
   const grantsCount = raw?.grantsCount ?? 0;
   const hasTests = (raw?.tests.length ?? 0) > 0;
   const setTitles = (raw?.sets ?? []).map((set) => set.title);
-  const showEmptyCta = !loading && !error && grantsCount === 0 && !hasTests;
+  const showEmptyCta =
+    !loading && !error && !reconciling && grantsCount === 0 && !hasTests;
 
   return (
-    <ApiDataShell loading={loading || reconciling} error={error ?? reconcileError}>
-      {showEmptyCta ? (
-        <div className="mx-auto w-full max-w-7xl px-4 py-10 lg:px-6 xl:px-8">
-          <div className="rounded-xl border border-dashed border-border bg-slate-50 px-6 py-14 text-center">
-            <h2 className="text-base font-semibold text-navy">
-              No purchased tests yet
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-              Buy a test set to unlock section tests here, then assemble mocks for
-              student enrollment on the Mocks page.
-            </p>
-            <Link href="/institution/mocks/shop" className="mt-6 inline-block">
-              <Button variant="primary" size="sm">
-                Buy test sets
-              </Button>
-            </Link>
+    <div>
+      {reconciling ? (
+        <div className="border-b border-sky-200 bg-sky-50 px-6 py-3 text-sm text-sky-900">
+          <div className="mx-auto flex max-w-7xl items-center gap-2">
+            <span className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-600 border-t-transparent" />
+            <span>
+              Payment received — confirming your purchase and unlocking Purchased
+              set…
+            </span>
           </div>
         </div>
-      ) : (
-        <ContentStudioProvider value={studioValue}>
-          <PurchasedStudioInner setTitles={setTitles} />
-        </ContentStudioProvider>
-      )}
-    </ApiDataShell>
+      ) : null}
+      {reconcileError && !reconciling ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-900">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2">
+            <span>{reconcileError}</span>
+            <button
+              type="button"
+              onClick={() => void retryReconcile()}
+              className="font-semibold text-amber-950 underline-offset-2 hover:underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <ApiDataShell loading={loading && !paid} error={error}>
+        {showEmptyCta ? (
+          <div className="mx-auto w-full max-w-7xl px-4 py-10 lg:px-6 xl:px-8">
+            <div className="rounded-xl border border-dashed border-border bg-slate-50 px-6 py-14 text-center">
+              <h2 className="text-base font-semibold text-navy">
+                No purchased tests yet
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+                Buy a test set to unlock section tests here, then assemble mocks for
+                student enrollment on the Mocks page.
+              </p>
+              <Link href="/institution/mocks/shop" className="mt-6 inline-block">
+                <Button variant="primary" size="sm">
+                  Buy test sets
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <ContentStudioProvider value={studioValue}>
+            <PurchasedStudioInner setTitles={setTitles} />
+          </ContentStudioProvider>
+        )}
+      </ApiDataShell>
+    </div>
   );
 }

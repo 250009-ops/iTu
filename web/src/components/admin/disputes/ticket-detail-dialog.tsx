@@ -46,6 +46,7 @@ function roleBadge(role: Ticket["reporterRole"]) {
   if (role === "teacher") return "Teacher";
   if (role === "student") return "Student";
   if (role === "admin") return "Admin";
+  if (role === "institution") return "Institution";
   return "Reporter";
 }
 
@@ -402,10 +403,20 @@ export function TicketDetailDialog({
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-4 sm:px-6">
             <p className="text-xs text-muted">
-              Filed via {ticket.reporterRole === "teacher" ? "Teacher" : "Student"} Help
+              Filed via{" "}
+              {ticket.reporterRole === "teacher"
+                ? "Teacher"
+                : ticket.reporterRole === "institution"
+                  ? "Institution"
+                  : ticket.reporterRole === "admin"
+                    ? "Admin"
+                    : "Student"}{" "}
+              Help
             </p>
             <div className="flex flex-wrap gap-2">
-              {ticket.status !== "in_progress" && ticket.status !== "resolved" && (
+              {ticket.status !== "in_progress" &&
+                ticket.status !== "resolved" &&
+                ticket.status !== "closed" && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -416,7 +427,7 @@ export function TicketDetailDialog({
                   Mark in progress
                 </Button>
               )}
-              {ticket.status !== "resolved" && (
+              {ticket.status !== "resolved" && ticket.status !== "closed" && (
                 <Button
                   variant="primary"
                   size="sm"

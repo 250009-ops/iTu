@@ -36,8 +36,9 @@ type TeacherSpeakingValue = {
 const emptyHub = mapTeacherSpeakingSessions({
   today: [],
   upcoming: [],
+  awaitingGrade: [],
   completed: [],
-  counts: { today: 0, upcoming: 0, completed: 0 },
+  counts: { today: 0, upcoming: 0, awaitingGrade: 0, completed: 0 },
   nextSession: null,
   minutesUntilNext: null,
 });

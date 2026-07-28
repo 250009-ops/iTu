@@ -14,80 +14,6 @@ export function getInstitutionOverview() {
   return apiFetch<OverviewData>("/institution/overview");
 }
 
-export function getInstitutionMocks() {
-  return apiFetch<{
-    tabs: {
-      tabId: string;
-      label: string;
-      packageKind: string;
-      examType: string;
-    }[];
-    packages: {
-      id: string;
-      slug: string;
-      title: string;
-      description: string | null;
-      price: number;
-      currency: string;
-      examType: string;
-      packageKind: string;
-      mockNumber: number;
-      mostPopular: boolean;
-      rating: number | null;
-      reviewCount: number;
-      skills: unknown;
-      included: unknown;
-      rules: unknown;
-      grantSetId: string;
-      grantSetTitle: string;
-      grantSource: "ADMIN_GRANT" | "PURCHASE" | "OWN";
-    }[];
-    grants: {
-      setId: string;
-      setTitle: string;
-      grantedAt: string;
-      source: "ADMIN_GRANT" | "PURCHASE";
-    }[];
-    preview: {
-      tabs: {
-        tabId: string;
-        label: string;
-        packageKind: string;
-        examType: string;
-      }[];
-      packages: {
-        id: string;
-        slug: string;
-        title: string;
-        description: string | null;
-        price: number;
-        currency: string;
-        examType: string;
-        packageKind: string;
-        mockNumber: number;
-        mostPopular: boolean;
-        rating: number | null;
-        reviewCount: number;
-        skills: unknown;
-        included: unknown;
-        rules: unknown;
-        grantSetId: string;
-        grantSetTitle: string;
-        grantSource: "ADMIN_GRANT" | "PURCHASE" | "OWN";
-      }[];
-      showcaseSetTitle: string;
-    } | null;
-  }>("/institution/mocks");
-}
-
-export type InstitutionMockPackage = Awaited<
-  ReturnType<typeof getInstitutionMocks>
->["packages"][number];
-
-export type InstitutionMockPreview = NonNullable<
-  Awaited<ReturnType<typeof getInstitutionMocks>>["preview"]
->;
-
 export type InstitutionMockShopOffer = {
   setId: string | null;
   slug: string;
@@ -147,10 +73,12 @@ export function getMockSetOrderStatus(orderCode: string) {
   }>(`/institution/mocks/orders/${orderCode}/status`);
 }
 
+/** @deprecated Credit wallet retired — prefer mock set shop checkout. */
 export function getInstitutionCredits() {
   return apiFetch<CreditsData>("/institution/credits");
 }
 
+/** @deprecated Credit wallet retired — prefer createMockSetCheckout. */
 export function createCreditCheckout(packId: string) {
   return apiFetch<{
     orderCode: string;
@@ -163,6 +91,7 @@ export function createCreditCheckout(packId: string) {
   });
 }
 
+/** @deprecated Credit wallet retired — prefer getMockSetOrderStatus. */
 export function getCreditOrderStatus(orderCode: string) {
   return apiFetch<{
     orderCode: string;
@@ -185,6 +114,12 @@ export function approveStudent(id: string) {
 
 export function rejectStudent(id: string) {
   return apiFetch<{ status: string }>(`/institution/students/${id}/reject`, {
+    method: "POST",
+  });
+}
+
+export function removeStudent(id: string) {
+  return apiFetch<{ removed: boolean }>(`/institution/students/${id}/remove`, {
     method: "POST",
   });
 }
@@ -297,6 +232,23 @@ export function enrollStudents(body: {
     enrolled: number;
     failed: { studentId: string; error?: string }[];
   }>("/institution/enroll", { method: "POST", body });
+}
+
+export function reassignInstitutionExaminers(
+  enrollmentId: string,
+  body: { writingTeacherId?: string; speakingTeacherId?: string },
+) {
+  return apiFetch<{ reassigned: boolean }>(
+    `/institution/enrollments/${encodeURIComponent(enrollmentId)}/reassign-examiners`,
+    { method: "POST", body },
+  );
+}
+
+export function cancelInstitutionEnrollment(enrollmentId: string) {
+  return apiFetch<{ cancelled: boolean }>(
+    `/institution/enrollments/${encodeURIComponent(enrollmentId)}/cancel`,
+    { method: "POST" },
+  );
 }
 
 export function getInstitutionExaminers() {

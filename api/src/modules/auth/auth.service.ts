@@ -16,6 +16,7 @@ import {
   resolveAdminPermissions,
   type AdminPermission,
 } from '../../common/admin-permissions/admin-permissions';
+import { assertInstitutionCanLogin } from '../../common/institution/institution-access';
 import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { AuditAction } from '../../common/audit/audit.actions';
@@ -62,7 +63,7 @@ const ADMIN_HOME_BY_PERMISSION: Array<{
   { permission: 'settings', path: '/admin/settings' },
   { permission: 'notifications', path: '/admin/notifications' },
   { permission: 'help', path: '/admin/help' },
-  { permission: 'admins', path: '/admin/admins' },
+  // Intentionally omit `admins` — Team is main-admin-only and would loop if used as home.
 ];
 
 function resolveAdminHomePath(
@@ -72,7 +73,8 @@ function resolveAdminHomePath(
   for (const entry of ADMIN_HOME_BY_PERMISSION) {
     if (permissions?.includes(entry.permission)) return entry.path;
   }
-  return '/admin/help';
+  // Always-available self-service page — never gate the empty-permissions fallback.
+  return '/admin/account';
 }
 
 const CERT_MIME_TYPES = new Set([
@@ -138,6 +140,9 @@ export class AuthService {
 
     this.assertTeacherCanLogin(user);
     this.assertAdminCanLogin(user);
+    if (user.role === UserRole.INSTITUTION) {
+      assertInstitutionCanLogin(user.institution);
+    }
 
     if (!user.emailVerifiedAt) {
       if (

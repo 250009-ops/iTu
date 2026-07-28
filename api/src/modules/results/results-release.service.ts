@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { studentResultsPath } from '../../common/student-portal-paths';
 import { packageExamSkills } from '../content/package-skills';
 import { ResultsPdfService } from './results-pdf.service';
 
@@ -66,7 +67,16 @@ export class ResultsReleaseService {
 
     const allGraded =
       requiredSkills.length > 0 && requiredSkills.every(isSkillGraded);
-    if (!allGraded) return false;
+    if (!allGraded) {
+      const anyGraded = requiredSkills.some(isSkillGraded);
+      if (anyGraded && enrollment.resultsStatus !== ResultsStatus.PARTIAL) {
+        await this.prisma.enrollment.update({
+          where: { id: enrollmentId },
+          data: { resultsStatus: ResultsStatus.PARTIAL },
+        });
+      }
+      return false;
+    }
 
     await this.prisma.$transaction([
       this.prisma.enrollment.update({
@@ -88,7 +98,10 @@ export class ResultsReleaseService {
         'Results released',
         'Your mock exam results are now available.',
         NotificationType.RESULT,
-        '/student/results',
+        studentResultsPath(
+          enrollment.institutionId,
+          enrollment.enrollmentCode,
+        ),
       );
     }
 

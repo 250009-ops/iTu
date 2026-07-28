@@ -9,7 +9,7 @@ import {
 } from "@/components/teacher/speaking/speaking-sessions-list";
 import { useTeacherSpeaking } from "@/contexts/teacher-speaking-context";
 
-type SpeakingTab = "today" | "upcoming" | "completed";
+type SpeakingTab = "today" | "upcoming" | "awaiting" | "completed";
 
 function cnTab(active: boolean) {
   return [
@@ -20,10 +20,16 @@ function cnTab(active: boolean) {
   ].join(" ");
 }
 
-function cnCount(active: boolean) {
+function cnCount(active: boolean, emphasize?: boolean) {
   return [
     "rounded-full px-2 py-0.5 text-[11px] font-bold",
-    active ? "bg-rose-100 text-brand-red" : "bg-slate-100 text-muted",
+    active
+      ? emphasize
+        ? "bg-amber-100 text-amber-800"
+        : "bg-rose-100 text-brand-red"
+      : emphasize && !active
+        ? "bg-amber-50 text-amber-700"
+        : "bg-slate-100 text-muted",
   ].join(" ");
 }
 
@@ -34,11 +40,26 @@ export function SpeakingHubView({
 }) {
   const { hub, hubLoading, hubError, refreshHub } = useTeacherSpeaking();
   const [tab, setTab] = useState<SpeakingTab>("today");
+  const [tabInitialized, setTabInitialized] = useState(false);
   const isCentre = variant === "centre";
 
   useEffect(() => {
     void refreshHub();
   }, [refreshHub]);
+
+  // Prefer the backlog tab when there is ungraded work and nothing on today's schedule.
+  useEffect(() => {
+    if (tabInitialized || hubLoading) return;
+    if (hub.counts.awaitingGrade > 0 && hub.counts.today === 0) {
+      setTab("awaiting");
+    }
+    setTabInitialized(true);
+  }, [
+    tabInitialized,
+    hubLoading,
+    hub.counts.awaitingGrade,
+    hub.counts.today,
+  ]);
 
   if (hubLoading) {
     return (
@@ -60,17 +81,24 @@ export function SpeakingHubView({
   }
 
   const showNextHero =
-    tab === "today" &&
+    (tab === "today" || tab === "awaiting") &&
     hub.nextSession &&
     (hub.nextSession.uiStatus === "upcoming" ||
       hub.nextSession.uiStatus === "live" ||
       hub.nextSession.uiStatus === "awaiting_grade");
 
-  const tabs: { id: SpeakingTab; label: string; count: number }[] = [
-    { id: "today", label: "Today", count: hub.counts.today },
-    { id: "upcoming", label: "Upcoming", count: hub.counts.upcoming },
-    { id: "completed", label: "Completed", count: hub.counts.completed },
-  ];
+  const tabs: { id: SpeakingTab; label: string; count: number; emphasize?: boolean }[] =
+    [
+      { id: "today", label: "Today", count: hub.counts.today },
+      { id: "upcoming", label: "Upcoming", count: hub.counts.upcoming },
+      {
+        id: "awaiting",
+        label: "To grade",
+        count: hub.counts.awaitingGrade,
+        emphasize: hub.counts.awaitingGrade > 0,
+      },
+      { id: "completed", label: "Completed", count: hub.counts.completed },
+    ];
 
   return (
     <div className="p-4 lg:p-6 xl:p-8">
@@ -94,7 +122,7 @@ export function SpeakingHubView({
           )}
         </header>
 
-        <nav className="flex gap-6 border-b border-border">
+        <nav className="flex flex-wrap gap-6 border-b border-border">
           {tabs.map((item) => (
             <button
               key={item.id}
@@ -103,7 +131,9 @@ export function SpeakingHubView({
               className={cnTab(item.id === tab)}
             >
               {item.label}
-              <span className={cnCount(item.id === tab)}>{item.count}</span>
+              <span className={cnCount(item.id === tab, item.emphasize)}>
+                {item.count}
+              </span>
             </button>
           ))}
         </nav>
@@ -121,9 +151,13 @@ export function SpeakingHubView({
               sessions={hub.today}
               emptyTitle="No sessions today"
               emptyDescription={
-                isCentre
-                  ? "When your centre's students have speaking sessions scheduled for today, they appear here with quick access to the live console."
-                  : "When students book your speaking slots for today, they appear here with quick access to the live console."
+                hub.counts.awaitingGrade > 0
+                  ? isCentre
+                    ? `No sessions scheduled today, but ${hub.counts.awaitingGrade} completed session${hub.counts.awaitingGrade === 1 ? "" : "s"} still need grading — open the To grade tab.`
+                    : `No sessions scheduled today, but ${hub.counts.awaitingGrade} completed session${hub.counts.awaitingGrade === 1 ? "" : "s"} still need grading — open the To grade tab.`
+                  : isCentre
+                    ? "When your centre's students have speaking sessions scheduled for today, they appear here with quick access to the live console."
+                    : "When students book your speaking slots for today, they appear here with quick access to the live console."
               }
             />
           </div>
@@ -138,6 +172,29 @@ export function SpeakingHubView({
                 : undefined
             }
           />
+        )}
+
+        {tab === "awaiting" && (
+          <div className="space-y-5">
+            {showNextHero &&
+              hub.nextSession?.uiStatus === "awaiting_grade" && (
+                <NextSessionHero
+                  session={hub.nextSession}
+                  minutesUntilNext={hub.minutesUntilNext}
+                />
+              )}
+            <SpeakingSessionsList
+              title="Awaiting grade"
+              sessions={hub.awaitingGrade}
+              showDate
+              emptyTitle="No sessions waiting for a grade"
+              emptyDescription={
+                isCentre
+                  ? "When a centre speaking session ends without a band score, it appears here — including past days — until you submit grades."
+                  : "When a speaking session ends without a band score, it appears here — including past days — until you submit grades."
+              }
+            />
+          </div>
         )}
 
         {tab === "completed" && (

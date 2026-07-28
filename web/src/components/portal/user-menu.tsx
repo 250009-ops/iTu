@@ -27,10 +27,15 @@ export function UserMenu() {
   useClickOutside(ref, () => setOpen(false), open);
 
   const name = session?.name ?? "User";
-  const role =
-    session?.role != null
-      ? session.role.charAt(0).toUpperCase() + session.role.slice(1)
-      : "Guest";
+  const roleLabel = (() => {
+    if (pathname?.startsWith("/inst-examiner")) return "Centre Examiner";
+    if (pathname?.startsWith("/inst-student")) return "Centre Student";
+    if (pathname?.startsWith("/institution")) return "Institution";
+    if (session?.role != null) {
+      return session.role.charAt(0).toUpperCase() + session.role.slice(1);
+    }
+    return "Guest";
+  })();
 
   function navigate(path: string) {
     setOpen(false);
@@ -60,7 +65,7 @@ export function UserMenu() {
           <p className="text-sm font-semibold leading-tight text-foreground">
             {name}
           </p>
-          <p className="text-xs text-muted">{role}</p>
+          <p className="text-xs text-muted">{roleLabel}</p>
         </div>
         <ChevronDown
           className={cn(
@@ -80,7 +85,7 @@ export function UserMenu() {
               <div>
                 <p className="font-semibold text-navy">{name}</p>
                 <span className="mt-1 inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700">
-                  {role}
+                  {roleLabel}
                 </span>
               </div>
             </div>

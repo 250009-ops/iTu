@@ -658,7 +658,8 @@ tapTargets.sentenceQuote must be verbatim.`,
   ): QuestionInsight[] {
     const first = passage.paragraphs[0];
     const sentence = stripHtml(first?.text ?? '').split(/[.!?]/)[0] ?? '';
-    const marker = first?.marker ?? 'A';
+    const marker =
+      (typeof first?.marker === 'string' && first.marker.trim()) || 'A';
     const out: QuestionInsight[] = [];
     for (const [k, v] of Object.entries(answerKey)) {
       if (k.startsWith('$set$')) continue;
@@ -696,7 +697,9 @@ tapTargets.sentenceQuote must be verbatim.`,
         .slice(0, 3);
       for (const w of words) {
         entries.push({
-          paragraphMarker: p.marker ?? String.fromCharCode(65 + i),
+          paragraphMarker:
+            (typeof p.marker === 'string' && p.marker.trim()) ||
+            String.fromCharCode(65 + i),
           span: w.replace(/[^a-zA-Z-]/g, ''),
           kind: 'word',
           sense: {
@@ -747,23 +750,31 @@ tapTargets.sentenceQuote must be verbatim.`,
     skim: SkimTask[];
     scan: ScanTask[];
   } {
-    const skim: SkimTask[] = passage.paragraphs.slice(0, 4).map((p, i) => ({
-      paragraphMarker: p.marker ?? String.fromCharCode(65 + i),
-      mainIdeaQuestion: `What is the main idea of paragraph ${p.marker ?? i + 1}?`,
-      options: [
-        'The paragraph’s overall theme',
-        'A minor detail mentioned once',
-        'An unrelated example',
-      ],
-      correct: 0,
-    }));
+    const skim: SkimTask[] = passage.paragraphs.slice(0, 4).map((p, i) => {
+      const marker =
+        (typeof p.marker === 'string' && p.marker.trim()) ||
+        String.fromCharCode(65 + i);
+      return {
+        paragraphMarker: marker,
+        mainIdeaQuestion: `What is the main idea of paragraph ${marker}?`,
+        options: [
+          'The paragraph’s overall theme',
+          'A minor detail mentioned once',
+          'An unrelated example',
+        ],
+        correct: 0,
+      };
+    });
     const scan: ScanTask[] = passage.paragraphs.slice(0, 3).map((p, i) => {
       const quote = stripHtml(p.text).slice(0, 40).trim();
+      const marker =
+        (typeof p.marker === 'string' && p.marker.trim()) ||
+        String.fromCharCode(65 + i);
       return {
         id: `scan-${i + 1}`,
         prompt: `Find this phrase in the passage`,
         targetQuote: quote,
-        paragraphMarker: p.marker ?? String.fromCharCode(65 + i),
+        paragraphMarker: marker,
         expectedSeconds: 20,
       };
     });

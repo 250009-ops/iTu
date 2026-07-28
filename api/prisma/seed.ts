@@ -695,7 +695,7 @@ async function main() {
         settings: {
           platformName: 'IELTS Mock ERP',
           supportEmail: 'support@itestu.uz',
-          timezone: 'UTC',
+          timezone: 'Asia/Tashkent',
         },
       },
       {

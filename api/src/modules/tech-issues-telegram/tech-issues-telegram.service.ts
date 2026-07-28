@@ -218,8 +218,15 @@ export class TechIssuesTelegramService {
       url,
       secret_token: secret || undefined,
       allowed_updates: ['message', 'callback_query'],
+      drop_pending_updates: false,
     });
     return data?.ok === true;
+  }
+
+  async getWebhookInfo(): Promise<{ url?: string; pending_update_count?: number } | null> {
+    const data = await this.telegramCall('getWebhookInfo', undefined, 0);
+    if (!data?.ok || !data.result || typeof data.result !== 'object') return null;
+    return data.result as { url?: string; pending_update_count?: number };
   }
 
   async deleteWebhook(): Promise<void> {
@@ -547,13 +554,15 @@ export class TechIssuesTelegramService {
     if (message.chat.type && message.chat.type !== 'private') return;
 
     const chatId = message.chat.id;
-    const wizard = this.wizards.get(chatId);
-    const now = Date.now();
-    if (wizard && now - wizard.lastAt < RATE_LIMIT_MS) return;
-    if (wizard) wizard.lastAt = now;
-
     const text = (message.text ?? '').trim();
     const cmd = text.split(/\s+/)[0]?.split('@')[0] ?? '';
+    const isCommand = cmd.startsWith('/');
+
+    const wizard = this.wizards.get(chatId);
+    const now = Date.now();
+    // Never silently drop slash-commands — only rate-limit wizard text/photos.
+    if (!isCommand && wizard && now - wizard.lastAt < RATE_LIMIT_MS) return;
+    if (wizard) wizard.lastAt = now;
 
     if (cmd === '/start') {
       await this.handleStart(chatId);

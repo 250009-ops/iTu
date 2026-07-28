@@ -17,6 +17,11 @@ export interface AdminInstitution {
   examiners: number;
   enrollments: number;
   applicationSource: string | null;
+  logoUrl: string | null;
+  /** Marketing-site logo gate only (none | pending | approved | rejected). */
+  marketingLogoStatus: string;
+  marketingLogoReviewedAt: string | null;
+  marketingLogoReviewNote: string | null;
   owner: {
     id: string;
     name: string;
@@ -41,6 +46,20 @@ export function approveInstitution(id: string) {
 export function rejectInstitution(id: string) {
   return apiFetch<AdminInstitution>(`/admin/institutions/${id}/reject`, {
     method: "POST",
+  });
+}
+
+export function approveInstitutionMarketingLogo(id: string, note?: string) {
+  return apiFetch<AdminInstitution>(`/admin/institutions/${id}/logo/approve`, {
+    method: "POST",
+    body: note ? { note } : {},
+  });
+}
+
+export function rejectInstitutionMarketingLogo(id: string, note?: string) {
+  return apiFetch<AdminInstitution>(`/admin/institutions/${id}/logo/reject`, {
+    method: "POST",
+    body: note ? { note } : {},
   });
 }
 

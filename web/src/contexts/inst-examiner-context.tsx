@@ -2,14 +2,17 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
+import { useSseStream } from "@/hooks/use-sse-stream";
 import { getMe } from "@/lib/api/auth";
-import { getWritingGradingHub } from "@/lib/api/grading";
-import { getTeacherSpeakingSessions } from "@/lib/api/teachers";
+import { getSpeakingQueue, getWritingGradingHub } from "@/lib/api/grading";
 import {
   canAccessSpeaking,
   canAccessWriting,
@@ -30,6 +33,7 @@ interface InstExaminerContextValue {
   info: InstExaminerInfo | null;
   speciality: ExaminerSpeciality;
   badges: { speaking: number; writing: number };
+  refreshBadges: () => void;
 }
 
 const InstExaminerContext = createContext<InstExaminerContextValue | undefined>(
@@ -37,11 +41,18 @@ const InstExaminerContext = createContext<InstExaminerContextValue | undefined>(
 );
 
 export function InstExaminerProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [info, setInfo] = useState<InstExaminerInfo | null>(null);
   const [isInstitutionExaminer, setIsInstitutionExaminer] = useState(false);
   const [speciality, setSpeciality] = useState<ExaminerSpeciality>("both");
   const [badges, setBadges] = useState({ speaking: 0, writing: 0 });
+  const [badgeTick, setBadgeTick] = useState(0);
+
+  const refreshBadges = useCallback(() => {
+    setBadgeTick((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,13 +75,16 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
         });
 
         if (linked) {
-          const badgeRequests: Promise<{ area: "speaking" | "writing"; count: number }>[] =
-            [];
+          const badgeRequests: Promise<{
+            area: "speaking" | "writing";
+            count: number;
+          }>[] = [];
           if (canAccessSpeaking(examinerSpeciality)) {
             badgeRequests.push(
-              getTeacherSpeakingSessions().then((res) => ({
+              getSpeakingQueue().then((res) => ({
                 area: "speaking" as const,
-                count: res.counts.upcoming,
+                // Align with marketplace getNavBadgeCounts: completed, ungraded.
+                count: res.length,
               })),
             );
           }
@@ -78,7 +92,8 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
             badgeRequests.push(
               getWritingGradingHub().then((res) => ({
                 area: "writing" as const,
-                count: res.counts.pending,
+                // Align with marketplace nav badges: PENDING + IN_REVIEW.
+                count: res.counts.pending + res.counts.inReview,
               })),
             );
           }
@@ -108,11 +123,35 @@ export function InstExaminerProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pathname, badgeTick, session?.accessToken]);
+
+  useSseStream(session?.accessToken ? "/teachers/nav-badges/stream" : null, {
+    enabled: Boolean(session?.accessToken) && isInstitutionExaminer,
+    onMessage: (payload) => {
+      const msg = payload as {
+        type?: string;
+        speaking?: number;
+        writing?: number;
+      };
+      if (msg.type === "badges") {
+        setBadges({
+          speaking: msg.speaking ?? 0,
+          writing: msg.writing ?? 0,
+        });
+      }
+    },
+  });
 
   return (
     <InstExaminerContext.Provider
-      value={{ loading, isInstitutionExaminer, info, speciality, badges }}
+      value={{
+        loading,
+        isInstitutionExaminer,
+        info,
+        speciality,
+        badges,
+        refreshBadges,
+      }}
     >
       {children}
     </InstExaminerContext.Provider>

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Check, UserPlus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Check, UserPlus, UserMinus, X } from "lucide-react";
 import {
   approveStudent,
   getInstitutionStudents,
   inviteStudent,
   rejectStudent,
+  removeStudent,
 } from "@/lib/api/institution";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { Button } from "@/components/ui/button";
@@ -37,11 +38,18 @@ type TabId = (typeof TABS)[number]["id"];
 
 export function InstitutionStudentsView() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialTab = (searchParams.get("status") as TabId) ?? "active";
+  const enrollIntent = searchParams.get("enroll") === "1";
   const [tab, setTab] = useState<TabId>(
     TABS.some((t) => t.id === initialTab) ? initialTab : "active",
   );
   const [enrollStudent, setEnrollStudent] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [pickEnrollOpen, setPickEnrollOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
@@ -53,6 +61,13 @@ export function InstitutionStudentsView() {
     () => getInstitutionStudents(tab),
     [tab],
   );
+
+  useEffect(() => {
+    if (!enrollIntent || loading) return;
+    setPickEnrollOpen(true);
+    // Clear the query so refresh / tab changes don't keep reopening.
+    router.replace("/institution/students?status=active", { scroll: false });
+  }, [enrollIntent, loading, router]);
 
   async function handleApprove(id: string) {
     setBusyId(id);
@@ -85,6 +100,33 @@ export function InstitutionStudentsView() {
       setBusyId(null);
     }
   }
+
+  async function handleRemove() {
+    if (!removeTarget) return;
+    setBusyId(removeTarget.id);
+    try {
+      await removeStudent(removeTarget.id);
+      toast("Student removed", {
+        description: `${removeTarget.name} is no longer linked to your centre.`,
+        variant: "success",
+      });
+      setRemoveTarget(null);
+      await refresh({ silent: true });
+    } catch (err) {
+      toast("Could not remove student", {
+        description: getErrorMessage(
+          err,
+          "They may still have active enrollments.",
+        ),
+        variant: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const activeStudents =
+    data?.students.filter((s) => s.status === "active") ?? [];
 
   return (
     <PortalPage>
@@ -175,16 +217,29 @@ export function InstitutionStudentsView() {
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-2">
                         {s.status === "active" && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() =>
-                              setEnrollStudent({ id: s.id, name: s.name })
-                            }
-                          >
-                            <UserPlus className="h-4 w-4" />
-                            Enroll
-                          </Button>
+                          <>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                setEnrollStudent({ id: s.id, name: s.name })
+                              }
+                            >
+                              <UserPlus className="h-4 w-4" />
+                              Enroll
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busyId === s.id}
+                              onClick={() =>
+                                setRemoveTarget({ id: s.id, name: s.name })
+                              }
+                              aria-label={`Remove ${s.name}`}
+                            >
+                              <UserMinus className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
                         {s.status === "pending" && (
                           <>
@@ -226,6 +281,108 @@ export function InstitutionStudentsView() {
           void refresh({ silent: true });
         }}
       />
+
+      <Modal
+        open={pickEnrollOpen}
+        onClose={() => setPickEnrollOpen(false)}
+        ariaLabel="Select student to enroll"
+        className="max-w-md"
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="text-base font-bold text-navy">Enroll a student</h2>
+          <button
+            type="button"
+            onClick={() => setPickEnrollOpen(false)}
+            className="rounded-lg p-1 text-muted hover:bg-slate-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-3 p-5">
+          <p className="text-sm text-muted">
+            Choose an active student to open the enrollment wizard.
+          </p>
+          {activeStudents.length === 0 ? (
+            <p className="text-sm text-muted">
+              No active students yet. Approve pending sign-ups first.
+            </p>
+          ) : (
+            <ul className="max-h-64 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+              {activeStudents.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-50"
+                    onClick={() => {
+                      setPickEnrollOpen(false);
+                      setEnrollStudent({ id: s.id, name: s.name });
+                    }}
+                  >
+                    <span>
+                      <span className="font-medium text-navy">{s.name}</span>
+                      <span className="mt-0.5 block text-xs text-muted">
+                        {s.email}
+                      </span>
+                    </span>
+                    <UserPlus className="h-4 w-4 text-muted" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={removeTarget != null}
+        onClose={() => !busyId && setRemoveTarget(null)}
+        ariaLabel="Remove student"
+        className="max-w-md"
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="text-base font-bold text-navy">Remove student?</h2>
+          <button
+            type="button"
+            onClick={() => setRemoveTarget(null)}
+            disabled={!!busyId}
+            className="rounded-lg p-1 text-muted hover:bg-slate-100 disabled:opacity-50"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-3 p-5 text-sm text-slate-600">
+          <p>
+            Unlink{" "}
+            <span className="font-semibold text-navy">
+              {removeTarget?.name}
+            </span>{" "}
+            from your centre? Their account stays intact, but they lose centre
+            membership and can no longer be enrolled from this panel.
+          </p>
+          <p className="text-xs text-muted">
+            Students with active enrollments must finish or cancel those first.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!!busyId}
+              onClick={() => setRemoveTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={busyId === removeTarget?.id}
+              onClick={() => void handleRemove()}
+            >
+              <UserMinus className="h-4 w-4" />
+              Remove from centre
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <AddStudentModal
         open={addOpen}

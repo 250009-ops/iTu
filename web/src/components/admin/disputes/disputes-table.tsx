@@ -81,6 +81,11 @@ const statusStyles: Record<
     dot: "bg-emerald-500",
     pill: "bg-emerald-50 text-emerald-700",
   },
+  closed: {
+    label: "Closed",
+    dot: "bg-slate-400",
+    pill: "bg-slate-100 text-slate-600",
+  },
 };
 
 const slaBarColors = {

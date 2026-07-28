@@ -54,6 +54,7 @@ export type PracticeLibraryUnit = {
 export type PracticeAttemptSummary = {
   id: string;
   attemptCode: string;
+  mode?: string;
   status: string;
   score: { rawScore?: number; band?: number | null; totalQuestions?: number } | null;
   startedAt: string;
@@ -226,6 +227,193 @@ export type PracticeGlossaryEntry = {
   level?: string;
 };
 
+/** Normalize current + legacy glossary JSON into player entries. */
+export function normalizePracticeGlossary(raw: unknown): PracticeGlossaryEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PracticeGlossaryEntry[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+
+    // Current pack shape: { span, sense:{en}, kind, paragraphMarker }
+    if (typeof row.span === "string" && row.span.trim()) {
+      const senseRaw =
+        row.sense && typeof row.sense === "object"
+          ? (row.sense as Record<string, unknown>)
+          : {};
+      const kind = row.kind;
+      out.push({
+        paragraphMarker:
+          typeof row.paragraphMarker === "string" ? row.paragraphMarker : null,
+        span: row.span.trim(),
+        kind:
+          kind === "phrase" || kind === "idiom" || kind === "collocation"
+            ? kind
+            : "word",
+        sense: {
+          en: typeof senseRaw.en === "string" ? senseRaw.en : String(senseRaw.en ?? ""),
+          uz: typeof senseRaw.uz === "string" ? senseRaw.uz : undefined,
+          ru: typeof senseRaw.ru === "string" ? senseRaw.ru : undefined,
+        },
+        pos: typeof row.pos === "string" ? row.pos : undefined,
+        level: typeof row.level === "string" ? row.level : undefined,
+      });
+      continue;
+    }
+
+    // Legacy seed shape: { term, en, uz?, paragraphIndex? }
+    if (typeof row.term === "string" && row.term.trim()) {
+      const idx =
+        typeof row.paragraphIndex === "number" ? row.paragraphIndex : null;
+      out.push({
+        paragraphMarker:
+          idx != null ? String.fromCharCode(65 + idx) : null,
+        span: row.term.trim(),
+        kind: "word",
+        sense: {
+          en: typeof row.en === "string" ? row.en : "",
+          uz: typeof row.uz === "string" ? row.uz : undefined,
+          ru: typeof row.ru === "string" ? row.ru : undefined,
+        },
+      });
+    }
+  }
+  return out;
+}
+
+export type PracticeVocabItem = {
+  word: string;
+  contextMeaning: string;
+  collocations: string[];
+  wordFamily: string[];
+  ieltsParaphrases: string[];
+  occurrenceAnchor: {
+    paragraphMarker: string | null;
+    sentenceQuote: string;
+  } | null;
+};
+
+export type PracticeParaphraseDrill = {
+  n: number;
+  type: string;
+  prompt: string;
+  acceptedAnswers: string[];
+  explanation: string;
+};
+
+/** Normalize current + legacy vocabPack JSON into review cards. */
+export function normalizePracticeVocabPack(raw: unknown): PracticeVocabItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PracticeVocabItem[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const word =
+      typeof row.word === "string"
+        ? row.word.trim()
+        : typeof row.term === "string"
+          ? row.term.trim()
+          : "";
+    if (!word) continue;
+
+    const anchorRaw =
+      row.occurrenceAnchor && typeof row.occurrenceAnchor === "object"
+        ? (row.occurrenceAnchor as Record<string, unknown>)
+        : null;
+    const paragraphMarker =
+      typeof anchorRaw?.paragraphMarker === "string"
+        ? anchorRaw.paragraphMarker
+        : typeof row.paragraphMarker === "string"
+          ? row.paragraphMarker
+          : typeof row.paragraphIndex === "number"
+            ? String.fromCharCode(65 + row.paragraphIndex)
+            : null;
+    const sentenceQuote =
+      typeof anchorRaw?.sentenceQuote === "string"
+        ? anchorRaw.sentenceQuote
+        : typeof row.example === "string"
+          ? row.example
+          : "";
+
+    const asStringArray = (value: unknown) =>
+      Array.isArray(value)
+        ? value.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+        : [];
+
+    out.push({
+      word,
+      contextMeaning:
+        typeof row.contextMeaning === "string"
+          ? row.contextMeaning
+          : typeof row.definition === "string"
+            ? row.definition
+            : typeof row.en === "string"
+              ? row.en
+              : "",
+      collocations: asStringArray(row.collocations),
+      wordFamily: asStringArray(row.wordFamily),
+      ieltsParaphrases: asStringArray(row.ieltsParaphrases),
+      occurrenceAnchor:
+        paragraphMarker || sentenceQuote
+          ? { paragraphMarker, sentenceQuote }
+          : null,
+    });
+  }
+  return out;
+}
+
+/** Normalize current + legacy paraphrase drill JSON into gym cards. */
+export function normalizePracticeParaphraseDrills(
+  raw: unknown,
+): PracticeParaphraseDrill[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PracticeParaphraseDrill[] = [];
+  raw.forEach((item, idx) => {
+    if (!item || typeof item !== "object") return;
+    const row = item as Record<string, unknown>;
+
+    // Current shape: { n, type, prompt, acceptedAnswers[], explanation }
+    if (typeof row.prompt === "string" && row.prompt.trim()) {
+      const accepted = Array.isArray(row.acceptedAnswers)
+        ? row.acceptedAnswers.filter(
+            (v): v is string => typeof v === "string" && v.trim().length > 0,
+          )
+        : [];
+      out.push({
+        n: typeof row.n === "number" ? row.n : idx + 1,
+        type: typeof row.type === "string" ? row.type : "paraphrase",
+        prompt: row.prompt.trim(),
+        acceptedAnswers: accepted,
+        explanation: typeof row.explanation === "string" ? row.explanation : "",
+      });
+      return;
+    }
+
+    // Legacy seed shape: { stem, options[], answerIndex, explanation }
+    if (typeof row.stem === "string" && row.stem.trim()) {
+      const options = Array.isArray(row.options)
+        ? row.options.filter(
+            (v): v is string => typeof v === "string" && v.trim().length > 0,
+          )
+        : [];
+      const answerIndex =
+        typeof row.answerIndex === "number" ? row.answerIndex : 0;
+      const accepted =
+        options[answerIndex] != null ? [options[answerIndex]] : options.slice(0, 1);
+      out.push({
+        n: idx + 1,
+        type: "multiple-choice",
+        prompt: [row.stem.trim(), ...options.map((o, i) => `${i + 1}. ${o}`)].join(
+          "\n",
+        ),
+        acceptedAnswers: accepted,
+        explanation: typeof row.explanation === "string" ? row.explanation : "",
+      });
+    }
+  });
+  return out;
+}
+
 export type PracticeReviewPayload = {
   attempt: {
     id: string;
@@ -250,24 +438,8 @@ export type PracticeReviewPayload = {
   sectionStatus: Record<string, string>;
   items: PracticeReviewItem[];
   glossary: PracticeGlossaryEntry[];
-  vocabPack: {
-    word: string;
-    contextMeaning: string;
-    collocations: string[];
-    wordFamily: string[];
-    ieltsParaphrases: string[];
-    occurrenceAnchor: {
-      paragraphMarker: string | null;
-      sentenceQuote: string;
-    };
-  }[];
-  paraphraseDrills: {
-    n: number;
-    type: string;
-    prompt: string;
-    acceptedAnswers: string[];
-    explanation: string;
-  }[];
+  vocabPack: PracticeVocabItem[];
+  paraphraseDrills: PracticeParaphraseDrill[];
   skimScanTasks: {
     skim: {
       paragraphMarker: string | null;

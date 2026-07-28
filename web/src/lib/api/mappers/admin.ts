@@ -73,6 +73,7 @@ function normalizeLifecycle(value: string): LifecycleStatus {
   if (v === "awaiting_results" || v === "awaiting") return "awaiting_results";
   if (v === "complete" || v === "completed") return "complete";
   if (v === "missed") return "missed";
+  if (v === "cancelled" || v === "canceled") return "cancelled";
   return "in_progress";
 }
 
@@ -157,8 +158,12 @@ function normalizeTicketPriority(priority: string): TicketPriority {
 
 function normalizeTicketStatus(status: string): TicketStatus {
   const s = status.toLowerCase().replace(/-/g, "_");
-  if (s === "open" || s === "in_progress" || s === "resolved") return s;
+  if (s === "open" || s === "in_progress" || s === "resolved" || s === "closed") {
+    return s;
+  }
   if (s.includes("progress")) return "in_progress";
+  if (s.includes("resolve")) return "resolved";
+  if (s.includes("close")) return "closed";
   return "open";
 }
 
@@ -289,46 +294,56 @@ export const emptyCompletionRates = [
 ];
 
 export function mapEnrollments(data: EnrollmentsResponse) {
-  const enrollments: Enrollment[] = data.enrollments.map((e) => ({
-    id: e.id,
-    enrollmentId: e.enrollmentId,
-    studentName: e.studentName,
-    initials: initials(e.studentName),
-    targetBand: e.targetBand ?? 0,
-    country: e.country,
-    examDate: formatDate(e.examDate),
-    examTime: e.examTime ?? "Flexible",
-    adminGranted: Boolean(e.adminGranted),
-    completedModules: e.completedModules.map(normalizeModule),
-    speakingExaminer: e.speakingExaminer,
-    speakingExaminerInitials: initials(e.speakingExaminer),
-    writingExaminer: e.writingExaminer,
-    writingExaminerInitials: initials(e.writingExaminer),
-    lifecycle: normalizeLifecycle(e.lifecycle),
-  }));
+  const enrollments: Enrollment[] = data.enrollments.map((e) => {
+    const includedModules = (e.includedModules?.length
+      ? e.includedModules
+      : ["listening", "reading", "writing", "speaking"]
+    ).map(normalizeModule);
+    const includedSet = new Set(includedModules);
+    return {
+      id: e.id,
+      enrollmentId: e.enrollmentId,
+      studentName: e.studentName,
+      initials: initials(e.studentName),
+      targetBand: e.targetBand ?? null,
+      country: e.country,
+      examDate: formatDate(e.examDate),
+      examTime: e.examTime ?? "Flexible",
+      adminGranted: Boolean(e.adminGranted),
+      includedModules,
+      completedModules: e.completedModules
+        .map(normalizeModule)
+        .filter((m) => includedSet.has(m)),
+      speakingExaminer: e.speakingExaminer,
+      speakingExaminerInitials: initials(e.speakingExaminer),
+      writingExaminer: e.writingExaminer,
+      writingExaminerInitials: initials(e.writingExaminer),
+      lifecycle: normalizeLifecycle(e.lifecycle),
+    };
+  });
 
   const summary = {
     total: data.summary.total,
     period: new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }),
     activeExams: data.summary.activeExams,
     awaitingResults: data.summary.awaitingResults,
+    missed: data.summary.missed ?? enrollments.filter((e) => e.lifecycle === "missed").length,
+    cancelled:
+      data.summary.cancelled ??
+      enrollments.filter((e) => e.lifecycle === "cancelled").length,
     completed: data.summary.completed,
   };
 
   const total = summary.total || 1;
+  const inProgressCount = enrollments.filter(
+    (e) => e.lifecycle === "in_progress",
+  ).length;
   const lifecyclePipeline = [
     {
-      stage: "Enrolled",
-      count: summary.total,
-      pct: 100,
-      sublabel: `${summary.total} Enrolled`,
-      tone: "navy" as const,
-    },
-    {
       stage: "In Progress",
-      count: summary.activeExams,
-      pct: Math.round((summary.activeExams / total) * 100),
-      sublabel: `${summary.activeExams} In Progress`,
+      count: inProgressCount,
+      pct: Math.round((inProgressCount / total) * 100),
+      sublabel: `${inProgressCount} of ${summary.total}`,
       tone: "sky" as const,
     },
     {
@@ -344,6 +359,13 @@ export function mapEnrollments(data: EnrollmentsResponse) {
       pct: Math.round((summary.completed / total) * 100),
       sublabel: `${summary.completed} Completed`,
       tone: "emerald" as const,
+    },
+    {
+      stage: "Missed",
+      count: summary.missed,
+      pct: Math.round((summary.missed / total) * 100),
+      sublabel: `${summary.missed} Missed`,
+      tone: "rose" as const,
     },
   ];
 
@@ -549,7 +571,9 @@ export function mapDisputes(disputes: Disputes) {
 
   const open = tickets.filter((t) => t.status === "open");
   const inProgress = tickets.filter((t) => t.status === "in_progress");
-  const resolved = tickets.filter((t) => t.status === "resolved");
+  const resolved = tickets.filter(
+    (t) => t.status === "resolved" || t.status === "closed",
+  );
   const urgentOpen = open.filter((t) => t.priority === "urgent").length;
   const slaBreached = tickets.filter((t) => t.sla.state === "overdue").length;
 
@@ -760,7 +784,7 @@ export function mapContentTests(tests: ContentTests) {
   return { tests: mapped, moduleTabs, summary };
 }
 
-const defaultExamTimerValues: Record<string, number> = {
+const defaultExamTimerMinutes: Record<string, number> = {
   listening: 40,
   reading: 60,
   writing: 60,
@@ -768,7 +792,10 @@ const defaultExamTimerValues: Record<string, number> = {
   break: 10,
   checkIn: 30,
   lateJoin: 15,
+  speakingEarlyJoinMin: 5,
 };
+
+const DEFAULT_DAY_CUTOFF_TIME = "23:59";
 
 const defaultNotificationValues: Record<string, boolean> = {
   booking: true,
@@ -778,6 +805,14 @@ const defaultNotificationValues: Record<string, boolean> = {
   payout: true,
   newDispute: true,
   slaBreach: true,
+};
+
+const defaultExamIntegrityValues: Record<string, boolean | number> = {
+  flagOnTabSwitch: true,
+  flagOnPaste: true,
+  flagOnFullscreenExit: true,
+  flagOnAudioSeek: true,
+  maxWarningsBeforeFlag: 1,
 };
 
 const defaultIntegrationValues: Record<string, boolean> = {
@@ -791,6 +826,23 @@ const defaultIntegrationValues: Record<string, boolean> = {
   s3Configured: false,
 };
 
+function mapExamTimers(raw: Record<string, unknown>) {
+  const minutes = Object.fromEntries(
+    Object.entries(defaultExamTimerMinutes).map(([key, fallback]) => [
+      key,
+      Number(raw[key] ?? fallback),
+    ]),
+  );
+  const cutoff =
+    typeof raw.dayCutoffTime === "string" && /^\d{2}:\d{2}$/.test(raw.dayCutoffTime)
+      ? raw.dayCutoffTime
+      : DEFAULT_DAY_CUTOFF_TIME;
+  return {
+    ...minutes,
+    dayCutoffTime: cutoff,
+  };
+}
+
 export function mapAdminSettings(raw: Record<string, unknown>) {
   const general = (raw.general ?? {}) as Record<string, unknown>;
   const commission = (raw.commission ?? {}) as Record<string, unknown>;
@@ -798,14 +850,26 @@ export function mapAdminSettings(raw: Record<string, unknown>) {
     string,
     unknown
   >;
+  const examIntegrityRaw = (raw.exam_integrity ??
+    raw.examIntegrity ??
+    {}) as Record<string, unknown>;
   const notificationsRaw = (raw.notifications ?? {}) as Record<string, unknown>;
   const integrationsRaw = (raw.integrations ?? {}) as Record<string, unknown>;
 
-  const examTimers = Object.fromEntries(
-    Object.entries(defaultExamTimerValues).map(([key, fallback]) => [
-      key,
-      Number(examTimersRaw[key] ?? fallback),
-    ]),
+  const examTimers = mapExamTimers(examTimersRaw);
+
+  const examIntegrity = Object.fromEntries(
+    Object.entries(defaultExamIntegrityValues).map(([key, fallback]) => {
+      if (key === "maxWarningsBeforeFlag") {
+        return [key, Number(examIntegrityRaw[key] ?? fallback)];
+      }
+      return [
+        key,
+        examIntegrityRaw[key] !== undefined
+          ? Boolean(examIntegrityRaw[key])
+          : fallback,
+      ];
+    }),
   );
 
   const notifications = Object.fromEntries(
@@ -845,6 +909,7 @@ export function mapAdminSettings(raw: Record<string, unknown>) {
         | "monthly",
     },
     examTimers,
+    examIntegrity,
     bandTable: (raw.band_table ?? raw.bandTable ?? {}) as Record<string, unknown>,
     notifications,
     integrations,

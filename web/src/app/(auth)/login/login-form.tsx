@@ -24,6 +24,10 @@ import { loginSchema, type LoginFormValues } from "@/lib/validations/auth";
 
 const SESSION_MESSAGES: Record<string, string> = {
   session_expired: "Your session has expired. Please sign in again.",
+  institution_suspended:
+    "Your centre account has been suspended. Contact support@itestu.uz for help.",
+  institution_inactive:
+    "Your centre account is not active. Contact support@itestu.uz for help.",
 };
 
 export default function LoginForm() {
@@ -82,9 +86,9 @@ export default function LoginForm() {
 
     router.push(
       response.dashboardPath ??
-        (verified.role === "student" && verified.institution != null
-          ? "/inst-student"
-          : getDashboardPath(role)),
+        getDashboardPath(role, {
+          institutionLinked: verified.institution != null,
+        }),
     );
   }
 

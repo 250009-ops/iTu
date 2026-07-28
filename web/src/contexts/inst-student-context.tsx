@@ -73,7 +73,12 @@ export function InstStudentProvider({ children }: { children: ReactNode }) {
           try {
             const dashboard = await getStudentDashboard();
             if (!cancelled) {
-              setHasActiveMock(dashboard.upcomingMock != null);
+              const um = dashboard.upcomingMock;
+              // Awaiting results is not an "active exam" for the nav badge;
+              // the dashboard card still surfaces grading status separately.
+              setHasActiveMock(
+                um != null && um.status !== "awaiting_results",
+              );
             }
           } catch {
             // Badge is best-effort; ignore failures.

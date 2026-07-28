@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CircleDot, Loader2, Users } from "lucide-react";
+import { CheckCircle2, CircleDot, Loader2, UserX, Users } from "lucide-react";
 import { useAdminEnrollments } from "@/contexts/admin-enrollments-context";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export function EnrollmentsSummaryCards() {
       icon: Users,
       card: "bg-navy text-white border-navy",
       subClass: "text-white/60",
+      iconClass: "bg-white/10 text-white",
       dot: null,
     },
     {
@@ -24,6 +25,7 @@ export function EnrollmentsSummaryCards() {
       icon: Loader2,
       card: "border-sky-100 bg-sky-50",
       subClass: "text-muted",
+      iconClass: "bg-white text-sky-600 shadow-sm",
       dot: "bg-sky-500",
     },
     {
@@ -33,7 +35,18 @@ export function EnrollmentsSummaryCards() {
       icon: CircleDot,
       card: "border-amber-100 bg-amber-50",
       subClass: "text-muted",
+      iconClass: "bg-white text-amber-600 shadow-sm",
       dot: "bg-amber-500",
+    },
+    {
+      label: "Missed",
+      value: String(summary.missed),
+      sub: "No-show / missed mock",
+      icon: UserX,
+      card: "border-rose-100 bg-rose-50",
+      subClass: "text-muted",
+      iconClass: "bg-white text-rose-600 shadow-sm",
+      dot: "bg-rose-500",
     },
     {
       label: "Completed",
@@ -42,12 +55,13 @@ export function EnrollmentsSummaryCards() {
       icon: CheckCircle2,
       card: "border-emerald-100 bg-emerald-50",
       subClass: "text-muted",
+      iconClass: "bg-white text-emerald-600 shadow-sm",
       dot: "bg-emerald-500",
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
       {cards.map((card) => {
         const Icon = card.icon;
         const isNavy = card.card.startsWith("bg-navy");
@@ -61,7 +75,7 @@ export function EnrollmentsSummaryCards() {
               <div
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-lg",
-                  isNavy ? "bg-white/10 text-white" : "bg-white text-sky-600 shadow-sm",
+                  card.iconClass,
                 )}
               >
                 <Icon className="h-4 w-4" strokeWidth={1.75} />

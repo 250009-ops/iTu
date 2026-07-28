@@ -152,12 +152,6 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: "bar-chart",
         permission: "reports",
       },
-      {
-        label: "Settings",
-        href: "/admin/settings",
-        icon: "settings",
-        permission: "settings",
-      },
     ],
   },
   {
@@ -168,6 +162,13 @@ export const adminNavGroups: AdminNavGroup[] = [
         href: "/admin/account",
         icon: "key-round",
         // No permission — every admin can change their own password.
+        // Also the empty-permissions home fallback (see firstAllowedAdminPath).
+      },
+      {
+        label: "Settings",
+        href: "/admin/settings",
+        icon: "settings",
+        permission: "settings",
       },
       {
         label: "Notifications",

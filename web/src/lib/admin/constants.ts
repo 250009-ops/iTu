@@ -15,6 +15,7 @@ export const settingsTabs: {
 }[] = [
   { id: "general", label: "General", description: "Platform identity & policies" },
   { id: "exam_timers", label: "Exam Timers", description: "Module duration controls" },
+  { id: "exam_integrity", label: "Exam Integrity", description: "Proctoring flags & warnings" },
   { id: "commission", label: "Commission", description: "Rates & payout rules" },
   { id: "band_table", label: "Band Table", description: "Raw score conversion" },
   { id: "notifications", label: "Notifications", description: "Alerts & email triggers" },
@@ -48,6 +49,7 @@ export const lifecycleFilterOptions: {
   { value: "awaiting_results", label: "Awaiting Results" },
   { value: "complete", label: "Complete" },
   { value: "missed", label: "Missed" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 export const teacherStatusFilterOptions: {
@@ -74,6 +76,7 @@ export const disputeStatusFilterOptions = [
   { value: "open", label: "Open" },
   { value: "in_progress", label: "In Progress" },
   { value: "resolved", label: "Resolved" },
+  { value: "closed", label: "Closed" },
 ] as const;
 
 export const disputePriorityFilterOptions = [
@@ -239,6 +242,33 @@ export const defaultNotificationGroups = [
     ],
   },
 ];
+
+export const defaultExamIntegrityFlags = [
+  {
+    id: "flagOnTabSwitch",
+    label: "Flag on tab switch",
+    hint: "Record when the candidate leaves the exam tab or window.",
+    defaultOn: true,
+  },
+  {
+    id: "flagOnPaste",
+    label: "Flag on paste",
+    hint: "Record clipboard paste attempts during Writing and similar inputs.",
+    defaultOn: true,
+  },
+  {
+    id: "flagOnFullscreenExit",
+    label: "Flag on fullscreen exit",
+    hint: "Record when the candidate exits fullscreen exam mode.",
+    defaultOn: true,
+  },
+  {
+    id: "flagOnAudioSeek",
+    label: "Flag on audio seek",
+    hint: "Record scrubbing or seeking of Listening audio.",
+    defaultOn: true,
+  },
+] as const;
 
 export function paymentLabel(method: string): string {
   const m = method.toLowerCase();

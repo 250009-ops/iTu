@@ -3,7 +3,22 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useAdminPermissions } from "@/contexts/admin-permissions-context";
-import { permissionForAdminPath } from "@/lib/admin/permissions";
+import {
+  ADMIN_ACCOUNT_PATH,
+  permissionForAdminPath,
+  type AdminPermission,
+} from "@/lib/admin/permissions";
+
+function pathIsReachable(
+  path: string,
+  can: (permission: AdminPermission) => boolean,
+  isMainAdmin: boolean,
+): boolean {
+  const required = permissionForAdminPath(path);
+  if (!required) return true;
+  if (required === "admins") return isMainAdmin;
+  return can(required);
+}
 
 export function AdminRouteGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -14,13 +29,17 @@ export function AdminRouteGuard({ children }: { children: ReactNode }) {
     if (loading) return;
     const required = permissionForAdminPath(pathname);
     if (!required) return;
-    if (required === "admins" && !isMainAdmin) {
-      router.replace(homePath);
-      return;
-    }
-    if (!can(required)) {
-      router.replace(homePath);
-    }
+    const denied =
+      (required === "admins" && !isMainAdmin) || !can(required);
+    if (!denied) return;
+
+    // Prefer homePath when reachable; never redirect onto the same gated URL
+    // (empty [] / stale /admin/help home caused an infinite loop).
+    const dest =
+      homePath !== pathname && pathIsReachable(homePath, can, isMainAdmin)
+        ? homePath
+        : ADMIN_ACCOUNT_PATH;
+    router.replace(dest);
   }, [can, homePath, isMainAdmin, loading, pathname, router]);
 
   if (loading) {

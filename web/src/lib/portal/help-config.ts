@@ -160,11 +160,6 @@ export const INST_EXAMINER_HELP_CATEGORIES: HelpCategory[] = [
     requiresRelated: true,
   },
   {
-    value: "technical_issue",
-    label: "Centre coordination",
-    hint: "Scheduling or compensation with your centre",
-  },
-  {
     value: "regrade_request",
     label: "Grading follow-up",
     hint: "Grading questions or regrade outcomes",
@@ -172,15 +167,15 @@ export const INST_EXAMINER_HELP_CATEGORIES: HelpCategory[] = [
   },
   {
     value: "technical_issue",
-    label: "Technical issue",
-    hint: "Platform, audio/video, or grading tools",
+    label: "Technical / centre coordination",
+    hint: "Platform, audio/video, grading tools, or centre scheduling",
   },
 ];
 
 export const STUDENT_HELP_FAQS: HelpFaq[] = [
   {
     q: "When are my results released?",
-    a: "Full band scores appear after Speaking is finished and Writing plus Speaking grades are complete. Listening and Reading are auto-scored, but the report stays hidden until the whole mock is graded.",
+    a: "Band scores appear once every skill included in the student's package has been graded. Listening and Reading are auto-scored; Writing and Speaking release as soon as their examiners submit (Writing-only / Speaking-only packages do not wait for other skills).",
   },
   {
     q: "Can I pause or restart a section?",
@@ -303,7 +298,7 @@ export const INST_EXAMINER_HELP_FAQS: HelpFaq[] = [
   },
   {
     q: "I have a scheduling conflict — who do I contact?",
-    a: "Contact your centre coordinator first using Centre coordination or Scheduling categories. They manage your timetable and local arrangements.",
+    a: "Contact your centre coordinator first using Scheduling & attendance or Technical / centre coordination. They manage your timetable and local arrangements.",
   },
 ];
 

@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { getAvailability, rescheduleBooking } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
 import { ExamStartTimePicker } from "@/components/student/shared/exam-start-time-picker";
+import { SpeakingSlotPicker } from "@/components/student/shared/speaking-slot-picker";
 import {
   defaultExamStartTime,
   isMockTimeSelectionValid,
@@ -27,14 +28,6 @@ type Slot = {
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatSlotTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 }
 
 export function RescheduleDialog({
@@ -272,30 +265,13 @@ export function RescheduleDialog({
                   <div className="flex items-center justify-center py-8 text-slate-400">
                     <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
-                ) : filteredSlots.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
-                    No open slots for this examiner on this date.
-                  </div>
                 ) : (
-                  <div className="max-h-[32vh] overflow-y-auto rounded-xl border border-border bg-slate-50/50 p-3">
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {filteredSlots.map((slot) => (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          onClick={() => setSelectedSlot(slot)}
-                          className={cn(
-                            "rounded-lg border px-3 py-2 text-sm font-semibold",
-                            selectedSlot?.id === slot.id
-                              ? "border-rose-500 bg-rose-500 text-white"
-                              : "border-border bg-white text-foreground hover:bg-slate-50",
-                          )}
-                        >
-                          {formatSlotTime(slot.startsAt)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <SpeakingSlotPicker
+                    slots={filteredSlots}
+                    selectedSlot={selectedSlot}
+                    onSelect={setSelectedSlot}
+                    emptyMessage="No open :00 / :20 / :40 slots for this examiner on this date."
+                  />
                 )}
               </div>
             )}

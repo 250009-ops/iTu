@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useStudentProfileData } from "@/contexts/student-profile-context";
 import { useToast } from "@/components/ui/toast";
 import { planStudyTips, planWhySetGoal } from "@/lib/student/plan-preview";
+import { studentMockDayHref } from "@/lib/student/portal";
 
 const TARGET_BANDS = ["6", "6.5", "7", "7.5", "8", "8.5", "9"];
 
@@ -43,6 +44,10 @@ export function ProfilePlanTab({ portal = "marketplace" }: ProfilePlanTabProps) 
   const bestBand = profile.heroStats[0]?.value;
   const hasBestBand = bestBand != null && bestBand !== "—";
   const resultsHref = isInstitution ? "/inst-student/results" : "/student/results";
+  const mockDayHref = studentMockDayHref(portal);
+  const overviewHref = isInstitution
+    ? "/inst-student/profile"
+    : "/student/profile?tab=overview";
 
   async function saveGoal() {
     if (!targetBand) {
@@ -186,22 +191,44 @@ export function ProfilePlanTab({ portal = "marketplace" }: ProfilePlanTabProps) 
         </div>
 
         {hasGoal && isInstitution && (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                Best band so far
-              </p>
-              <p
-                className="mt-2 font-black text-navy"
-                style={{ fontSize: "28px", lineHeight: 1 }}
-              >
-                {hasBestBand ? bestBand : "—"}
-              </p>
-              <p className="mt-1 text-gray-500" style={{ fontSize: "12px" }}>
-                {mocksTaken > 0 ? "From completed mocks" : "No mocks yet"}
-              </p>
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Best band so far
+                </p>
+                <p
+                  className="mt-2 font-black text-navy"
+                  style={{ fontSize: "28px", lineHeight: 1 }}
+                >
+                  {hasBestBand ? bestBand : "—"}
+                </p>
+                <p className="mt-1 text-gray-500" style={{ fontSize: "12px" }}>
+                  {mocksTaken > 0 ? "From completed mocks" : "No mocks yet"}
+                </p>
+              </div>
             </div>
-          </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href={mockDayHref}>
+                <Button variant="danger" size="sm">
+                  My Mock
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+              <Link href={resultsHref}>
+                <Button variant="secondary" size="sm">
+                  Results
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+              <Link
+                href={overviewHref}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Update goal in Overview
+              </Link>
+            </div>
+          </>
         )}
 
         {!isInstitution && !hasGoal && (
@@ -323,14 +350,31 @@ export function ProfilePlanTab({ portal = "marketplace" }: ProfilePlanTabProps) 
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Link href="/student/browse">
-          <Button variant="danger" size="sm">
-            Book a mock
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </Link>
+        {isInstitution ? (
+          <>
+            <Link href={mockDayHref}>
+              <Button variant="danger" size="sm">
+                My Mock
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+            <Link href={resultsHref}>
+              <Button variant="secondary" size="sm">
+                Results
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </>
+        ) : (
+          <Link href="/student/browse">
+            <Button variant="danger" size="sm">
+              Book a mock
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        )}
         <Link
-          href="/student/profile?tab=overview"
+          href={overviewHref}
           className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
         >
           Update goal in Overview

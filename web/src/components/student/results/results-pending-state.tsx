@@ -105,7 +105,9 @@ export function ResultsPendingState({
                     size="lg"
                     className="bg-white text-navy hover:bg-slate-100"
                   >
-                    Continue Mock
+                    {portal === "institution"
+                      ? "Open My Mock"
+                      : "View Mock Day Hub"}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>

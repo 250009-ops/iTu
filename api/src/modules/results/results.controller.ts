@@ -32,7 +32,12 @@ export class ResultsController {
   }
 
   @Get(':enrollmentId/pdf')
-  @Roles(UserRole.STUDENT, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(
+    UserRole.STUDENT,
+    UserRole.ADMIN,
+    UserRole.TEACHER,
+    UserRole.INSTITUTION,
+  )
   async downloadPdf(
     @Param('enrollmentId') enrollmentId: string,
     @CurrentUser() user: RequestUser,
@@ -48,7 +53,12 @@ export class ResultsController {
   }
 
   @Get(':enrollmentId')
-  @Roles(UserRole.STUDENT, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(
+    UserRole.STUDENT,
+    UserRole.ADMIN,
+    UserRole.TEACHER,
+    UserRole.INSTITUTION,
+  )
   getByEnrollment(
     @Param('enrollmentId') enrollmentId: string,
     @CurrentUser() user: RequestUser,

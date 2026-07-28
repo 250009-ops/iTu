@@ -24,6 +24,14 @@ enum InstitutionStatus {
   REJECTED
 }
 
+/// Marketing-site logo visibility only (Trusted by strip). Centre portal may still show logoUrl.
+enum MarketingLogoStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum InstitutionMemberStatus {
   PENDING
   ACTIVE
@@ -967,6 +975,10 @@ model Institution {
   city              String?
   address           String?
   logoUrl           String?           @map("logo_url")
+  /// Whether `logoUrl` may appear on the public marketing site (not centre portal).
+  marketingLogoStatus     MarketingLogoStatus @default(NONE) @map("marketing_logo_status")
+  marketingLogoReviewedAt DateTime?           @map("marketing_logo_reviewed_at")
+  marketingLogoReviewNote String?             @map("marketing_logo_review_note")
   bio               String?
   contactName       String            @map("contact_name")
   contactEmail      String            @map("contact_email")

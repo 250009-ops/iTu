@@ -91,6 +91,7 @@ export function SectionCard({
 const statusStyles: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   pending: "bg-amber-50 text-amber-700 ring-amber-200",
+  approved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   rejected: "bg-rose-50 text-rose-700 ring-rose-200",
   suspended: "bg-slate-100 text-slate-700 ring-slate-200",
   removed: "bg-slate-100 text-slate-600 ring-slate-200",
@@ -98,7 +99,10 @@ const statusStyles: Record<string, string> = {
   in_progress: "bg-indigo-50 text-indigo-700 ring-indigo-200",
   awaiting_results: "bg-amber-50 text-amber-700 ring-amber-200",
   completed: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  cancelled: "bg-slate-100 text-slate-600 ring-slate-200",
+  missed: "bg-rose-50 text-rose-700 ring-rose-200",
   released: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  partial: "bg-amber-50 text-amber-700 ring-amber-200",
   purchase: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   consume: "bg-rose-50 text-rose-700 ring-rose-200",
   adjustment: "bg-sky-50 text-sky-700 ring-sky-200",

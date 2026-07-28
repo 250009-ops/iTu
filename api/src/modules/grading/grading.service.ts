@@ -5,6 +5,9 @@ import {
 } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { accrueTeacherGradingEarning } from '../../common/teacher-earnings';
+import {
+  studentResultsPath,
+} from '../../common/student-portal-paths';
 import { validateBandScores } from './band-validation';
 import {
   validateWritingCriteriaScores,
@@ -359,6 +362,9 @@ export class GradingService {
       },
     });
     if (!submission) throw new NotFoundException('Submission not found');
+    if (submission.teacherId !== user.teacherProfileId && user.role !== 'ADMIN') {
+      throw new ForbiddenException('Not assigned to this submission');
+    }
 
     const isFirstGrade = !submission.grade;
     const commission = await this.settings.getCommissionRates();
@@ -417,7 +423,10 @@ export class GradingService {
       'Writing graded',
       `Your Writing section has been graded · band ${body.overallBand.toFixed(1)}.`,
       NotificationType.GRADING,
-      '/student/results',
+      studentResultsPath(
+        enrollment.institutionId,
+        enrollment.enrollmentCode,
+      ),
     );
 
     await this.resultsRelease.tryRelease(enrollment.id, studentUserId);
@@ -508,6 +517,9 @@ export class GradingService {
       },
     });
     if (!session) throw new NotFoundException('Speaking session not found');
+    if (session.teacherId !== user.teacherProfileId && user.role !== 'ADMIN') {
+      throw new ForbiddenException('Not assigned to this session');
+    }
 
     const isFirstGrade = !session.grade;
     const commission = await this.settings.getCommissionRates();
@@ -573,7 +585,10 @@ export class GradingService {
       'Speaking graded',
       `Your Speaking section has been graded · band ${body.overallBand.toFixed(1)}.`,
       NotificationType.GRADING,
-      '/student/results',
+      studentResultsPath(
+        enrollment.institutionId,
+        enrollment.enrollmentCode,
+      ),
     );
 
     await this.resultsRelease.tryRelease(enrollment.id, studentUserId);

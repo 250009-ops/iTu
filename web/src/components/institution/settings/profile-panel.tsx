@@ -11,14 +11,36 @@ import { cn } from "@/lib/utils";
 type ProfilePanelProps = {
   form: InstitutionProfileForm;
   logoUrl: string | null;
+  marketingLogoStatus: string;
+  marketingLogoReviewNote: string | null;
   uploadingLogo: boolean;
   onChange: (patch: Partial<InstitutionProfileForm>) => void;
   onLogoUpload: (file: File) => void;
 };
 
+function marketingLogoHint(
+  status: string,
+  reviewNote: string | null,
+): string {
+  switch (status) {
+    case "approved":
+      return "Approved for the marketing “Trusted by” strip.";
+    case "pending":
+      return "Submitted for platform review. Your portal shows it now; marketing shows your centre name until approved.";
+    case "rejected":
+      return reviewNote
+        ? `Not approved for marketing (${reviewNote}). Marketing shows your centre name.`
+        : "Not approved for marketing. Marketing shows your centre name until a new logo is approved.";
+    default:
+      return "Shown in your portal immediately. Marketing uses it only after platform admin approval.";
+  }
+}
+
 export function ProfilePanel({
   form,
   logoUrl,
+  marketingLogoStatus,
+  marketingLogoReviewNote,
   uploadingLogo,
   onChange,
   onLogoUpload,
@@ -52,9 +74,21 @@ export function ProfilePanel({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-navy">Center logo</p>
           <p className="mt-0.5 text-xs text-muted">
-            Shown in the partners carousel when uploaded. PNG, JPG, WebP or SVG
-            · up to 2&nbsp;MB.
+            {marketingLogoHint(marketingLogoStatus, marketingLogoReviewNote)}{" "}
+            PNG, JPG, WebP or SVG · up to 2&nbsp;MB.
           </p>
+          {logoUrl ? (
+            <p className="mt-1 text-xs font-medium text-navy">
+              Marketing status:{" "}
+              {marketingLogoStatus === "approved"
+                ? "Approved"
+                : marketingLogoStatus === "pending"
+                  ? "Pending approval"
+                  : marketingLogoStatus === "rejected"
+                    ? "Rejected"
+                    : "Not submitted"}
+            </p>
+          ) : null}
           <input
             ref={logoInputRef}
             type="file"

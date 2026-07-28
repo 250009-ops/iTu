@@ -312,3 +312,7 @@ export function updateInstitutionPackageLinks(
 export function activateInstitutionPackage(id: string) {
   return apiFetch(`/institution/packages/${id}/activate`, { method: "POST" });
 }
+
+export function deactivateInstitutionPackage(id: string) {
+  return apiFetch(`/institution/packages/${id}/deactivate`, { method: "POST" });
+}

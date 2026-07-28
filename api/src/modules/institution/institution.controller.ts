@@ -21,6 +21,7 @@ import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
 import { InviteStudentDto } from './dto/invite-student.dto';
+import { ReassignExaminersDto } from './dto/reassign-examiners.dto';
 import { ReviewIntegrityDto } from './dto/review-integrity.dto';
 import { UpdateExaminerDto } from './dto/update-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
@@ -48,6 +49,7 @@ export class InstitutionController {
     return this.institution.getCredits(user);
   }
 
+  /** @deprecated Panel uses /institution/packages/mine; shop uses /mocks/shop. Kept for legacy clients. */
   @Get('mocks')
   getMocks(@CurrentUser() user: RequestUser) {
     return this.institution.getMocks(user);
@@ -119,6 +121,11 @@ export class InstitutionController {
     return this.institution.rejectStudent(user, id);
   }
 
+  @Post('students/:id/remove')
+  removeStudent(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.institution.removeStudent(user, id);
+  }
+
   @Post('enroll')
   enrollStudents(
     @CurrentUser() user: RequestUser,
@@ -157,6 +164,23 @@ export class InstitutionController {
   @Get('enrollments')
   listEnrollments(@CurrentUser() user: RequestUser) {
     return this.institution.listEnrollments(user);
+  }
+
+  @Post('enrollments/:id/reassign-examiners')
+  reassignExaminers(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: ReassignExaminersDto,
+  ) {
+    return this.institution.reassignExaminers(user, id, dto);
+  }
+
+  @Post('enrollments/:id/cancel')
+  cancelEnrollment(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+  ) {
+    return this.institution.cancelEnrollment(user, id);
   }
 
   @Get('nav-badges')

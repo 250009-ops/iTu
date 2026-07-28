@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useTeacherAvailability } from "@/contexts/teacher-availability-context";
+import { SPEAKING_SLOT_DURATION_MINUTES } from "@/lib/speaking/slot-grid";
 import { cn } from "@/lib/utils";
 
 export function UpcomingBookingsPanel() {
   const { availability } = useTeacherAvailability();
-  const { upcoming, slotDuration } = availability;
+  const { upcoming } = availability;
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-xl border border-border bg-white shadow-sm xl:max-h-full">
@@ -80,7 +81,7 @@ export function UpcomingBookingsPanel() {
       </div>
 
       <div className="shrink-0 border-t border-border px-4 py-2.5 text-center text-[10px] text-muted">
-        {slotDuration}-min speaking slots
+        {SPEAKING_SLOT_DURATION_MINUTES}-min speaking slots (:00 / :20 / :40)
       </div>
     </div>
   );

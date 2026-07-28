@@ -30,6 +30,8 @@ import {
   CHART_GRID_STROKE,
   ChartTooltip,
 } from "@/components/ui/chart-tooltip";
+import { MissedMockBanner } from "@/components/student/dashboard/missed-mock-banner";
+import { ResultsBanner } from "@/components/student/dashboard/results-banner";
 import { useInstStudent } from "@/contexts/inst-student-context";
 import {
   getStudentDashboard,
@@ -38,12 +40,53 @@ import {
 import { getErrorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
+const STATUS_LABELS: Record<string, string> = {
+  enrolled: "Ready to start",
+  in_progress: "In Progress",
+  awaiting_results: "Awaiting Results",
+};
+
+const STATUS_HEADER_TONE: Record<
+  string,
+  { bar: string; label: string; dot: string }
+> = {
+  enrolled: {
+    bar: "bg-emerald-50/60",
+    label: "text-emerald-700",
+    dot: "bg-emerald-500",
+  },
+  in_progress: {
+    bar: "bg-sky-50/60",
+    label: "text-sky-700",
+    dot: "bg-sky-500",
+  },
+  awaiting_results: {
+    bar: "bg-amber-50/60",
+    label: "text-amber-700",
+    dot: "bg-amber-500",
+  },
+};
+
 const SKILL_ICONS: Record<string, typeof Headphones> = {
   Listening: Headphones,
   Reading: BookOpen,
   Writing: PenLine,
   Speaking: Mic,
 };
+
+function upcomingStatusMeta(status: string) {
+  const statusLabel = STATUS_LABELS[status] ?? "Scheduled";
+  const tone = STATUS_HEADER_TONE[status] ?? STATUS_HEADER_TONE.enrolled;
+  const awaitingResults = status === "awaiting_results";
+  const inProgress = status === "in_progress";
+  const ctaHref = "/inst-student/my-mock";
+  const ctaLabel = awaitingResults
+    ? "View grading status"
+    : inProgress
+      ? "Continue Mock"
+      : "Enter Mock";
+  return { statusLabel, tone, awaitingResults, ctaHref, ctaLabel };
+}
 
 const PROGRESS_SKILLS = [
   { key: "listening", label: "Listening", color: "#0ea5e9" },
@@ -148,9 +191,21 @@ export function InstStudentDashboardView() {
       ? Math.max(0, Math.round((target - latest) * 10) / 10)
       : null;
   const upcoming = data?.upcomingMock ?? null;
+  const upcomingMeta = upcoming
+    ? upcomingStatusMeta(upcoming.status)
+    : null;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
+      <ResultsBanner
+        portal="institution"
+        resultsAlert={data?.resultsAlert ?? null}
+      />
+      <MissedMockBanner
+        portal="institution"
+        missedMock={data?.missedMock ?? null}
+      />
+
       {/* Greeting hero */}
       <div className="relative overflow-hidden rounded-2xl bg-navy p-6 text-white lg:p-8">
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5" />
@@ -235,12 +290,28 @@ export function InstStudentDashboardView() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Assigned mock */}
         <div className="lg:col-span-2">
-          {upcoming ? (
+          {upcoming && upcomingMeta ? (
             <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-border bg-emerald-50/60 px-5 py-2.5">
-                <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-emerald-700">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-                  Assigned Mock · Ready to start
+              <div
+                className={cn(
+                  "flex items-center justify-between border-b border-border px-5 py-2.5",
+                  upcomingMeta.tone.bar,
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex items-center gap-2 text-xs font-bold uppercase tracking-wide",
+                    upcomingMeta.tone.label,
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      upcomingMeta.tone.dot,
+                      !upcomingMeta.awaitingResults && "animate-pulse",
+                    )}
+                  />
+                  Assigned Mock · {upcomingMeta.statusLabel}
                 </span>
                 <span className="text-xs font-semibold text-muted">
                   {upcoming.enrollmentCode}
@@ -294,11 +365,18 @@ export function InstStudentDashboardView() {
                   </div>
                 </div>
                 <Link
-                  href="/inst-student/my-mock"
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-red-hover"
+                  href={upcomingMeta.ctaHref}
+                  className={cn(
+                    "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold shadow-sm transition-colors",
+                    upcomingMeta.awaitingResults
+                      ? "border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                      : "bg-brand-red text-white hover:bg-brand-red-hover",
+                  )}
                 >
-                  <Play className="h-4 w-4" fill="white" />
-                  Enter Mock
+                  {!upcomingMeta.awaitingResults && (
+                    <Play className="h-4 w-4" fill="white" />
+                  )}
+                  {upcomingMeta.ctaLabel}
                 </Link>
               </div>
             </div>
@@ -484,7 +562,11 @@ export function InstStudentDashboardView() {
               href="/inst-student/my-mock"
               icon={Play}
               title="View My Mock"
-              subtitle={upcoming ? "Ready to start" : "No active mock"}
+              subtitle={
+                upcomingMeta
+                  ? upcomingMeta.statusLabel
+                  : "No active mock"
+              }
             />
             <QuickLink
               href="/inst-student/results"

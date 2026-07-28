@@ -35,6 +35,7 @@ const SECTION_SOURCE: Partial<Record<SettingsTab, keyof Mapped>> = {
   general: "generalSettings",
   commission: "commissionSettings",
   exam_timers: "examTimers",
+  exam_integrity: "examIntegrity",
   band_table: "bandTable",
   notifications: "notifications",
   integrations: "integrations",
@@ -109,9 +110,13 @@ export function AdminSettingsProvider({ children }: { children: ReactNode }) {
         ...(drafts.commission ?? {}),
       } as Mapped["commissionSettings"],
       examTimers: {
-        ...(mapped.examTimers as Record<string, number>),
-        ...((drafts.exam_timers ?? {}) as Record<string, number>),
-      },
+        ...mapped.examTimers,
+        ...(drafts.exam_timers ?? {}),
+      } as Mapped["examTimers"],
+      examIntegrity: {
+        ...mapped.examIntegrity,
+        ...(drafts.exam_integrity ?? {}),
+      } as Mapped["examIntegrity"],
       notifications: {
         ...(mapped.notifications as Record<string, boolean>),
         ...((drafts.notifications ?? {}) as Record<string, boolean>),

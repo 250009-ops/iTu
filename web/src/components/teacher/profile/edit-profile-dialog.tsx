@@ -144,7 +144,11 @@ export function EditProfileDialog({
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={5}
-              placeholder="Tell students about your IELTS examiner experience…"
+              placeholder={
+                lockSpeciality
+                  ? "Brief note for your centre about your IELTS examining focus…"
+                  : "Tell students about your IELTS examiner experience…"
+              }
               className="w-full resize-none rounded-lg border border-border bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-sky-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100"
             />
           </div>

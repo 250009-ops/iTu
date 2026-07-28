@@ -792,7 +792,21 @@ export class InstitutionMockSetsService {
     const existing = await this.prisma.institutionMockSetGrant.findUnique({
       where: { institutionId_setId: { institutionId, setId } },
     });
-    if (existing) return existing;
+    if (existing) {
+      // Payment may land after an admin grant (or a prior purchase race).
+      // Attach the order so fulfillment is idempotent and auditable.
+      if (!existing.orderId) {
+        return this.prisma.institutionMockSetGrant.update({
+          where: { id: existing.id },
+          data: {
+            orderId,
+            source: InstitutionMockSetGrantSource.PURCHASE,
+            note: existing.note ?? 'Purchased via institution shop',
+          },
+        });
+      }
+      return existing;
+    }
 
     const set = await this.prisma.institutionMockSet.findUnique({
       where: { id: setId },

@@ -9,6 +9,7 @@ const toneStyles = {
   sky: "bg-sky-500 text-white",
   amber: "bg-amber-500 text-white",
   emerald: "bg-emerald-500 text-white",
+  rose: "bg-rose-500 text-white",
 };
 
 export function LifecyclePipeline() {

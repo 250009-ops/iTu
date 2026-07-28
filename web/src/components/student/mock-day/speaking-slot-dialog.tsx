@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, Loader2, Mic } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarClock, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { SpeakingSlotPicker } from "@/components/student/shared/speaking-slot-picker";
 import { getAvailability, scheduleSpeakingSlot } from "@/lib/api/bookings";
 import { getErrorMessage } from "@/lib/api/errors";
+import { formatSpeakingWallTime } from "@/lib/speaking/slot-grid";
 import { localTodayIso } from "@/lib/student/datetime";
 import { cn } from "@/lib/utils";
 
@@ -40,14 +42,6 @@ function defaultAvailabilityDate(mockDateIso: string): string {
   const mockDate = mockDateIso.slice(0, 10);
   const today = localTodayIso();
   return mockDate < today ? today : mockDate;
-}
-
-function formatSlotTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 }
 
 function formatDateLabel(iso: string) {
@@ -126,7 +120,7 @@ export function SpeakingSlotDialog({
         speakingSlotId: selectedSlot.id,
       });
       toast("Speaking slot scheduled", {
-        description: `${formatDateLabel(selectedDate)} · ${formatSlotTime(selectedSlot.startsAt)} with ${examinerName}`,
+        description: `${formatDateLabel(selectedDate)} · ${formatSpeakingWallTime(selectedSlot.startsAt)} with ${examinerName}`,
         variant: "success",
       });
       onDone();
@@ -142,7 +136,7 @@ export function SpeakingSlotDialog({
     !allowFutureDates && selectedDate !== mockDate
       ? `Mock day was ${formatDateLabel(mockDate)} · showing today's open slots`
       : allowFutureDates
-        ? "Pick any available 20-minute slot · cannot be changed after booking"
+        ? "Pick an hour, then a :00 / :20 / :40 slot · cannot be changed after booking"
         : null;
 
   return (
@@ -187,34 +181,19 @@ export function SpeakingSlotDialog({
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-muted">
-            <Loader2 className="h-5 w-5 animate-spin" />
             Loading availability…
           </div>
-        ) : slots.length === 0 ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            No open slots for {examinerName} on {formatDateLabel(selectedDate)}.
-            {allowFutureDates
-              ? " Try another date."
-              : " Contact support if you need help."}
-          </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {slots.map((slot) => (
-              <button
-                key={slot.id}
-                type="button"
-                onClick={() => setSelectedSlot(slot)}
-                className={cn(
-                  "rounded-lg border px-4 py-2.5 text-sm font-semibold",
-                  selectedSlot?.id === slot.id
-                    ? "border-rose-500 bg-rose-500 text-white"
-                    : "border-border bg-white text-foreground hover:bg-slate-50",
-                )}
-              >
-                {formatSlotTime(slot.startsAt)}
-              </button>
-            ))}
-          </div>
+          <SpeakingSlotPicker
+            slots={slots}
+            selectedSlot={selectedSlot}
+            onSelect={setSelectedSlot}
+            emptyMessage={`No open :00 / :20 / :40 slots for ${examinerName} on ${formatDateLabel(selectedDate)}.${
+              allowFutureDates
+                ? " Try another date."
+                : " Contact support if you need help."
+            }`}
+          />
         )}
         {error && (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

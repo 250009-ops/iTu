@@ -169,9 +169,11 @@ function repairPassage(passage: ReadingPassage): ReadingPassage {
   };
 }
 
-function repairListeningPart(part: ListeningPart): ListeningPart {
+function repairListeningPart(part: ListeningPart, index: number): ListeningPart {
+  const fallbackId = `part-${part.part || index + 1}`;
   return {
     ...part,
+    id: (part.id && String(part.id).trim()) || fallbackId,
     groups: asArray(part.groups).map((g) => repairQuestionGroup(g as QuestionGroup)),
   };
 }
@@ -194,10 +196,17 @@ function repairListeningContent(raw: object): ListeningContent {
   if (parts.length === 0) {
     return emptyListeningContent(typeof c.title === "string" ? c.title : "Listening");
   }
+  const seen = new Set<string>();
   return {
     ...c,
     audioTracks: asArray(c.audioTracks),
-    parts: parts.map((p) => repairListeningPart(p as ListeningPart)),
+    parts: parts.map((p, index) => {
+      const repaired = repairListeningPart(p as ListeningPart, index);
+      let id = repaired.id;
+      if (seen.has(id)) id = `part-${repaired.part || index + 1}-${index}`;
+      seen.add(id);
+      return { ...repaired, id };
+    }),
   };
 }
 

@@ -316,8 +316,8 @@ export function WritingGradingHub({
         </h1>
         <p className="mt-1 text-sm text-muted">
           {isCentre
-            ? "Grade Task 1 and Task 2 for centre-enrolled students. Results release after Speaking is graded."
-            : "Grade Task 1 and Task 2 independently. Results released after Speaking is graded."}
+            ? "Grade Task 1 and Task 2 for centre-enrolled students. Results release when every skill in the student's package is graded."
+            : "Grade Task 1 and Task 2 independently. Results release when every skill in the student's package is graded."}
         </p>
       </header>
 
@@ -390,8 +390,8 @@ export function WritingGradingHub({
             emptyDescription={
               tab === "pending"
                 ? isCentre
-                  ? "When your centre's students complete the Writing section on mock day, submissions appear here for grading."
-                  : "Writing submissions appear here after students complete the Writing section on mock day."
+                  ? "When your centre's students complete Writing, AI-ready submissions appear here for grading. If AI assist is enabled, items wait until analysis finishes."
+                  : "Writing submissions appear here after students complete Writing on mock day. If AI assist is enabled, items wait until analysis finishes."
                 : "Submissions you have opened for grading appear here until you submit a band score."
             }
           />

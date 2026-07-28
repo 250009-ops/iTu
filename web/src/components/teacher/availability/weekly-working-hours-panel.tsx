@@ -3,13 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Globe, Plus, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { useTeacherAvailability } from "@/contexts/teacher-availability-context";
 import { updateTeacherAvailability } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/api/errors";
-import { SegmentedControl } from "@/components/teacher/availability/segmented-control";
+import {
+  allSpeakingGridTimes,
+  ceilSpeakingGridTime,
+  floorSpeakingGridTime,
+  PLATFORM_DISPLAY_TIMEZONE,
+  SPEAKING_SLOT_DURATION_MINUTES,
+} from "@/lib/speaking/slot-grid";
 import { cn } from "@/lib/utils";
 
 type TimeRange = { id: string; startTime: string; endTime: string };
@@ -33,12 +38,13 @@ const DAY_LABELS = [
 
 const DEFAULT_START = "09:00";
 const DEFAULT_END = "17:00";
+const GRID_TIMES = allSpeakingGridTimes();
 
 function newRange(start = DEFAULT_START, end = DEFAULT_END): TimeRange {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    startTime: start,
-    endTime: end,
+    startTime: ceilSpeakingGridTime(start),
+    endTime: floorSpeakingGridTime(end),
   };
 }
 
@@ -65,32 +71,46 @@ function buildSchedule(
   });
 }
 
+function GridTimeSelect({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-9 flex-1 rounded-lg border border-border bg-white px-2 text-xs font-medium tabular-nums focus:border-navy focus:outline-none"
+    >
+      {GRID_TIMES.map((t) => (
+        <option key={t} value={t}>
+          {t}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function WeeklyWorkingHoursPanel() {
   const { availability, refresh } = useTeacherAvailability();
   const { toast } = useToast();
   const [schedule, setSchedule] = useState<DaySchedule[]>(() =>
     buildSchedule(availability.weekly),
   );
-  const [slotDuration, setSlotDuration] = useState<15 | 20 | 30>(
-    (availability.slotDuration as 15 | 20 | 30) || 20,
-  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setSchedule(buildSchedule(availability.weekly));
-    setSlotDuration((availability.slotDuration as 15 | 20 | 30) || 20);
-  }, [availability.weekly, availability.slotDuration]);
+  }, [availability.weekly]);
 
   const timezoneLabel = useMemo(() => {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const offset = -new Date().getTimezoneOffset() / 60;
-      const sign = offset >= 0 ? "+" : "";
-      return `${tz.replace(/_/g, " ")} (UTC${sign}${offset})`;
-    } catch {
-      return "Local timezone";
-    }
+    return `${PLATFORM_DISPLAY_TIMEZONE.replace(/_/g, " ")} (UTC+5) · 20-min slots :00 / :20 / :40`;
   }, []);
 
   function updateDay(dayOfWeek: number, patch: Partial<DaySchedule>) {
@@ -146,7 +166,10 @@ export function WeeklyWorkingHoursPanel() {
           endTime: range.endTime,
         })),
       );
-      const result = await updateTeacherAvailability(slots, slotDuration);
+      const result = await updateTeacherAvailability(
+        slots,
+        SPEAKING_SLOT_DURATION_MINUTES,
+      );
       toast("Working hours saved", {
         description:
           result.slotsGenerated != null
@@ -185,21 +208,6 @@ export function WeeklyWorkingHoursPanel() {
         <div className="mt-3 flex items-center gap-1.5 text-xs text-muted">
           <Globe className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{timezoneLabel}</span>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted">Slot duration</span>
-            <SegmentedControl
-              value={slotDuration}
-              options={[
-                { value: 15 as const, label: "15m" },
-                { value: 20 as const, label: "20m" },
-                { value: 30 as const, label: "30m" },
-              ]}
-              onChange={setSlotDuration}
-            />
-          </div>
         </div>
       </div>
 
@@ -251,29 +259,24 @@ export function WeeklyWorkingHoursPanel() {
               <div className="mt-3 space-y-2">
                 {day.ranges.map((range, index) => (
                   <div key={range.id} className="flex items-center gap-2">
-                    <Input
-                      type="time"
+                    <GridTimeSelect
+                      ariaLabel={`${day.label} start`}
                       value={range.startTime}
-                      onChange={(e) => {
+                      onChange={(startTime) => {
                         const next = [...day.ranges];
-                        next[index] = {
-                          ...range,
-                          startTime: e.target.value,
-                        };
+                        next[index] = { ...range, startTime };
                         updateDay(day.dayOfWeek, { ranges: next });
                       }}
-                      className="h-9 flex-1 text-xs"
                     />
                     <span className="text-xs text-muted">–</span>
-                    <Input
-                      type="time"
+                    <GridTimeSelect
+                      ariaLabel={`${day.label} end`}
                       value={range.endTime}
-                      onChange={(e) => {
+                      onChange={(endTime) => {
                         const next = [...day.ranges];
-                        next[index] = { ...range, endTime: e.target.value };
+                        next[index] = { ...range, endTime };
                         updateDay(day.dayOfWeek, { ranges: next });
                       }}
-                      className="h-9 flex-1 text-xs"
                     />
                     {day.ranges.length > 1 && (
                       <button

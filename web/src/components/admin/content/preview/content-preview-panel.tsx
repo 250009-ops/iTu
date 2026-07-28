@@ -94,7 +94,7 @@ function ReadingPreview({ content }: { content: ReadingContent }) {
                 groups={passage.groups}
                 answers={state.answers}
                 current={state.current}
-                textSizeClass="text-sm"
+                textSize="normal"
                 onAnswer={state.setAnswer}
                 onFocus={state.focusQuestion}
               />

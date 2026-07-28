@@ -38,7 +38,7 @@ export class PracticeReviewService {
     >;
     const answers = (attempt.answers ?? {}) as Record<string, unknown>;
     const pack = attempt.unit.aiPack;
-    const insights = (pack?.questionInsights ?? []) as QuestionInsight[];
+    const insights = normalizeInsights(pack?.questionInsights);
     const insightByN = new Map(insights.map((i) => [i.n, i]));
 
     const questionNumbers = [
@@ -120,4 +120,66 @@ export class PracticeReviewService {
     if (!template) throw new NotFoundException('Unknown question type');
     return template;
   }
+}
+
+/** Accept current pack shape + legacy force-seed fields. */
+function normalizeInsights(raw: unknown): QuestionInsight[] {
+  if (!Array.isArray(raw)) return [];
+  const out: QuestionInsight[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const n =
+      typeof row.n === 'number'
+        ? row.n
+        : Number(row.questionNumber ?? row.questionN);
+    if (!Number.isFinite(n)) continue;
+
+    const evidenceRaw =
+      row.evidence && typeof row.evidence === 'object'
+        ? (row.evidence as Record<string, unknown>)
+        : null;
+    const sentenceQuote =
+      typeof evidenceRaw?.sentenceQuote === 'string'
+        ? evidenceRaw.sentenceQuote
+        : '';
+    const rationale =
+      typeof row.rationale === 'string' && row.rationale
+        ? row.rationale
+        : typeof row.whyCorrect === 'string'
+          ? row.whyCorrect
+          : '';
+    const trapRaw = row.trap ?? row.commonTrap ?? null;
+
+    out.push({
+      n,
+      questionType:
+        typeof row.questionType === 'string'
+          ? row.questionType
+          : typeof row.skillFocus === 'string'
+            ? row.skillFocus
+            : 'unknown',
+      rationale,
+      evidence: {
+        paragraphMarker:
+          typeof evidenceRaw?.paragraphMarker === 'string'
+            ? evidenceRaw.paragraphMarker
+            : null,
+        sentenceQuote,
+        degraded: Boolean(evidenceRaw?.degraded) || !sentenceQuote,
+      },
+      trap: (typeof trapRaw === 'string' ? trapRaw : null) as QuestionInsight['trap'],
+      paraphraseMap: Array.isArray(row.paraphraseMap)
+        ? (row.paraphraseMap as QuestionInsight['paraphraseMap'])
+        : [],
+      keywords: Array.isArray(row.keywords)
+        ? (row.keywords as string[])
+        : [],
+      options: Array.isArray(row.options)
+        ? (row.options as QuestionInsight['options'])
+        : [],
+      degraded: Boolean(row.degraded) || !rationale || !sentenceQuote,
+    });
+  }
+  return out;
 }

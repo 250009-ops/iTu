@@ -80,7 +80,8 @@ export function ReappointMockDialog({
         </div>
         <p className="mt-3 text-xs text-muted">
           Creates a new enrollment at no charge. The missed record ({enrollmentCode})
-          is kept for audit.
+          is kept for audit. After reappointing the day, the student may need to pick
+          or rebook a speaking slot — flexible reappoint clears any fixed speaking time.
         </p>
         {error && (
           <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

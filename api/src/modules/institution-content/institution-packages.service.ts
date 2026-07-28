@@ -708,6 +708,26 @@ export class InstitutionPackagesService {
     return this.mapPackage(updated);
   }
 
+  /** Return an active mock to draft — existing enrollments keep running; new enrolls blocked. */
+  async deactivatePackage(user: RequestUser, packageId: string) {
+    const institutionId = requireInstitutionId(user);
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id: packageId },
+    });
+    if (!pkg) throw new NotFoundException('Package not found');
+    assertPackageScopeMatch(pkg, { institutionId });
+
+    if (!pkg.isActive) {
+      return this.mapPackage(pkg);
+    }
+
+    const updated = await this.prisma.mockTestPackage.update({
+      where: { id: packageId },
+      data: { isActive: false },
+    });
+    return this.mapPackage(updated);
+  }
+
   async listPublishedTests(user: RequestUser, type?: ContentTestType) {
     const institutionId = requireInstitutionId(user);
     return this.prisma.contentTest.findMany({

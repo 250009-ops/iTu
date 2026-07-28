@@ -109,7 +109,7 @@ export class GradingSlaService {
           title,
           body,
           NotificationType.SYSTEM,
-          '/admin/grading',
+          '/admin/enrollments',
         ),
       ),
     );

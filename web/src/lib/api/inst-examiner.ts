@@ -16,6 +16,13 @@ export type InstExaminerTodaySpeaking = {
   enrollmentCode: string | null;
   graded: boolean;
   band: number | null;
+  uiStatus:
+    | "upcoming"
+    | "live"
+    | "awaiting_grade"
+    | "graded"
+    | "no_show"
+    | "cancelled";
 };
 
 export type InstExaminerWritingItem = {
@@ -36,6 +43,8 @@ export type InstExaminerRecentGrade = {
   type: "writing" | "speaking";
   band: number;
   gradedAt: string;
+  writingSubmissionId?: string | null;
+  speakingSessionId?: string | null;
 };
 
 export type InstExaminerOverview = {

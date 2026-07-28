@@ -11,6 +11,7 @@ import {
   EnrollmentStatus,
   ExamSkill,
   InstitutionMemberStatus,
+  MarketingLogoStatus,
   NotificationType,
   OrderStatus,
   OrderType,
@@ -31,6 +32,7 @@ import {
   creditPackTotal,
   findCreditPack,
 } from '../../config/credit-packs';
+import { assertInstitutionOperational } from '../../common/institution/institution-access';
 import { requireInstitutionId } from '../../common/institution/institution-scope';
 import {
   teacherCanAccessSpeaking,
@@ -50,14 +52,29 @@ import { packageExamSkills } from '../content/package-skills';
 import { InstitutionMockSetsService } from '../institution-mock-sets/institution-mock-sets.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { SettingsService } from '../settings/settings.service';
-import { extractCalendarDateIso, zonedWallClockToUtc } from '../../common/mock-day-policy';
+import {
+  extractCalendarDateIso,
+  hasExamStarted,
+  zonedWallClockToUtc,
+} from '../../common/mock-day-policy';
+import {
+  assertSpeakingGridTime,
+  SPEAKING_SLOT_DURATION_MINUTES,
+  wallClockHhMmInTimeZone,
+} from '../../common/speaking-slot-grid';
+import { studentMockDayPath } from '../../common/student-portal-paths';
 import { UzumCheckoutService } from '../payments/uzum-checkout.service';
 import { PaymentsService } from '../payments/payments.service';
+import {
+  examinerSpeakingPath,
+  examinerWritingGradingHubPath,
+} from '../../common/examiner/examiner-routing';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCreditCheckoutDto } from './dto/create-credit-checkout.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { InviteExaminerDto } from './dto/invite-examiner.dto';
 import { InviteStudentDto } from './dto/invite-student.dto';
+import { ReassignExaminersDto } from './dto/reassign-examiners.dto';
 import { UpdateExaminerDto } from './dto/update-examiner.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
 import { UpdateInstitutionSupportTicketDto } from './dto/update-institution-support-ticket.dto';
@@ -80,18 +97,25 @@ type SectionProgress = {
 
 const enrollmentInclude = {
   student: { include: { user: { select: { name: true, email: true } } } },
-  package: { select: { title: true, packageKind: true } },
+  package: { select: { title: true, packageKind: true, skills: true } },
   writingTeacher: { include: { user: { select: { name: true } } } },
   speakingTeacher: { include: { user: { select: { name: true } } } },
+  speakingSlot: { select: { id: true, startsAt: true } },
   examSession: {
     select: {
+      checkInAt: true,
       sectionAttempts: {
         select: {
           skill: true,
           band: true,
           submittedAt: true,
-          writingSubmission: { select: { grade: { select: { overallBand: true } } } },
-          speakingSession: { select: { grade: { select: { overallBand: true } } } },
+          startedAt: true,
+          writingSubmission: {
+            select: { id: true, grade: { select: { overallBand: true } } },
+          },
+          speakingSession: {
+            select: { id: true, grade: { select: { overallBand: true } } },
+          },
         },
       },
     },
@@ -132,6 +156,7 @@ export class InstitutionService {
     if (!institution) {
       throw new NotFoundException('Institution not found');
     }
+    assertInstitutionOperational(institution);
     return institution;
   }
 
@@ -209,6 +234,8 @@ export class InstitutionService {
       ? Math.round((releasedBands.reduce((a, b) => a + b, 0) / releasedBands.length) * 10) / 10
       : null;
 
+    const timeZone = await this.settings.getPlatformTimezone();
+
     return {
       centerName: institution.name,
       grantedSetCount,
@@ -218,7 +245,7 @@ export class InstitutionService {
       pendingStudents,
       upcomingMocksCount: upcomingCount,
       avgCohortBand,
-      upcomingMocks: upcoming.map((e) => this.mapEnrollmentRow(e)),
+      upcomingMocks: upcoming.map((e) => this.mapEnrollmentRow(e, timeZone)),
       recentResults: recent.map((e) => ({
         id: e.id,
         studentName: e.student.user.name,
@@ -229,7 +256,14 @@ export class InstitutionService {
     };
   }
 
-  private mapEnrollmentRow(e: EnrollmentWithRelations) {
+  private mapEnrollmentRow(
+    e: EnrollmentWithRelations,
+    timeZone?: string,
+  ) {
+    const skills = packageExamSkills(e.package.skills);
+    const speakingTime = e.speakingSlot
+      ? wallClockHhMmInTimeZone(e.speakingSlot.startsAt, timeZone)
+      : null;
     return {
       id: e.id,
       enrollmentCode: e.enrollmentCode,
@@ -237,16 +271,30 @@ export class InstitutionService {
       packageTitle: e.package.title,
       mockDate: e.mockDate,
       mockTime: e.mockTime,
+      speakingTime,
+      speakingStartsAt: e.speakingSlot?.startsAt ?? null,
       status: e.status.toLowerCase(),
       examiner:
         e.writingTeacher?.user.name ?? e.speakingTeacher?.user.name ?? null,
+      writingTeacherId: e.writingTeacherId,
+      writingTeacherName: e.writingTeacher?.user.name ?? null,
+      speakingTeacherId: e.speakingTeacherId,
+      speakingTeacherName: e.speakingTeacher?.user.name ?? null,
+      needsWriting: skills.includes(ExamSkill.WRITING),
+      needsSpeaking: skills.includes(ExamSkill.SPEAKING),
       progress: this.sectionProgress(e),
       overallBand: this.overallBand(e),
       resultsStatus: e.resultsStatus.toLowerCase(),
+      canCancel:
+        e.status === EnrollmentStatus.ENROLLED &&
+        !hasExamStarted({
+          checkInAt: e.examSession?.checkInAt ?? null,
+          sectionAttempts: e.examSession?.sectionAttempts ?? [],
+        }),
     };
   }
 
-  // ─── Credits ─────────────────────────────────────────────────────────────
+  // ─── Credits (legacy wallet; institution UI retired — set shop is primary) ─
 
   async getCredits(user: RequestUser) {
     const institution = await this.getInstitutionOrThrow(user);
@@ -389,28 +437,26 @@ export class InstitutionService {
 
     if (order.status === OrderStatus.PENDING && order.uzumCheckoutId) {
       await this.payments.reconcilePendingOrder(order.id);
-      const refreshed = await this.prisma.order.findFirst({
-        where: {
-          orderCode,
-          institutionId,
-          orderType: OrderType.INSTITUTION_MOCK_SET,
-        },
-      });
-      if (refreshed) {
-        return {
-          orderCode: refreshed.orderCode,
-          status: refreshed.status.toLowerCase(),
-          setId: refreshed.institutionMockSetId,
-          checkoutUrl: refreshed.checkoutUrl,
-        };
-      }
+    } else if (order.status === OrderStatus.PAID) {
+      // Heal races where the order was marked PAID before grant creation finished,
+      // or an earlier admin grant short-circuited purchase fulfillment.
+      await this.payments.fulfillByOrderId(order.id);
     }
 
+    const refreshed = await this.prisma.order.findFirst({
+      where: {
+        orderCode,
+        institutionId,
+        orderType: OrderType.INSTITUTION_MOCK_SET,
+      },
+    });
+    const current = refreshed ?? order;
+
     return {
-      orderCode: order.orderCode,
-      status: order.status.toLowerCase(),
-      setId: order.institutionMockSetId,
-      checkoutUrl: order.checkoutUrl,
+      orderCode: current.orderCode,
+      status: current.status.toLowerCase(),
+      setId: current.institutionMockSetId,
+      checkoutUrl: current.checkoutUrl,
     };
   }
 
@@ -479,6 +525,22 @@ export class InstitutionService {
       where: { orderCode, institutionId, orderType: OrderType.CREDIT_PACK },
     });
     if (!order) throw new NotFoundException('Order not found');
+
+    if (order.status === OrderStatus.PENDING && order.uzumCheckoutId) {
+      await this.payments.reconcilePendingOrder(order.id);
+      const refreshed = await this.prisma.order.findFirst({
+        where: { orderCode, institutionId, orderType: OrderType.CREDIT_PACK },
+      });
+      if (refreshed) {
+        return {
+          orderCode: refreshed.orderCode,
+          status: refreshed.status.toLowerCase(),
+          credits: refreshed.creditQuantity,
+          checkoutUrl: refreshed.checkoutUrl,
+        };
+      }
+    }
+
     return {
       orderCode: order.orderCode,
       status: order.status.toLowerCase(),
@@ -613,6 +675,55 @@ export class InstitutionService {
     return { status: 'rejected' };
   }
 
+  /** Soft-unlink: clear centre membership, keep the User account. */
+  async removeStudent(user: RequestUser, studentId: string) {
+    const institutionId = requireInstitutionId(user);
+    const student = await this.loadInstitutionStudent(institutionId, studentId);
+
+    if (student.institutionStatus === InstitutionMemberStatus.PENDING) {
+      throw new BadRequestException(
+        'Reject pending students instead of removing them.',
+      );
+    }
+
+    const activeEnrollments = await this.prisma.enrollment.count({
+      where: {
+        studentId: student.id,
+        institutionId,
+        status: { in: ACTIVE_ENROLLMENT_STATUSES },
+      },
+    });
+    if (activeEnrollments > 0) {
+      throw new BadRequestException(
+        `Cannot remove: student has ${activeEnrollments} active enrollment(s). Complete or cancel them first.`,
+      );
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.studentProfile.update({
+        where: { id: student.id },
+        data: {
+          institutionId: null,
+          institutionStatus: InstitutionMemberStatus.REMOVED,
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: student.userId },
+        data: { institutionId: null },
+      }),
+    ]);
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_STUDENT_REMOVE,
+      entity: 'student_profile',
+      entityId: student.id,
+      metadata: { institutionId },
+    });
+
+    return { removed: true };
+  }
+
   async inviteStudent(user: RequestUser, dto: InviteStudentDto) {
     const institution = await this.getInstitutionOrThrow(user);
     const email = dto.email.trim().toLowerCase();
@@ -716,7 +827,7 @@ export class InstitutionService {
     return { liveSessions, flaggedSessions };
   }
 
-  // ─── Enroll (spend credits) ──────────────────────────────────────────────
+  // ─── Enroll (granted sets / own packages — no credit debit) ──────────────
 
   async enrollStudents(user: RequestUser, dto: EnrollStudentsDto) {
     const institution = await this.getInstitutionOrThrow(user);
@@ -871,6 +982,7 @@ export class InstitutionService {
     if (!/^\d{2}:\d{2}$/.test(speakingTime)) {
       throw new BadRequestException('speakingTime must be in HH:mm format');
     }
+    assertSpeakingGridTime(speakingTime);
     const timeZone = await this.settings.getPlatformTimezone();
     const [hours, minutes] = speakingTime.split(':').map(Number);
     const dateIso = extractCalendarDateIso(mockDate, timeZone);
@@ -1204,13 +1316,16 @@ export class InstitutionService {
 
   async listEnrollments(user: RequestUser) {
     const institutionId = requireInstitutionId(user);
-    const enrollments = await this.prisma.enrollment.findMany({
-      where: { institutionId },
-      include: enrollmentInclude,
-      orderBy: { mockDate: 'desc' },
-    });
+    const [enrollments, timeZone] = await Promise.all([
+      this.prisma.enrollment.findMany({
+        where: { institutionId },
+        include: enrollmentInclude,
+        orderBy: { mockDate: 'desc' },
+      }),
+      this.settings.getPlatformTimezone(),
+    ]);
 
-    const rows = enrollments.map((e) => this.mapEnrollmentRow(e));
+    const rows = enrollments.map((e) => this.mapEnrollmentRow(e, timeZone));
     const byStatus = (status: EnrollmentStatus) =>
       enrollments.filter((e) => e.status === status).length;
 
@@ -1223,6 +1338,354 @@ export class InstitutionService {
       },
       enrollments: rows,
     };
+  }
+
+  /**
+   * Cancel a centre enrollment that has not started yet. Releases the speaking
+   * slot so the examiner time becomes available again.
+   */
+  async cancelEnrollment(user: RequestUser, enrollmentId: string) {
+    const institutionId = requireInstitutionId(user);
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, institutionId },
+      include: {
+        student: { include: { user: true } },
+        examSession: {
+          include: {
+            sectionAttempts: { select: { startedAt: true } },
+          },
+        },
+      },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+
+    if (enrollment.status !== EnrollmentStatus.ENROLLED) {
+      throw new BadRequestException(
+        'Only scheduled enrollments that have not started can be cancelled',
+      );
+    }
+    if (
+      hasExamStarted({
+        checkInAt: enrollment.examSession?.checkInAt ?? null,
+        sectionAttempts: enrollment.examSession?.sectionAttempts ?? [],
+      })
+    ) {
+      throw new BadRequestException(
+        'Cannot cancel a mock after the student has started',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (enrollment.speakingSlotId) {
+        await tx.teacherSlot.updateMany({
+          where: {
+            id: enrollment.speakingSlotId,
+            status: SlotStatus.BOOKED,
+          },
+          data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+        });
+      }
+
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          status: EnrollmentStatus.CANCELLED,
+          speakingSlotId: null,
+        },
+      });
+    });
+
+    await this.notifications.create(
+      enrollment.student.userId,
+      'Mock cancelled',
+      `Your centre mock (${enrollment.enrollmentCode}) was cancelled by your institution.`,
+      NotificationType.INFO,
+      studentMockDayPath(institutionId),
+    );
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_ENROLLMENT_CANCEL,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: {
+        enrollmentCode: enrollment.enrollmentCode,
+        speakingSlotId: enrollment.speakingSlotId,
+      },
+    });
+
+    return { cancelled: true };
+  }
+
+  /**
+   * Reassign writing and/or speaking examiners after enrol (ops fix when
+   * assignment was missing or the examiner is unavailable).
+   * Speaking reassign transfers the booked TeacherSlot to the new examiner at
+   * the same wall-clock time so the student keeps their speaking appointment.
+   */
+  async reassignExaminers(
+    user: RequestUser,
+    enrollmentId: string,
+    dto: ReassignExaminersDto,
+  ) {
+    const institutionId = requireInstitutionId(user);
+    if (!dto.writingTeacherId && !dto.speakingTeacherId) {
+      throw new BadRequestException(
+        'Provide writingTeacherId and/or speakingTeacherId',
+      );
+    }
+
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, institutionId },
+      include: {
+        package: { select: { skills: true } },
+        speakingSlot: true,
+        examSession: {
+          include: {
+            sectionAttempts: {
+              include: { writingSubmission: true, speakingSession: true },
+            },
+          },
+        },
+      },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+
+    const skills = packageExamSkills(enrollment.package.skills);
+    const needsWriting = skills.includes(ExamSkill.WRITING);
+    const needsSpeaking = skills.includes(ExamSkill.SPEAKING);
+
+    if (dto.writingTeacherId && !needsWriting) {
+      throw new BadRequestException('This package does not include Writing');
+    }
+    if (dto.speakingTeacherId && !needsSpeaking) {
+      throw new BadRequestException('This package does not include Speaking');
+    }
+
+    for (const teacherId of [dto.writingTeacherId, dto.speakingTeacherId]) {
+      if (!teacherId) continue;
+      const teacher = await this.prisma.teacherProfile.findFirst({
+        where: { id: teacherId, institutionId, status: TeacherStatus.APPROVED },
+        include: { user: true },
+      });
+      if (!teacher) {
+        throw new BadRequestException(
+          'Examiner must be an approved centre examiner',
+        );
+      }
+      if (
+        teacherId === dto.writingTeacherId &&
+        !teacherCanAccessWriting(teacher.speciality)
+      ) {
+        throw new BadRequestException(
+          'Selected examiner cannot grade Writing',
+        );
+      }
+      if (
+        teacherId === dto.speakingTeacherId &&
+        !teacherCanAccessSpeaking(teacher.speciality)
+      ) {
+        throw new BadRequestException(
+          'Selected examiner cannot grade Speaking',
+        );
+      }
+    }
+
+    const writingAttempt = enrollment.examSession?.sectionAttempts.find(
+      (a) => a.skill === ExamSkill.WRITING,
+    );
+    const speakingAttempt = enrollment.examSession?.sectionAttempts.find(
+      (a) => a.skill === ExamSkill.SPEAKING,
+    );
+
+    const speakingTeacherChanged =
+      Boolean(dto.speakingTeacherId) &&
+      dto.speakingTeacherId !== enrollment.speakingTeacherId;
+
+    await this.prisma.$transaction(async (tx) => {
+      let nextSpeakingSlotId = enrollment.speakingSlotId;
+
+      if (speakingTeacherChanged && dto.speakingTeacherId) {
+        const scheduledAt =
+          enrollment.speakingSlot?.startsAt ??
+          speakingAttempt?.speakingSession?.scheduledAt ??
+          null;
+
+        if (scheduledAt) {
+          nextSpeakingSlotId = await this.transferSpeakingSlot(tx, {
+            oldSlotId: enrollment.speakingSlotId,
+            newTeacherId: dto.speakingTeacherId,
+            startsAt: scheduledAt,
+            endsAt:
+              enrollment.speakingSlot?.endsAt ??
+              new Date(
+                scheduledAt.getTime() +
+                  SPEAKING_SLOT_DURATION_MINUTES * 60_000,
+              ),
+          });
+        }
+      }
+
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          ...(dto.writingTeacherId
+            ? { writingTeacherId: dto.writingTeacherId }
+            : {}),
+          ...(dto.speakingTeacherId
+            ? {
+                speakingTeacherId: dto.speakingTeacherId,
+                speakingSlotId: nextSpeakingSlotId,
+              }
+            : {}),
+        },
+      });
+
+      if (dto.writingTeacherId && writingAttempt?.writingSubmission) {
+        await tx.writingSubmission.update({
+          where: { id: writingAttempt.writingSubmission.id },
+          data: {
+            teacherId: dto.writingTeacherId,
+            slaDueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+          },
+        });
+      }
+
+      if (dto.speakingTeacherId && speakingAttempt?.speakingSession) {
+        await tx.speakingSession.update({
+          where: { id: speakingAttempt.speakingSession.id },
+          data: {
+            teacherId: dto.speakingTeacherId,
+            ...(enrollment.speakingSlot?.startsAt ||
+            speakingAttempt.speakingSession.scheduledAt
+              ? {
+                  scheduledAt:
+                    enrollment.speakingSlot?.startsAt ??
+                    speakingAttempt.speakingSession.scheduledAt,
+                }
+              : {}),
+          },
+        });
+      }
+    });
+
+    if (dto.writingTeacherId) {
+      const teacher = await this.prisma.teacherProfile.findUnique({
+        where: { id: dto.writingTeacherId },
+      });
+      if (teacher) {
+        await this.notifications.create(
+          teacher.userId,
+          'Writing submission assigned',
+          'You have been assigned a writing submission to grade.',
+          NotificationType.GRADING,
+          examinerWritingGradingHubPath(teacher.institutionId),
+        );
+      }
+    }
+
+    if (dto.speakingTeacherId) {
+      const teacher = await this.prisma.teacherProfile.findUnique({
+        where: { id: dto.speakingTeacherId },
+      });
+      if (teacher) {
+        await this.notifications.create(
+          teacher.userId,
+          'Speaking session assigned',
+          'You have been assigned as speaking examiner for a centre mock.',
+          NotificationType.GRADING,
+          examinerSpeakingPath(teacher.institutionId),
+        );
+      }
+    }
+
+    await this.audit.log({
+      userId: user.id,
+      action: AuditAction.INSTITUTION_EXAMINER_REASSIGN,
+      entity: 'enrollment',
+      entityId: enrollmentId,
+      metadata: {
+        writingTeacherId: dto.writingTeacherId ?? null,
+        speakingTeacherId: dto.speakingTeacherId ?? null,
+        speakingSlotTransferred: speakingTeacherChanged,
+      },
+    });
+
+    return { reassigned: true };
+  }
+
+  /**
+   * Release the old examiner's booked slot and book (or create) the same
+   * wall-clock slot for the new examiner. Throws on BOOKED/BLOCKED conflict.
+   */
+  private async transferSpeakingSlot(
+    tx: Prisma.TransactionClient,
+    params: {
+      oldSlotId: string | null;
+      newTeacherId: string;
+      startsAt: Date;
+      endsAt: Date;
+    },
+  ): Promise<string> {
+    const { oldSlotId, newTeacherId, startsAt, endsAt } = params;
+
+    const existing = await tx.teacherSlot.findUnique({
+      where: {
+        teacherId_startsAt: { teacherId: newTeacherId, startsAt },
+      },
+    });
+
+    if (existing) {
+      if (existing.id === oldSlotId) {
+        return existing.id;
+      }
+      if (existing.status === SlotStatus.BOOKED) {
+        throw new BadRequestException(
+          'This speaking examiner is already booked at that time. Choose a different examiner or cancel and re-enrol.',
+        );
+      }
+      if (existing.status === SlotStatus.BLOCKED) {
+        throw new BadRequestException(
+          'That speaking time is blocked for the selected examiner. Choose a different examiner.',
+        );
+      }
+
+      const booked = await tx.teacherSlot.updateMany({
+        where: { id: existing.id, status: SlotStatus.AVAILABLE },
+        data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
+      });
+      if (booked.count === 0) {
+        throw new BadRequestException(
+          'This speaking examiner is already booked at that time. Choose a different examiner or cancel and re-enrol.',
+        );
+      }
+
+      if (oldSlotId) {
+        await tx.teacherSlot.updateMany({
+          where: { id: oldSlotId, status: SlotStatus.BOOKED },
+          data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+        });
+      }
+      return existing.id;
+    }
+
+    const created = await tx.teacherSlot.create({
+      data: {
+        teacherId: newTeacherId,
+        startsAt,
+        endsAt,
+        status: SlotStatus.BOOKED,
+      },
+    });
+
+    if (oldSlotId) {
+      await tx.teacherSlot.updateMany({
+        where: { id: oldSlotId, status: SlotStatus.BOOKED },
+        data: { status: SlotStatus.AVAILABLE, version: { increment: 1 } },
+      });
+    }
+
+    return created.id;
   }
 
   // ─── Cohort report ───────────────────────────────────────────────────────
@@ -1369,6 +1832,9 @@ export class InstitutionService {
       city: institution.city,
       address: institution.address,
       logoUrl: institution.logoUrl,
+      /** Marketing-site approval only; portal uses logoUrl immediately. */
+      marketingLogoStatus: institution.marketingLogoStatus.toLowerCase(),
+      marketingLogoReviewNote: institution.marketingLogoReviewNote,
       bio: institution.bio,
       contactName: institution.contactName,
       contactEmail: institution.contactEmail,
@@ -1385,6 +1851,8 @@ export class InstitutionService {
 
   async updateProfile(user: RequestUser, dto: UpdateInstitutionProfileDto) {
     const institution = await this.getInstitutionOrThrow(user);
+    const logoChanging =
+      dto.logoUrl !== undefined && dto.logoUrl !== institution.logoUrl;
     await this.prisma.institution.update({
       where: { id: institution.id },
       data: {
@@ -1396,6 +1864,15 @@ export class InstitutionService {
         contactEmail: dto.contactEmail ?? undefined,
         contactPhone: dto.contactPhone ?? undefined,
         logoUrl: dto.logoUrl ?? undefined,
+        ...(logoChanging
+          ? {
+              marketingLogoStatus: dto.logoUrl
+                ? MarketingLogoStatus.PENDING
+                : MarketingLogoStatus.NONE,
+              marketingLogoReviewedAt: null,
+              marketingLogoReviewNote: null,
+            }
+          : {}),
       },
     });
 
@@ -1437,9 +1914,15 @@ export class InstitutionService {
     const relativePath = `institutions/${institution.id}-${randomBytes(6).toString('hex')}.${ext}`;
     const logoUrl = await this.storage.saveBuffer(relativePath, file.buffer);
 
+    // Portal may show logoUrl immediately; marketing waits for platform approval.
     await this.prisma.institution.update({
       where: { id: institution.id },
-      data: { logoUrl },
+      data: {
+        logoUrl,
+        marketingLogoStatus: MarketingLogoStatus.PENDING,
+        marketingLogoReviewedAt: null,
+        marketingLogoReviewNote: null,
+      },
     });
 
     await this.audit.log({
@@ -1447,6 +1930,7 @@ export class InstitutionService {
       action: AuditAction.INSTITUTION_PROFILE_UPDATE,
       entity: 'institution',
       entityId: institution.id,
+      metadata: { marketingLogoStatus: MarketingLogoStatus.PENDING },
     });
 
     return this.getProfile(user);

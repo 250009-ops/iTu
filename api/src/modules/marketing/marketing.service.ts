@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   InstitutionStatus,
   InstitutionMemberStatus,
+  MarketingLogoStatus,
   UserRole,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -290,6 +291,19 @@ export class MarketingService {
     return bot ? `https://t.me/${bot}?start=inst_${institutionId}` : null;
   }
 
+  /**
+   * Marketing strip / public centre pages only show logos approved for marketing.
+   * Unapproved / rejected / missing → null so clients render the centre name.
+   */
+  private marketingLogoUrl(c: {
+    logoUrl: string | null;
+    marketingLogoStatus: MarketingLogoStatus;
+  }): string | null {
+    return c.marketingLogoStatus === MarketingLogoStatus.APPROVED
+      ? c.logoUrl
+      : null;
+  }
+
   /** Public list of active partner centres for the marketing site. */
   async getCenters() {
     const centers = await this.prisma.institution.findMany({
@@ -300,6 +314,7 @@ export class MarketingService {
         slug: true,
         city: true,
         logoUrl: true,
+        marketingLogoStatus: true,
         bio: true,
         _count: {
           select: {
@@ -318,7 +333,7 @@ export class MarketingService {
         name: c.name,
         slug: c.slug,
         city: c.city,
-        logoUrl: c.logoUrl,
+        logoUrl: this.marketingLogoUrl(c),
         bio: c.bio,
         studentCount: c._count.students,
         joinDeepLink: this.joinDeepLink(c.id),
@@ -337,6 +352,7 @@ export class MarketingService {
         city: true,
         address: true,
         logoUrl: true,
+        marketingLogoStatus: true,
         bio: true,
         createdAt: true,
         _count: {
@@ -358,7 +374,7 @@ export class MarketingService {
       slug: c.slug,
       city: c.city,
       address: c.address,
-      logoUrl: c.logoUrl,
+      logoUrl: this.marketingLogoUrl(c),
       bio: c.bio,
       partnerSince: c.createdAt,
       studentCount: c._count.students,

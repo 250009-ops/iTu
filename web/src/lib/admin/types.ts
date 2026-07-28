@@ -1,6 +1,11 @@
 export type LiveSkill = "speaking" | "writing" | "listening" | "reading";
 
-export type LifecycleStatus = "in_progress" | "awaiting_results" | "complete" | "missed";
+export type LifecycleStatus =
+  | "in_progress"
+  | "awaiting_results"
+  | "complete"
+  | "missed"
+  | "cancelled";
 
 export type ModuleKey = "listening" | "reading" | "writing" | "speaking";
 
@@ -62,7 +67,7 @@ export type TicketType =
 
 export type TicketPriority = "urgent" | "high" | "medium" | "low";
 
-export type TicketStatus = "open" | "in_progress" | "resolved";
+export type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
 
 export type SlaState = "active" | "overdue" | "resolved";
 
@@ -77,6 +82,7 @@ export type ContentModule = "listening" | "reading" | "writing" | "speaking";
 export type SettingsTab =
   | "general"
   | "exam_timers"
+  | "exam_integrity"
   | "commission"
   | "band_table"
   | "notifications"
@@ -90,10 +96,11 @@ export type Enrollment = {
   enrollmentId: string;
   studentName: string;
   initials: string;
-  targetBand: number;
+  targetBand: number | null;
   country: string;
   examDate: string;
   examTime: string;
+  includedModules: ModuleKey[];
   completedModules: ModuleKey[];
   speakingExaminer: string;
   speakingExaminerInitials: string;

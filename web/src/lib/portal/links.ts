@@ -50,6 +50,9 @@ export function settingsPath(role: Role, pathname?: string): string {
   if (pathname?.startsWith("/inst-student")) {
     return "/inst-student/profile";
   }
+  if (pathname?.startsWith("/inst-examiner")) {
+    return "/inst-examiner/profile";
+  }
   switch (role) {
     case "admin":
       return "/admin/settings";

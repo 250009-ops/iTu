@@ -12,9 +12,34 @@ import { getMe } from "@/lib/api/auth";
  * While checking, do not mount TeacherShell children — that avoids 403 spam from
  * marketplace-only endpoints (availability / speaking-queue) for centre examiners.
  *
- * Legacy deep links to `/teacher/grading/*` and `/teacher/speaking` still work
- * but new centre flows should use `/inst-examiner/*` routes.
+ * Legacy `/teacher/*` deep links are rewritten to `/inst-examiner/*` equivalents
+ * so grading submit / speaking return paths never bounce to a dead marketplace hub.
  */
+function rewriteCentreTeacherPath(
+  pathname: string,
+  search: string,
+): string {
+  if (pathname === "/teacher" || pathname === "/teacher/dashboard") {
+    return "/inst-examiner";
+  }
+  if (pathname === "/teacher/grading" || pathname.startsWith("/teacher/grading/")) {
+    return `${pathname.replace("/teacher/grading", "/inst-examiner/grading")}${search}`;
+  }
+  if (
+    pathname === "/teacher/speaking" ||
+    pathname.startsWith("/teacher/speaking/")
+  ) {
+    return `/inst-examiner/speaking${search}`;
+  }
+  if (pathname === "/teacher/writing") {
+    return "/inst-examiner/grading";
+  }
+  if (pathname.startsWith("/teacher/")) {
+    return "/inst-examiner";
+  }
+  return "/inst-examiner";
+}
+
 export function InstitutionExaminerRedirect({
   children,
 }: {
@@ -25,21 +50,16 @@ export function InstitutionExaminerRedirect({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const isConsole =
-      pathname.startsWith("/teacher/grading/") ||
-      pathname.startsWith("/teacher/speaking");
-    if (isConsole) {
-      setReady(true);
-      return;
-    }
-
     let cancelled = false;
     setReady(false);
+    const search =
+      typeof window !== "undefined" ? window.location.search : "";
+
     void getMe()
       .then((user) => {
         if (cancelled) return;
         if (user.role === "teacher" && user.institution != null) {
-          router.replace("/inst-examiner");
+          router.replace(rewriteCentreTeacherPath(pathname, search));
           return;
         }
         setReady(true);

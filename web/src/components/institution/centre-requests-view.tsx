@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Loader2, MessageSquare } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock3,
+  MessageSquare,
+  RotateCcw,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -14,6 +20,8 @@ import { ticketTypeLabel } from "@/lib/portal/help-config";
 import { cn } from "@/lib/utils";
 import { LoadingRow, PageHeader, SectionCard } from "@/components/institution/ui";
 import { PortalPage } from "@/components/portal/portal-page";
+
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
 function formatDate(iso: string) {
   try {
@@ -44,6 +52,10 @@ function statusClass(status: string) {
   return "bg-amber-50 text-amber-800";
 }
 
+function normalizeStatus(status: string): string {
+  return status.toLowerCase().replace(/\s+/g, "_");
+}
+
 export function CentreRequestsView() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -65,12 +77,15 @@ export function CentreRequestsView() {
     void load();
   }, [load]);
 
-  async function resolveRequest(id: string) {
+  async function setStatus(id: string, status: TicketStatus, successMsg: string) {
     setBusyId(id);
     try {
-      await updateInstitutionSupportRequest(id, "RESOLVED");
-      toast("Request resolved", {
-        description: "The member has been notified.",
+      await updateInstitutionSupportRequest(id, status);
+      toast(successMsg, {
+        description:
+          status === "RESOLVED" || status === "CLOSED"
+            ? "The member has been notified."
+            : undefined,
         variant: "success",
       });
       await load();
@@ -85,7 +100,7 @@ export function CentreRequestsView() {
   }
 
   const openCount = requests.filter(
-    (r) => !["resolved", "closed"].includes(r.status.toLowerCase()),
+    (r) => !["resolved", "closed"].includes(normalizeStatus(r.status)),
   ).length;
 
   return (
@@ -93,7 +108,7 @@ export function CentreRequestsView() {
       <PageHeader
         breadcrumb="Institution &gt; Centre requests"
         title="Centre requests"
-        description="Requests from your students and examiners. Resolve them here — platform billing and portal issues go through Help & Support in the profile menu."
+        description="Requests from your students and examiners. Update status here — platform billing and portal issues go through Help & Support in the profile menu."
       />
 
       <SectionCard
@@ -118,9 +133,11 @@ export function CentreRequestsView() {
         ) : (
           <div className="divide-y divide-border">
             {requests.map((req) => {
-              const closed = ["resolved", "closed"].includes(
-                req.status.toLowerCase(),
-              );
+              const status = normalizeStatus(req.status);
+              const closed = status === "resolved" || status === "closed";
+              const inProgress = status === "in_progress";
+              const busy = busyId === req.id;
+
               return (
                 <div key={req.id} className="space-y-3 px-5 py-4 sm:px-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -152,22 +169,63 @@ export function CentreRequestsView() {
                         </p>
                       ) : null}
                     </div>
-                    {!closed ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        loading={busyId === req.id}
-                        onClick={() => void resolveRequest(req.id)}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Mark resolved
-                      </Button>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Closed
-                      </span>
-                    )}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {!closed && !inProgress ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          loading={busy}
+                          onClick={() =>
+                            void setStatus(
+                              req.id,
+                              "IN_PROGRESS",
+                              "Marked in progress",
+                            )
+                          }
+                        >
+                          <Clock3 className="h-4 w-4" />
+                          In progress
+                        </Button>
+                      ) : null}
+                      {!closed ? (
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            loading={busy}
+                            onClick={() =>
+                              void setStatus(req.id, "RESOLVED", "Request resolved")
+                            }
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            Resolve
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() =>
+                              void setStatus(req.id, "CLOSED", "Request closed")
+                            }
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Close
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          loading={busy}
+                          onClick={() =>
+                            void setStatus(req.id, "OPEN", "Request reopened")
+                          }
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          Reopen
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm leading-relaxed text-muted">
                     {req.message}

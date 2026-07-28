@@ -151,6 +151,7 @@ export function getAdminEnrollments() {
       awaitingResults: number;
       completed: number;
       missed?: number;
+      cancelled?: number;
     };
     enrollments: {
       id: string;
@@ -160,6 +161,7 @@ export function getAdminEnrollments() {
       country: string;
       examDate: string;
       examTime: string | null;
+      includedModules?: string[];
       completedModules: string[];
       speakingExaminer: string;
       writingExaminer: string;
@@ -219,7 +221,7 @@ export function overrideSectionScore(
   skill: "listening" | "reading" | "writing" | "speaking",
   body: { band?: number; rawScore?: number; reason?: string },
 ) {
-  return apiFetch(
+  return apiFetch<{ updated: boolean; skill: string; band: number }>(
     `/admin/enrollments/${encodeURIComponent(enrollmentId)}/scores/${skill}`,
     { method: "PATCH", body },
   );

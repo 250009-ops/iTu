@@ -19,6 +19,12 @@ import {
   type ScoringCriterion,
   type SpeakingPart,
 } from "@/lib/speaking/scoring";
+import {
+  formatSpeakingTimeRange as formatSpeakingWallRange,
+  formatSpeakingWallTime,
+  PLATFORM_DISPLAY_TIMEZONE,
+  speakingWallParts,
+} from "@/lib/speaking/slot-grid";
 import { DEFAULT_CURRENCY, formatPrice } from "@/lib/format-price";
 
 type Dashboard = Awaited<ReturnType<typeof getTeacherDashboard>>;
@@ -162,10 +168,7 @@ export function mapSpeakingSchedule(data: Dashboard) {
     studentName: s.studentName,
     initials: initialsFromName(s.studentName),
     timeRange: s.scheduledAt
-      ? new Date(s.scheduledAt).toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
+      ? formatSpeakingWallTime(s.scheduledAt)
       : "TBD",
     sessionType: "Speaking Part 1–3",
     status:
@@ -180,7 +183,8 @@ export type SpeakingSessionUiStatus =
   | "live"
   | "awaiting_grade"
   | "graded"
-  | "no_show";
+  | "no_show"
+  | "cancelled";
 
 export type MappedSpeakingSessionItem = {
   id: string;
@@ -202,12 +206,7 @@ function formatSpeakingTimeRange(
   scheduledAt: string | null,
   endsAt: string | null,
 ): string {
-  if (!scheduledAt) return "TBD";
-  const start = new Date(scheduledAt);
-  const end = endsAt ? new Date(endsAt) : new Date(start.getTime() + 20 * 60_000);
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  return `${fmt(start)} – ${fmt(end)}`;
+  return formatSpeakingWallRange(scheduledAt, endsAt);
 }
 
 function examTypeLabel(examType: string): string {
@@ -246,12 +245,7 @@ function mapSpeakingSessionItem(
     ? new Date(scheduledAt).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-      })
-    : "—";
-  const timeOnly = scheduledAt
-    ? new Date(scheduledAt).toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
+        timeZone: PLATFORM_DISPLAY_TIMEZONE,
       })
     : "—";
 
@@ -278,8 +272,14 @@ export function mapTeacherSpeakingSessions(
   return {
     today: data.today.map(mapSpeakingSessionItem),
     upcoming: data.upcoming.map(mapSpeakingSessionItem),
+    awaitingGrade: (data.awaitingGrade ?? []).map(mapSpeakingSessionItem),
     completed: data.completed.map(mapSpeakingSessionItem),
-    counts: data.counts,
+    counts: {
+      today: data.counts.today,
+      upcoming: data.counts.upcoming,
+      awaitingGrade: data.counts.awaitingGrade ?? data.awaitingGrade?.length ?? 0,
+      completed: data.counts.completed,
+    },
     nextSession: data.nextSession
       ? mapSpeakingSessionItem(data.nextSession)
       : null,
@@ -682,12 +682,13 @@ export function mapTeacherAvailability(data: Availability, weekOffset = 0) {
 
     const daySlots = data.slots
       .filter((slot) => {
-        const startsAt = new Date(slot.startsAt);
-        return (
-          startsAt.getFullYear() === d.getFullYear() &&
-          startsAt.getMonth() === d.getMonth() &&
-          startsAt.getDate() === d.getDate()
-        );
+        const slotDay = new Date(slot.startsAt).toLocaleDateString("en-CA", {
+          timeZone: PLATFORM_DISPLAY_TIMEZONE,
+        });
+        const gridDay = d.toLocaleDateString("en-CA", {
+          timeZone: PLATFORM_DISPLAY_TIMEZONE,
+        });
+        return slotDay === gridDay;
       })
       .sort(
         (a, b) =>
@@ -746,10 +747,8 @@ export function mapTeacherAvailability(data: Availability, weekOffset = 0) {
         label: `${startsAt.toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
-        })} · ${startsAt.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}`,
+          timeZone: PLATFORM_DISPLAY_TIMEZONE,
+        })} · ${formatSpeakingWallTime(startsAt)}`,
         colors: avatarColorFromName(item.studentName),
       };
     }),
@@ -770,9 +769,10 @@ function mergeDaySlots(
     const startsAt = new Date(slot.startsAt);
     const endsAt = new Date(slot.endsAt);
     const status = mapSlotStatus(slot.status);
-    const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
-    const endMinutes = endsAt.getHours() * 60 + endsAt.getMinutes();
-
+    const startParts = speakingWallParts(startsAt);
+    const endParts = speakingWallParts(endsAt);
+    const startMinutes = startParts.hour * 60 + startParts.minute;
+    const endMinutes = endParts.hour * 60 + endParts.minute;
     if (
       !current ||
       current.status !== status ||
@@ -810,9 +810,7 @@ function mergeDaySlots(
 }
 
 function formatTime24(date: Date) {
-  const h = date.getHours();
-  const m = date.getMinutes();
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  return formatSpeakingWallTime(date, PLATFORM_DISPLAY_TIMEZONE);
 }
 
 function mapCredentials(profile: Profile) {
@@ -994,11 +992,7 @@ export function mapSpeakingSession(data: SpeakingSession) {
 
   let timeRange = "TBD";
   if (data.scheduledAt) {
-    const start = new Date(data.scheduledAt);
-    const end = new Date(start.getTime() + 20 * 60_000);
-    const fmt = (d: Date) =>
-      d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    timeRange = `${fmt(start)} – ${fmt(end)}`;
+    timeRange = formatSpeakingWallRange(data.scheduledAt, null);
   }
 
   let activePart = 1 as SpeakingPart;

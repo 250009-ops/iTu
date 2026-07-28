@@ -130,7 +130,11 @@ export function MockDayEmptyState({
                 <h2 className="font-bold text-gray-900" style={{ fontSize: "15px" }}>
                   Your exam sections
                 </h2>
-                <span className="text-xs text-muted">Preview — unlocks after booking</span>
+                <span className="text-xs text-muted">
+                  {isInstitution
+                    ? "Preview — unlocks after assignment"
+                    : "Preview — unlocks after booking"}
+                </span>
               </div>
               <div className="space-y-4">
                 {mockDayPreviewSections.map((section) => {

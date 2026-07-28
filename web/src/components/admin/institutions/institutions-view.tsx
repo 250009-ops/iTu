@@ -1,12 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Gift, Pencil, X } from "lucide-react";
 import {
+  Check,
+  Coins,
+  Gift,
+  ImageOff,
+  PauseCircle,
+  Pencil,
+  PlayCircle,
+  Tag,
+  X,
+} from "lucide-react";
+import {
+  adjustInstitutionCredits,
   approveInstitution,
+  approveInstitutionMarketingLogo,
   getAdminInstitutions,
   patchInstitution,
   rejectInstitution,
+  rejectInstitutionMarketingLogo,
   type AdminInstitution,
 } from "@/lib/api/admin-institutions";
 import { InstitutionGrantSetDialog } from "@/components/admin/institutions/institution-grant-set-dialog";
@@ -23,6 +36,7 @@ import {
   SectionCard,
   StatCard,
   StatusPill,
+  formatUZS,
 } from "@/components/institution/ui";
 import { PortalPage } from "@/components/portal/portal-page";
 
@@ -47,14 +61,21 @@ export function AdminInstitutionsView() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [grantTarget, setGrantTarget] = useState<AdminInstitution | null>(null);
   const [editTarget, setEditTarget] = useState<AdminInstitution | null>(null);
+  const [creditsTarget, setCreditsTarget] = useState<AdminInstitution | null>(
+    null,
+  );
+  const [pricingTarget, setPricingTarget] = useState<AdminInstitution | null>(
+    null,
+  );
 
   const summary = {
     total: allData?.length ?? 0,
     pending: allData?.filter((i) => i.status === "pending").length ?? 0,
     active: allData?.filter((i) => i.status === "active").length ?? 0,
+    suspended: allData?.filter((i) => i.status === "suspended").length ?? 0,
     totalGrants:
       allData
-        ?.filter((i) => i.status === "active")
+        ?.filter((i) => i.status === "active" || i.status === "suspended")
         .reduce((a, i) => a + i.grantedSetCount, 0) ?? 0,
   };
 
@@ -93,6 +114,65 @@ export function AdminInstitutionsView() {
     }
   }
 
+  async function handleSetStatus(
+    inst: AdminInstitution,
+    status: "ACTIVE" | "SUSPENDED",
+  ) {
+    setBusyId(inst.id);
+    try {
+      await patchInstitution(inst.id, { status });
+      toast(status === "SUSPENDED" ? "Institution suspended" : "Institution activated", {
+        variant: status === "SUSPENDED" ? "warning" : "success",
+      });
+      await refresh({ silent: true });
+    } catch (err) {
+      toast("Status update failed", {
+        description: getErrorMessage(err, "Could not update institution status."),
+        variant: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleApproveLogo(id: string) {
+    setBusyId(id);
+    try {
+      await approveInstitutionMarketingLogo(id);
+      toast("Marketing logo approved", {
+        description: "It will appear in the Trusted by strip.",
+        variant: "success",
+      });
+      await refresh({ silent: true });
+    } catch (err) {
+      toast("Logo approval failed", {
+        description: getErrorMessage(err, "Could not approve logo."),
+        variant: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleRejectLogo(id: string) {
+    setBusyId(id);
+    try {
+      await rejectInstitutionMarketingLogo(id, "Logo not suitable for marketing");
+      toast("Marketing logo rejected", {
+        description: "Marketing will show the centre name instead.",
+        variant: "info",
+      });
+      await refresh({ silent: true });
+    } catch (err) {
+      toast("Logo rejection failed", {
+        description: getErrorMessage(err, "Could not reject logo."),
+        variant: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <PortalPage>
       <PageHeader
@@ -105,7 +185,11 @@ export function AdminInstitutionsView() {
         <StatCard label="Total centers" value={summary.total} />
         <StatCard label="Applications" value={summary.pending} accent="amber" />
         <StatCard label="Active" value={summary.active} accent="emerald" />
-        <StatCard label="Total set grants" value={summary.totalGrants} accent="red" />
+        <StatCard
+          label="Suspended"
+          value={summary.suspended}
+          accent="red"
+        />
       </div>
 
       <SectionCard>
@@ -138,7 +222,9 @@ export function AdminInstitutionsView() {
                   <th className="px-5 py-3 font-medium">Contact</th>
                   <th className="px-5 py-3 font-medium">Source</th>
                   <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Students</th>
+                  <th className="px-5 py-3 font-medium">Marketing logo</th>
+                  <th className="px-5 py-3 font-medium">Credits</th>
+                  <th className="px-5 py-3 font-medium">Wholesale</th>
                   <th className="px-5 py-3 font-medium">Granted sets</th>
                   <th className="px-5 py-3 text-right font-medium">Actions</th>
                 </tr>
@@ -151,6 +237,7 @@ export function AdminInstitutionsView() {
                       <p className="text-xs text-muted">
                         {inst.city ?? "—"}
                         {inst.owner && !inst.owner.activated && " · owner not activated"}
+                        {inst.students > 0 && ` · ${inst.students} students`}
                       </p>
                     </td>
                     <td className="px-5 py-3">
@@ -163,12 +250,24 @@ export function AdminInstitutionsView() {
                     <td className="px-5 py-3">
                       <StatusPill status={inst.status} />
                     </td>
-                    <td className="px-5 py-3 text-muted">{inst.students}</td>
+                    <td className="px-5 py-3">
+                      <MarketingLogoCell institution={inst} />
+                    </td>
+                    <td className="px-5 py-3 font-semibold text-navy">
+                      {inst.status === "active" || inst.status === "suspended"
+                        ? inst.creditBalance
+                        : "—"}
+                    </td>
+                    <td className="px-5 py-3 text-muted">
+                      {inst.status === "active" || inst.status === "suspended"
+                        ? formatUZS(inst.wholesalePrice, inst.currency)
+                        : "—"}
+                    </td>
                     <td className="px-5 py-3 font-semibold text-navy">
                       {inst.grantedSetCount}
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         {inst.status === "pending" ? (
                           <>
                             <Button
@@ -176,6 +275,7 @@ export function AdminInstitutionsView() {
                               size="sm"
                               disabled={busyId === inst.id}
                               onClick={() => setEditTarget(inst)}
+                              title="Edit owner details"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -207,15 +307,87 @@ export function AdminInstitutionsView() {
                             <Check className="h-4 w-4" />
                             Approve
                           </Button>
-                        ) : inst.status === "active" || inst.status === "suspended" ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setGrantTarget(inst)}
-                          >
-                            <Gift className="h-4 w-4" />
-                            Grant mock set
-                          </Button>
+                        ) : inst.status === "active" ||
+                          inst.status === "suspended" ? (
+                          <>
+                            {inst.logoUrl &&
+                            (inst.marketingLogoStatus === "pending" ||
+                              inst.marketingLogoStatus === "rejected") ? (
+                              <>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  loading={busyId === inst.id}
+                                  onClick={() => handleApproveLogo(inst.id)}
+                                  title="Approve logo for marketing site"
+                                >
+                                  <Check className="h-4 w-4" />
+                                  Logo
+                                </Button>
+                                {inst.marketingLogoStatus === "pending" ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={busyId === inst.id}
+                                    onClick={() => handleRejectLogo(inst.id)}
+                                    title="Reject logo for marketing site"
+                                  >
+                                    <ImageOff className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
+                              </>
+                            ) : null}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setGrantTarget(inst)}
+                            >
+                              <Gift className="h-4 w-4" />
+                              Grant set
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busyId === inst.id}
+                              onClick={() => setCreditsTarget(inst)}
+                              title="Adjust credits"
+                            >
+                              <Coins className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busyId === inst.id}
+                              onClick={() => setPricingTarget(inst)}
+                              title="Edit wholesale price"
+                            >
+                              <Tag className="h-4 w-4" />
+                            </Button>
+                            {inst.status === "active" ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                loading={busyId === inst.id}
+                                onClick={() =>
+                                  handleSetStatus(inst, "SUSPENDED")
+                                }
+                                title="Suspend"
+                              >
+                                <PauseCircle className="h-4 w-4" />
+                                Suspend
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                loading={busyId === inst.id}
+                                onClick={() => handleSetStatus(inst, "ACTIVE")}
+                              >
+                                <PlayCircle className="h-4 w-4" />
+                                Activate
+                              </Button>
+                            )}
+                          </>
                         ) : (
                           <span className="px-2 text-xs text-muted">—</span>
                         )}
@@ -241,6 +413,18 @@ export function AdminInstitutionsView() {
         onClose={() => setEditTarget(null)}
         onSaved={() => void refresh({ silent: true })}
       />
+
+      <AdjustCreditsModal
+        institution={creditsTarget}
+        onClose={() => setCreditsTarget(null)}
+        onSaved={() => void refresh({ silent: true })}
+      />
+
+      <EditWholesaleModal
+        institution={pricingTarget}
+        onClose={() => setPricingTarget(null)}
+        onSaved={() => void refresh({ silent: true })}
+      />
     </PortalPage>
   );
 }
@@ -250,6 +434,35 @@ function formatApplicationSource(source: string | null | undefined): string {
   if (source === "telegram") return "Telegram";
   if (source === "marketing-site") return "Website";
   return source;
+}
+
+function MarketingLogoCell({ institution }: { institution: AdminInstitution }) {
+  if (!institution.logoUrl) {
+    return <span className="text-xs text-muted">Name only</span>;
+  }
+
+  const status = institution.marketingLogoStatus ?? "none";
+  const label =
+    status === "approved"
+      ? "Approved"
+      : status === "pending"
+        ? "Pending"
+        : status === "rejected"
+          ? "Rejected"
+          : "Uploaded";
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={institution.logoUrl}
+        alt=""
+        className="h-8 w-8 rounded border border-border bg-white object-contain p-0.5"
+      />
+      <StatusPill status={status === "none" ? "pending" : status} />
+      <span className="sr-only">{label}</span>
+    </div>
+  );
 }
 
 function EditOwnerModal({
@@ -360,6 +573,209 @@ function EditOwnerModal({
         </Button>
         <Button variant="primary" size="sm" loading={saving} onClick={handleSubmit}>
           Save changes
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function AdjustCreditsModal({
+  institution,
+  onClose,
+  onSaved,
+}: {
+  institution: AdminInstitution | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [delta, setDelta] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (institution) {
+      setDelta("");
+      setNote("");
+    }
+  }, [institution]);
+
+  async function handleSubmit() {
+    if (!institution) return;
+    const parsed = Number.parseInt(delta, 10);
+    if (!Number.isFinite(parsed) || parsed === 0) {
+      toast("Enter a non-zero integer delta", { variant: "error" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await adjustInstitutionCredits(
+        institution.id,
+        parsed,
+        note.trim() || undefined,
+      );
+      toast("Credits adjusted", {
+        description: `New balance reflects ${parsed > 0 ? "+" : ""}${parsed}.`,
+        variant: "success",
+      });
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast("Credit adjustment failed", {
+        description: getErrorMessage(err, "Could not adjust credits."),
+        variant: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={institution != null}
+      onClose={onClose}
+      ariaLabel="Adjust credits"
+      className="max-w-md"
+    >
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="text-base font-bold text-navy">
+          Adjust credits · {institution?.name}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg p-1 text-muted hover:bg-slate-100"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="space-y-4 p-5">
+        <p className="text-sm text-muted">
+          Current balance:{" "}
+          <span className="font-semibold text-navy">
+            {institution?.creditBalance ?? 0}
+          </span>
+        </p>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-navy">
+            Delta (positive to grant, negative to deduct)
+          </span>
+          <input
+            type="number"
+            step={1}
+            value={delta}
+            onChange={(e) => setDelta(e.target.value)}
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+            placeholder="e.g. 10 or -5"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-navy">
+            Note (optional)
+          </span>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={240}
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+            placeholder="Admin adjustment"
+          />
+        </label>
+      </div>
+      <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="primary" size="sm" loading={saving} onClick={handleSubmit}>
+          Apply adjustment
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function EditWholesaleModal({
+  institution,
+  onClose,
+  onSaved,
+}: {
+  institution: AdminInstitution | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [price, setPrice] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (institution) {
+      setPrice(String(institution.wholesalePrice ?? 0));
+    }
+  }, [institution]);
+
+  async function handleSubmit() {
+    if (!institution) return;
+    const parsed = Number(price);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      toast("Enter a valid non-negative price", { variant: "error" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await patchInstitution(institution.id, { wholesalePrice: parsed });
+      toast("Wholesale price updated", { variant: "success" });
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast("Update failed", {
+        description: getErrorMessage(err, "Could not update wholesale price."),
+        variant: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={institution != null}
+      onClose={onClose}
+      ariaLabel="Edit wholesale price"
+      className="max-w-md"
+    >
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="text-base font-bold text-navy">
+          Wholesale price · {institution?.name}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg p-1 text-muted hover:bg-slate-100"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="space-y-4 p-5">
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-navy">
+            Price per credit ({institution?.currency ?? "UZS"})
+          </span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+          />
+        </label>
+      </div>
+      <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="primary" size="sm" loading={saving} onClick={handleSubmit}>
+          Save price
         </Button>
       </div>
     </Modal>

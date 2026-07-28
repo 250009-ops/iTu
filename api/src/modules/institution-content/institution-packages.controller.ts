@@ -115,4 +115,9 @@ export class InstitutionPackagesController {
   activatePackage(@CurrentUser() user: RequestUser, @Param('id') id: string) {
     return this.packages.activatePackage(user, id);
   }
+
+  @Post('packages/:id/deactivate')
+  deactivatePackage(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.packages.deactivatePackage(user, id);
+  }
 }

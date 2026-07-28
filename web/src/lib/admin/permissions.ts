@@ -61,8 +61,8 @@ export const ADMIN_PERMISSION_GROUPS: {
       "disputes",
     ],
   },
-  { label: "Analytics", keys: ["reports", "settings"] },
-  { label: "Account", keys: ["notifications", "help"] },
+  { label: "Analytics", keys: ["reports"] },
+  { label: "Account", keys: ["settings", "notifications", "help"] },
 ];
 
 /** Assignable to invited admins (main-admin-only capability excluded). */
@@ -132,6 +132,9 @@ export function permissionForAdminPath(
   return null;
 }
 
+/** Always reachable for any logged-in admin (no permission gate). */
+export const ADMIN_ACCOUNT_PATH = "/admin/account";
+
 export function firstAllowedAdminPath(
   permissions: AdminPermission[] | null | undefined,
   isMainAdmin?: boolean,
@@ -148,6 +151,8 @@ export function firstAllowedAdminPath(
     ) {
       continue;
     }
+    // Team is main-admin-only; never use it as a restricted-admin home.
+    if (rule.permission === "admins") continue;
     if (permissions?.includes(rule.permission)) {
       return rule.prefix;
     }
@@ -156,5 +161,25 @@ export function firstAllowedAdminPath(
   if (permissions?.includes("institution-sets")) {
     return "/admin/packages/institution-sets";
   }
-  return "/admin/help";
+  // Help/notifications are permission-gated — empty [] must not fall back there
+  // or AdminRouteGuard will redirect in a loop. Account is always available.
+  return ADMIN_ACCOUNT_PATH;
+}
+
+/** Prefer a server-provided home path only when the admin can actually open it. */
+export function resolveSafeAdminHomePath(
+  permissions: AdminPermission[] | null | undefined,
+  isMainAdmin?: boolean,
+  preferred?: string | null,
+): string {
+  const fallback = firstAllowedAdminPath(permissions, isMainAdmin);
+  if (!preferred) return fallback;
+  const required = permissionForAdminPath(preferred);
+  if (
+    !required ||
+    adminHasPermission(permissions, required, { isMainAdmin })
+  ) {
+    return preferred;
+  }
+  return fallback;
 }

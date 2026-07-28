@@ -100,7 +100,8 @@ export function SpeakingSessionDetail() {
                     </>
                   )}
                   . Adjust criteria below to update the band — changes sync to
-                  the student&apos;s results once released.
+                  the student&apos;s results when every skill in their package
+                  is graded.
                 </p>
                 <div className="mt-5">
                   <LiveScoringPanel />

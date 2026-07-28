@@ -11,6 +11,7 @@ export function listResults() {
       package: string;
       overallBand: number | null;
       pdfUrl?: string | null;
+      resultsStatus?: string;
     }[]
   >("/results");
 }
@@ -29,11 +30,13 @@ export function getPendingResult() {
 export function getResult(enrollmentId: string) {
   return apiFetch<{
     released: boolean;
+    partial?: boolean;
     status?: string;
     message?: string;
     enrollmentCode?: string;
     mockDate?: string;
     package?: string;
+    packageSkills?: string[];
     overallBand?: number | null;
     pdfUrl?: string | null;
     candidateName?: string | null;

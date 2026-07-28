@@ -37,6 +37,10 @@ export function InstitutionSettingsView() {
   const [form, setForm] = useState<InstitutionProfileForm | null>(null);
   const [savedForm, setSavedForm] = useState<InstitutionProfileForm | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [marketingLogoStatus, setMarketingLogoStatus] = useState("none");
+  const [marketingLogoReviewNote, setMarketingLogoReviewNote] = useState<
+    string | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [lastSaved, setLastSaved] = useState("—");
@@ -47,6 +51,8 @@ export function InstitutionSettingsView() {
     setForm(next);
     setSavedForm(next);
     setLogoUrl(data.logoUrl ?? null);
+    setMarketingLogoStatus(data.marketingLogoStatus ?? "none");
+    setMarketingLogoReviewNote(data.marketingLogoReviewNote ?? null);
     setLastSaved(formatLastSaved(new Date()));
   }, [data]);
 
@@ -103,8 +109,11 @@ export function InstitutionSettingsView() {
     try {
       const updated = await uploadInstitutionLogo(file);
       setLogoUrl(updated.logoUrl ?? null);
+      setMarketingLogoStatus(updated.marketingLogoStatus ?? "pending");
+      setMarketingLogoReviewNote(updated.marketingLogoReviewNote ?? null);
       toast("Logo updated", {
-        description: "Your logo now appears in the partners carousel.",
+        description:
+          "Your portal shows it now. Marketing will use it after platform approval.",
         variant: "success",
       });
       await refresh({ silent: true });
@@ -146,6 +155,8 @@ export function InstitutionSettingsView() {
                   <ProfilePanel
                     form={form}
                     logoUrl={logoUrl}
+                    marketingLogoStatus={marketingLogoStatus}
+                    marketingLogoReviewNote={marketingLogoReviewNote}
                     uploadingLogo={uploadingLogo}
                     onChange={handleChange}
                     onLogoUpload={handleLogoUpload}

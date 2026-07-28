@@ -86,6 +86,7 @@ export class PracticeSessionsService {
     return attempts.map((a) => ({
       id: a.id,
       attemptCode: a.attemptCode,
+      mode: a.mode,
       status: a.status.toLowerCase(),
       score: a.score,
       startedAt: a.startedAt,

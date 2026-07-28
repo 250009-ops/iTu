@@ -36,10 +36,10 @@ const iconTones: Record<string, string> = {
 
 export function ExamTimersPanel() {
   const { examTimers, setField } = useAdminSettings();
-  const timers = examTimers as Record<string, number>;
+  const timers = examTimers as Record<string, number | string>;
   const moduleTimers = defaultExamTimers.slice(0, 4);
   const totalMinutes = moduleTimers.reduce(
-    (sum, t) => sum + (timers[t.id] ?? t.minutes),
+    (sum, t) => sum + Number(timers[t.id] ?? t.minutes),
     0,
   );
 
@@ -66,7 +66,7 @@ export function ExamTimersPanel() {
               key={timer.id}
               className={cn(timer.color)}
               style={{
-                width: `${((timers[timer.id] ?? timer.minutes) / totalMinutes) * 100}%`,
+                width: `${(Number(timers[timer.id] ?? timer.minutes) / totalMinutes) * 100}%`,
               }}
             />
           ))}
@@ -99,7 +99,7 @@ export function ExamTimersPanel() {
                 <Input
                   type="number"
                   min={1}
-                  value={timers[timer.id] ?? timer.minutes}
+                  value={Number(timers[timer.id] ?? timer.minutes)}
                   onChange={(e) =>
                     setField("exam_timers", timer.id, Number(e.target.value))
                   }

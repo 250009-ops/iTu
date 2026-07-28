@@ -39,7 +39,7 @@ export function InstitutionDashboardView() {
                 Mocks
               </Button>
             </Link>
-            <Link href="/institution/students">
+            <Link href="/institution/students?status=active&enroll=1">
               <Button variant="primary" size="sm">
                 <UserPlus className="h-4 w-4" />
                 Enroll students

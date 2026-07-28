@@ -1,6 +1,14 @@
-/** Client-side IELTS Academic raw → band lookup (mirrors api/src/common/ielts-band-tables.ts). */
+/** Client-side IELTS Academic raw → band lookup (mirrors api band resolution). */
 
-const LISTENING_BREAKPOINTS = [
+export type BandBreakpoint = { raw: number; band: number };
+
+export type BandTableLookupRow = {
+  skill: "LISTENING" | "READING" | string;
+  rawScore: number;
+  band: number;
+};
+
+const LISTENING_BREAKPOINTS: BandBreakpoint[] = [
   { raw: 39, band: 9.0 },
   { raw: 37, band: 8.5 },
   { raw: 35, band: 8.0 },
@@ -18,7 +26,7 @@ const LISTENING_BREAKPOINTS = [
   { raw: 0, band: 2.5 },
 ];
 
-const READING_BREAKPOINTS = [
+const READING_BREAKPOINTS: BandBreakpoint[] = [
   { raw: 39, band: 9.0 },
   { raw: 37, band: 8.5 },
   { raw: 35, band: 8.0 },
@@ -40,12 +48,35 @@ const READING_BREAKPOINTS = [
 
 function lookupFromBreakpoints(
   rawScore: number,
-  breakpoints: { raw: number; band: number }[],
+  breakpoints: BandBreakpoint[],
 ): number | null {
   const clamped = Math.max(0, Math.min(40, Math.round(rawScore)));
   const sorted = [...breakpoints].sort((a, b) => b.raw - a.raw);
   const match = sorted.find((bp) => clamped >= bp.raw);
   return match?.band ?? null;
+}
+
+/** Prefer live band table rows (exact, then nearest ≤ raw); fall back to static table. */
+export function lookupBandFromTable(
+  skill: "listening" | "reading",
+  rawScore: number,
+  table: BandTableLookupRow[] | null | undefined,
+): number | null {
+  if (!Number.isFinite(rawScore)) return null;
+  const clamped = Math.max(0, Math.min(40, Math.round(rawScore)));
+  const skillKey = skill.toUpperCase();
+  const rows = (table ?? [])
+    .filter((r) => String(r.skill).toUpperCase() === skillKey)
+    .sort((a, b) => b.rawScore - a.rawScore);
+
+  if (rows.length > 0) {
+    const exact = rows.find((r) => r.rawScore === clamped);
+    if (exact) return exact.band;
+    const nearest = rows.find((r) => r.rawScore <= clamped);
+    if (nearest) return nearest.band;
+  }
+
+  return lookupBandFromRaw(skill, clamped);
 }
 
 export function lookupBandFromRaw(

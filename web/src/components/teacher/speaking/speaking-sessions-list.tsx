@@ -50,6 +50,10 @@ function StatusBadge({
       label: "Student absent",
       className: "bg-rose-50 text-rose-700",
     },
+    cancelled: {
+      label: "Cancelled",
+      className: "bg-slate-100 text-slate-500",
+    },
   };
 
   const style = styles[uiStatus];
@@ -82,6 +86,14 @@ function SessionAction({ session }: { session: MappedSpeakingSessionItem }) {
     return (
       <Button variant="secondary" size="sm" disabled>
         Student absent
+      </Button>
+    );
+  }
+
+  if (session.uiStatus === "cancelled") {
+    return (
+      <Button variant="secondary" size="sm" disabled>
+        Cancelled
       </Button>
     );
   }
@@ -125,11 +137,14 @@ export function SpeakingSessionsList({
   sessions,
   emptyTitle,
   emptyDescription,
+  showDate = false,
 }: {
   title: string;
   sessions: MappedSpeakingSessionItem[];
   emptyTitle: string;
   emptyDescription: string;
+  /** Include calendar date (needed for multi-day backlog lists). */
+  showDate?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
@@ -165,7 +180,9 @@ export function SpeakingSessionsList({
                   <p className="truncate font-semibold text-navy">
                     {session.studentName}
                   </p>
-                  <p className="text-sm text-muted">{session.timeRange}</p>
+                  <p className="text-sm text-muted">
+                    {showDate ? session.dateTimeLabel : session.timeRange}
+                  </p>
                 </div>
               </div>
 

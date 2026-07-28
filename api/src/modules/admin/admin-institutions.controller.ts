@@ -16,6 +16,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { AdminInstitutionsService } from './admin-institutions.service';
 import { AdjustCreditsDto } from './dto/adjust-credits.dto';
 import { PatchInstitutionDto } from './dto/patch-institution.dto';
+import { ReviewMarketingLogoDto } from './dto/review-marketing-logo.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -57,6 +58,24 @@ export class AdminInstitutionsController {
   @Post(':id/reject')
   reject(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.service.reject(id, user.id);
+  }
+
+  @Post(':id/logo/approve')
+  approveMarketingLogo(
+    @Param('id') id: string,
+    @Body() dto: ReviewMarketingLogoDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.approveMarketingLogo(id, user.id, dto.note);
+  }
+
+  @Post(':id/logo/reject')
+  rejectMarketingLogo(
+    @Param('id') id: string,
+    @Body() dto: ReviewMarketingLogoDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.rejectMarketingLogo(id, user.id, dto.note);
   }
 
   @Patch(':id')

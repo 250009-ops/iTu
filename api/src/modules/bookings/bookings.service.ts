@@ -23,10 +23,17 @@ import {
   extractCalendarDateIso,
   hasExamStarted,
   isFlexibleGrant,
+  isSameLocalDay,
   addCalendarDaysIso,
   resolveMockDayCutoffAt,
   zonedWallClockToUtc,
 } from '../../common/mock-day-policy';
+import {
+  assertSpeakingGridInstant,
+  assertSpeakingGridTime,
+  isSpeakingGridInstant,
+  SPEAKING_SLOT_DURATION_MINUTES,
+} from '../../common/speaking-slot-grid';
 import {
   AuditAction,
   type AuditActionName,
@@ -136,14 +143,17 @@ export class BookingsService {
       orderBy: { startsAt: 'asc' },
     });
 
-    return slots.map((s) => ({
-      id: s.id,
-      teacherId: s.teacherId,
-      teacherName: s.teacher.user.name,
-      startsAt: s.startsAt,
-      endsAt: s.endsAt,
-      status: s.status.toLowerCase(),
-    }));
+    // Hide legacy off-grid rows from new booking UIs; existing bookings stay intact.
+    return slots
+      .filter((s) => isSpeakingGridInstant(s.startsAt, timeZone))
+      .map((s) => ({
+        id: s.id,
+        teacherId: s.teacherId,
+        teacherName: s.teacher.user.name,
+        startsAt: s.startsAt,
+        endsAt: s.endsAt,
+        status: s.status.toLowerCase(),
+      }));
   }
 
   async listTeachers(speciality?: 'writing' | 'speaking' | 'both') {
@@ -361,6 +371,20 @@ export class BookingsService {
         });
         if (!speakingSlot || speakingSlot.status !== SlotStatus.AVAILABLE) {
           throw new BadRequestException('Speaking slot is no longer available');
+        }
+        assertSpeakingGridInstant(speakingSlot.startsAt, timeZone);
+        const slotDateIso = calendarDateIsoInTimeZone(
+          speakingSlot.startsAt,
+          timeZone,
+        );
+        const mockDateIso = extractCalendarDateIso(params.mockDate, timeZone);
+        if (slotDateIso !== mockDateIso) {
+          throw new BadRequestException(
+            'Speaking slot must be on the same day as your mock date',
+          );
+        }
+        if (speakingSlot.startsAt.getTime() <= Date.now()) {
+          throw new BadRequestException('Speaking slot must be in the future');
         }
         if (
           params.speakingTeacherId &&
@@ -1044,6 +1068,36 @@ export class BookingsService {
             mockDayCutoffAt,
           },
         });
+
+        // Keep same-day CBT skill-only siblings on the same mock day.
+        // Speaking-only bookings keep their own date/slot and are not moved here.
+        const siblings = await tx.enrollment.findMany({
+          where: {
+            studentId: user.studentProfileId!,
+            id: { not: enrollment.id },
+            status: EnrollmentStatus.ENROLLED,
+            examStartedAt: null,
+            examSession: { checkInAt: null },
+          },
+          include: { package: true, examSession: true },
+        });
+        for (const sibling of siblings) {
+          if (
+            !isSameLocalDay(sibling.mockDate, enrollment.mockDate) ||
+            packageExamSkills(sibling.package.skills).includes(ExamSkill.SPEAKING)
+          ) {
+            continue;
+          }
+          await tx.enrollment.update({
+            where: { id: sibling.id },
+            data: {
+              mockDate: new Date(dto.mockDate),
+              mockTime: dto.mockTime,
+              mockDayCutoffAt,
+            },
+          });
+        }
+
         return { updated, slot: null, speakingSessionId: null };
       }
 
@@ -1053,6 +1107,7 @@ export class BookingsService {
       if (!slot || slot.status !== SlotStatus.AVAILABLE) {
         throw new BadRequestException('Speaking slot is no longer available');
       }
+      assertSpeakingGridInstant(slot.startsAt, timeZone);
 
       const booked = await tx.teacherSlot.updateMany({
         where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
@@ -1219,6 +1274,7 @@ export class BookingsService {
     }
 
     const timeZone = await this.settings.getPlatformTimezone();
+    assertSpeakingGridInstant(slot.startsAt, timeZone);
     const slotDateIso = calendarDateIsoInTimeZone(slot.startsAt, timeZone);
     const todayIso = calendarDateIsoInTimeZone(new Date(), timeZone);
     const flexibleGrant = isFlexibleGrant(enrollment);
@@ -1424,6 +1480,7 @@ export class BookingsService {
     if (!/^\d{2}:\d{2}$/.test(params.speakingTime)) {
       throw new BadRequestException('speakingTime must be in HH:mm format');
     }
+    assertSpeakingGridTime(params.speakingTime);
     const [hours, minutes] = params.speakingTime.split(':').map(Number);
     const dateIso = extractCalendarDateIso(params.mockDate, params.timeZone);
     const startsAt = zonedWallClockToUtc(
@@ -1436,7 +1493,9 @@ export class BookingsService {
     if (startsAt.getTime() <= Date.now()) {
       throw new BadRequestException('Speaking time must be in the future');
     }
-    const endsAt = new Date(startsAt.getTime() + 20 * 60_000);
+    const endsAt = new Date(
+      startsAt.getTime() + SPEAKING_SLOT_DURATION_MINUTES * 60_000,
+    );
 
     const existing = await tx.teacherSlot.findUnique({
       where: {
@@ -1509,6 +1568,7 @@ export class BookingsService {
         if (!speakingSlot || speakingSlot.status !== SlotStatus.AVAILABLE) {
           throw new BadRequestException('Speaking slot is no longer available');
         }
+        assertSpeakingGridInstant(speakingSlot.startsAt, timeZone);
         const booked = await tx.teacherSlot.updateMany({
           where: { id: params.speakingSlotId, status: SlotStatus.AVAILABLE },
           data: { status: SlotStatus.BOOKED, version: { increment: 1 } },

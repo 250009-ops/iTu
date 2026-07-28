@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { getMe, type ApiUser } from "@/lib/api/auth";
 import {
   adminHasPermission,
-  firstAllowedAdminPath,
+  resolveSafeAdminHomePath,
   type AdminPermission,
 } from "@/lib/admin/permissions";
 
@@ -41,9 +41,11 @@ function fromUser(user: ApiUser | null): Omit<
   return {
     isMainAdmin,
     permissions,
-    homePath:
-      user?.adminHomePath ??
-      firstAllowedAdminPath(permissions, isMainAdmin),
+    homePath: resolveSafeAdminHomePath(
+      permissions,
+      isMainAdmin,
+      user?.adminHomePath,
+    ),
   };
 }
 

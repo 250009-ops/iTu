@@ -7,6 +7,7 @@ import {
   isMainAdminEmail,
   resolveAdminPermissions,
 } from '../../../common/admin-permissions/admin-permissions';
+import { assertInstitutionCanLogin } from '../../../common/institution/institution-access';
 import { RequestUser } from '../../../common/types/request-user';
 import { PrismaService } from '../../../prisma/prisma.service';
 // RequestUser is a class (required for decorator metadata)
@@ -46,6 +47,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       include: {
         studentProfile: { select: { id: true } },
         teacherProfile: { select: { id: true } },
+        institution: { select: { status: true } },
         adminProfile: {
           select: { active: true, permissions: true },
         },
@@ -64,6 +66,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     requestUser.studentProfileId = user.studentProfile?.id;
     requestUser.teacherProfileId = user.teacherProfile?.id;
     requestUser.institutionId = user.institutionId ?? undefined;
+
+    if (user.role === UserRole.INSTITUTION) {
+      // Re-check on every request so mid-session suspend takes effect immediately.
+      assertInstitutionCanLogin(user.institution);
+    }
 
     if (user.role === UserRole.ADMIN) {
       const isMain = isMainAdminEmail(user.email, this.mainAdminEmail);

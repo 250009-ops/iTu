@@ -17,6 +17,7 @@ import { getErrorMessage } from "@/lib/api/errors";
 import {
   activateInstitutionPackage,
   createInstitutionPackage,
+  deactivateInstitutionPackage,
   getInstitutionPackageContentTests,
   getInstitutionPackageNextIdentity,
   getInstitutionPackagesMine,
@@ -116,6 +117,7 @@ export function InstitutionMocksView() {
   >({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [pickStudentFor, setPickStudentFor] = useState<PackageRow | null>(null);
   const [students, setStudents] = useState<
     { id: string; name: string; status: string }[]
@@ -281,6 +283,25 @@ export function InstitutionMocksView() {
     }
   }
 
+  async function handleDeactivate(pkg: PackageRow) {
+    setDeactivatingId(pkg.id);
+    try {
+      await deactivateInstitutionPackage(pkg.id);
+      await refresh();
+      toast("Mock deactivated", {
+        description: `${pkg.title} is back to draft. Existing enrollments are unchanged.`,
+        variant: "info",
+      });
+    } catch (err) {
+      toast("Deactivate failed", {
+        description: getErrorMessage(err, "Could not deactivate this mock."),
+        variant: "error",
+      });
+    } finally {
+      setDeactivatingId(null);
+    }
+  }
+
   async function openStudentPicker(pkg: PackageRow) {
     if (!pkg.isActive) {
       toast("Activate this mock first", { variant: "warning" });
@@ -422,13 +443,23 @@ export function InstitutionMocksView() {
                             </Button>
                           )}
                           {pkg.isActive && (
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => void openStudentPicker(pkg)}
-                            >
-                              Enroll
-                            </Button>
+                            <>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                loading={deactivatingId === pkg.id}
+                                onClick={() => void handleDeactivate(pkg)}
+                              >
+                                Deactivate
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => void openStudentPicker(pkg)}
+                              >
+                                Enroll
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>

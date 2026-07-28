@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, LineChart, MonitorPlay, User } from "lucide-react";
+import { BookOpen, LayoutDashboard, LineChart, MonitorPlay, User } from "lucide-react";
 import { useInstStudent } from "@/contexts/inst-student-context";
 import { instStudentNav, isInstStudentNavActive } from "@/lib/inst-student/nav";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const iconMap = {
   "layout-dashboard": LayoutDashboard,
   "monitor-play": MonitorPlay,
+  "book-open": BookOpen,
   "line-chart": LineChart,
   user: User,
 } as const;

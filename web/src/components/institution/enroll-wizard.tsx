@@ -20,13 +20,11 @@ import {
   STUDENT_BROWSE_TYPE_TABS,
   type PackageTypeTabId,
 } from "@/lib/package-type-tabs";
+import {
+  allSpeakingGridTimes,
+  isSpeakingGridTime,
+} from "@/lib/speaking/slot-grid";
 import { cn } from "@/lib/utils";
-
-function normalizeTimeInput(value: string) {
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return value.trim();
-  return `${match[1]!.padStart(2, "0")}:${match[2]}`;
-}
 
 function packageNeeds(pkg: EnrollmentMockOption | undefined) {
   if (!pkg) return { writing: false, speaking: false };
@@ -133,7 +131,8 @@ export function EnrollWizard({
       canSelectSelected &&
       mockDate &&
       (!needs.writing || writingTeacherId) &&
-      (!needs.speaking || (speakingTeacherId && speakingTime)),
+      (!needs.speaking ||
+        (speakingTeacherId && isSpeakingGridTime(speakingTime))),
   );
 
   async function handleSubmit() {
@@ -154,8 +153,8 @@ export function EnrollWizard({
         mockDate,
         writingTeacherId: writingTeacherId || undefined,
         speakingTeacherId: speakingTeacherId || undefined,
-        speakingTime: speakingTime
-          ? normalizeTimeInput(speakingTime)
+        speakingTime: isSpeakingGridTime(speakingTime)
+          ? speakingTime
           : undefined,
       });
       if (res.enrolled > 0) {
@@ -350,11 +349,9 @@ export function EnrollWizard({
                   Select a speaking examiner and mock date first.
                 </p>
               ) : (
-                <input
-                  type="time"
+                <SpeakingTimeGridSelect
                   value={speakingTime}
-                  onChange={(e) => setSpeakingTime(e.target.value)}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+                  onChange={setSpeakingTime}
                 />
               )}
             </Field>
@@ -392,5 +389,68 @@ function Field({
       <span className="mb-1 block text-xs font-semibold text-navy">{label}</span>
       {children}
     </label>
+  );
+}
+
+function SpeakingTimeGridSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const hours = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of allSpeakingGridTimes()) {
+      set.add(t.slice(0, 2));
+    }
+    return [...set];
+  }, []);
+  const hour = value ? value.slice(0, 2) : "";
+  const minuteSlots = useMemo(() => {
+    if (!hour) return [];
+    return allSpeakingGridTimes().filter((t) => t.startsWith(`${hour}:`));
+  }, [hour]);
+
+  return (
+    <div className="space-y-2">
+      <select
+        value={hour}
+        onChange={(e) => {
+          const nextHour = e.target.value;
+          onChange(nextHour ? `${nextHour}:00` : "");
+        }}
+        className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-navy focus:outline-none"
+      >
+        <option value="">Select hour…</option>
+        {hours.map((h) => (
+          <option key={h} value={h}>
+            {h}:00
+          </option>
+        ))}
+      </select>
+      {hour ? (
+        <div className="flex flex-wrap gap-2">
+          {minuteSlots.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onChange(t)}
+              className={cn(
+                "rounded-lg border px-3 py-2 text-sm font-semibold tabular-nums",
+                value === t
+                  ? "border-rose-500 bg-rose-500 text-white"
+                  : "border-border bg-white text-foreground hover:bg-slate-50",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <p className="text-[11px] text-muted">
+        Only :00 / :20 / :40 slots (20 minutes).
+      </p>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   CreditTxnType,
   InstitutionStatus,
+  MarketingLogoStatus,
   UserRole,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -97,6 +98,10 @@ export class AdminInstitutionsService implements OnModuleInit {
       examiners: inst._count.teachers,
       enrollments: inst._count.enrollments,
       applicationSource: applicationSource ?? null,
+      logoUrl: inst.logoUrl,
+      marketingLogoStatus: inst.marketingLogoStatus.toLowerCase(),
+      marketingLogoReviewedAt: inst.marketingLogoReviewedAt,
+      marketingLogoReviewNote: inst.marketingLogoReviewNote,
       owner: inst.admins[0]
         ? {
             id: inst.admins[0].id,
@@ -342,6 +347,75 @@ export class AdminInstitutionsService implements OnModuleInit {
       entity: 'institution',
       entityId: id,
       metadata: { ...dto },
+    });
+
+    return this.mapRow(id);
+  }
+
+  /**
+   * Approve a centre logo for the public marketing site (Trusted by strip).
+   * Centre portal already shows logoUrl; this only gates marketing display.
+   */
+  async approveMarketingLogo(id: string, actorId: string, note?: string) {
+    const institution = await this.prisma.institution.findUnique({
+      where: { id },
+    });
+    if (!institution) throw new NotFoundException('Institution not found');
+    if (!institution.logoUrl) {
+      throw new BadRequestException('Institution has no logo to approve');
+    }
+    if (institution.marketingLogoStatus === MarketingLogoStatus.APPROVED) {
+      throw new BadRequestException('Marketing logo is already approved');
+    }
+
+    await this.prisma.institution.update({
+      where: { id },
+      data: {
+        marketingLogoStatus: MarketingLogoStatus.APPROVED,
+        marketingLogoReviewedAt: new Date(),
+        marketingLogoReviewNote: note?.trim() || null,
+      },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_INSTITUTION_LOGO_APPROVE,
+      entity: 'institution',
+      entityId: id,
+      metadata: { note: note ?? null },
+    });
+
+    return this.mapRow(id);
+  }
+
+  /** Reject a centre logo for marketing; strip falls back to centre name text. */
+  async rejectMarketingLogo(id: string, actorId: string, note?: string) {
+    const institution = await this.prisma.institution.findUnique({
+      where: { id },
+    });
+    if (!institution) throw new NotFoundException('Institution not found');
+    if (!institution.logoUrl) {
+      throw new BadRequestException('Institution has no logo to reject');
+    }
+    if (institution.marketingLogoStatus === MarketingLogoStatus.NONE) {
+      throw new BadRequestException('No marketing logo pending review');
+    }
+
+    await this.prisma.institution.update({
+      where: { id },
+      data: {
+        marketingLogoStatus: MarketingLogoStatus.REJECTED,
+        marketingLogoReviewedAt: new Date(),
+        marketingLogoReviewNote: note?.trim() || null,
+      },
+    });
+
+    await this.audit.log({
+      userId: actorId,
+      action: AuditAction.ADMIN_INSTITUTION_LOGO_REJECT,
+      entity: 'institution',
+      entityId: id,
+      metadata: { note: note ?? null },
     });
 
     return this.mapRow(id);

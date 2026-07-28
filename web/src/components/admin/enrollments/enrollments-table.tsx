@@ -6,7 +6,6 @@ import { Select } from "@/components/ui/select";
 import { EnrollmentDetailDialog } from "@/components/admin/enrollments/enrollment-detail-dialog";
 import { ReappointMockDialog } from "@/components/admin/enrollments/reappoint-mock-dialog";
 import {
-  allModules,
   lifecycleFilterOptions,
   moduleBadges,
 } from "@/lib/admin/constants";
@@ -40,19 +39,28 @@ const lifecycleStyles: Record<
     dot: "bg-rose-500",
     pill: "bg-rose-50 text-rose-700",
   },
+  cancelled: {
+    label: "Cancelled",
+    dot: "bg-slate-400",
+    pill: "bg-slate-100 text-slate-600",
+  },
 };
 
 function ModuleProgress({
+  includedModules,
   completedModules,
 }: {
+  includedModules: ModuleKey[];
   completedModules: ModuleKey[];
 }) {
-  const done = completedModules.length;
+  const modules = includedModules.length > 0 ? includedModules : completedModules;
+  const total = Math.max(modules.length, 1);
+  const done = completedModules.filter((m) => modules.includes(m)).length;
 
   return (
     <div>
       <div className="flex gap-1.5">
-        {allModules.map((mod) => {
+        {modules.map((mod) => {
           const badge = moduleBadges[mod];
           const isDone = completedModules.includes(mod);
           return (
@@ -73,7 +81,9 @@ function ModuleProgress({
           );
         })}
       </div>
-      <p className="mt-1 text-xs text-muted">{done}/4 done</p>
+      <p className="mt-1 text-xs text-muted">
+        {done}/{modules.length || total} done
+      </p>
     </div>
   );
 }
@@ -209,8 +219,11 @@ export function EnrollmentsTable() {
                             {enrollment.studentName}
                           </p>
                           <p className="text-xs text-muted">
-                            Target: Band {enrollment.targetBand.toFixed(1)} ·{" "}
-                            {enrollment.country}
+                            Target:{" "}
+                            {enrollment.targetBand != null
+                              ? `Band ${enrollment.targetBand.toFixed(1)}`
+                              : "—"}{" "}
+                            · {enrollment.country}
                           </p>
                         </div>
                       </div>
@@ -223,6 +236,7 @@ export function EnrollmentsTable() {
                     </td>
                     <td className="px-5 py-4 sm:px-6">
                       <ModuleProgress
+                        includedModules={enrollment.includedModules}
                         completedModules={enrollment.completedModules}
                       />
                     </td>

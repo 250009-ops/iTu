@@ -668,8 +668,12 @@ export function mapMockDayHub(data: MockDayApi) {
                       : "Complete check-in to begin",
       message: isMissed
         ? enrollment.examStartedAt
-          ? "You were marked absent after missing the speaking late-join window. Contact your centre admin to reappoint, or book a new mock from Browse."
-          : "This session was marked missed. Contact your centre admin to reappoint, or book a new mock from Browse."
+          ? institutionGranted
+            ? "You were marked absent after missing the speaking late-join window. Contact your centre admin to reappoint."
+            : "You were marked absent after missing the speaking late-join window. Contact your centre admin to reappoint, or book a new mock from Browse."
+          : institutionGranted
+            ? "This session was marked missed. Contact your centre admin to reappoint."
+            : "This session was marked missed. Contact your centre admin to reappoint, or book a new mock from Browse."
         : isAwaitingResults
           ? "Your answers are with examiners for grading. Band scores appear on Results once Writing and Speaking are graded — typically within 24 hours."
           : mockDayClosed

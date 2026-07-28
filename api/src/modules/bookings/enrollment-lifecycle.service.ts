@@ -12,6 +12,10 @@ import {
   shouldMarkSpeakingNoShow,
   shouldMissEnrollmentForSpeakingNoShow,
 } from '../../common/mock-day-policy';
+import {
+  studentMockDayPath,
+  studentResultsPath,
+} from '../../common/student-portal-paths';
 import { PrismaService } from '../../prisma/prisma.service';
 import { packageExamSkills } from '../content/package-skills';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -107,6 +111,7 @@ export class EnrollmentLifecycleService {
     return this.applySpeakingNoShow({
       enrollmentId: enrollment.id,
       enrollmentCode: enrollment.enrollmentCode,
+      institutionId: enrollment.institutionId,
       studentUserId: enrollment.student.userId,
       speakingSessionId: speakingSession.id,
       sectionAttemptId: speakingSession.sectionAttemptId,
@@ -177,6 +182,7 @@ export class EnrollmentLifecycleService {
     return this.applySpeakingNoShow({
       enrollmentId: enrollment.id,
       enrollmentCode: enrollment.enrollmentCode,
+      institutionId: enrollment.institutionId,
       studentUserId: enrollment.student.userId,
       speakingSessionId: speakingSession.id,
       sectionAttemptId: speakingSession.sectionAttemptId,
@@ -194,6 +200,7 @@ export class EnrollmentLifecycleService {
   private async applySpeakingNoShow(input: {
     enrollmentId: string;
     enrollmentCode: string;
+    institutionId: string | null;
     studentUserId: string;
     speakingSessionId: string;
     sectionAttemptId: string;
@@ -268,7 +275,7 @@ export class EnrollmentLifecycleService {
         'Speaking marked absent',
         `You missed the late-join window for ${input.enrollmentCode}. Contact your centre admin to reappoint this mock.`,
         NotificationType.SYSTEM,
-        '/student/mock-day',
+        studentMockDayPath(input.institutionId),
       );
     } else {
       await this.notifications.create(
@@ -276,7 +283,7 @@ export class EnrollmentLifecycleService {
         'Speaking marked absent',
         `You missed the late-join window for speaking on ${input.enrollmentCode}. Other completed modules can still release when graded.`,
         NotificationType.SYSTEM,
-        '/student/results',
+        studentResultsPath(input.institutionId, input.enrollmentCode),
       );
       await this.resultsRelease.tryRelease(
         input.enrollmentId,

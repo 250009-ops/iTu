@@ -127,7 +127,16 @@ export function subscribeSession(callback: () => void): () => void {
   };
 }
 
-export function getDashboardPath(role: UserRole): string {
+export function getDashboardPath(
+  role: UserRole,
+  options?: { institutionLinked?: boolean },
+): string {
+  if (role === "teacher" && options?.institutionLinked) {
+    return "/inst-examiner";
+  }
+  if (role === "student" && options?.institutionLinked) {
+    return "/inst-student";
+  }
   return DASHBOARD_PATHS[role];
 }
 

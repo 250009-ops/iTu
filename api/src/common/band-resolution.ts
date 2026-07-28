@@ -28,6 +28,8 @@ export async function resolveAttemptBand(
     skill: string;
     band: number | null;
     rawScore: number | null;
+    writingSubmission?: { grade?: { overallBand?: number } | null } | null;
+    speakingSession?: { grade?: { overallBand?: number } | null } | null;
   },
 ): Promise<number | null> {
   const skill = attempt.skill as ExamSkill;
@@ -38,6 +40,12 @@ export async function resolveAttemptBand(
     return lookupBandFromRawScore(prisma, skill, attempt.rawScore);
   }
   if (attempt.band != null) return attempt.band;
+  if (skill === ExamSkill.WRITING) {
+    return attempt.writingSubmission?.grade?.overallBand ?? null;
+  }
+  if (skill === ExamSkill.SPEAKING) {
+    return attempt.speakingSession?.grade?.overallBand ?? null;
+  }
   return null;
 }
 

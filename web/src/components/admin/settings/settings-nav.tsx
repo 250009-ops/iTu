@@ -5,6 +5,7 @@ import {
   Layers,
   Percent,
   Settings2,
+  ShieldAlert,
   Table2,
 } from "lucide-react";
 import { settingsTabs } from "@/lib/admin/constants";
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
 const tabIcons: Record<SettingsTab, typeof Settings2> = {
   general: Settings2,
   exam_timers: Clock,
+  exam_integrity: ShieldAlert,
   commission: Percent,
   band_table: Table2,
   notifications: Bell,

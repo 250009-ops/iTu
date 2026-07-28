@@ -8,11 +8,30 @@ import { RequestUser } from '../../common/types/request-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { packageExamSkills } from '../content/package-skills';
 import {
-  lookupBandFromRawScore,
   overallBandFromSkillBands,
   resolveAttemptBand,
 } from '../../common/band-resolution';
 import { ResultsPdfService } from './results-pdf.service';
+
+type AttemptRow = {
+  skill: string;
+  band: number | null;
+  rawScore: number | null;
+  writingSubmission?: {
+    grade?: {
+      feedback: string | null;
+      criteriaScores: unknown;
+      overallBand?: number;
+    } | null;
+  } | null;
+  speakingSession?: {
+    grade?: {
+      feedback: string | null;
+      criteriaScores: unknown;
+      overallBand?: number;
+    } | null;
+  } | null;
+};
 
 @Injectable()
 export class ResultsService {
@@ -25,20 +44,7 @@ export class ResultsService {
     const enrollment = await this.findEnrollment(enrollmentId);
     this.assertAccess(enrollment, user);
 
-    if (enrollment.resultsStatus !== 'RELEASED') {
-      return {
-        released: false,
-        status: enrollment.resultsStatus.toLowerCase(),
-        message: 'Results are not yet available. All sections must be graded.',
-        enrollmentCode: enrollment.enrollmentCode,
-        mockDate: enrollment.mockDate,
-        package: enrollment.package.title,
-      };
-    }
-
-    const payload = await this.buildReleasedPayload(enrollment);
-    return {
-      ...payload,
+    const meta = {
       pdfUrl: enrollment.resultPdfUrl,
       candidateName: enrollment.student.user.name,
       candidateEmail: enrollment.student.user.email,
@@ -47,7 +53,6 @@ export class ResultsService {
       dateOfBirth: enrollment.student.dateOfBirth ?? null,
       sex: enrollment.student.sex ?? null,
       firstLanguage: enrollment.student.firstLanguage ?? null,
-      // Partner centre that conducted this exam. Null for direct iTestU bookings.
       centre: enrollment.institution
         ? {
             name: enrollment.institution.name,
@@ -65,6 +70,40 @@ export class ResultsService {
         ? 'Partner Candidate'
         : 'Mock Candidate',
     };
+
+    if (enrollment.resultsStatus === 'RELEASED') {
+      const payload = await this.buildSkillsPayload(enrollment, true);
+      return { ...payload, ...meta };
+    }
+
+    // Progressive release: show graded modules (e.g. Writing) before every
+    // package skill is complete — common for institute Reading→Writing flows.
+    const payload = await this.buildSkillsPayload(enrollment, false);
+    const hasScores = payload.skills.some((s) => s.band != null);
+    if (hasScores) {
+      const pendingCount = payload.skills.filter((s) => s.band == null).length;
+      return {
+        ...payload,
+        ...meta,
+        status: enrollment.resultsStatus.toLowerCase(),
+        message:
+          pendingCount > 0
+            ? `Some modules are graded. Full results unlock when all ${payload.packageSkills.length} modules are complete.`
+            : 'Results are being finalised.',
+      };
+    }
+
+    return {
+      released: false,
+      status: enrollment.resultsStatus.toLowerCase(),
+      message: 'Results are not yet available. All sections must be graded.',
+      enrollmentCode: enrollment.enrollmentCode,
+      mockDate: enrollment.mockDate,
+      package: enrollment.package.title,
+      packageSkills: packageExamSkills(enrollment.package.skills).map((s) =>
+        s.toLowerCase(),
+      ),
+    };
   }
 
   async listForStudent(user: RequestUser) {
@@ -75,11 +114,20 @@ export class ResultsService {
     const enrollments = await this.prisma.enrollment.findMany({
       where: {
         studentId: user.studentProfileId,
-        resultsStatus: 'RELEASED',
+        resultsStatus: { in: ['RELEASED', 'PARTIAL'] },
       },
       include: {
         package: true,
-        examSession: { include: { sectionAttempts: true } },
+        examSession: {
+          include: {
+            sectionAttempts: {
+              include: {
+                writingSubmission: { include: { grade: true } },
+                speakingSession: { include: { grade: true } },
+              },
+            },
+          },
+        },
       },
       orderBy: { mockDate: 'desc' },
     });
@@ -87,8 +135,10 @@ export class ResultsService {
     return Promise.all(
       enrollments.map(async (e) => {
         const attempts = e.examSession?.sectionAttempts ?? [];
+        const packageSkills = packageExamSkills(e.package.skills);
         const bands: number[] = [];
         for (const attempt of attempts) {
+          if (!packageSkills.includes(attempt.skill as ExamSkill)) continue;
           const band = await resolveAttemptBand(this.prisma, attempt);
           if (band != null) bands.push(band);
         }
@@ -100,6 +150,7 @@ export class ResultsService {
           package: e.package.title,
           overallBand: overall,
           pdfUrl: e.resultPdfUrl,
+          resultsStatus: e.resultsStatus.toLowerCase(),
         };
       }),
     );
@@ -199,7 +250,7 @@ export class ResultsService {
   }
 
   private assertAccess(
-    enrollment: { studentId: string },
+    enrollment: { studentId: string; institutionId: string | null },
     user: RequestUser,
   ) {
     if (
@@ -208,73 +259,76 @@ export class ResultsService {
     ) {
       throw new ForbiddenException('Access denied');
     }
+    if (user.role === 'INSTITUTION') {
+      if (
+        !user.institutionId ||
+        enrollment.institutionId !== user.institutionId
+      ) {
+        throw new ForbiddenException('Access denied');
+      }
+    }
   }
 
-  private async resolveAttemptBand(attempt: {
-    skill: string;
-    band: number | null;
-    rawScore: number | null;
-  }): Promise<number | null> {
-    return resolveAttemptBand(this.prisma, attempt);
-  }
-
-  private deriveCentreNumber(institutionId: string | null): string {
-    if (!institutionId) return 'ITU-001';
-    const slug = institutionId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    return `ITU-${slug.slice(-4).padStart(4, '0')}`;
-  }
-
-  private async buildReleasedPayload(enrollment: {
-    enrollmentCode: string;
-    mockDate: Date;
-    createdAt?: Date;
-    updatedAt?: Date;
-    institutionId?: string | null;
-    student?: {
-      country?: string | null;
-      examType?: string | null;
-      user?: { name?: string | null } | null;
-    } | null;
-    institution?: { name?: string | null; logoUrl?: string | null } | null;
-    package: { title: string; skills: unknown };
-    examSession?: {
-      sectionAttempts: {
-        skill: string;
-        band: number | null;
-        rawScore: number | null;
-        writingSubmission?: { grade?: { feedback: string | null; criteriaScores: unknown } | null } | null;
-        speakingSession?: { grade?: { feedback: string | null; criteriaScores: unknown } | null } | null;
-      }[];
-    } | null;
-  }) {
+  private async buildSkillsPayload(
+    enrollment: {
+      enrollmentCode: string;
+      mockDate: Date;
+      package: { title: string; skills: unknown };
+      examSession?: { sectionAttempts: AttemptRow[] } | null;
+    },
+    fullyReleased: boolean,
+  ) {
     const attempts = enrollment.examSession?.sectionAttempts ?? [];
     const packageSkills = packageExamSkills(enrollment.package.skills);
 
+    // Always emit one row per package skill so Writing/Speaking tabs appear
+    // even when only Reading has auto-scored so far. Also include any graded
+    // attempt that is missing from package.skills (content misconfig).
+    const skillSet = new Set<ExamSkill>(packageSkills);
+    for (const attempt of attempts) {
+      const skill = attempt.skill as ExamSkill;
+      const graded =
+        attempt.band != null ||
+        attempt.rawScore != null ||
+        !!attempt.writingSubmission?.grade ||
+        !!attempt.speakingSession?.grade;
+      if (graded) skillSet.add(skill);
+    }
+    const orderedSkills = (
+      [
+        ExamSkill.LISTENING,
+        ExamSkill.READING,
+        ExamSkill.WRITING,
+        ExamSkill.SPEAKING,
+      ] as ExamSkill[]
+    ).filter((s) => skillSet.has(s));
+
     const skills = await Promise.all(
-      attempts
-        .filter((a) =>
-          packageSkills.includes(a.skill as ExamSkill),
-        )
-        .map(async (a) => {
-          const band = await this.resolveAttemptBand(a);
-          return {
-            skill: a.skill.toLowerCase(),
-            band,
-            rawScore: a.rawScore,
-            feedback:
-              a.writingSubmission?.grade?.feedback ??
-              a.speakingSession?.grade?.feedback,
-            criteriaScores:
-              (a.writingSubmission?.grade?.criteriaScores as Record<
-                string,
-                number
-              >) ??
-              (a.speakingSession?.grade?.criteriaScores as Record<
-                string,
-                number
-              >),
-          };
-        }),
+      orderedSkills.map(async (skill) => {
+        const attempt = attempts.find((a) => a.skill === skill);
+        const band = attempt
+          ? await resolveAttemptBand(this.prisma, attempt)
+          : null;
+        return {
+          skill: skill.toLowerCase(),
+          band,
+          rawScore: attempt?.rawScore ?? null,
+          feedback:
+            attempt?.writingSubmission?.grade?.feedback ??
+            attempt?.speakingSession?.grade?.feedback ??
+            null,
+          criteriaScores:
+            (attempt?.writingSubmission?.grade?.criteriaScores as Record<
+              string,
+              number
+            >) ??
+            (attempt?.speakingSession?.grade?.criteriaScores as Record<
+              string,
+              number
+            >) ??
+            undefined,
+        };
+      }),
     );
 
     const bands = skills
@@ -283,11 +337,12 @@ export class ResultsService {
     const overallBand = overallBandFromSkillBands(bands);
 
     return {
-      released: true as const,
+      released: fullyReleased,
+      partial: !fullyReleased && bands.length > 0,
       enrollmentCode: enrollment.enrollmentCode,
       mockDate: enrollment.mockDate,
       package: enrollment.package.title,
-      packageSkills: packageSkills.map((s) => s.toLowerCase()),
+      packageSkills: orderedSkills.map((s) => s.toLowerCase()),
       overallBand,
       skills,
     };

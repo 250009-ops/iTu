@@ -38,7 +38,7 @@ const PRICING_FAQS: MarketingFaq[] = [
   { id: "which", category: "Booking", question: "Which package should I choose?", answer: "If you need a full band score for university or a visa, choose the Full Academic mock. If you only want to practise one skill before your real test, the Speaking Only or Writing Only packages are a cost-effective option. General Training is coming soon." },
   { id: "welcome-free", category: "Booking", question: "Do new students get anything free?", answer: "Yes — new students can claim a free Listening mock and a free Reading mock within 30 days of signing up. Invite two friends who register with your link to unlock one more free Listening or Reading mock." },
   { id: "multiple", category: "Booking", question: "Can I take multiple mocks?", answer: "Yes — there is no limit. Every mock gives you fresh exam content and a new examiner selection. Your score history is tracked across all attempts so you can see your improvement over time." },
-  { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: "We accept Uzcard, Humo, Visa, and Mastercard via our secure Uzum Checkout payment page. All transactions are encrypted." },
+  { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: LEGAL.paymentMethods },
   { id: "discount", category: "Booking", question: "Is there a group or institutional discount?", answer: "Institution and Edu Center pricing is available on request. Email support@itestu.uz for a custom quote — student checkout does not include bulk discounts." },
   { id: "refund", category: "Booking", question: "Can I get a refund?", answer: LEGAL.refundPolicy },
 ];

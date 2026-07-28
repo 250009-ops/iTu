@@ -71,9 +71,35 @@ export function useStudentResults(initialEnrollmentCode?: string | null) {
       targetBandRef.current = profile?.targetBand ?? null;
       examTypeRef.current = examTypeLabel(profile?.examType);
 
-      if (!list.length) {
-        listCacheRef.current = [];
-        detailCacheRef.current = {};
+      const preferred =
+        selectedCodeRef.current ??
+        initialEnrollmentCode ??
+        list[0]?.enrollmentCode ??
+        pending?.enrollmentCode ??
+        null;
+
+      const codesToFetch = new Set(list.map((item) => item.enrollmentCode));
+      if (preferred) codesToFetch.add(preferred);
+
+      const details = await Promise.all(
+        [...codesToFetch].map(async (code) => {
+          try {
+            return await getResult(code);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const detailByCode = Object.fromEntries(
+        details
+          .filter((detail): detail is NonNullable<typeof detail> => !!detail)
+          .map((detail) => [detail.enrollmentCode ?? "", detail]),
+      );
+
+      listCacheRef.current = list;
+      detailCacheRef.current = detailByCode;
+
+      if (!list.length && !preferred) {
         selectedCodeRef.current = null;
         if (pending) {
           setData(
@@ -89,23 +115,18 @@ export function useStudentResults(initialEnrollmentCode?: string | null) {
         return;
       }
 
-      const details = await Promise.all(
-        list.map((item) => getResult(item.enrollmentCode)),
-      );
-      const detailByCode = Object.fromEntries(
-        details.map((detail) => [detail.enrollmentCode ?? "", detail]),
-      );
+      const resolvedCode =
+        (preferred &&
+          (detailByCode[preferred] ||
+            list.some((item) => item.enrollmentCode === preferred)) &&
+          preferred) ||
+        list[0]?.enrollmentCode ||
+        preferred;
 
-      listCacheRef.current = list;
-      detailCacheRef.current = detailByCode;
-
-      const preferred =
-        selectedCodeRef.current ??
-        initialEnrollmentCode ??
-        list[0]!.enrollmentCode;
-      const resolvedCode = list.some((item) => item.enrollmentCode === preferred)
-        ? preferred
-        : list[0]!.enrollmentCode;
+      if (!resolvedCode) {
+        setData(null);
+        return;
+      }
 
       applySelection(resolvedCode);
     } catch (err) {

@@ -50,6 +50,24 @@ export class TechIssuesTelegramPollingService
       return;
     }
 
+    // Local/dev polling with the production bot token calls deleteWebhook and
+    // bricks production delivery. Only tear down a public webhook when polling
+    // was requested explicitly via TELEGRAM_TECH_ISSUES_POLLING=true.
+    const explicitPoll =
+      this.config.get<string>('TELEGRAM_TECH_ISSUES_POLLING')?.trim() ===
+      'true';
+    const existing = await this.techIssues.getWebhookInfo();
+    const existingUrl = existing?.url?.trim() ?? '';
+    const publicWebhook =
+      Boolean(existingUrl) && !/localhost|127\.0\.0\.1/.test(existingUrl);
+
+    if (publicWebhook && !explicitPoll) {
+      this.logger.warn(
+        `Tech-issues bot already has public webhook ${existingUrl} — refusing to poll/deleteWebhook (protects production). Set TELEGRAM_TECH_ISSUES_POLLING=true only if you intentionally want local long-poll with this token.`,
+      );
+      return;
+    }
+
     await this.techIssues.deleteWebhook();
     this.running = true;
     this.logger.log(

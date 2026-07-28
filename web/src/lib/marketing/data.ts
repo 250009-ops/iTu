@@ -26,8 +26,35 @@ export const SITE = {
 export const LEGAL = {
   supportEmail: SITE.supportEmail,
   refundWindowHours: 48,
+  /** Public payment methods disclosure (Uzum Checkout). */
+  paymentMethods:
+    "We accept Uzcard, Humo, Visa, and Mastercard via our secure Uzum Checkout payment page. All transactions are encrypted. iTestU does not store your full card details.",
   refundPolicy:
-    "You may reschedule an upcoming mock from your account before check-in. Refund requests are handled by our support team — email support@itestu.uz with your booking reference.",
+    "You may reschedule an upcoming mock from your account before check-in. Cancellations more than 48 hours before your scheduled session are typically eligible for a full refund. Cancellations within 48 hours may receive a partial refund or a free reschedule, at our discretion. If we cancel a session for reasons within our control, you are entitled to a full refund or a rescheduled session at no extra cost. For refund requests, email support@itestu.uz with your booking reference — our support team handles refunds on a case-by-case basis.",
+  /** Uzum Bank antifraud (ДИБ) disclosure on the public offer (/terms). */
+  antifraudTitle:
+    "Measures to limit and control the risks of fraudulent operations",
+  antifraudIntro:
+    "The Enterprise hereby informs customers and partners about measures to prevent and limit the risks of fraudulent operations in accordance with the legislation of the Republic of Uzbekistan and the Bank’s requirements.",
+  antifraudMeasuresLead:
+    "The Enterprise controls and limits suspicious operations by:",
+  antifraudMeasures: [
+    "checking payments and transactions for signs of fraud;",
+    "limiting operations flagged as suspicious by the Bank’s security system;",
+    "using secure data transmission channels and modern information security tools;",
+    "identifying and verifying customers when making payments;",
+    "temporarily suspending operations when a risk of fraudulent activity is detected;",
+    "cooperating with the Bank to prevent unauthorized operations;",
+    "complying with the Internet Acquiring Agreement (Договор ИЭ) and internal security rules.",
+  ] as const,
+  antifraudClientLead: "The Client undertakes to:",
+  antifraudClientDuties: [
+    "not transfer personal data, passwords, or confirmation codes to third parties;",
+    "immediately report suspicious operations;",
+    "follow the rules for the safe use of electronic payment systems.",
+  ] as const,
+  antifraudClosing:
+    "The Enterprise reserves the right to limit or decline an operation if signs of fraud or security violations are detected.",
   cookiesSection:
     "iTestU does not use analytics or advertising cookies. When you sign in with Remember me checked, we store your session in local storage so you stay signed in across browser restarts. Without Remember me, the session is kept in session storage for the current browser session only. During exams, we also use session storage for in-exam settings such as accessibility preferences. You can clear this data anytime through your browser settings or by signing out.",
   privacyIntroRights:
@@ -121,6 +148,8 @@ const FOOTER_COLUMNS_ALL = [
       { label: "Exam Rules", href: "/how-it-works" },
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
+      { label: "Payments & refunds", href: "/terms#payments" },
+      { label: "Antifraud measures", href: "/terms#antifraud" },
     ],
   },
 ] as const;
@@ -409,7 +438,8 @@ const MARKETING_FAQS_ALL: MarketingFaq[] = [
   { id: "results", category: "Results", question: "When do I get my results?", answer: PRODUCT_CLAIMS.resultsTiming },
   { id: "examiner", category: "Examiners", question: "Can I choose my examiner?", answer: PRODUCT_CLAIMS.examinerChoice },
   { id: "devices", category: "Technical", question: "What devices are supported?", answer: "Any modern desktop or laptop browser (Chrome, Edge, Safari, Firefox). A webcam and microphone are required for the Speaking session. Mobile and tablet are not supported for exam delivery." },
-  { id: "refund", category: "Booking", question: "What is the cancellation policy?", answer: LEGAL.refundPolicy },
+  { id: "payment", category: "Booking", question: "What payment methods are accepted?", answer: LEGAL.paymentMethods },
+  { id: "refund", category: "Booking", question: "What is the cancellation and refund policy?", answer: LEGAL.refundPolicy },
   { id: "academic-gt", category: "The Exam", question: "Academic or General Training?", answer: `${PRODUCT_CLAIMS.academicOnlyNote} Academic is required for university admission and professional registration. General Training is for migration and work experience — Reading and Writing differ from Academic.` },
   { id: "band", category: "Results", question: "How does the band scoring work?", answer: "Each skill is scored 0–9. Listening and Reading use official band conversion tables. Writing and Speaking are graded by examiners against the four official criteria. Your Overall Band is the mean of the four, rounded to the nearest 0.5." },
   { id: "real-examiners", category: "Examiners", question: "Are examiners real IELTS-qualified professionals?", answer: "Yes. All examiners hold CELTA or higher, and most are current or former certified IELTS examiners. Every examiner is verified and calibrated before going live." },

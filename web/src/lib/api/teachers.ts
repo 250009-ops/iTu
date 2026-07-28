@@ -22,8 +22,14 @@ export function getTeacherSpeakingSessions() {
   return apiFetch<{
     today: SpeakingSessionListItem[];
     upcoming: SpeakingSessionListItem[];
+    awaitingGrade: SpeakingSessionListItem[];
     completed: SpeakingSessionListItem[];
-    counts: { today: number; upcoming: number; completed: number };
+    counts: {
+      today: number;
+      upcoming: number;
+      awaitingGrade: number;
+      completed: number;
+    };
     nextSession: SpeakingSessionListItem | null;
     minutesUntilNext: number | null;
   }>("/teachers/speaking-sessions");
@@ -38,7 +44,7 @@ export type SpeakingSessionListItem = {
   scheduledAt: string | null;
   endsAt: string | null;
   status: string;
-  uiStatus: "upcoming" | "live" | "awaiting_grade" | "graded" | "no_show";
+  uiStatus: "upcoming" | "live" | "awaiting_grade" | "graded" | "no_show" | "cancelled";
   examType: string;
   packageTitle: string;
   grade: {

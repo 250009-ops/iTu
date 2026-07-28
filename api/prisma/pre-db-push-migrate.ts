@@ -359,6 +359,32 @@ async function main() {
       'ALTER TABLE orders ADD COLUMN IF NOT EXISTS uzum_order_id TEXT',
     );
   }
+
+  // Marketing logo approval — columns may land via db push; ensure + grandfather first.
+  await prisma.$executeRawUnsafe(`
+    DO $$ BEGIN
+      CREATE TYPE "MarketingLogoStatus" AS ENUM ('NONE', 'PENDING', 'APPROVED', 'REJECTED');
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END $$;
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE institutions
+      ADD COLUMN IF NOT EXISTS marketing_logo_status "MarketingLogoStatus" NOT NULL DEFAULT 'NONE',
+      ADD COLUMN IF NOT EXISTS marketing_logo_reviewed_at TIMESTAMP(3),
+      ADD COLUMN IF NOT EXISTS marketing_logo_review_note TEXT;
+  `);
+  const logoGrandfather = await prisma.$executeRawUnsafe(`
+    UPDATE institutions
+    SET marketing_logo_status = 'APPROVED',
+        marketing_logo_reviewed_at = COALESCE(marketing_logo_reviewed_at, NOW())
+    WHERE logo_url IS NOT NULL
+      AND logo_url <> ''
+      AND marketing_logo_status = 'NONE';
+  `);
+  console.log(
+    `Marketing logo approval columns ready (grandfather update result: ${String(logoGrandfather)}).`,
+  );
 }
 
 main()

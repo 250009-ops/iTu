@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  getCreditOrderStatus,
+  getMockSetOrderStatus,
+} from "@/lib/api/institution";
 import { getOrderPaymentStatus } from "@/lib/api/payments";
 
 const POLL_INTERVAL_MS = 2000;
@@ -10,6 +14,10 @@ const MAX_ATTEMPTS = 20;
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+type OrderStatusResult = {
+  status: string;
+};
 
 type Options = {
   /** Called after the order reaches paid status. */
@@ -20,7 +28,24 @@ type Options = {
   orderParam?: string;
   /** Value that means success (default: success). */
   successValue?: string;
+  /**
+   * Override status polling. When omitted, routes by order code prefix:
+   * IMS-* → institution mock-set status, CRD-* → credit pack status,
+   * otherwise student `/payments/orders/.../status`.
+   */
+  fetchStatus?: (orderCode: string) => Promise<OrderStatusResult>;
 };
+
+async function defaultFetchStatus(orderCode: string): Promise<OrderStatusResult> {
+  const upper = orderCode.toUpperCase();
+  if (upper.startsWith("IMS-")) {
+    return getMockSetOrderStatus(orderCode);
+  }
+  if (upper.startsWith("CRD-")) {
+    return getCreditOrderStatus(orderCode);
+  }
+  return getOrderPaymentStatus(orderCode);
+}
 
 /**
  * After Uzum redirects back with ?payment=success&order=ORD-…,
@@ -32,6 +57,7 @@ export function useCheckoutPaymentReturn(options: Options = {}) {
     paymentParam = "payment",
     orderParam = "order",
     successValue = "success",
+    fetchStatus = defaultFetchStatus,
   } = options;
 
   const searchParams = useSearchParams();
@@ -49,7 +75,7 @@ export function useCheckoutPaymentReturn(options: Options = {}) {
     if (!orderCode) return false;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        const status = await getOrderPaymentStatus(orderCode);
+        const status = await fetchStatus(orderCode);
         if (status.status === "paid") {
           setPaid(true);
           setReconcileError(null);
@@ -64,7 +90,7 @@ export function useCheckoutPaymentReturn(options: Options = {}) {
       }
     }
     return false;
-  }, [orderCode, onPaid]);
+  }, [orderCode, onPaid, fetchStatus]);
 
   useEffect(() => {
     if (!isSuccessReturn || startedRef.current) return;

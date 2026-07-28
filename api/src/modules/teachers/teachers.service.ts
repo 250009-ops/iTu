@@ -36,6 +36,14 @@ import {
   weekdayIndexInTimeZone,
   zonedWallClockToUtc,
 } from '../../common/mock-day-policy';
+import {
+  assertSpeakingGridTime,
+  ceilSpeakingGridTime,
+  floorSpeakingGridTime,
+  hhMmFromMinutes,
+  minutesFromHhMm,
+  SPEAKING_SLOT_DURATION_MINUTES,
+} from '../../common/speaking-slot-grid';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
@@ -172,7 +180,13 @@ export class TeachersService {
       const studentName = enrollment.student.user.name;
       const examType = enrollment.package.examType;
 
-      let uiStatus: 'upcoming' | 'live' | 'awaiting_grade' | 'graded' | 'no_show';
+      let uiStatus:
+        | 'upcoming'
+        | 'live'
+        | 'awaiting_grade'
+        | 'graded'
+        | 'no_show'
+        | 'cancelled';
       if (s.grade) {
         uiStatus = 'graded';
       } else if (s.status === 'NO_SHOW') {
@@ -182,7 +196,7 @@ export class TeachersService {
       } else if (s.status === 'ACTIVE' || s.status === 'WAITING') {
         uiStatus = 'live';
       } else if (s.status === 'CANCELLED') {
-        uiStatus = 'no_show';
+        uiStatus = 'cancelled';
       } else {
         uiStatus = 'upcoming';
       }
@@ -223,6 +237,15 @@ export class TeachersService {
 
     const completed = mapped.filter((s) => s.uiStatus === 'graded');
 
+    // Completed but ungraded — includes past days so badge backlog is visible in the hub.
+    const awaitingGrade = mapped
+      .filter((s) => s.uiStatus === 'awaiting_grade')
+      .sort((a, b) => {
+        const at = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+        const bt = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+        return at - bt;
+      });
+
     const actionable = mapped.filter(
       (s) =>
         s.uiStatus === 'upcoming' ||
@@ -232,10 +255,14 @@ export class TeachersService {
     const nextSession =
       actionable.find((s) => s.scheduledAt && new Date(s.scheduledAt) >= now) ??
       actionable.find((s) => s.uiStatus === 'live') ??
+      awaitingGrade[0] ??
       null;
 
     let minutesUntilNext: number | null = null;
-    if (nextSession?.scheduledAt) {
+    if (
+      nextSession?.scheduledAt &&
+      nextSession.uiStatus !== 'awaiting_grade'
+    ) {
       minutesUntilNext = Math.max(
         0,
         Math.round(
@@ -248,10 +275,12 @@ export class TeachersService {
     return {
       today: todaySessions,
       upcoming,
+      awaitingGrade,
       completed,
       counts: {
         today: todaySessions.length,
         upcoming: upcoming.length,
+        awaitingGrade: awaitingGrade.length,
         completed: completed.length,
       },
       nextSession,
@@ -371,20 +400,37 @@ export class TeachersService {
   async updateAvailability(
     user: RequestUser,
     slots: { dayOfWeek: number; startTime: string; endTime: string }[],
-    slotDuration = 20,
+    _slotDuration = SPEAKING_SLOT_DURATION_MINUTES,
   ) {
     const teacher = await this.requireTeacher(user);
     this.assertMarketplaceTeacher(teacher);
 
-    const duration = [15, 20, 30].includes(slotDuration) ? slotDuration : 20;
+    // Speaking sessions are fixed at 20 minutes on :00 / :20 / :40.
+    const duration = SPEAKING_SLOT_DURATION_MINUTES;
+    const normalized = slots.map((s) => {
+      const startTime = ceilSpeakingGridTime(s.startTime.slice(0, 5));
+      const endTime = floorSpeakingGridTime(s.endTime.slice(0, 5));
+      assertSpeakingGridTime(startTime, 'Availability start');
+      assertSpeakingGridTime(endTime, 'Availability end');
+      if (minutesFromHhMm(startTime) >= minutesFromHhMm(endTime)) {
+        throw new BadRequestException(
+          'Each availability range must start before it ends on the 20-minute grid',
+        );
+      }
+      return {
+        dayOfWeek: s.dayOfWeek,
+        startTime,
+        endTime,
+      };
+    });
 
     await this.prisma.teacherAvailability.deleteMany({
       where: { teacherId: teacher.id },
     });
 
-    if (slots.length > 0) {
+    if (normalized.length > 0) {
       await this.prisma.teacherAvailability.createMany({
-        data: slots.map((s) => ({
+        data: normalized.map((s) => ({
           teacherId: teacher.id,
           dayOfWeek: s.dayOfWeek,
           startTime: s.startTime,
@@ -394,9 +440,14 @@ export class TeachersService {
       });
     }
 
-    const generated = await this.regenerateSlots(teacher.id, slots, 28, duration);
+    const generated = await this.regenerateSlots(
+      teacher.id,
+      normalized,
+      28,
+      duration,
+    );
 
-    return { updated: slots.length, slotsGenerated: generated };
+    return { updated: normalized.length, slotsGenerated: generated };
   }
 
   private getMonday(date: Date): Date {
@@ -418,7 +469,7 @@ export class TeachersService {
     teacherId: string,
     weekly: { dayOfWeek: number; startTime: string; endTime: string }[],
     horizonDays = 28,
-    slotDuration = 20,
+    _slotDuration = SPEAKING_SLOT_DURATION_MINUTES,
   ): Promise<number> {
     const timeZone = await this.settings.getPlatformTimezone();
     const now = new Date();
@@ -439,7 +490,7 @@ export class TeachersService {
       windowsByDay.set(w.dayOfWeek, list);
     }
 
-    const slotMs = slotDuration * 60 * 1000;
+    const slotMs = SPEAKING_SLOT_DURATION_MINUTES * 60 * 1000;
     const data: {
       teacherId: string;
       startsAt: Date;
@@ -454,33 +505,22 @@ export class TeachersService {
       if (!windows) continue;
 
       for (const win of windows) {
-        const [startHour, startMin] = win.start.split(':').map(Number);
-        const [endHour, endMin] = win.end.split(':').map(Number);
-        if (
-          [startHour, startMin, endHour, endMin].some((v) => Number.isNaN(v))
-        ) {
-          continue;
-        }
+        const startAligned = ceilSpeakingGridTime(win.start.slice(0, 5));
+        const endAligned = floorSpeakingGridTime(win.end.slice(0, 5));
+        let cursorMinutes = minutesFromHhMm(startAligned);
+        const endMinutes = minutesFromHhMm(endAligned);
 
-        const windowStart = zonedWallClockToUtc(
-          dateIso,
-          startHour,
-          startMin,
-          0,
-          timeZone,
-        );
-        const windowEnd = zonedWallClockToUtc(
-          dateIso,
-          endHour,
-          endMin,
-          0,
-          timeZone,
-        );
-
-        let cursor = windowStart.getTime();
-        while (cursor + slotMs <= windowEnd.getTime()) {
-          const startsAt = new Date(cursor);
-          const endsAt = new Date(cursor + slotMs);
+        while (cursorMinutes + SPEAKING_SLOT_DURATION_MINUTES <= endMinutes) {
+          const hhMm = hhMmFromMinutes(cursorMinutes);
+          const [hour, minute] = hhMm.split(':').map(Number);
+          const startsAt = zonedWallClockToUtc(
+            dateIso,
+            hour!,
+            minute!,
+            0,
+            timeZone,
+          );
+          const endsAt = new Date(startsAt.getTime() + slotMs);
           if (startsAt.getTime() > now.getTime()) {
             data.push({
               teacherId,
@@ -489,7 +529,7 @@ export class TeachersService {
               status: SlotStatus.AVAILABLE,
             });
           }
-          cursor += slotMs;
+          cursorMinutes += SPEAKING_SLOT_DURATION_MINUTES;
         }
       }
     }

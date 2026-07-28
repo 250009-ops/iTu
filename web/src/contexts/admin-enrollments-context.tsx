@@ -32,6 +32,8 @@ export function AdminEnrollmentsProvider({ children }: { children: ReactNode }) 
         period: "",
         activeExams: 0,
         awaitingResults: 0,
+        missed: 0,
+        cancelled: 0,
         completed: 0,
       },
       lifecyclePipeline: mapped?.lifecyclePipeline ?? [],

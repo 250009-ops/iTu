@@ -14,11 +14,22 @@ export interface EnrollmentRow {
   packageTitle: string;
   mockDate: string;
   mockTime: string | null;
+  /** Speaking appointment HH:mm in platform timezone (from TeacherSlot). */
+  speakingTime: string | null;
+  speakingStartsAt: string | null;
   status: string;
   examiner: string | null;
+  writingTeacherId: string | null;
+  writingTeacherName: string | null;
+  speakingTeacherId: string | null;
+  speakingTeacherName: string | null;
+  needsWriting: boolean;
+  needsSpeaking: boolean;
   progress: SectionProgress;
   overallBand: number | null;
   resultsStatus: string;
+  /** True when the enrolment can still be cancelled (not started). */
+  canCancel?: boolean;
 }
 
 export interface OverviewData {
@@ -156,6 +167,9 @@ export interface InstitutionProfile {
   city: string | null;
   address: string | null;
   logoUrl: string | null;
+  /** Marketing-site logo gate only (none | pending | approved | rejected). */
+  marketingLogoStatus: string;
+  marketingLogoReviewNote: string | null;
   bio: string | null;
   contactName: string;
   contactEmail: string;

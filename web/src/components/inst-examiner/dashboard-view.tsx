@@ -18,6 +18,7 @@ import {
 import {
   getInstExaminerOverview,
   type InstExaminerOverview,
+  type InstExaminerTodaySpeaking,
 } from "@/lib/api/inst-examiner";
 import { getErrorMessage } from "@/lib/api/errors";
 import { StatCard, SectionCard, EmptyState } from "@/components/institution/ui";
@@ -68,6 +69,47 @@ function relativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   return `${days}d ago`;
+}
+
+function speakingStatusLabel(
+  uiStatus: InstExaminerTodaySpeaking["uiStatus"],
+): { label: string; className: string } {
+  switch (uiStatus) {
+    case "graded":
+      return {
+        label: "Graded",
+        className:
+          "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200",
+      };
+    case "awaiting_grade":
+      return {
+        label: "Awaiting grade",
+        className:
+          "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+      };
+    case "live":
+      return {
+        label: "Live",
+        className: "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200",
+      };
+    case "no_show":
+      return {
+        label: "Student absent",
+        className: "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200",
+      };
+    case "cancelled":
+      return {
+        label: "Cancelled",
+        className:
+          "bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200",
+      };
+    default:
+      return {
+        label: "Upcoming",
+        className:
+          "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+      };
+  }
 }
 
 function Avatar({ name, tint = "rose" }: { name: string; tint?: "rose" | "violet" | "sky" }) {
@@ -233,7 +275,7 @@ export function InstExaminerDashboardView() {
           <StatCard
             label="Writing Queue"
             value={stats.writingQueue}
-            hint="need grading"
+            hint="pending + in review"
             accent="red"
           />
         )}
@@ -308,11 +350,14 @@ export function InstExaminerDashboardView() {
                 <EmptyState message="No speaking sessions scheduled today." />
               ) : (
                 <ul className="divide-y divide-border">
-                  {todaySpeaking.map((s) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center gap-3 px-5 py-3.5"
-                    >
+                  {todaySpeaking.map((s) => {
+                    const status = speakingStatusLabel(s.uiStatus);
+                    return (
+                    <li key={s.id}>
+                      <Link
+                        href={`/inst-examiner/speaking?session=${encodeURIComponent(s.id)}`}
+                        className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-slate-50"
+                      >
                       <Avatar name={s.studentName} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-navy">
@@ -328,12 +373,19 @@ export function InstExaminerDashboardView() {
                           {s.band.toFixed(1)}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-                          Upcoming
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                            status.className,
+                          )}
+                        >
+                          {status.label}
                         </span>
                       )}
+                      </Link>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
             </SectionCard>
@@ -352,11 +404,15 @@ export function InstExaminerDashboardView() {
               }
             >
               {writingQueue.length === 0 ? (
-                <EmptyState message="No writing submissions waiting." />
+                <EmptyState message="No writing submissions waiting (pending or in review)." />
               ) : (
                 <ul className="divide-y divide-border">
                   {writingQueue.map((w) => (
-                    <li key={w.id} className="flex items-center gap-3 px-5 py-3.5">
+                    <li key={w.id}>
+                      <Link
+                        href={`/inst-examiner/grading/${encodeURIComponent(w.id)}`}
+                        className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-slate-50"
+                      >
                       <Avatar name={w.studentName} tint="violet" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-navy">
@@ -379,6 +435,7 @@ export function InstExaminerDashboardView() {
                       >
                         {w.priority}
                       </span>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -402,27 +459,51 @@ export function InstExaminerDashboardView() {
             <EmptyState message="Nothing graded yet." />
           ) : (
             <ul className="divide-y divide-border">
-              {visibleRecentlyGraded.map((g) => (
-                <li key={g.id} className="flex items-center gap-3 px-5 py-3.5">
-                  <Avatar name={g.studentName} tint="sky" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-navy">
-                      {g.studentName}
-                    </p>
-                    <p className="flex items-center gap-1 text-xs capitalize text-muted">
-                      {g.type === "speaking" ? (
-                        <Mic className="h-3 w-3" />
-                      ) : (
-                        <PenLine className="h-3 w-3" />
-                      )}
-                      {g.type} · {formatDay(g.gradedAt)}
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center rounded-md bg-navy px-2 py-0.5 text-xs font-bold text-white">
-                    {g.band.toFixed(1)}
-                  </span>
-                </li>
-              ))}
+              {visibleRecentlyGraded.map((g) => {
+                const href =
+                  g.type === "writing" && g.writingSubmissionId
+                    ? `/inst-examiner/grading/${encodeURIComponent(g.writingSubmissionId)}`
+                    : g.type === "speaking" && g.speakingSessionId
+                      ? `/inst-examiner/speaking?session=${encodeURIComponent(g.speakingSessionId)}`
+                      : null;
+                const inner = (
+                  <>
+                    <Avatar name={g.studentName} tint="sky" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-navy">
+                        {g.studentName}
+                      </p>
+                      <p className="flex items-center gap-1 text-xs capitalize text-muted">
+                        {g.type === "speaking" ? (
+                          <Mic className="h-3 w-3" />
+                        ) : (
+                          <PenLine className="h-3 w-3" />
+                        )}
+                        {g.type} · {formatDay(g.gradedAt)}
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center rounded-md bg-navy px-2 py-0.5 text-xs font-bold text-white">
+                      {g.band.toFixed(1)}
+                    </span>
+                  </>
+                );
+                return (
+                  <li key={g.id}>
+                    {href ? (
+                      <Link
+                        href={href}
+                        className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-slate-50"
+                      >
+                        {inner}
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-3 px-5 py-3.5">
+                        {inner}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </SectionCard>
@@ -434,7 +515,16 @@ export function InstExaminerDashboardView() {
             </span>
           }
           action={
-            <span className="text-xs text-muted">{students.length} total</span>
+            <Link
+              href={
+                showSpeaking
+                  ? "/inst-examiner/speaking"
+                  : "/inst-examiner/grading"
+              }
+              className="inline-flex items-center gap-1 text-xs font-semibold text-brand-red hover:underline"
+            >
+              {students.length} total <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           }
         >
           {students.length === 0 ? (

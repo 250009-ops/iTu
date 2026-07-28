@@ -95,10 +95,13 @@ export class InstExaminerService {
         })
       : [];
 
-    // Pending writing submissions assigned to this examiner.
-    const writingPending = canWrite
+    // Actionable writing queue — PENDING (AI-ready) + IN_REVIEW, matching badge semantics.
+    const writingPendingRaw = canWrite
       ? await this.prisma.writingSubmission.findMany({
-          where: { teacherId: teacher.id, status: 'PENDING' },
+          where: {
+            teacherId: teacher.id,
+            status: { in: ['PENDING', 'IN_REVIEW'] },
+          },
           include: {
             grade: true,
             aiEvaluation: true,
@@ -107,6 +110,11 @@ export class InstExaminerService {
           orderBy: { createdAt: 'asc' },
         })
       : [];
+    const writingPending = writingPendingRaw.filter(
+      (w) =>
+        w.status === 'IN_REVIEW' ||
+        isWritingReadyForTeacherQueue(w.aiEvaluation),
+    );
 
     const recentGrades = await this.prisma.grade.findMany({
       where: {
@@ -281,14 +289,48 @@ export class InstExaminerService {
         avgBandGiven,
         avgBandDelta,
       },
-      todaySpeaking: speakingToday.map((s) => ({
-        id: s.id,
-        studentName: studentName(s),
-        scheduledAt: s.scheduledAt,
-        enrollmentCode: enrollmentCode(s),
-        graded: s.grade != null,
-        band: s.grade?.overallBand ?? null,
-      })),
+      todaySpeaking: speakingToday.map((s) => {
+        const scheduledAt = s.scheduledAt;
+        const endsAt = scheduledAt
+          ? new Date(scheduledAt.getTime() + 20 * 60_000)
+          : null;
+        let uiStatus:
+          | 'upcoming'
+          | 'live'
+          | 'awaiting_grade'
+          | 'graded'
+          | 'no_show'
+          | 'cancelled';
+        if (s.grade) {
+          uiStatus = 'graded';
+        } else if (s.status === 'NO_SHOW') {
+          uiStatus = 'no_show';
+        } else if (s.status === 'COMPLETED') {
+          uiStatus = 'awaiting_grade';
+        } else if (s.status === 'ACTIVE' || s.status === 'WAITING') {
+          uiStatus = 'live';
+        } else if (s.status === 'CANCELLED') {
+          uiStatus = 'cancelled';
+        } else if (
+          scheduledAt &&
+          endsAt &&
+          now >= scheduledAt &&
+          now < endsAt
+        ) {
+          uiStatus = 'live';
+        } else {
+          uiStatus = 'upcoming';
+        }
+        return {
+          id: s.id,
+          studentName: studentName(s),
+          scheduledAt: s.scheduledAt,
+          enrollmentCode: enrollmentCode(s),
+          graded: s.grade != null,
+          band: s.grade?.overallBand ?? null,
+          uiStatus,
+        };
+      }),
       writingQueue: writingPending.map((w) => {
         const bothTasks = w.task1WordCount > 0 && w.task2WordCount > 0;
         const taskLabel = bothTasks
@@ -309,7 +351,7 @@ export class InstExaminerService {
           wordCount: w.task1WordCount + w.task2WordCount,
           priority: urgent ? 'urgent' : 'normal',
           aiEstimate: suggested,
-          readyToGrade: isWritingReadyForTeacherQueue(w.aiEvaluation),
+          readyToGrade: true,
         };
       }),
       recentlyGraded: recentGrades.map((g) => {
@@ -321,6 +363,8 @@ export class InstExaminerService {
           type: isWriting ? 'writing' : 'speaking',
           band: g.overallBand,
           gradedAt: g.gradedAt,
+          writingSubmissionId: g.writingSubmissionId,
+          speakingSessionId: g.speakingSessionId,
         };
       }),
       students,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Copy, ExternalLink } from "lucide-react";
 import { SettingsField } from "@/components/institution/settings/settings-field";
 import { Button } from "@/components/ui/button";
@@ -90,12 +91,18 @@ export function PublicPagePanel({ profile, onCopy }: PublicPagePanelProps) {
             Account Details
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-border px-4 py-3">
-              <p className="text-xs text-muted">Wholesale price</p>
-              <p className="mt-1 font-semibold text-navy">
-                {profile.wholesalePrice.toLocaleString()} {profile.currency}
-                <span className="text-sm font-normal text-muted"> / credit</span>
+            <div className="rounded-xl border border-border px-4 py-3 sm:col-span-2">
+              <p className="text-xs text-muted">How purchasing works</p>
+              <p className="mt-1 text-sm font-medium text-navy">
+                Buy test sets in the shop — enrollments use your purchased sets,
+                not a per-student credit wallet.
               </p>
+              <Link
+                href="/institution/mocks/shop"
+                className="mt-2 inline-block text-xs font-semibold text-brand-red hover:underline"
+              >
+                Open Buy test sets →
+              </Link>
             </div>
             <div className="rounded-xl border border-border px-4 py-3">
               <p className="text-xs text-muted">Center status</p>

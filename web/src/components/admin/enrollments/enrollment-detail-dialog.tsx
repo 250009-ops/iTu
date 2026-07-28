@@ -6,15 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import {
+  getBandTable,
   getEnrollmentDetail,
   overrideSectionScore,
   rescoreEnrollment,
   exportWritingPdfs,
   type AdminEnrollmentDetail,
+  type BandTableRow,
 } from "@/lib/api/admin";
 import { getErrorMessage } from "@/lib/api/errors";
 import { moduleBadges } from "@/lib/admin/constants";
-import { lookupBandFromRaw, parseScoreInput } from "@/lib/admin/band-lookup";
+import { lookupBandFromTable, parseScoreInput } from "@/lib/admin/band-lookup";
 import type { ModuleKey } from "@/lib/admin/types";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,21 @@ type SkillDraft = {
   rawScore: string;
 };
 
+function resultsStatusLabel(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "released") return "Released";
+  if (s === "partial") return "Partial";
+  if (s === "pending") return "Held";
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function resultsStatusPill(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "released") return "bg-emerald-50 text-emerald-700";
+  if (s === "partial") return "bg-amber-50 text-amber-700";
+  return "bg-slate-100 text-slate-600";
+}
+
 export function EnrollmentDetailDialog({
   enrollmentId,
   open,
@@ -43,13 +60,18 @@ export function EnrollmentDetailDialog({
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, SkillDraft>>({});
+  const [bandTable, setBandTable] = useState<BandTableRow[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getEnrollmentDetail(enrollmentId);
+      const [data, table] = await Promise.all([
+        getEnrollmentDetail(enrollmentId),
+        getBandTable().catch(() => null),
+      ]);
       setDetail(data);
+      if (table) setBandTable(table);
       const next: Record<string, SkillDraft> = {};
       for (const s of data.skills) {
         next[s.skill] = {
@@ -111,16 +133,18 @@ export function EnrollmentDetailDialog({
 
     setActing(true);
     try {
-      await overrideSectionScore(
+      const result = await overrideSectionScore(
         enrollmentId,
         skill as "listening" | "reading" | "writing" | "speaking",
         isAuto
           ? { rawScore: rawScore! }
           : { band: manualBand! },
       );
-      const savedBand = isAuto
-        ? lookupBandFromRaw(mod, rawScore!)
-        : manualBand;
+      const savedBand =
+        result.band ??
+        (isAuto
+          ? lookupBandFromTable(mod as "listening" | "reading", rawScore!, bandTable)
+          : manualBand);
       toast("Score updated", {
         description: `${skill.charAt(0).toUpperCase() + skill.slice(1)} band set to ${savedBand ?? "—"}.`,
         variant: "success",
@@ -142,7 +166,7 @@ export function EnrollmentDetailDialog({
     const rawScore = parseScoreInput(value);
     const autoBand =
       (mod === "listening" || mod === "reading") && rawScore != null
-        ? lookupBandFromRaw(mod, rawScore)
+        ? lookupBandFromTable(mod, rawScore, bandTable)
         : null;
 
     setDrafts((prev) => ({
@@ -194,6 +218,19 @@ export function EnrollmentDetailDialog({
                   {detail.studentName}
                 </h2>
                 <p className="text-sm text-muted">{detail.packageTitle}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                      resultsStatusPill(detail.resultsStatus),
+                    )}
+                  >
+                    Results: {resultsStatusLabel(detail.resultsStatus)}
+                  </span>
+                  <span className="text-xs capitalize text-muted">
+                    {detail.lifecycle.replace(/_/g, " ")}
+                  </span>
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted">Overall</p>

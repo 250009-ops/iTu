@@ -69,7 +69,14 @@ export async function apiFetch<T>(
         : `Request failed (${response.status})`;
 
     if (response.status === 401 && auth) {
-      handleUnauthorized("session_expired");
+      const lower = message.toLowerCase();
+      let reason = "session_expired";
+      if (lower.includes("centre account") || lower.includes("center account")) {
+        reason = lower.includes("suspended")
+          ? "institution_suspended"
+          : "institution_inactive";
+      }
+      handleUnauthorized(reason);
     }
 
     throw new ApiError(message, response.status, data);

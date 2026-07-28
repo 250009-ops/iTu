@@ -54,5 +54,11 @@ export function resolveExaminerNotificationHref(
   if (href === "/teacher/writing") {
     return `${INST_EXAMINER}/grading`;
   }
+  if (href === "/teacher" || href === "/teacher/dashboard") {
+    return INST_EXAMINER;
+  }
+  if (href.startsWith("/teacher/")) {
+    return INST_EXAMINER;
+  }
   return href;
 }

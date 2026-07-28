@@ -4,11 +4,57 @@ import Link from "next/link";
 import { CalendarX2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStudentDashboardData } from "@/contexts/student-dashboard-context";
+import type { StudentDashboardResponse } from "@/lib/api/students";
+import {
+  studentMockDayHref,
+  type StudentPortal,
+} from "@/lib/student/portal";
 
-export function MissedMockBanner() {
+type MissedMock = NonNullable<StudentDashboardResponse["missedMock"]>;
+
+type MissedMockBannerProps = {
+  /** Defaults to marketplace. Institution hides Browse CTAs. */
+  portal?: StudentPortal;
+  /**
+   * When provided, skips marketplace dashboard context.
+   * Pass `null` to render nothing without requiring the provider.
+   */
+  missedMock?: MissedMock | null;
+};
+
+export function MissedMockBanner(props: MissedMockBannerProps = {}) {
+  if ("missedMock" in props) {
+    return (
+      <MissedMockBannerInner
+        portal={props.portal ?? "marketplace"}
+        missed={props.missedMock ?? null}
+      />
+    );
+  }
+  return <MissedMockBannerFromContext portal={props.portal} />;
+}
+
+function MissedMockBannerFromContext({
+  portal = "marketplace",
+}: {
+  portal?: StudentPortal;
+}) {
   const { data } = useStudentDashboardData();
-  const missed = data?.missedMock;
+  return (
+    <MissedMockBannerInner
+      portal={portal}
+      missed={data?.missedMock ?? null}
+    />
+  );
+}
 
+function MissedMockBannerInner({
+  portal,
+  missed,
+}: {
+  portal: StudentPortal;
+  missed: MissedMock | null;
+}) {
   if (!missed) return null;
 
   const dateLabel = new Date(missed.mockDate).toLocaleDateString("en-US", {
@@ -19,6 +65,8 @@ export function MissedMockBanner() {
   });
 
   const speakingNoShow = missed.reason === "speaking_no_show";
+  const mockDayHref = studentMockDayHref(portal);
+  const isInstitution = portal === "institution";
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-start sm:gap-5 sm:p-5">
@@ -51,24 +99,26 @@ export function MissedMockBanner() {
         </p>
       </div>
       <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-        <Link href="/student/mock-day">
+        <Link href={mockDayHref}>
           <Button
             variant="secondary"
             size="sm"
             className="w-full border-amber-200 bg-white text-amber-900 hover:bg-amber-100 sm:w-auto"
           >
-            View Mock Day Hub
+            {isInstitution ? "View My Mock" : "View Mock Day Hub"}
           </Button>
         </Link>
-        <Link href="/student/browse">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="w-full border-amber-200 bg-transparent text-amber-900 hover:bg-amber-100/60 sm:w-auto"
-          >
-            Book Another Mock
-          </Button>
-        </Link>
+        {!isInstitution && (
+          <Link href="/student/browse">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full border-amber-200 bg-transparent text-amber-900 hover:bg-amber-100/60 sm:w-auto"
+            >
+              Book Another Mock
+            </Button>
+          </Link>
+        )}
       </div>
     </div>
   );

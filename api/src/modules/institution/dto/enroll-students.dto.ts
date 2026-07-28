@@ -40,6 +40,8 @@ export class EnrollStudentsDto {
    */
   @IsOptional()
   @IsString()
-  @Matches(/^\d{2}:\d{2}$/, { message: 'speakingTime must be HH:mm' })
+  @Matches(/^\d{2}:(00|20|40)$/, {
+    message: 'speakingTime must be on the 20-minute grid (:00, :20, or :40)',
+  })
   speakingTime?: string;
 }

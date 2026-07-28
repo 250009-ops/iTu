@@ -160,6 +160,11 @@ export function SpeakingStudentFlow({ sessionId }: { sessionId: string }) {
         )}
         {stage === "complete" && (
           <SessionComplete
+            returnLabel={
+              speakingState?.institutionGranted
+                ? "Return to My Mock"
+                : "Return to Mock Day Hub"
+            }
             onReturn={() => {
               exitExamFullscreen();
               router.push(
@@ -544,7 +549,13 @@ function RulesConsent({ onJoin }: { onJoin: () => void }) {
   );
 }
 
-function SessionComplete({ onReturn }: { onReturn: () => void }) {
+function SessionComplete({
+  onReturn,
+  returnLabel,
+}: {
+  onReturn: () => void;
+  returnLabel: string;
+}) {
   return (
     <>
       <div className="mx-auto flex max-w-lg flex-col items-center px-5 py-16 text-center">
@@ -571,7 +582,7 @@ function SessionComplete({ onReturn }: { onReturn: () => void }) {
           onClick={onReturn}
           className="mt-6 rounded-xl bg-navy px-6 py-3 text-sm font-semibold text-white hover:bg-navy-light"
         >
-          Return to Dashboard
+          {returnLabel}
         </button>
       </div>
       {/* Marketplace students only — institution calls 403 and gate no-ops. */}

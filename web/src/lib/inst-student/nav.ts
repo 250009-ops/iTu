@@ -3,6 +3,7 @@ import { PRACTICE_STUDENT_VISIBLE } from "@/lib/practice/feature-flags";
 export type InstStudentNavIcon =
   | "layout-dashboard"
   | "monitor-play"
+  | "book-open"
   | "line-chart"
   | "user";
 
@@ -31,7 +32,7 @@ const INST_STUDENT_NAV_ALL: InstStudentNavItem[] = [
   {
     label: "Practice",
     href: "/inst-student/practice",
-    icon: "monitor-play",
+    icon: "book-open",
   },
   {
     label: "Results",

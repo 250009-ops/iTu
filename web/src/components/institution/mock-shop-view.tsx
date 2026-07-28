@@ -61,15 +61,16 @@ export function InstitutionMockShopView() {
     void loadShop();
   }, [loadShop]);
 
-  const { reconciling, reconcileError } = useCheckoutPaymentReturn({
-    onPaid: async () => {
-      toast("Payment confirmed", {
-        description: "Opening your Purchased set…",
-        variant: "success",
-      });
-      router.replace("/institution/tests/purchased");
-    },
-  });
+  const { reconciling, reconcileError, retryReconcile } =
+    useCheckoutPaymentReturn({
+      onPaid: async () => {
+        toast("Payment confirmed", {
+          description: "Opening your Purchased set…",
+          variant: "success",
+        });
+        router.replace("/institution/tests/purchased");
+      },
+    });
 
   const displaySets = useMemo(
     () => (sets.length > 0 ? sets : [buildInstitutionMockShopPlaceholder()]),
@@ -108,10 +109,30 @@ export function InstitutionMockShopView() {
         }
       />
 
-      <ApiDataShell
-        loading={loading || reconciling}
-        error={error ?? reconcileError}
-      >
+      {reconciling ? (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-600 border-t-transparent" />
+            <span>Confirming your payment…</span>
+          </div>
+        </div>
+      ) : null}
+      {reconcileError && !reconciling ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>{reconcileError}</span>
+            <button
+              type="button"
+              onClick={() => void retryReconcile()}
+              className="font-semibold text-amber-950 underline-offset-2 hover:underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <ApiDataShell loading={loading} error={error}>
         <div className="grid gap-6">
           {displaySets.map((offer) => (
             <MockProductCard
