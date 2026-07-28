@@ -75,6 +75,32 @@ export const PACKAGE_TYPE_TABS: PackageTypeTab[] = [
   },
 ];
 
+/** Resolve marketing/browse tab id from package kind + exam type. */
+export function tabIdForPackageOffer(
+  packageKind: string,
+  examType: "ACADEMIC" | "GENERAL_TRAINING" | string,
+): Exclude<PackageTypeTabId, "all"> {
+  const match = PACKAGE_TYPE_TABS.find(
+    (t) =>
+      t.id !== "all" &&
+      t.packageKind === packageKind &&
+      t.examType === examType,
+  );
+  if (match && match.id !== "all") return match.id;
+  if (packageKind === "listening+reading+writing+speaking") {
+    return examType === "GENERAL_TRAINING" ? "full-gt" : "full-academic";
+  }
+  if (
+    packageKind === "speaking" ||
+    packageKind === "writing" ||
+    packageKind === "listening" ||
+    packageKind === "reading"
+  ) {
+    return packageKind;
+  }
+  return "full-academic";
+}
+
 /** Tabs shown in student browse and admin package filters. */
 export const VISIBLE_PACKAGE_TYPE_TABS = PACKAGE_TYPE_TABS.filter(
   (tab) => !EXCLUDED_PACKAGE_TYPE_TAB_IDS.includes(tab.id),

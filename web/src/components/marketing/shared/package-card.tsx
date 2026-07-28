@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Check, Lock, ArrowRight } from "lucide-react";
 import type { MockPackage } from "@/lib/marketing/data";
@@ -5,10 +7,21 @@ import { SKILL_META, bookHref } from "@/lib/marketing/data";
 import { formatPrice } from "@/lib/format-price";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import { SkillIcon, StarRating } from "@/components/marketing/ui/primitives";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+
+function resolveBookHref(tabId: string, isStudent: boolean) {
+  return isStudent ? bookHref(tabId) : "/register/student";
+}
 
 // Compact pricing-style card (used on pricing & mock-exams grid).
 export function PackageCard({ pkg }: { pkg: MockPackage }) {
+  const { session, isAuthenticated, isHydrated } = useAuth();
+  const isStudent = Boolean(
+    isHydrated && isAuthenticated && session?.role === "student",
+  );
+  const href = resolveBookHref(pkg.slug, isStudent);
+
   return (
     <article
       className={cn(
@@ -66,7 +79,7 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
       </ul>
 
       <Link
-        href={bookHref(pkg.slug)}
+        href={href}
         className={cn(
           "mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all hover:-translate-y-0.5",
           pkg.mostPopular

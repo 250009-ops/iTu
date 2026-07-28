@@ -6,13 +6,22 @@ import { PACKAGES, SKILL_META, bookHref, type MockPackage } from "@/lib/marketin
 import { formatPrice } from "@/lib/format-price";
 import { ACCENT } from "@/components/marketing/ui/accents";
 import { SkillIcon, StarRating } from "@/components/marketing/ui/primitives";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 type Props = {
   packages?: MockPackage[];
 };
 
+function resolveBookHref(tabId: string, isStudent: boolean) {
+  return isStudent ? bookHref(tabId) : "/register/student";
+}
+
 export function PricingPlans({ packages = PACKAGES }: Props) {
+  const { session, isAuthenticated, isHydrated } = useAuth();
+  const isStudent = Boolean(
+    isHydrated && isAuthenticated && session?.role === "student",
+  );
   const examType = "ACADEMIC" as const;
 
   const full = packages.find(
@@ -95,7 +104,7 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
             </ul>
 
             <Link
-              href={bookHref(full.slug)}
+              href={resolveBookHref(full.slug, isStudent)}
               className="mt-7 flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
             >
               Book Full Mock Exam <ArrowRight className="h-4 w-4" />
@@ -134,7 +143,7 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                   ))}
                 </ul>
                 <Link
-                  href={bookHref(pkg.slug)}
+                  href={resolveBookHref(pkg.slug, isStudent)}
                   className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-navy text-sm font-semibold text-white transition-colors hover:bg-navy-light"
                 >
                   Book <ArrowRight className="h-4 w-4" />

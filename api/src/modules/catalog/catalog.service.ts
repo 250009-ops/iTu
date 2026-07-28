@@ -6,8 +6,10 @@ import {
   isExcludedStudentOfferTab,
   offerMetaForGroup,
   sortOfferGroups,
+  STUDENT_BROWSE_TAB_ORDER,
   type OfferGroup,
 } from '../../common/catalog-offers';
+import { offerDisplayTitle } from '../../common/package-naming';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   filterPackagesAvailableToStudent,
@@ -18,13 +20,34 @@ import {
 export class CatalogService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Public marketing catalog: exactly one placeholder per student mock type
+   * (Full Academic + 4 single-skill). Hides concrete mock serials (A001…).
+   */
   async listPackages() {
     const packages = await this.prisma.mockTestPackage.findMany({
       where: { isActive: true, institutionId: null },
-      orderBy: [{ mostPopular: 'desc' }, { price: 'desc' }],
+      orderBy: [
+        { mostPopular: 'desc' },
+        { mockNumber: 'asc' },
+        { price: 'desc' },
+      ],
     });
 
-    return packages.map((pkg) => this.toCatalogPackage(pkg));
+    const byGroup = new Map<string, (typeof packages)[number]>();
+    for (const pkg of packages) {
+      const tabId = buildTabId(pkg.packageKind, pkg.examType);
+      if (isExcludedStudentOfferTab(tabId)) continue;
+      const key = groupKey(pkg.packageKind, pkg.examType);
+      if (!byGroup.has(key)) byGroup.set(key, pkg);
+    }
+
+    return STUDENT_BROWSE_TAB_ORDER.flatMap((group) => {
+      const pkg = byGroup.get(groupKey(group.packageKind, group.examType));
+      if (!pkg) return [];
+      const meta = offerMetaForGroup(group);
+      return [this.toPublicOfferPlaceholder(pkg, meta)];
+    });
   }
 
   /** Active packages the student has not already taken or enrolled in. */
@@ -109,9 +132,26 @@ export class CatalogService {
         }
       }
 
+      const packagePayload = resolved
+        ? {
+            ...this.toCatalogPackage(resolved),
+            title: meta.displayTitle,
+            // Booking needs the concrete id; hide serial metadata from the client.
+            mockNumber: undefined,
+            slug: meta.tabId,
+          }
+        : null;
+
+      if (activeEnrollment) {
+        activeEnrollment = {
+          ...activeEnrollment,
+          packageTitle: meta.displayTitle,
+        };
+      }
+
       offers.push({
         ...meta,
-        package: resolved ? this.toCatalogPackage(resolved) : null,
+        package: packagePayload,
         activeEnrollment,
       });
     }
@@ -120,6 +160,15 @@ export class CatalogService {
   }
 
   async getPackage(slug: string) {
+    // Public type placeholders use tab ids as slugs (e.g. full-academic).
+    const tabGroup = STUDENT_BROWSE_TAB_ORDER.find(
+      (g) => buildTabId(g.packageKind, g.examType) === slug,
+    );
+    if (tabGroup) {
+      const offers = await this.listPackages();
+      return offers.find((o) => o.slug === slug) ?? null;
+    }
+
     const pkg = await this.prisma.mockTestPackage.findUnique({
       where: { slug },
       include: {
@@ -132,14 +181,61 @@ export class CatalogService {
 
     if (!pkg || !pkg.isActive) return null;
 
+    const displayTitle = offerDisplayTitle(pkg.packageKind, pkg.examType);
+
     return {
       ...this.toCatalogPackage(pkg),
+      title: displayTitle,
+      mockNumber: undefined,
       tests: {
-        listening: pkg.listeningTest,
-        reading: pkg.readingTest,
-        writing: pkg.writingTest,
-        speaking: pkg.speakingBank,
+        listening: pkg.listeningTest
+          ? { id: pkg.listeningTest.id, title: displayTitle }
+          : null,
+        reading: pkg.readingTest
+          ? { id: pkg.readingTest.id, title: displayTitle }
+          : null,
+        writing: pkg.writingTest
+          ? { id: pkg.writingTest.id, title: displayTitle }
+          : null,
+        speaking: pkg.speakingBank
+          ? { id: pkg.speakingBank.id, title: displayTitle }
+          : null,
       },
+    };
+  }
+
+  /** Marketing/public offer — type key only; no concrete package UUID or serial. */
+  private toPublicOfferPlaceholder(
+    pkg: {
+      description: string | null;
+      price: number;
+      currency: string;
+      examType: ExamType;
+      packageKind: string;
+      mostPopular: boolean;
+      rating: number | null;
+      reviewCount: number;
+      skills: unknown;
+      included: unknown;
+      rules: unknown;
+    },
+    meta: ReturnType<typeof offerMetaForGroup>,
+  ) {
+    return {
+      id: meta.tabId,
+      slug: meta.tabId,
+      title: meta.displayTitle,
+      description: pkg.description,
+      price: pkg.price,
+      currency: pkg.currency,
+      examType: pkg.examType,
+      packageKind: pkg.packageKind,
+      mostPopular: pkg.mostPopular,
+      rating: pkg.rating,
+      reviewCount: pkg.reviewCount,
+      skills: pkg.skills,
+      included: pkg.included,
+      rules: pkg.rules,
     };
   }
 

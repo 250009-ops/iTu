@@ -507,8 +507,14 @@ export const COPY = {
   hero: { headline1: "Sit a real IELTS mock.", headline2: "Get your real band." },
 } as const;
 
-export function bookHref(slug?: string) {
-  return slug ? `/mock-exams?package=${encodeURIComponent(slug)}` : "/mock-exams";
+/**
+ * Marketing Book CTA → student browse by mock type tab.
+ * Guests hitting AuthGuard are sent to login; after sign-in they open Browse.
+ * Concrete mock assignment (A001/A002…) happens server-side at enroll time.
+ */
+export function bookHref(tabId?: string) {
+  if (!tabId) return "/register/student";
+  return `/student/browse?tab=${encodeURIComponent(tabId)}&book=1`;
 }
 
 /** Primary CTA label for full Academic mock — uses catalog price when available. */

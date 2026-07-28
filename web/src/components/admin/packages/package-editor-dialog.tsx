@@ -22,6 +22,7 @@ import {
   isFullMockTypeTab,
   labelForPackageTypeTab,
   skillsForPackageTypeTab,
+  tabIdForPackageOffer,
   type PackageSkillId,
 } from "@/lib/package-type-tabs";
 
@@ -236,10 +237,21 @@ export function PackageEditorDialog() {
     return form.skills.every((skill) => Boolean(needs[skill]?.trim()));
   }, [form]);
 
-  const previewSlug = form.slug.trim() || pkg?.slug;
-  const siteHref = previewSlug
-    ? `/mock-exams?package=${encodeURIComponent(previewSlug)}`
-    : "/mock-exams";
+  const previewTabId = isEdit
+    ? tabIdForPackageOffer(
+        [...form.skills]
+          .sort(
+            (a, b) =>
+              ["listening", "reading", "writing", "speaking"].indexOf(a) -
+              ["listening", "reading", "writing", "speaking"].indexOf(b),
+          )
+          .join("+") || "listening+reading+writing+speaking",
+        form.examType,
+      )
+    : editor.createTypeTabId === "all"
+      ? "full-academic"
+      : editor.createTypeTabId;
+  const siteHref = `/mock-exams?package=${encodeURIComponent(previewTabId)}`;
 
   if (!editor.open) return null;
 

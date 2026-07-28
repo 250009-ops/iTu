@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { CalendarCheck, UserCheck, Server } from "lucide-react";
 import { PageHero } from "@/components/marketing/ui/page-hero";
-import { Section, SectionHeading } from "@/components/marketing/ui/primitives";
+import { Section } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
-import { PackageGrid } from "@/components/marketing/shared/package-grid";
+import { MockExamsCatalog } from "@/components/marketing/shared/mock-exams-catalog";
 import { TestimonialCard } from "@/components/marketing/shared/testimonial-card";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchPackages, fetchTestimonials } from "@/lib/marketing/server-data";
@@ -35,11 +35,17 @@ const INFO = [
   },
 ];
 
-export default async function MockExamsPage() {
+export default async function MockExamsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ package?: string }> | { package?: string };
+}) {
   const [packages, testimonials] = await Promise.all([
     fetchPackages(),
     fetchTestimonials(),
   ]);
+  const params = await Promise.resolve(searchParams ?? {});
+  const highlightSlug = params.package;
 
   return (
     <>
@@ -50,7 +56,7 @@ export default async function MockExamsPage() {
       />
 
       <Section className="pt-12">
-        <PackageGrid packages={packages} />
+        <MockExamsCatalog packages={packages} highlightSlug={highlightSlug} />
 
         <Stagger className="mt-16 grid grid-cols-1 gap-6 rounded-2xl border border-border bg-white p-6 shadow-sm md:grid-cols-3 sm:p-8">
           {INFO.map((item) => (

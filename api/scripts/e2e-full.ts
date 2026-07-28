@@ -119,18 +119,33 @@ async function runStudentScenarios() {
     const titles = packages.map((p) => p.title);
     const expected = [
       'Full Academic Mock',
-      'General Training Mock',
       'Speaking Only',
       'Writing Only',
+      'Listening Only',
+      'Reading Only',
     ];
-    const found = expected.filter((t) =>
-      titles.some((title) => title.includes(t.split(' ')[0])),
-    );
-    pass(portal, '2. Browse packages', `${packages.length} packages (${found.length}/4 types)`);
+    const found = expected.filter((t) => titles.includes(t));
+    if (packages.length !== 5 || found.length !== 5) {
+      throw new Error(
+        `Expected 5 type placeholders, got ${packages.length}: ${titles.join(', ')}`,
+      );
+    }
+    if (titles.some((t) => /A00\d|Mock-\d/i.test(t))) {
+      throw new Error(`Public catalog leaked mock serials: ${titles.join(', ')}`);
+    }
+    pass(portal, '2. Browse packages', `${packages.length} type placeholders`);
 
-    const fullMock =
-      packages.find((p) => p.slug === 'full-academic-mock') ?? packages[0];
-    packageId = fullMock.id;
+    const offers = await api<
+      {
+        package: { id: string; slug: string } | null;
+        tabId: string;
+      }[]
+    >('GET', '/students/catalog/offers', studentToken);
+    const fullOffer =
+      offers.find((o) => o.tabId === 'full-academic' && o.package) ??
+      offers.find((o) => o.package);
+    if (!fullOffer?.package) throw new Error('No bookable full-academic offer');
+    packageId = fullOffer.package.id;
 
     const testimonials = await fetch(`${BASE}/marketing/testimonials`).then(
       (r) => r.json(),

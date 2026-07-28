@@ -1,7 +1,12 @@
 import { STUDENT_VIEW_PATHS } from "@/lib/student/routes";
 
 export type BrowseBookingParams = {
-  tab: "writing" | "speaking" | "full-academic";
+  tab:
+    | "full-academic"
+    | "speaking"
+    | "writing"
+    | "listening"
+    | "reading";
   writingTeacherId?: string;
   speakingTeacherId?: string;
 };

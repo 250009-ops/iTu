@@ -47,7 +47,7 @@ describe('catalog-offers', () => {
     ]);
   });
 
-  it('exposes canonical student browse tabs', () => {
+  it('exposes exactly five public/student mock type placeholders', () => {
     expect(STUDENT_BROWSE_TAB_ORDER).toHaveLength(5);
     expect(STUDENT_BROWSE_TAB_ORDER.map((g) => g.packageKind)).toEqual([
       'listening+reading+writing+speaking',
@@ -55,6 +55,17 @@ describe('catalog-offers', () => {
       'writing',
       'listening',
       'reading',
+    ]);
+    expect(
+      STUDENT_BROWSE_TAB_ORDER.map((g) =>
+        offerMetaForGroup(g).displayTitle,
+      ),
+    ).toEqual([
+      'Full Academic Mock',
+      'Speaking Only',
+      'Writing Only',
+      'Listening Only',
+      'Reading Only',
     ]);
   });
 
