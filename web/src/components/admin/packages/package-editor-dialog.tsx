@@ -417,7 +417,7 @@ export function PackageEditorDialog() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <label className={labelCls}>Slug (optional)</label>
-              {previewSlug && (
+              {previewTabId ? (
                 <Link
                   href={siteHref}
                   target="_blank"
@@ -427,7 +427,7 @@ export function PackageEditorDialog() {
                   View on site
                   <ExternalLink className="h-3 w-3" />
                 </Link>
-              )}
+              ) : null}
             </div>
             <Input
               value={form.slug}
