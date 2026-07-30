@@ -393,6 +393,9 @@ export interface MockPackage {
   description: string;
   price: number;
   currency: string;
+  pricingMode?: "fixed" | "examiner";
+  fromPrice?: number | null;
+  priceDependsOnExaminers?: boolean;
   rating: number;
   reviewCount: number;
   mostPopular?: boolean;
@@ -517,12 +520,19 @@ export function bookHref(tabId?: string) {
   return `/student/browse?tab=${encodeURIComponent(tabId)}&book=1`;
 }
 
-/** Primary CTA label for full Academic mock — uses catalog price when available. */
+/** Primary CTA label for full Academic mock — uses catalog "from" price when available. */
 export function fullMockCtaLabel(packages?: MockPackage[]): string {
   const full = packages?.find(
     (p) => p.examType === "ACADEMIC" && p.skills.length === 4,
   );
-  const price = full?.price ?? SITE.fullMockPrice;
+  const price = full?.fromPrice ?? full?.price ?? SITE.fullMockPrice;
   const currency = full?.currency ?? SITE.currency;
-  return `Book a Full Mock — ${formatPrice(price, currency)}`;
+  const depends = full
+    ? Boolean(
+        full.priceDependsOnExaminers ?? full.pricingMode === "examiner",
+      )
+    : true;
+  return depends
+    ? `Book a Full Mock — from ${formatPrice(price, currency)}`
+    : `Book a Full Mock — ${formatPrice(price, currency)}`;
 }

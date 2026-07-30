@@ -10,8 +10,32 @@ export function listTeachers(speciality?: "writing" | "speaking" | "both") {
       speciality: string;
       rating: number | null;
       status: string;
+      writingRate: number;
+      speakingRate: number;
     }[]
   >(`/bookings/teachers${q}`, { auth: false });
+}
+
+export function quoteBooking(body: {
+  packageId: string;
+  writingTeacherId?: string;
+  speakingTeacherId?: string;
+}) {
+  return apiFetch<{
+    packageId: string;
+    amount: number;
+    currency: string;
+    complete: boolean;
+    examinerPriced: boolean;
+    missing: Array<"writing" | "speaking">;
+    breakdown: {
+      listening: number;
+      reading: number;
+      writing: number;
+      speaking: number;
+    };
+    message: string | null;
+  }>("/bookings/quote", { method: "POST", body, auth: false });
 }
 
 export function getAvailability(date: string, teacherId?: string) {

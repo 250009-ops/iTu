@@ -7,14 +7,14 @@ describe('package-templates', () => {
       'listening+reading+writing+speaking',
       ExamType.ACADEMIC,
     );
-    expect(t.suggestedPrice).toBe(49);
+    expect(t.suggestedPrice).toBe(56_000);
     expect(t.included.length).toBeGreaterThan(2);
     expect(t.description).toContain('Academic');
   });
 
   it('returns speaking-only template', () => {
     const t = getPackageContentTemplate('speaking');
-    expect(t.suggestedPrice).toBe(22);
+    expect(t.suggestedPrice).toBe(15_000);
     expect(t.rules).toContain('Live video session');
   });
 });

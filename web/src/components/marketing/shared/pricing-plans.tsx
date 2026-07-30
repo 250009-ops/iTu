@@ -63,9 +63,15 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
               </div>
               <div className="text-right">
                 <p className="text-4xl font-extrabold">
-                  {formatPrice(full.price, full.currency)}
+                  {full.priceDependsOnExaminers || full.pricingMode === "examiner"
+                    ? `from ${formatPrice(full.fromPrice ?? full.price, full.currency)}`
+                    : formatPrice(full.price, full.currency)}
                 </p>
-                <p className="text-xs text-slate-400">per exam</p>
+                <p className="text-xs text-slate-400">
+                  {full.priceDependsOnExaminers || full.pricingMode === "examiner"
+                    ? "depends on examiners"
+                    : "per exam"}
+                </p>
                 {full.rating > 0 && full.reviewCount > 0 ? (
                   <StarRating
                     rating={full.rating}
@@ -132,7 +138,9 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                 <h3 className="font-bold text-navy">{pkg.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted">{pkg.description}</p>
                 <p className="mt-4 text-3xl font-extrabold text-navy">
-                  {formatPrice(pkg.price, pkg.currency)}
+                  {pkg.priceDependsOnExaminers || pkg.pricingMode === "examiner"
+                    ? `from ${formatPrice(pkg.fromPrice ?? pkg.price, pkg.currency)}`
+                    : formatPrice(pkg.price, pkg.currency)}
                 </p>
                 <ul className="mt-4 space-y-2">
                   {pkg.included.map((item) => (

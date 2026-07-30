@@ -5,7 +5,7 @@ const PACKAGES = {
   academic: {
     title: "Full Academic Mock",
     examType: "Academic",
-    price: "$49",
+    price: /from [\d,]+ so'm/,
     delivery: "Computer-Based",
     bookCta: "Book Full Mock Exam",
     description:
@@ -35,7 +35,7 @@ const PACKAGES = {
   generalTraining: {
     title: "General Training Mock",
     examType: "General Training",
-    price: "$45",
+    price: /from [\d,]+ so'm/,
     delivery: "Computer-Based",
     bookCta: "Book Full Mock Exam",
     description:
@@ -64,7 +64,7 @@ const PACKAGES = {
   },
   speakingOnly: {
     title: "Speaking Only",
-    price: "$22",
+    price: /from [\d,]+ so'm/,
     delivery: "Live Session",
     bookCta: "Book Speaking Session",
     description:
@@ -91,7 +91,7 @@ const PACKAGES = {
   },
   writingOnly: {
     title: "Writing Only",
-    price: "$18",
+    price: /from [\d,]+ so'm/,
     delivery: "Online Submission",
     bookCta: "Book Writing Mock",
     description:

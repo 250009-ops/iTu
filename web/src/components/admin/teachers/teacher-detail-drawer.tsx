@@ -207,12 +207,18 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
   if (!teacher) return null;
 
   const app = detail?.application;
-  const status = statusStyles[teacher.status];
-  const isRejected = teacher.status === "suspended" && Boolean(app?.rejectedAt);
+  // Prefer freshly loaded detail status over the list row (can be stale after rate save).
+  const resolvedStatus = (
+    detail?.status?.toLowerCase() ?? teacher.status
+  ) as TeacherStatus;
+  const status = statusStyles[resolvedStatus] ?? statusStyles.pending;
+  const isRejected =
+    resolvedStatus === "suspended" &&
+    Boolean(app?.rejectedAt ?? teacher.applicationRejected);
   const displayStatus = isRejected
     ? { label: "Rejected", pill: "bg-slate-100 text-slate-700" }
     : status;
-  const isPending = teacher.status === "pending";
+  const isPending = resolvedStatus === "pending";
   const languages = Array.isArray(detail?.languages)
     ? (detail.languages as string[])
     : [];
@@ -412,8 +418,9 @@ export function TeacherDetailDrawer({ teacher, onClose }: Props) {
               <section className="rounded-xl border border-border p-4">
                 <h3 className="text-sm font-semibold text-navy">Payout rates</h3>
                 <p className="mt-1 text-xs text-muted">
-                  Set how much this examiner earns per graded session. Student booking
-                  price does not change.
+                  Set how much this examiner earns per graded session. For Writing /
+                  Speaking / Full mocks, students pay these approved gross rates at
+                  checkout (plus fixed Listening/Reading platform fees on full mocks).
                 </p>
                 {(detail.requestedWritingRate != null ||
                   detail.requestedSpeakingRate != null) && (

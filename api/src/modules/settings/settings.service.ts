@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ExamSkill } from '@prisma/client';
 import { AuditAction } from '../../common/audit/audit.actions';
@@ -6,6 +6,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import {
   BandTiers,
   computeTeacherNetPayout,
+  resolveTeacherGrossRate,
   ExaminerSkill,
   mergeBandTiers,
   tierDefaultsForBands,
@@ -266,10 +267,13 @@ export class SettingsService {
         applicationData: true,
       },
     });
+    if (!teacher) {
+      throw new NotFoundException('Examiner not found');
+    }
 
     const tiers = await this.getBandTiers();
     const legacy = await this.getCommissionRates();
-    const app = teacher?.applicationData as {
+    const app = teacher.applicationData as {
       ieltsWritingBand?: number;
       ieltsSpeakingBand?: number;
     } | null;
@@ -279,34 +283,85 @@ export class SettingsService {
       app?.ieltsSpeakingBand ?? 7.5,
     );
 
-    const writingGross =
-      teacher?.approvedWritingRate ??
-      teacher?.requestedWritingRate ??
-      defaults.writing.defaultRate;
-    const speakingGross =
-      teacher?.approvedSpeakingRate ??
-      teacher?.requestedSpeakingRate ??
-      defaults.speaking.defaultRate;
+    const writingGross = resolveTeacherGrossRate(
+      teacher,
+      'writing',
+      tiers,
+      legacy,
+    );
+    const speakingGross = resolveTeacherGrossRate(
+      teacher,
+      'speaking',
+      tiers,
+      legacy,
+    );
     const platformSharePercent =
-      teacher?.platformSharePercent ?? defaults.writing.platformPercent;
+      teacher.platformSharePercent ?? defaults.writing.platformPercent;
 
     return {
       writingGross,
       speakingGross,
       platformSharePercent,
-      writingNet: computeTeacherNetPayout(
-        teacher ?? {},
-        'writing',
-        tiers,
-        legacy,
-      ),
-      speakingNet: computeTeacherNetPayout(
-        teacher ?? {},
-        'speaking',
-        tiers,
-        legacy,
-      ),
+      writingNet: computeTeacherNetPayout(teacher, 'writing', tiers, legacy),
+      speakingNet: computeTeacherNetPayout(teacher, 'speaking', tiers, legacy),
     };
+  }
+
+  /**
+   * Minimum student-facing examiner gross rates among approved platform
+   * examiners — used for catalog “from …” prices.
+   */
+  async getMinExaminerGrossRates(): Promise<{
+    writingMinGross: number | null;
+    speakingMinGross: number | null;
+  }> {
+    const [teachers, tiers, legacy] = await Promise.all([
+      this.prisma.teacherProfile.findMany({
+        where: { status: 'APPROVED', institutionId: null },
+        select: {
+          speciality: true,
+          approvedWritingRate: true,
+          approvedSpeakingRate: true,
+          requestedWritingRate: true,
+          requestedSpeakingRate: true,
+          platformSharePercent: true,
+          applicationData: true,
+        },
+      }),
+      this.getBandTiers(),
+      this.getCommissionRates(),
+    ]);
+
+    let writingMinGross: number | null = null;
+    let speakingMinGross: number | null = null;
+
+    for (const teacher of teachers) {
+      const speciality = teacher.speciality.toLowerCase();
+      if (speciality === 'writing' || speciality === 'both') {
+        const gross = resolveTeacherGrossRate(
+          teacher,
+          'writing',
+          tiers,
+          legacy,
+        );
+        writingMinGross =
+          writingMinGross == null ? gross : Math.min(writingMinGross, gross);
+      }
+      if (speciality === 'speaking' || speciality === 'both') {
+        const gross = resolveTeacherGrossRate(
+          teacher,
+          'speaking',
+          tiers,
+          legacy,
+        );
+        speakingMinGross =
+          speakingMinGross == null
+            ? gross
+            : Math.min(speakingMinGross, gross);
+      }
+    }
+
+    return { writingMinGross, speakingMinGross };
   }
 
   private mergeIntegrations(integrations: object) {

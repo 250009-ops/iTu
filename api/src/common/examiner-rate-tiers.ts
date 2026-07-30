@@ -91,7 +91,8 @@ export function bandKeyFromApplication(
   return EXAMINER_BANDS.includes(key as ExaminerBand) ? key : '7.5';
 }
 
-export function computeTeacherNetPayout(
+/** Student-facing / payout gross: approved → requested → band default → legacy. */
+export function resolveTeacherGrossRate(
   teacher: TeacherRateProfile,
   skill: ExaminerSkill,
   tiers: BandTiers,
@@ -100,17 +101,32 @@ export function computeTeacherNetPayout(
   const bandKey = bandKeyFromApplication(teacher.applicationData, skill);
   const tier = tiers[bandKey]?.[skill] ?? tiers['7.5'][skill];
 
-  const gross =
-    skill === 'writing'
-      ? (teacher.approvedWritingRate ??
-        teacher.requestedWritingRate ??
-        tier.defaultRate ??
-        legacy.writingRate)
-      : (teacher.approvedSpeakingRate ??
-        teacher.requestedSpeakingRate ??
-        tier.defaultRate ??
-        legacy.speakingRate);
+  if (skill === 'writing') {
+    return (
+      teacher.approvedWritingRate ??
+      teacher.requestedWritingRate ??
+      tier.defaultRate ??
+      legacy.writingRate
+    );
+  }
 
+  return (
+    teacher.approvedSpeakingRate ??
+    teacher.requestedSpeakingRate ??
+    tier.defaultRate ??
+    legacy.speakingRate
+  );
+}
+
+export function computeTeacherNetPayout(
+  teacher: TeacherRateProfile,
+  skill: ExaminerSkill,
+  tiers: BandTiers,
+  legacy: { writingRate: number; speakingRate: number },
+): number {
+  const bandKey = bandKeyFromApplication(teacher.applicationData, skill);
+  const tier = tiers[bandKey]?.[skill] ?? tiers['7.5'][skill];
+  const gross = resolveTeacherGrossRate(teacher, skill, tiers, legacy);
   const platformPct = teacher.platformSharePercent ?? tier.platformPercent;
   return netExaminerPayout(gross, platformPct);
 }

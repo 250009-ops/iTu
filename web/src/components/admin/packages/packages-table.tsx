@@ -17,6 +17,7 @@ import {
   packageMatchesTypeTab,
   type PackageTypeTabId,
 } from "@/lib/package-type-tabs";
+import { packageIsExaminerPriced } from "@/lib/booking-pricing";
 import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 
@@ -210,7 +211,16 @@ export function PackagesTable({
                     {examTypeLabels[pkg.examType]}
                   </td>
                   <td className="px-5 py-4 font-semibold tabular-nums text-navy sm:px-6">
-                    {formatPrice(pkg.price, pkg.currency)}
+                    {packageIsExaminerPriced(pkg.skills) ? (
+                      <span className="text-sm font-medium text-muted">
+                        Depends on examiner
+                        <span className="mt-0.5 block text-xs font-normal">
+                          list {formatPrice(pkg.price, pkg.currency)}
+                        </span>
+                      </span>
+                    ) : (
+                      formatPrice(pkg.price, pkg.currency)
+                    )}
                   </td>
                   <td className="px-5 py-4 sm:px-6">
                     <span

@@ -15,6 +15,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { QuoteBookingDto } from './dto/quote-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import { ScheduleSpeakingSlotDto } from './dto/schedule-speaking-slot.dto';
 
@@ -27,6 +28,12 @@ export class BookingsController {
   @Get('teachers')
   listTeachers(@Query('speciality') speciality?: 'writing' | 'speaking' | 'both') {
     return this.bookings.listTeachers(speciality);
+  }
+
+  @Public()
+  @Post('quote')
+  quoteBooking(@Body() dto: QuoteBookingDto) {
+    return this.bookings.quoteBooking(dto);
   }
 
   @Public()

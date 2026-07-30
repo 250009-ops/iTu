@@ -34,6 +34,7 @@ import {
 } from "@/lib/student/exam-start-times";
 import { clampMockTimeForDate } from "@/lib/student/datetime";
 import { formatSpeakingWallTime } from "@/lib/speaking/slot-grid";
+import { computeStudentBookingTotal } from "@/lib/booking-pricing";
 import { cn } from "@/lib/utils";
 
 type Teacher = {
@@ -43,6 +44,8 @@ type Teacher = {
   speciality: string;
   rating: number | null;
   status: string;
+  writingRate?: number;
+  speakingRate?: number;
 };
 
 type Slot = {
@@ -149,13 +152,32 @@ export function BookingWizard({
     void getPaymentConfig().then((cfg) => setPaymentsEnabled(cfg.paymentsEnabled));
   }, []);
 
-  const priceLabel = formatPrice(product.price, product.currency);
   const selectedWritingTeacher = writingTeachers.find(
     (teacher) => teacher.id === writingTeacherId,
   );
   const selectedSpeakingTeacher = speakingTeachers.find(
     (teacher) => teacher.id === speakingTeacherId,
   );
+  const pricedTotal = useMemo(
+    () =>
+      computeStudentBookingTotal({
+        skillIds: product.skillIds,
+        packagePrice: product.price,
+        writingRate: selectedWritingTeacher?.writingRate,
+        speakingRate: selectedSpeakingTeacher?.speakingRate,
+      }),
+    [
+      product.skillIds,
+      product.price,
+      selectedWritingTeacher?.writingRate,
+      selectedSpeakingTeacher?.speakingRate,
+    ],
+  );
+  const priceLabel = pricedTotal.complete
+    ? formatPrice(pricedTotal.amount, product.currency)
+    : product.priceDependsOnExaminers
+      ? `from ${formatPrice(product.fromPrice ?? product.price, product.currency)}`
+      : formatPrice(product.price, product.currency);
   const showExamStartTime = needsExamStartTime(product);
 
   const loadWritingTeachers = useCallback(async () => {
@@ -276,7 +298,9 @@ export function BookingWizard({
     if (currentStep === "writing") return Boolean(writingTeacherId);
     if (currentStep === "speakingExaminer") return Boolean(speakingTeacherId);
     if (currentStep === "speakingSlot") return Boolean(selectedSlot);
-    if (currentStep === "payment") return true;
+    if (currentStep === "payment") {
+      return pricedTotal.complete && pricedTotal.amount > 0;
+    }
     return false;
   }, [
     currentStep,
@@ -287,6 +311,8 @@ export function BookingWizard({
     speakingTeacherId,
     selectedSlot,
     purchaseBlocked,
+    pricedTotal.complete,
+    pricedTotal.amount,
   ]);
 
   function goNext() {
@@ -463,13 +489,22 @@ export function BookingWizard({
                         {teacher.rating != null
                           ? ` · ${teacher.rating.toFixed(1)}★`
                           : ""}
+                        {teacher.writingRate != null
+                          ? ` · ${formatPrice(teacher.writingRate, product.currency)}`
+                          : ""}
                       </option>
                     ))}
                   </Select>
                   {selectedWritingTeacher ? (
                     <p className="text-xs text-muted">
-                      {selectedWritingTeacher.name} will grade your Writing
-                      tasks. You can change this before continuing.
+                      Writing fee:{" "}
+                      <span className="font-semibold text-navy">
+                        {formatPrice(
+                          selectedWritingTeacher.writingRate ?? 0,
+                          product.currency,
+                        )}
+                      </span>
+                      . This examiner grades your Writing tasks.
                     </p>
                   ) : null}
                 </div>
@@ -530,10 +565,25 @@ export function BookingWizard({
                           {teacher.rating != null
                             ? ` · ${teacher.rating.toFixed(1)}★`
                             : ""}
+                          {teacher.speakingRate != null
+                            ? ` · ${formatPrice(teacher.speakingRate, product.currency)}`
+                            : ""}
                         </option>
                       );
                     })}
                   </Select>
+                  {selectedSpeakingTeacher ? (
+                    <p className="text-xs text-muted">
+                      Speaking fee:{" "}
+                      <span className="font-semibold text-navy">
+                        {formatPrice(
+                          selectedSpeakingTeacher.speakingRate ?? 0,
+                          product.currency,
+                        )}
+                      </span>
+                      .
+                    </p>
+                  ) : null}
                   {selectedSpeakingTeacher ? (
                     <p className="text-xs text-muted">
                       {selectedSpeakingTeacher.name} is pre-selected. Change
@@ -623,6 +673,54 @@ export function BookingWizard({
                         </dd>
                       </div>
                     </>
+                  )}
+                  {pricedTotal.complete && (
+                    <div className="space-y-1 border-t border-border pt-2 text-xs text-muted">
+                      {pricedTotal.breakdown.listening > 0 && (
+                        <div className="flex justify-between">
+                          <span>Listening (platform)</span>
+                          <span>
+                            {formatPrice(
+                              pricedTotal.breakdown.listening,
+                              product.currency,
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {pricedTotal.breakdown.reading > 0 && (
+                        <div className="flex justify-between">
+                          <span>Reading (platform)</span>
+                          <span>
+                            {formatPrice(
+                              pricedTotal.breakdown.reading,
+                              product.currency,
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {pricedTotal.breakdown.writing > 0 && (
+                        <div className="flex justify-between">
+                          <span>Writing examiner</span>
+                          <span>
+                            {formatPrice(
+                              pricedTotal.breakdown.writing,
+                              product.currency,
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {pricedTotal.breakdown.speaking > 0 && (
+                        <div className="flex justify-between">
+                          <span>Speaking examiner</span>
+                          <span>
+                            {formatPrice(
+                              pricedTotal.breakdown.speaking,
+                              product.currency,
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   )}
                   <div className="mt-2 flex justify-between border-t border-border pt-2">
                     <dt className="font-semibold text-navy">Total</dt>

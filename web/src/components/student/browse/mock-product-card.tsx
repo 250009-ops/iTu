@@ -201,15 +201,23 @@ export function MockProductCard({
               <p className="text-3xl font-bold">
                 {isInstitutionShop && purchaseDisabled && product.price <= 0
                   ? "Price on request"
-                  : formatPrice(product.price, product.currency)}
+                  : product.priceDependsOnExaminers
+                    ? `from ${formatPrice(product.fromPrice ?? product.price, product.currency)}`
+                    : formatPrice(product.price, product.currency)}
               </p>
               <p className="text-sm text-slate-400">
-                {isInstitutionShop ? "per set" : "per attempt"}
+                {isInstitutionShop
+                  ? "per set"
+                  : product.priceDependsOnExaminers
+                    ? "depends on examiners"
+                    : "per attempt"}
               </p>
               <p className="mt-0.5 text-xs text-slate-500">
                 {isInstitutionShop
                   ? "Unlimited student enrollments"
-                  : "No hidden fees"}
+                  : product.priceDependsOnExaminers
+                    ? "Final price after you pick examiners"
+                    : "No hidden fees"}
               </p>
             </div>
           )}

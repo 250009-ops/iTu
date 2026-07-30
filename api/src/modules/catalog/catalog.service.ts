@@ -9,8 +9,14 @@ import {
   STUDENT_BROWSE_TAB_ORDER,
   type OfferGroup,
 } from '../../common/catalog-offers';
+import {
+  computeFromPrice,
+  packageIsExaminerPriced,
+} from '../../common/booking-pricing';
+import { CATALOG_CURRENCY } from '../../common/catalog-pricing';
 import { offerDisplayTitle } from '../../common/package-naming';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import {
   filterPackagesAvailableToStudent,
   resolveNextPackageForStudent,
@@ -18,7 +24,10 @@ import {
 
 @Injectable()
 export class CatalogService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private settings: SettingsService,
+  ) {}
 
   /**
    * Public marketing catalog: exactly one placeholder per student mock type
@@ -42,12 +51,15 @@ export class CatalogService {
       if (!byGroup.has(key)) byGroup.set(key, pkg);
     }
 
-    return STUDENT_BROWSE_TAB_ORDER.flatMap((group) => {
+    const ordered: Awaited<ReturnType<CatalogService['toPublicOfferPlaceholder']>>[] =
+      [];
+    for (const group of STUDENT_BROWSE_TAB_ORDER) {
       const pkg = byGroup.get(groupKey(group.packageKind, group.examType));
-      if (!pkg) return [];
+      if (!pkg) continue;
       const meta = offerMetaForGroup(group);
-      return [this.toPublicOfferPlaceholder(pkg, meta)];
-    });
+      ordered.push(await this.toPublicOfferPlaceholder(pkg, meta));
+    }
+    return ordered;
   }
 
   /** Active packages the student has not already taken or enrolled in. */
@@ -63,7 +75,7 @@ export class CatalogService {
       packages,
     );
 
-    return available.map((pkg) => this.toCatalogPackage(pkg));
+    return Promise.all(available.map((pkg) => this.toCatalogPackage(pkg)));
   }
 
   /**
@@ -134,7 +146,7 @@ export class CatalogService {
 
       const packagePayload = resolved
         ? {
-            ...this.toCatalogPackage(resolved),
+            ...(await this.toCatalogPackage(resolved)),
             title: meta.displayTitle,
             // Booking needs the concrete id; hide serial metadata from the client.
             mockNumber: undefined,
@@ -184,7 +196,7 @@ export class CatalogService {
     const displayTitle = offerDisplayTitle(pkg.packageKind, pkg.examType);
 
     return {
-      ...this.toCatalogPackage(pkg),
+      ...(await this.toCatalogPackage(pkg)),
       title: displayTitle,
       mockNumber: undefined,
       tests: {
@@ -205,7 +217,7 @@ export class CatalogService {
   }
 
   /** Marketing/public offer — type key only; no concrete package UUID or serial. */
-  private toPublicOfferPlaceholder(
+  private async toPublicOfferPlaceholder(
     pkg: {
       description: string | null;
       price: number;
@@ -221,13 +233,13 @@ export class CatalogService {
     },
     meta: ReturnType<typeof offerMetaForGroup>,
   ) {
+    const pricing = await this.attachPricingMeta(pkg.skills, pkg.price, pkg.currency);
     return {
       id: meta.tabId,
       slug: meta.tabId,
       title: meta.displayTitle,
       description: pkg.description,
-      price: pkg.price,
-      currency: pkg.currency,
+      ...pricing,
       examType: pkg.examType,
       packageKind: pkg.packageKind,
       mostPopular: pkg.mostPopular,
@@ -239,7 +251,7 @@ export class CatalogService {
     };
   }
 
-  private toCatalogPackage(pkg: {
+  private async toCatalogPackage(pkg: {
     id: string;
     slug: string;
     title: string;
@@ -256,13 +268,13 @@ export class CatalogService {
     included: unknown;
     rules: unknown;
   }) {
+    const pricing = await this.attachPricingMeta(pkg.skills, pkg.price, pkg.currency);
     return {
       id: pkg.id,
       slug: pkg.slug,
       title: pkg.title,
       description: pkg.description,
-      price: pkg.price,
-      currency: pkg.currency,
+      ...pricing,
       examType: pkg.examType,
       packageKind: pkg.packageKind,
       mockNumber: pkg.mockNumber,
@@ -272,6 +284,42 @@ export class CatalogService {
       skills: pkg.skills,
       included: pkg.included,
       rules: pkg.rules,
+    };
+  }
+
+  private async attachPricingMeta(
+    skills: unknown,
+    legacyPrice: number,
+    legacyCurrency: string,
+  ) {
+    const examinerPriced = packageIsExaminerPriced(skills);
+    if (!examinerPriced) {
+      const fixed = computeFromPrice({
+        skills,
+        packagePrice: legacyPrice,
+      });
+      return {
+        price: fixed.amount || legacyPrice,
+        currency: fixed.currency || legacyCurrency || CATALOG_CURRENCY,
+        pricingMode: 'fixed' as const,
+        fromPrice: null as number | null,
+        priceDependsOnExaminers: false,
+      };
+    }
+
+    const floors = await this.settings.getMinExaminerGrossRates();
+    const from = computeFromPrice({
+      skills,
+      writingMinGross: floors.writingMinGross,
+      speakingMinGross: floors.speakingMinGross,
+    });
+    return {
+      /** Display amount — "from" floor for examiner-priced offers. */
+      price: from.amount,
+      currency: from.currency,
+      pricingMode: 'examiner' as const,
+      fromPrice: from.amount,
+      priceDependsOnExaminers: true,
     };
   }
 }

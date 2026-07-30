@@ -299,6 +299,13 @@ export function mapBrowseProduct(pkg: CatalogPackage) {
     reviewCount: pkg.reviewCount,
     price: pkg.price,
     currency: pkg.currency,
+    pricingMode: pkg.pricingMode ?? (skillIds.includes("writing") || skillIds.includes("speaking")
+      ? "examiner"
+      : "fixed"),
+    fromPrice: pkg.fromPrice ?? null,
+    priceDependsOnExaminers:
+      pkg.priceDependsOnExaminers ??
+      (skillIds.includes("writing") || skillIds.includes("speaking")),
     skills: skillIds.map((id) => {
       const meta = SKILL_META[id] ?? SKILL_META.listening;
       return { id, ...meta };

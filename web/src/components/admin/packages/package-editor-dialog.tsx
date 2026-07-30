@@ -16,6 +16,7 @@ import type {
 } from "@/lib/admin/types";
 import { getErrorMessage } from "@/lib/api/errors";
 import { getNextMockNumber } from "@/lib/api/admin";
+import { packageIsExaminerPriced } from "@/lib/booking-pricing";
 import { DEFAULT_CURRENCY, formatPrice } from "@/lib/format-price";
 import {
   examTypeForPackageTypeTab,
@@ -226,6 +227,7 @@ export function PackageEditorDialog() {
 
   const priceInvalid = form.price.trim() === "" || Number.isNaN(priceValue) || priceValue < 0;
   const titleInvalid = form.title.trim() === "";
+  const examinerPricedPackage = packageIsExaminerPriced(form.skills);
 
   const contentComplete = useMemo(() => {
     const needs: Record<SkillId, string> = {
@@ -449,7 +451,9 @@ export function PackageEditorDialog() {
 
           <div className={`grid gap-4 ${showExamType ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             <div className="space-y-1.5">
-              <label className={labelCls}>Price</label>
+              <label className={labelCls}>
+                {examinerPricedPackage ? "List / from price" : "Price"}
+              </label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted">
                   so'm
@@ -465,6 +469,17 @@ export function PackageEditorDialog() {
                   placeholder="Enter price"
                 />
               </div>
+              {examinerPricedPackage ? (
+                <p className="text-xs text-muted">
+                  Students do not pay this flat amount. Checkout charges Listening /
+                  Reading platform fees (when included) plus each selected
+                  examiner&apos;s approved gross rate.
+                </p>
+              ) : (
+                <p className="text-xs text-muted">
+                  Fixed student checkout price for this Listening / Reading package.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <label className={labelCls}>Currency</label>

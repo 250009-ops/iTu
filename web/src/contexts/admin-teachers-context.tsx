@@ -25,6 +25,13 @@ export function AdminTeachersProvider({ children }: { children: ReactNode }) {
 
   const examiners = localExaminers ?? mapped?.examiners ?? [];
 
+  const refreshTeachers = useCallback(async () => {
+    await refresh();
+    // Drop optimistic overrides so the latest API list wins (e.g. after
+    // Approve with rates, which does not go through updateStatus).
+    setLocalExaminers(null);
+  }, [refresh]);
+
   const updateStatus = useCallback(
     async (id: string, status: TeacherStatus) => {
       await updateTeacherStatus(id, status);
@@ -32,9 +39,9 @@ export function AdminTeachersProvider({ children }: { children: ReactNode }) {
         const base = prev ?? mapped?.examiners ?? [];
         return base.map((t) => (t.id === id ? { ...t, status } : t));
       });
-      await refresh();
+      await refreshTeachers();
     },
-    [mapped?.examiners, refresh],
+    [mapped?.examiners, refreshTeachers],
   );
 
   const value = useMemo<TeachersValue>(
@@ -49,9 +56,9 @@ export function AdminTeachersProvider({ children }: { children: ReactNode }) {
         suspended: 0,
       },
       updateStatus,
-      refresh,
+      refresh: refreshTeachers,
     }),
-    [loading, error, examiners, mapped?.summary, updateStatus, refresh],
+    [loading, error, examiners, mapped?.summary, updateStatus, refreshTeachers],
   );
 
   return (

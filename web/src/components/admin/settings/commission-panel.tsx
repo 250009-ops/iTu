@@ -49,7 +49,8 @@ export function CommissionPanel() {
         <h2 className="font-semibold text-navy">Commission &amp; Rates</h2>
         <p className="mt-0.5 text-sm text-muted">
           Default examiner rates by IELTS band. Final pay is confirmed when each
-          examiner is approved. Student booking price does not change.
+          examiner is approved. Student Writing / Speaking / Full mock checkout uses
+          each examiner&apos;s approved gross rate (platform % is examiner net only).
         </p>
       </div>
 

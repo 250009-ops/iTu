@@ -7,6 +7,9 @@ export type CatalogPackageResponse = {
   description: string | null;
   price: number;
   currency: string;
+  pricingMode?: "fixed" | "examiner";
+  fromPrice?: number | null;
+  priceDependsOnExaminers?: boolean;
   examType: string;
   mostPopular: boolean;
   rating: number | null;

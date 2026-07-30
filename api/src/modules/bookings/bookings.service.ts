@@ -63,6 +63,14 @@ import {
   welcomePromoClaimField,
   type WelcomePromoSkill,
 } from '../../common/welcome-promo';
+import {
+  computeBookingPrice,
+  packageIsExaminerPriced,
+  type BookingPriceResult,
+} from '../../common/booking-pricing';
+import { resolveTeacherGrossRate } from '../../common/examiner-rate-tiers';
+import { CATALOG_CURRENCY } from '../../common/catalog-pricing';
+import { QuoteBookingDto } from './dto/quote-booking.dto';
 
 /**
  * Parameters for {@link BookingsService.provisionEnrollment}. Shared by the
@@ -157,15 +165,19 @@ export class BookingsService {
   }
 
   async listTeachers(speciality?: 'writing' | 'speaking' | 'both') {
-    const teachers = await this.prisma.teacherProfile.findMany({
-      where: {
-        status: 'APPROVED',
-        institutionId: null,
-        ...teacherSpecialityWhere(speciality),
-      },
-      include: { user: { select: { id: true, name: true, email: true } } },
-      orderBy: { rating: 'desc' },
-    });
+    const [teachers, tiers, legacy] = await Promise.all([
+      this.prisma.teacherProfile.findMany({
+        where: {
+          status: 'APPROVED',
+          institutionId: null,
+          ...teacherSpecialityWhere(speciality),
+        },
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { rating: 'desc' },
+      }),
+      this.settings.getBandTiers(),
+      this.settings.getCommissionRates(),
+    ]);
 
     return teachers.map((t) => ({
       id: t.id,
@@ -174,7 +186,41 @@ export class BookingsService {
       speciality: t.speciality.toLowerCase(),
       rating: t.rating,
       status: t.status.toLowerCase(),
+      /** Student-facing approved gross rates (what checkout charges). */
+      writingRate: resolveTeacherGrossRate(t, 'writing', tiers, legacy),
+      speakingRate: resolveTeacherGrossRate(t, 'speaking', tiers, legacy),
     }));
+  }
+
+  /** Live checkout quote once examiners are selected (or fixed L/R packages). */
+  async quoteBooking(dto: QuoteBookingDto) {
+    const pkg = await this.prisma.mockTestPackage.findUnique({
+      where: { id: dto.packageId },
+    });
+    if (!pkg || !pkg.isActive) {
+      throw new NotFoundException('Package not found');
+    }
+
+    const priced = await this.resolvePaidBookingPrice({
+      skills: pkg.skills,
+      packagePrice: pkg.price,
+      writingTeacherId: dto.writingTeacherId,
+      speakingTeacherId: dto.speakingTeacherId,
+      requireComplete: false,
+    });
+
+    return {
+      packageId: pkg.id,
+      amount: priced.amount,
+      currency: priced.currency,
+      complete: priced.complete,
+      examinerPriced: priced.examinerPriced,
+      missing: priced.missing,
+      breakdown: priced.breakdown,
+      message: priced.complete
+        ? null
+        : `Select ${priced.missing.join(' and ')} examiner(s) to see the final price.`,
+    };
   }
 
   async createBooking(dto: CreateBookingDto, user: RequestUser) {
@@ -338,8 +384,17 @@ export class BookingsService {
     const orderCode = await this.generateCode('ORD');
     const sessionCode = await this.generateCode('MOCK');
 
-    const amount =
-      zeroCharge || params.isReappointment ? 0 : pkg.price;
+    let amount = 0;
+    if (!(zeroCharge || params.isReappointment)) {
+      const priced = await this.resolvePaidBookingPrice({
+        skills: pkg.skills,
+        packagePrice: pkg.price,
+        writingTeacherId: params.writingTeacherId,
+        speakingTeacherId: params.speakingTeacherId,
+        requireComplete: true,
+      });
+      amount = priced.amount;
+    }
     const paymentMethod =
       zeroCharge || params.isReappointment
         ? PaymentMethod.COMPLIMENTARY
@@ -1463,6 +1518,52 @@ export class BookingsService {
     };
   }
 
+  private async resolvePaidBookingPrice(input: {
+    skills: unknown;
+    packagePrice?: number | null;
+    writingTeacherId?: string | null;
+    speakingTeacherId?: string | null;
+    requireComplete: boolean;
+  }): Promise<BookingPriceResult> {
+    let writingGross: number | null = null;
+    let speakingGross: number | null = null;
+
+    if (input.writingTeacherId) {
+      const rates = await this.settings.resolveTeacherGrossRates(
+        input.writingTeacherId,
+      );
+      writingGross = rates.writingGross;
+    }
+    if (input.speakingTeacherId) {
+      const rates = await this.settings.resolveTeacherGrossRates(
+        input.speakingTeacherId,
+      );
+      speakingGross = rates.speakingGross;
+    }
+
+    const priced = computeBookingPrice({
+      skills: input.skills,
+      packagePrice: input.packagePrice,
+      writingGross,
+      speakingGross,
+    });
+
+    if (input.requireComplete && !priced.complete) {
+      throw new BadRequestException(
+        `Cannot price booking — missing ${priced.missing.join(' and ')} examiner rate(s).`,
+      );
+    }
+    if (input.requireComplete && priced.amount <= 0 && !packageIsExaminerPriced(input.skills)) {
+      // Auto-scored only packages should still have a positive fee.
+      throw new BadRequestException('Package price could not be resolved.');
+    }
+    if (input.requireComplete && priced.amount <= 0) {
+      throw new BadRequestException('Booking amount must be greater than zero.');
+    }
+
+    return priced;
+  }
+
   private packageSkills(pkg: { skills: unknown }): string[] {
     return packageExamSkills(pkg.skills).map((skill) => skill.toLowerCase());
   }
@@ -1542,6 +1643,16 @@ export class BookingsService {
     const { studentProfileId, actorUserId } = params;
     await this.validatePaidBookingParams(params, pkg);
 
+    const priced = await this.resolvePaidBookingPrice({
+      skills: pkg.skills,
+      packagePrice: pkg.price,
+      writingTeacherId: params.writingTeacherId,
+      speakingTeacherId: params.speakingTeacherId,
+      requireComplete: true,
+    });
+    const amount = priced.amount;
+    const currency = priced.currency || pkg.currency || CATALOG_CURRENCY;
+
     const enrollmentCode = await this.generateCode('ENR');
     const orderCode = await this.generateCode('ORD');
     const checkoutExpiresAt = new Date(
@@ -1601,8 +1712,8 @@ export class BookingsService {
           studentId: studentProfileId,
           enrollmentId: enrollment.id,
           packageId: params.packageId,
-          amount: pkg.price,
-          currency: pkg.currency,
+          amount,
+          currency,
           paymentMethod: PaymentMethod.CARD,
           status: OrderStatus.PENDING,
           checkoutExpiresAt,
@@ -1617,8 +1728,8 @@ export class BookingsService {
       orderCode: pending.order.orderCode,
       email: user.email,
       name: user.name,
-      amount: pkg.price,
-      currency: pkg.currency,
+      amount,
+      currency,
       packageTitle: pkg.title,
       clientId: user.id,
       sessionTimeoutSecs: BookingsService.CHECKOUT_HOLD_MINUTES * 60,
@@ -1641,6 +1752,8 @@ export class BookingsService {
         orderCode: pending.order.orderCode,
         enrollmentCode: pending.enrollment.enrollmentCode,
         status: 'pending_payment',
+        amount,
+        pricing: priced.breakdown,
       },
     });
 

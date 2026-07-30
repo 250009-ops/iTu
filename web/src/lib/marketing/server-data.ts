@@ -214,6 +214,9 @@ type ApiPackage = {
   description: string | null;
   price: number;
   currency: string;
+  pricingMode?: "fixed" | "examiner";
+  fromPrice?: number | null;
+  priceDependsOnExaminers?: boolean;
   examType: "ACADEMIC" | "GENERAL_TRAINING";
   mostPopular: boolean;
   rating: number | null;
@@ -239,6 +242,9 @@ export async function fetchPackages(): Promise<MockPackage[]> {
     description: p.description ?? "",
     price: p.price,
     currency: p.currency,
+    pricingMode: p.pricingMode,
+    fromPrice: p.fromPrice ?? null,
+    priceDependsOnExaminers: p.priceDependsOnExaminers,
     rating: p.rating ?? 0,
     reviewCount: p.reviewCount,
     mostPopular: p.mostPopular,
