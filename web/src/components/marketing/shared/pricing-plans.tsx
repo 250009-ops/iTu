@@ -17,6 +17,15 @@ function resolveBookHref(tabId: string, isStudent: boolean) {
   return isStudent ? bookHref(tabId) : "/register/student";
 }
 
+function isExaminerPriced(pkg: MockPackage) {
+  return Boolean(pkg.priceDependsOnExaminers || pkg.pricingMode === "examiner");
+}
+
+function priceText(pkg: MockPackage) {
+  const amount = formatPrice(pkg.fromPrice ?? pkg.price, pkg.currency);
+  return isExaminerPriced(pkg) ? `from ${amount}` : amount;
+}
+
 export function PricingPlans({ packages = PACKAGES }: Props) {
   const { session, isAuthenticated, isHydrated } = useAuth();
   const isStudent = Boolean(
@@ -44,9 +53,9 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
         soon.
       </p>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-stretch">
+      <div className="mt-10 space-y-6">
         {full ? (
-          <div className="relative flex h-full flex-col rounded-3xl border-2 border-brand-red bg-navy p-7 text-white shadow-xl sm:p-9">
+          <div className="relative rounded-3xl border-2 border-brand-red bg-navy p-7 text-white shadow-xl sm:p-9">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -62,15 +71,9 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                 <h3 className="mt-3 text-2xl font-bold">{full.title}</h3>
               </div>
               <div className="text-right">
-                <p className="text-4xl font-extrabold">
-                  {full.priceDependsOnExaminers || full.pricingMode === "examiner"
-                    ? `from ${formatPrice(full.fromPrice ?? full.price, full.currency)}`
-                    : formatPrice(full.price, full.currency)}
-                </p>
+                <p className="text-4xl font-extrabold">{priceText(full)}</p>
                 <p className="text-xs text-slate-400">
-                  {full.priceDependsOnExaminers || full.pricingMode === "examiner"
-                    ? "depends on examiners"
-                    : "per exam"}
+                  {isExaminerPriced(full) ? "depends on examiners" : "per exam"}
                 </p>
                 {full.rating > 0 && full.reviewCount > 0 ? (
                   <StarRating
@@ -82,7 +85,7 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {full.skills.map((id) => {
                 const meta = SKILL_META[id];
                 const accent = ACCENT[meta.accent];
@@ -109,45 +112,43 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
               ))}
             </ul>
 
-            <div className="mt-auto pt-7">
+            <div className="mt-7">
               <Link
                 href={resolveBookHref(full.slug, isStudent)}
-                className="flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
+                className="flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5 sm:max-w-md"
               >
                 Book Full Mock Exam <ArrowRight className="h-4 w-4" />
               </Link>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400 sm:max-w-md sm:justify-center">
                 <Lock className="h-3 w-3" /> Secure Uzum Checkout · Instant confirmation
               </p>
             </div>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-border bg-slate-50 px-6 py-12 text-center text-sm text-muted">
+          <div className="flex items-center justify-center rounded-3xl border border-dashed border-border bg-slate-50 px-6 py-12 text-center text-sm text-muted">
             No full {examType === "ACADEMIC" ? "Academic" : "General Training"} mock is
             published yet.
           </div>
         )}
 
-        {/* Side cards — stretch with the Full Mock column; distribute height when fewer skills */}
-        <div className="flex h-full min-h-0 flex-col gap-6">
-          {sideCards.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-slate-50 px-6 py-8 text-center text-sm text-muted">
-              No single-skill packages published yet.
-            </div>
-          ) : (
-            sideCards.map((pkg) => (
+        {sideCards.length === 0 ? (
+          <div className="flex items-center justify-center rounded-2xl border border-dashed border-border bg-slate-50 px-6 py-8 text-center text-sm text-muted">
+            No single-skill packages published yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {sideCards.map((pkg) => (
               <div
                 key={pkg.id}
-                className="flex flex-1 flex-col rounded-2xl border border-border bg-white p-6 shadow-sm"
+                className="flex flex-col rounded-2xl border border-border bg-white p-6 shadow-sm"
               >
                 <h3 className="font-bold text-navy">{pkg.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted">{pkg.description}</p>
-                <p className="mt-4 text-3xl font-extrabold text-navy">
-                  {pkg.priceDependsOnExaminers || pkg.pricingMode === "examiner"
-                    ? `from ${formatPrice(pkg.fromPrice ?? pkg.price, pkg.currency)}`
-                    : formatPrice(pkg.price, pkg.currency)}
-                </p>
-                <ul className="mt-4 space-y-2">
+                <p className="mt-4 text-3xl font-extrabold text-navy">{priceText(pkg)}</p>
+                {isExaminerPriced(pkg) ? (
+                  <p className="mt-1 text-xs text-muted">depends on examiners</p>
+                ) : null}
+                <ul className="mt-4 flex-1 space-y-2">
                   {pkg.included.map((item) => (
                     <li key={item} className="flex items-start gap-2 text-sm text-muted">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -155,7 +156,7 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-auto pt-5">
+                <div className="mt-5">
                   <Link
                     href={resolveBookHref(pkg.slug, isStudent)}
                     className="flex h-11 items-center justify-center gap-2 rounded-xl bg-navy text-sm font-semibold text-white transition-colors hover:bg-navy-light"
@@ -164,9 +165,9 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                   </Link>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

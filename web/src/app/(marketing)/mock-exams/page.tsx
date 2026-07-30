@@ -8,7 +8,7 @@ import { TestimonialCard } from "@/components/marketing/shared/testimonial-card"
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchPackages, fetchTestimonials } from "@/lib/marketing/server-data";
 
-import { PRODUCT_CLAIMS } from "@/lib/marketing/data";
+import { PRODUCT_CLAIMS, fullMockCtaLabel } from "@/lib/marketing/data";
 
 export const metadata: Metadata = {
   title: "Mock Exams — iTestU IELTS Packages (Academic & Single Skills)",
@@ -87,7 +87,7 @@ export default async function MockExamsPage({
       <FinalCta
         title="Ready to sit your mock?"
         subtitle="Book a full 4-skill Academic mock with a certified examiner. Results release when all skills are graded."
-        primaryLabel="Book a Full Mock — 56,000 so'm"
+        primaryLabel={fullMockCtaLabel(packages)}
       />
     </>
   );

@@ -1,10 +1,16 @@
-import { SITE } from "@/lib/marketing/data";
+import { SITE, type MockPackage, fullMockCtaLabel as catalogFullMockCtaLabel } from "@/lib/marketing/data";
 import { formatPrice } from "@/lib/format-price";
 
-/** Primary mock booking CTA — uses catalog price when available. */
-export function fullMockCtaLabel(price?: number, currency?: string): string {
-  if (price != null && currency) {
-    return `Book a Full Mock — ${formatPrice(price, currency)}`;
+/** Primary mock booking CTA — prefers live catalog package pricing. */
+export function fullMockCtaLabel(
+  packagesOrPrice?: MockPackage[] | number,
+  currency?: string,
+): string {
+  if (Array.isArray(packagesOrPrice)) {
+    return catalogFullMockCtaLabel(packagesOrPrice);
   }
-  return `Book a Full Mock — ${formatPrice(SITE.fullMockPrice, SITE.currency)}`;
+  if (packagesOrPrice != null && currency) {
+    return `Book a Full Mock — from ${formatPrice(packagesOrPrice, currency)}`;
+  }
+  return `Book a Full Mock — from ${formatPrice(SITE.fullMockPrice, SITE.currency)}`;
 }

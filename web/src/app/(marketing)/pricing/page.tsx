@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Check, X, Lock, ShieldCheck, Star, BadgeCheck } from "lucide-react";
 import type { MarketingFaq } from "@/lib/marketing/data";
-import { LEGAL } from "@/lib/marketing/data";
+import { LEGAL, fullMockCtaLabel } from "@/lib/marketing/data";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
@@ -164,7 +164,7 @@ export default async function PricingPage() {
       <FinalCta
         title="See your own band report"
         subtitle="Book a full mock and receive the same detailed breakdown with criteria-level examiner feedback."
-        primaryLabel="Book a Full Mock — 56,000 so'm"
+        primaryLabel={fullMockCtaLabel(packages)}
       />
     </>
   );

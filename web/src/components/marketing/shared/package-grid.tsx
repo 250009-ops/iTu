@@ -12,6 +12,15 @@ const FILTERS: Array<{ id: Filter; label: string }> = [
   { id: "ACADEMIC", label: "Academic" },
 ];
 
+function splitFeatured(packages: MockPackage[]) {
+  const full =
+    packages.find((p) => p.examType === "ACADEMIC" && p.skills.length === 4) ??
+    packages.find((p) => p.skills.length === 4) ??
+    null;
+  const rest = packages.filter((p) => p.id !== full?.id);
+  return { full, rest };
+}
+
 export function PackageGrid({
   packages = PACKAGES,
   highlightSlug,
@@ -24,11 +33,28 @@ export function PackageGrid({
 
   const visible =
     filter === "all" ? packages : packages.filter((p) => p.examType === filter);
+  const { full, rest } = splitFeatured(visible);
 
   useEffect(() => {
     if (!highlightSlug || !highlightRef.current) return;
     highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightSlug, visible.length]);
+
+  function wrapCard(pkg: MockPackage) {
+    const highlighted = highlightSlug === pkg.slug;
+    return (
+      <div
+        key={pkg.id}
+        ref={highlighted ? highlightRef : undefined}
+        className={cn(
+          highlighted &&
+            "rounded-2xl ring-2 ring-brand-red ring-offset-2 ring-offset-background",
+        )}
+      >
+        <PackageCard pkg={pkg} />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -51,29 +77,27 @@ export function PackageGrid({
         ))}
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 space-y-6">
         {visible.length === 0 ? (
-          <p className="col-span-full rounded-2xl border border-dashed border-border bg-slate-50 px-6 py-10 text-center text-sm text-muted">
+          <p className="rounded-2xl border border-dashed border-border bg-slate-50 px-6 py-10 text-center text-sm text-muted">
             {packages.length === 0
               ? "Packages are loading or temporarily unavailable — refresh shortly or contact support@itestu.uz."
               : "No packages match this filter yet."}
           </p>
         ) : (
-          visible.map((pkg) => {
-            const highlighted = highlightSlug === pkg.slug;
-            return (
+          <>
+            {full ? <div className="max-w-2xl">{wrapCard(full)}</div> : null}
+            {rest.length > 0 ? (
               <div
-                key={pkg.id}
-                ref={highlighted ? highlightRef : undefined}
                 className={cn(
-                  highlighted &&
-                    "rounded-2xl ring-2 ring-brand-red ring-offset-2 ring-offset-background",
+                  "grid grid-cols-1 gap-6 sm:grid-cols-2",
+                  rest.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3",
                 )}
               >
-                <PackageCard pkg={pkg} />
+                {rest.map((pkg) => wrapCard(pkg))}
               </div>
-            );
-          })
+            ) : null}
+          </>
         )}
       </div>
     </div>
