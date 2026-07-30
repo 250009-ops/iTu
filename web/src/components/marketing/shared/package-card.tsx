@@ -21,6 +21,10 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
     isHydrated && isAuthenticated && session?.role === "student",
   );
   const href = resolveBookHref(pkg.slug, isStudent);
+  const dependsOnExaminers = Boolean(
+    pkg.priceDependsOnExaminers || pkg.pricingMode === "examiner",
+  );
+  const priceLabel = formatPrice(pkg.fromPrice ?? pkg.price, pkg.currency);
 
   return (
     <article
@@ -40,10 +44,13 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
       </div>
       <p className="mt-2 text-sm leading-relaxed text-muted">{pkg.description}</p>
 
-      <div className="mt-4 flex items-end gap-1">
+      <div className="mt-4">
         <span className="text-4xl font-extrabold text-navy">
-          {formatPrice(pkg.price, pkg.currency)}
+          {dependsOnExaminers ? `from ${priceLabel}` : priceLabel}
         </span>
+        {dependsOnExaminers ? (
+          <p className="mt-1 text-xs text-muted">depends on examiners</p>
+        ) : null}
       </div>
       {pkg.rating > 0 && pkg.reviewCount > 0 ? (
         <StarRating rating={pkg.rating} count={pkg.reviewCount} className="mt-2" />

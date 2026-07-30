@@ -242,9 +242,15 @@ export async function fetchPackages(): Promise<MockPackage[]> {
     description: p.description ?? "",
     price: p.price,
     currency: p.currency,
-    pricingMode: p.pricingMode,
+    pricingMode:
+      p.pricingMode ??
+      (p.skills.includes("writing") || p.skills.includes("speaking")
+        ? "examiner"
+        : "fixed"),
     fromPrice: p.fromPrice ?? null,
-    priceDependsOnExaminers: p.priceDependsOnExaminers,
+    priceDependsOnExaminers:
+      p.priceDependsOnExaminers ??
+      (p.skills.includes("writing") || p.skills.includes("speaking")),
     rating: p.rating ?? 0,
     reviewCount: p.reviewCount,
     mostPopular: p.mostPopular,
