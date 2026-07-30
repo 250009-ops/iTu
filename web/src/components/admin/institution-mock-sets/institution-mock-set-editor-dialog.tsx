@@ -235,6 +235,9 @@ export function InstitutionMockSetEditorDialog({
       skillIds,
       needsWriting: skillIds.includes("writing"),
       needsSpeaking: skillIds.includes("speaking"),
+      pricingMode: "fixed" as const,
+      fromPrice: null,
+      priceDependsOnExaminers: false,
       skills: product.skills.map((skill) => ({
         ...skill,
         id: skill.id as SkillId,
