@@ -1,3 +1,39 @@
+/** Whole calendar days from a mock/calendar date to `now`'s local date (can be negative). */
+export function calendarDaysSince(
+  isoDate: string | Date,
+  now = new Date(),
+): number {
+  let fromYear: number;
+  let fromMonth: number;
+  let fromDay: number;
+
+  if (typeof isoDate === "string") {
+    // Prefer YYYY-MM-DD prefix so API ISO midnights stay on the intended calendar day
+    // regardless of the browser timezone offset.
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate.trim());
+    if (match) {
+      fromYear = Number(match[1]);
+      fromMonth = Number(match[2]) - 1;
+      fromDay = Number(match[3]);
+    } else {
+      const from = new Date(isoDate);
+      if (!Number.isFinite(from.getTime())) return 0;
+      fromYear = from.getFullYear();
+      fromMonth = from.getMonth();
+      fromDay = from.getDate();
+    }
+  } else {
+    if (!Number.isFinite(isoDate.getTime())) return 0;
+    fromYear = isoDate.getFullYear();
+    fromMonth = isoDate.getMonth();
+    fromDay = isoDate.getDate();
+  }
+
+  const fromUtc = Date.UTC(fromYear, fromMonth, fromDay);
+  const nowUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((nowUtc - fromUtc) / 86_400_000);
+}
+
 /** Combine API mock date + HH:mm check-in time into a local start Date. */
 export function mockStartDateTime(mockDate: string | Date, mockTime: string): Date {
   const start = new Date(mockDate);

@@ -1,10 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarX2 } from "lucide-react";
+import { CalendarX2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStudentDashboardData } from "@/contexts/student-dashboard-context";
 import type { StudentDashboardResponse } from "@/lib/api/students";
+import { calendarDaysSince } from "@/lib/student/datetime";
+import {
+  dismissMissedMock,
+  isMissedMockDismissed,
+  MISSED_MOCK_DISMISS_AFTER_DAYS,
+} from "@/lib/student/missed-mock-dismiss";
 import {
   studentMockDayHref,
   type StudentPortal,
@@ -55,7 +62,29 @@ function MissedMockBannerInner({
   portal: StudentPortal;
   missed: MissedMock | null;
 }) {
+  const enrollmentCode = missed?.enrollmentCode?.trim() ?? "";
+  const canDismiss =
+    missed != null &&
+    enrollmentCode.length > 0 &&
+    calendarDaysSince(missed.mockDate) >= MISSED_MOCK_DISMISS_AFTER_DAYS;
+
+  const [hydrated, setHydrated] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!missed || !canDismiss) {
+      setDismissed(false);
+      setHydrated(true);
+      return;
+    }
+    setDismissed(isMissedMockDismissed(enrollmentCode));
+    setHydrated(true);
+  }, [missed, canDismiss, enrollmentCode]);
+
   if (!missed) return null;
+  // Avoid a flash of a previously-dismissed banner after localStorage loads.
+  if (canDismiss && !hydrated) return null;
+  if (dismissed) return null;
 
   const dateLabel = new Date(missed.mockDate).toLocaleDateString("en-US", {
     weekday: "long",
@@ -68,12 +97,28 @@ function MissedMockBannerInner({
   const mockDayHref = studentMockDayHref(portal);
   const isInstitution = portal === "institution";
 
+  function handleDismiss() {
+    if (!canDismiss) return;
+    dismissMissedMock(enrollmentCode);
+    setDismissed(true);
+  }
+
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-start sm:gap-5 sm:p-5">
+    <div className="relative flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-start sm:gap-5 sm:p-5">
+      {canDismiss && (
+        <button
+          type="button"
+          aria-label="Dismiss missed mock warning"
+          onClick={handleDismiss}
+          className="absolute right-2.5 top-2.5 rounded-md p-1 text-amber-700/70 hover:bg-amber-100 hover:text-amber-950"
+        >
+          <X size={15} />
+        </button>
+      )}
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
         <CalendarX2 size={22} />
       </div>
-      <div className="min-w-0 flex-1">
+      <div className={`min-w-0 flex-1 ${canDismiss ? "pr-6" : ""}`}>
         <p className="font-semibold text-amber-950">
           {speakingNoShow ? "Speaking marked absent" : "Mock day missed"}
         </p>

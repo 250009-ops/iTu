@@ -44,9 +44,9 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
         soon.
       </p>
 
-      <div className="mt-10 grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-10 grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-stretch">
         {full ? (
-          <div className="relative rounded-3xl border-2 border-brand-red bg-navy p-7 text-white shadow-xl sm:p-9">
+          <div className="relative flex h-full flex-col rounded-3xl border-2 border-brand-red bg-navy p-7 text-white shadow-xl sm:p-9">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -109,32 +109,37 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
               ))}
             </ul>
 
-            <Link
-              href={resolveBookHref(full.slug, isStudent)}
-              className="mt-7 flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
-            >
-              Book Full Mock Exam <ArrowRight className="h-4 w-4" />
-            </Link>
-            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
-              <Lock className="h-3 w-3" /> Secure Uzum Checkout · Instant confirmation
-            </p>
+            <div className="mt-auto pt-7">
+              <Link
+                href={resolveBookHref(full.slug, isStudent)}
+                className="flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
+              >
+                Book Full Mock Exam <ArrowRight className="h-4 w-4" />
+              </Link>
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                <Lock className="h-3 w-3" /> Secure Uzum Checkout · Instant confirmation
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="rounded-3xl border border-dashed border-border bg-slate-50 px-6 py-12 text-center text-sm text-muted">
+          <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-border bg-slate-50 px-6 py-12 text-center text-sm text-muted">
             No full {examType === "ACADEMIC" ? "Academic" : "General Training"} mock is
             published yet.
           </div>
         )}
 
-        {/* Side cards */}
-        <div className="space-y-6">
+        {/* Side cards — stretch with the Full Mock column; distribute height when fewer skills */}
+        <div className="flex h-full min-h-0 flex-col gap-6">
           {sideCards.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-slate-50 px-6 py-8 text-center text-sm text-muted">
+            <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-slate-50 px-6 py-8 text-center text-sm text-muted">
               No single-skill packages published yet.
             </div>
           ) : (
             sideCards.map((pkg) => (
-              <div key={pkg.id} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <div
+                key={pkg.id}
+                className="flex flex-1 flex-col rounded-2xl border border-border bg-white p-6 shadow-sm"
+              >
                 <h3 className="font-bold text-navy">{pkg.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted">{pkg.description}</p>
                 <p className="mt-4 text-3xl font-extrabold text-navy">
@@ -150,12 +155,14 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={resolveBookHref(pkg.slug, isStudent)}
-                  className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-navy text-sm font-semibold text-white transition-colors hover:bg-navy-light"
-                >
-                  Book <ArrowRight className="h-4 w-4" />
-                </Link>
+                <div className="mt-auto pt-5">
+                  <Link
+                    href={resolveBookHref(pkg.slug, isStudent)}
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-navy text-sm font-semibold text-white transition-colors hover:bg-navy-light"
+                  >
+                    Book <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </div>
             ))
           )}
