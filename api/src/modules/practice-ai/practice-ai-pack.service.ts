@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ExamSkill, PracticeAiPackStatus, Prisma } from '@prisma/client';
+import {
+  areAiFeaturesEnabled,
+  assertAiFeaturesEnabled,
+} from '../../common/ai/ai-features';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   callOpenAiJson,
@@ -40,7 +44,10 @@ export class PracticeAiPackService {
   ) {}
 
   isConfigured(): boolean {
-    return Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim());
+    return (
+      areAiFeaturesEnabled() &&
+      Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim())
+    );
   }
 
   async getPackStatus(unitId: string) {
@@ -95,6 +102,12 @@ export class PracticeAiPackService {
 
   /** Fire-and-forget generation after publish. */
   enqueueGeneration(unitId: string) {
+    if (!areAiFeaturesEnabled()) {
+      this.logger.log(
+        `Skipping AI pack generation for ${unitId} (AI_FEATURES_ENABLED=false)`,
+      );
+      return;
+    }
     void this.generateForUnit(unitId).catch((err) => {
       this.logger.error(
         `AI pack generation failed for ${unitId}: ${err instanceof Error ? err.message : err}`,
@@ -103,6 +116,7 @@ export class PracticeAiPackService {
   }
 
   async regenerate(unitId: string) {
+    assertAiFeaturesEnabled('AI pack generation');
     const unit = await this.prisma.practiceUnit.findUnique({
       where: { id: unitId },
       select: { id: true },
@@ -128,6 +142,9 @@ export class PracticeAiPackService {
   }
 
   async generateForUnit(unitId: string) {
+    if (!areAiFeaturesEnabled()) {
+      return this.getPackStatus(unitId);
+    }
     if (this.generating.has(unitId)) {
       return this.getPackStatus(unitId);
     }
@@ -313,6 +330,15 @@ export class PracticeAiPackService {
 
   /** Pre-submit safe pack slice (no answer leakage). */
   async getStudentInAttemptPack(unitId: string) {
+    if (!areAiFeaturesEnabled()) {
+      return {
+        status: 'disabled',
+        glossary: [] as GlossaryEntry[],
+        skimScanTasks: null,
+        strategyTemplates: [],
+        strategyPlaybook: null,
+      };
+    }
     const pack = await this.prisma.practiceUnitAiPack.findUnique({
       where: { unitId },
     });

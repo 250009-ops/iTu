@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, GraduationCap, Headphones, PenLine } from "lucide
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { INSTITUTION_COPY, PRACTICE_OFFERINGS } from "@/lib/marketing/data";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
@@ -79,13 +80,20 @@ export function InstitutionStudentOfferingsSection() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 flex items-center gap-2 text-xs text-muted">
-              <PenLine className="h-3.5 w-3.5 text-violet-600" /> AI Writing reviews included in
-              practice packages
-            </p>
-            <p className="mt-1 flex items-center gap-2 text-xs text-muted">
-              <Headphones className="h-3.5 w-3.5 text-sky-600" /> Auto-scored Listening &amp; Reading
-              drills
+            {AI_FEATURES_ENABLED ? (
+              <p className="mt-4 flex items-center gap-2 text-xs text-muted">
+                <PenLine className="h-3.5 w-3.5 text-violet-600" /> AI Writing reviews
+                included in practice packages
+              </p>
+            ) : null}
+            <p
+              className={cn(
+                "flex items-center gap-2 text-xs text-muted",
+                AI_FEATURES_ENABLED ? "mt-1" : "mt-4",
+              )}
+            >
+              <Headphones className="h-3.5 w-3.5 text-sky-600" /> Auto-scored Listening
+              &amp; Reading drills
             </p>
           </StaggerItem>
         ) : null}

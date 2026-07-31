@@ -7,6 +7,7 @@ import {
   type PracticeModeId,
 } from "@/components/practice/practice-chrome";
 import type { PracticeAttemptMode } from "@/lib/api/practice";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import { cn } from "@/lib/utils";
 
 type ModeCard = {
@@ -24,7 +25,7 @@ const MODE_CARDS: ModeCard[] = [
     detail: [
       "Full timed attempt",
       "All question types",
-      "AI Review Coach after submit",
+      ...(AI_FEATURES_ENABLED ? ["AI Review Coach after submit"] : ["Instant scored review"]),
     ],
   },
   {
@@ -153,7 +154,9 @@ export function PracticeModeChooser({
         <p className="text-[11.5px] text-slate-400">
           {starting
             ? "Starting your attempt…"
-            : "All modes use 1 reading attempt · AI Review Coach included"}
+            : AI_FEATURES_ENABLED
+              ? "All modes use 1 reading attempt · AI Review Coach included"
+              : "All modes use 1 reading attempt"}
         </p>
       </div>
     </Modal>

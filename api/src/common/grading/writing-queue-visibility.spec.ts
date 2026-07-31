@@ -1,20 +1,31 @@
 import { isWritingReadyForTeacherQueue } from './writing-queue-visibility';
 
 describe('isWritingReadyForTeacherQueue', () => {
-  const prev = process.env.OPENAI_API_KEY;
+  const prevKey = process.env.OPENAI_API_KEY;
+  const prevFlag = process.env.AI_FEATURES_ENABLED;
 
   afterEach(() => {
-    if (prev === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = prev;
+    if (prevKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = prevKey;
+    if (prevFlag === undefined) delete process.env.AI_FEATURES_ENABLED;
+    else process.env.AI_FEATURES_ENABLED = prevFlag;
   });
 
   it('is ready when AI is not configured', () => {
     delete process.env.OPENAI_API_KEY;
+    process.env.AI_FEATURES_ENABLED = 'true';
     expect(isWritingReadyForTeacherQueue(null)).toBe(true);
   });
 
-  it('requires READY or FAILED when AI is configured', () => {
+  it('is ready when AI features kill switch is off', () => {
     process.env.OPENAI_API_KEY = 'sk-test';
+    process.env.AI_FEATURES_ENABLED = 'false';
+    expect(isWritingReadyForTeacherQueue(null)).toBe(true);
+  });
+
+  it('requires READY or FAILED when AI assist is enabled', () => {
+    process.env.OPENAI_API_KEY = 'sk-test';
+    process.env.AI_FEATURES_ENABLED = 'true';
     expect(isWritingReadyForTeacherQueue(null)).toBe(false);
     expect(isWritingReadyForTeacherQueue({ status: 'PENDING' as never })).toBe(
       false,

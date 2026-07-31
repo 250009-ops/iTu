@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { DesktopBridge } from "@/components/desktop/desktop-bridge";
+import { SITE } from "@/lib/marketing/data";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.itestu.uz"),
@@ -9,8 +10,7 @@ export const metadata: Metadata = {
     default: "iTestU — IELTS Mock Exams",
     template: "%s | iTestU",
   },
-  description:
-    "iTestU (iTu) — professional computer-delivered IELTS mocks with examiner feedback, plus Reading, Listening, and AI Writing practice packages.",
+  description: SITE.description,
   icons: {
     // Google wants square PNGs that are multiples of 48px. Keep favicon.ico in
     // public/ only — app/favicon.ico is auto-injected first as 256x256 (invalid).

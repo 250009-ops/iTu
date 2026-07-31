@@ -44,6 +44,7 @@ import {
   type PracticeLibraryUnit,
   type WritingPracticeSession,
 } from "@/lib/api/practice";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import {
   formatAttemptStatus,
   groupLibraryBySection,
@@ -67,7 +68,9 @@ const HUB_TABS: {
 }[] = [
   { id: "reading", label: "Reading", icon: BookOpen },
   { id: "listening", label: "Listening", icon: Headphones },
-  { id: "writing", label: "Writing (AI)", icon: PenLine },
+  ...(AI_FEATURES_ENABLED
+    ? [{ id: "writing" as const, label: "Writing (AI)", icon: PenLine }]
+    : []),
 ];
 
 /**
@@ -426,7 +429,9 @@ function CompactAllowance({
 
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 border-t border-slate-100 pt-3">
-          {(Object.keys(PRACTICE_CREDIT_META) as PracticeCreditKey[]).map((key) => (
+          {(Object.keys(PRACTICE_CREDIT_META) as PracticeCreditKey[])
+            .filter((key) => AI_FEATURES_ENABLED || key !== "aiWritingEssays")
+            .map((key) => (
             <div key={key}>
               <p className="text-[11px] text-slate-400">
                 {PRACTICE_CREDIT_META[key].label}

@@ -11,6 +11,10 @@ import {
   Prisma,
   WritingPracticeSessionStatus,
 } from '@prisma/client';
+import {
+  areAiFeaturesEnabled,
+  assertAiFeaturesEnabled,
+} from '../../common/ai/ai-features';
 import { PracticeWalletService } from '../../common/practice/practice-wallet.service';
 import { generateUniquePrefixedCode } from '../../common/id-allocation';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -50,7 +54,10 @@ export class WritingImprovementService {
   ) {}
 
   isConfigured(): boolean {
-    return Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim());
+    return (
+      areAiFeaturesEnabled() &&
+      Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim())
+    );
   }
 
   async listPublishedPrompts(studentId: string, taskNumber?: number) {
@@ -80,6 +87,7 @@ export class WritingImprovementService {
     promptId: string,
     sections?: Partial<WritingSections>,
   ) {
+    assertAiFeaturesEnabled('AI Writing reviews');
     const prompt = await this.prisma.writingPracticePrompt.findUnique({
       where: { id: promptId },
     });
@@ -163,6 +171,7 @@ export class WritingImprovementService {
   }
 
   async analyzeSession(studentId: string, sessionId: string) {
+    assertAiFeaturesEnabled('AI Writing reviews');
     const session = await this.getOwnedSession(studentId, sessionId, true);
     if (session.status === WritingPracticeSessionStatus.READY) {
       return this.formatSession(session);

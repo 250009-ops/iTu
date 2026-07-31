@@ -15,6 +15,7 @@ import {
   type WritingPracticeSession,
   type WritingSections,
 } from "@/lib/api/practice";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 
 type Props = {
   basePath: string;
@@ -37,6 +38,10 @@ export function WritingCoachView({ basePath, sessionId }: Props) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!AI_FEATURES_ENABLED) {
+      setLoading(false);
+      return;
+    }
     void getWritingPrompts()
       .then(setPrompts)
       .catch(() => setError("Failed to load prompts"))
@@ -44,7 +49,7 @@ export function WritingCoachView({ basePath, sessionId }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!AI_FEATURES_ENABLED || !sessionId) return;
     void getWritingSession(sessionId)
       .then((s) => {
         setSession(s);
@@ -52,6 +57,21 @@ export function WritingCoachView({ basePath, sessionId }: Props) {
       })
       .catch(() => setError("Session not found"));
   }, [sessionId]);
+
+  if (!AI_FEATURES_ENABLED) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 p-4 lg:p-8">
+        <Link href={basePath} className="text-sm text-muted hover:text-navy">
+          ← Back to Practice Hub
+        </Link>
+        <h1 className="text-2xl font-bold text-navy">Writing practice</h1>
+        <p className="text-sm text-muted">
+          This practice area is not available right now. Continue with Reading and
+          Listening drills from the Practice Hub.
+        </p>
+      </div>
+    );
+  }
 
   async function startWithPrompt(promptId: string) {
     const s = await createWritingSession(promptId);

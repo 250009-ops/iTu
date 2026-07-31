@@ -308,7 +308,10 @@ export class GradingService {
     }
 
     if (!this.writingAi.isConfigured()) {
-      return { triggered: false, reason: 'OPENAI_API_KEY not configured' };
+      return {
+        triggered: false,
+        reason: 'AI features disabled or OPENAI_API_KEY not configured',
+      };
     }
 
     await this.writingAi.retryEvaluation(id);

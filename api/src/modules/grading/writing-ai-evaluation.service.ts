@@ -6,6 +6,7 @@ import {
   WritingAiEvaluationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { areAiFeaturesEnabled } from '../../common/ai/ai-features';
 import { isWritingReadyForTeacherQueue } from '../../common/grading/writing-queue-visibility';
 import { examinerWritingGradingDetailPath } from '../../common/examiner/examiner-routing';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -75,7 +76,10 @@ export class WritingAiEvaluationService {
   ) {}
 
   isConfigured(): boolean {
-    return Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim());
+    return (
+      areAiFeaturesEnabled() &&
+      Boolean(this.config.get<string>('OPENAI_API_KEY')?.trim())
+    );
   }
 
   /** When AI is enabled, teachers only see submissions after analysis finishes. */

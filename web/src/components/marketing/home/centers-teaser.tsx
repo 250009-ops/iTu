@@ -1,6 +1,8 @@
 import { BarChart3, BookOpen, Building2, GraduationCap, Users } from "lucide-react";
 import { Section, Pill, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
 // Product-true feature set — mirrors the /centers page PARTNER_BENEFITS so the
@@ -18,19 +20,25 @@ const CENTER_FEATURES = [
     body: "Band distributions, skill breakdowns, and improvement trends for your students.",
     accent: "bg-violet-50 text-violet-600",
   },
-  {
-    icon: BookOpen,
-    title: "Student practice hub",
-    body: "Enrolled students buy Reading, Listening, and AI Writing packages in their portal.",
-    accent: "bg-amber-50 text-amber-700",
-  },
+  ...(PRACTICE_MARKETING_VISIBLE
+    ? [
+        {
+          icon: BookOpen,
+          title: "Student practice hub",
+          body: AI_FEATURES_ENABLED
+            ? "Enrolled students buy Reading, Listening, and AI Writing packages in their portal."
+            : "Enrolled students buy Reading and Listening packages in their portal.",
+          accent: "bg-amber-50 text-amber-700",
+        },
+      ]
+    : []),
   {
     icon: GraduationCap,
     title: "Your examiners",
     body: "Use your own certified teachers or tap into the iTestU examiner network.",
     accent: "bg-emerald-50 text-emerald-600",
   },
-] as const;
+];
 
 export function CentersTeaser() {
   return (

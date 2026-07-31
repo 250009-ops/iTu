@@ -38,6 +38,7 @@ import {
   getPracticeUnitAiPackStatus,
   regeneratePracticeUnitAiPack,
 } from "@/lib/api/admin";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import {
   captureScroll,
   restoreScroll,
@@ -116,9 +117,13 @@ export function PracticeUnitEditor({ unitId }: Props) {
           unit.status.toLowerCase() === "published" &&
           unit.skill === "reading"
         ) {
-          void getPracticeUnitAiPackStatus(unitId)
-            .then((s) => setAiPackStatus(s.status))
-            .catch(() => setAiPackStatus("missing"));
+          if (AI_FEATURES_ENABLED) {
+            void getPracticeUnitAiPackStatus(unitId)
+              .then((s) => setAiPackStatus(s.status))
+              .catch(() => setAiPackStatus("missing"));
+          } else {
+            setAiPackStatus(null);
+          }
         } else {
           setAiPackStatus(null);
         }
@@ -329,7 +334,9 @@ export function PracticeUnitEditor({ unitId }: Props) {
             Archive
           </Button>
         )}
-        {status === "published" && module === "reading" && (
+        {AI_FEATURES_ENABLED &&
+          status === "published" &&
+          module === "reading" && (
           <Button
             variant="secondary"
             disabled={regeneratingAiPack}

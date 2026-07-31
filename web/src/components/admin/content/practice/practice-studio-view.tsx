@@ -340,7 +340,7 @@ function PracticeStudioInner() {
           </p>
           <h1 className="mt-1 text-2xl font-bold text-navy">Practice Creation</h1>
           <p className="mt-1 text-sm text-muted">
-            Build reading passages, listening sections, question-type drills, and AI writing prompts.
+            Build reading passages, listening sections, question-type drills, and writing prompts.
           </p>
         </div>
 
@@ -536,7 +536,7 @@ function PracticeStudioInner() {
           <div className="space-y-10">
             <PracticeWritingPromptsSection
               title="Task 1 prompts"
-              description="AI writing coach prompts for Academic Task 1."
+              description="Writing practice prompts for Academic Task 1."
               prompts={task1Prompts}
               onEdit={setSelectedPromptId}
               emptyMessage="No Task 1 prompts yet."
@@ -554,7 +554,7 @@ function PracticeStudioInner() {
             />
             <PracticeWritingPromptsSection
               title="Task 2 prompts"
-              description="AI writing coach prompts for Task 2 essays."
+              description="Writing practice prompts for Task 2 essays."
               prompts={task2Prompts}
               onEdit={setSelectedPromptId}
               emptyMessage="No Task 2 prompts yet."

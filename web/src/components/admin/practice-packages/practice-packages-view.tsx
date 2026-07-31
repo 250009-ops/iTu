@@ -38,10 +38,10 @@ export function PracticePackagesView() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-medium text-muted">
-                Admin &gt; Packages &amp; Pricing &gt; Practice &amp; AI
+                Admin &gt; Packages &amp; Pricing &gt; Practice
               </p>
               <h1 className="mt-1 text-2xl font-bold text-navy">
-                Practice &amp; AI Packages
+                Practice Packages
               </h1>
               <p className="mt-1 text-sm text-muted">
                 Build packages by selecting practice content. Counts and student

@@ -76,8 +76,8 @@ export function PracticeShopView({ basePath }: Props) {
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-navy">Practice packages</h1>
           <p className="mt-1 text-sm text-muted">
-            Choose a package to unlock specific reading, listening, and AI writing
-            practice included in your plan.
+            Choose a package to unlock specific reading and listening practice
+            included in your plan.
           </p>
         </div>
 

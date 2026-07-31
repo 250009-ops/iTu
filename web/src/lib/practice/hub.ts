@@ -1,3 +1,4 @@
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import type { PracticeLibraryUnit, PracticeWallet } from "@/lib/api/practice";
 
 export type PracticeHubTab = "reading" | "listening" | "writing";
@@ -127,7 +128,7 @@ export function totalPracticeAllowance(
     allowance.readingQuestionTypes +
     allowance.listeningSections +
     allowance.listeningQuestionTypes +
-    allowance.aiWritingEssays
+    (AI_FEATURES_ENABLED ? allowance.aiWritingEssays : 0)
   );
 }
 

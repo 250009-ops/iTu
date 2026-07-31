@@ -10,6 +10,7 @@ import { PracticeCtaButton } from "@/components/marketing/shared/practice-cta-bu
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { fetchHeroStats, fetchPackages } from "@/lib/marketing/server-data";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 
 export const metadata: Metadata = {
@@ -81,7 +82,11 @@ export default async function PricingPage() {
               align="center"
               eyebrow="Also available"
               title="Practice subscriptions"
-              subtitle="Flexible Reading, Listening, and AI Writing packages — separate from mock exam bookings. Buy credits in your student dashboard anytime."
+              subtitle={
+                AI_FEATURES_ENABLED
+                  ? "Flexible Reading, Listening, and AI Writing packages — separate from mock exam bookings. Buy credits in your student dashboard anytime."
+                  : "Flexible Reading and Listening packages — separate from mock exam bookings. Buy credits in your student dashboard anytime."
+              }
             />
           </Reveal>
           <Reveal className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:items-start">

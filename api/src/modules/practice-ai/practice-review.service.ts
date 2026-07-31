@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PracticeAiPackStatus, PracticeAttemptStatus } from '@prisma/client';
+import { areAiFeaturesEnabled } from '../../common/ai/ai-features';
 import { PrismaService } from '../../prisma/prisma.service';
 import { matchAnswer } from '../exam-sessions/answer-matching';
 import {
@@ -37,7 +38,8 @@ export class PracticeReviewService {
       string | string[]
     >;
     const answers = (attempt.answers ?? {}) as Record<string, unknown>;
-    const pack = attempt.unit.aiPack;
+    const aiOn = areAiFeaturesEnabled();
+    const pack = aiOn ? attempt.unit.aiPack : null;
     const insights = normalizeInsights(pack?.questionInsights);
     const insightByN = new Map(insights.map((i) => [i.n, i]));
 
@@ -92,8 +94,8 @@ export class PracticeReviewService {
         questionType: attempt.unit.questionType,
         content: attempt.unit.content,
       },
-      packStatus: pack?.status.toLowerCase() ?? 'missing',
-      sectionStatus: pack?.sectionStatus ?? {},
+      packStatus: aiOn ? (pack?.status.toLowerCase() ?? 'missing') : 'disabled',
+      sectionStatus: packReady ? (pack?.sectionStatus ?? {}) : {},
       items,
       glossary: packReady ? ((pack?.glossary ?? []) as GlossaryEntry[]) : [],
       vocabPack: packReady ? ((pack?.vocabPack ?? []) as VocabItem[]) : [],
@@ -102,7 +104,7 @@ export class PracticeReviewService {
         : [],
       skimScanTasks: packReady ? pack?.skimScanTasks : null,
       strategyPlaybook: packReady ? pack?.strategyPlaybook : null,
-      strategyTemplates: listStrategyTemplates(),
+      strategyTemplates: aiOn ? listStrategyTemplates() : [],
       evidenceChips: items
         .filter((i) => i.evidence?.sentenceQuote)
         .map((i) => ({

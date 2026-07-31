@@ -6,6 +6,7 @@ import { Check, Clock, Play, ArrowRight } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { COPY, fullMockCtaLabel } from "@/lib/marketing/data";
 import type { HeroStats } from "@/lib/marketing/server-data";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { Glow } from "@/components/marketing/ui/primitives";
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
@@ -70,7 +71,9 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
 
           <motion.p variants={item} className="mt-6 max-w-md text-lg leading-relaxed text-slate-300">
             {PRACTICE_MARKETING_VISIBLE
-              ? "Full 4-skill mocks with certified examiners — plus Reading, Listening, and AI Writing practice packages you can buy anytime."
+              ? AI_FEATURES_ENABLED
+                ? "Full 4-skill mocks with certified examiners — plus Reading, Listening, and AI Writing practice packages you can buy anytime."
+                : "Full 4-skill mocks with certified examiners — plus Reading and Listening practice packages you can buy anytime."
               : "Full 4-skill mocks with certified examiners — realistic computer-delivered conditions and real band feedback."}
           </motion.p>
 

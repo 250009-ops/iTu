@@ -9,13 +9,17 @@ import { PracticeCtaButton } from "@/components/marketing/shared/practice-cta-bu
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { PRODUCT_CLAIMS, MARKETING_FAQS } from "@/lib/marketing/data";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Practice Tests — Reading, Listening & AI Writing Packages",
-  description:
-    "Buy iTestU practice subscriptions anytime — Reading and Listening drills plus AI Writing reviews. Flexible credits between full mock exams.",
+  title: AI_FEATURES_ENABLED
+    ? "Practice Tests — Reading, Listening & AI Writing Packages"
+    : "Practice Tests — Reading & Listening Packages",
+  description: AI_FEATURES_ENABLED
+    ? "Buy iTestU practice subscriptions anytime — Reading and Listening drills plus AI Writing reviews. Flexible credits between full mock exams."
+    : "Buy iTestU practice subscriptions anytime — Reading and Listening drills. Flexible credits between full mock exams.",
   alternates: { canonical: "/practice" },
 };
 
@@ -25,7 +29,11 @@ const COMPARE: Array<[string, boolean, boolean]> = [
   ["Flexible credits — use anytime", false, true],
   ["Reading & Listening auto-scored drills", false, true],
   ["Question-type focused drills", false, true],
-  ["AI Writing essay reviews", false, true],
+  ...(AI_FEATURES_ENABLED
+    ? ([["AI Writing essay reviews", false, true]] as Array<
+        [string, boolean, boolean]
+      >)
+    : []),
   ["Score progression across mocks", true, false],
 ];
 
@@ -39,7 +47,9 @@ const STEPS = [
   {
     n: "02",
     title: "Choose a practice package",
-    body: "Pick credits for passages, sections, drills, or AI Writing reviews in the Practice shop.",
+    body: AI_FEATURES_ENABLED
+      ? "Pick credits for passages, sections, drills, or AI Writing reviews in the Practice shop."
+      : "Pick credits for passages, sections, and drills in the Practice shop.",
     accent: "bg-violet-50 text-violet-600",
   },
   {

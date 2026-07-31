@@ -81,7 +81,7 @@ export const adminNavGroups: AdminNavGroup[] = [
             permission: "packages",
           },
           {
-            label: "Practice & AI Packages",
+            label: "Practice Packages",
             href: "/admin/packages/practice",
             permission: "packages",
           },

@@ -42,6 +42,7 @@ import {
   type PracticeReviewPayload,
   type PracticeVocabItem,
 } from "@/lib/api/practice";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import type { ReadingContent } from "@/lib/exam/types";
 import { cn } from "@/lib/utils";
 
@@ -58,9 +59,13 @@ const TABS: {
   icon: ComponentType<{ className?: string }>;
 }[] = [
   { id: "review", label: "Review", icon: BookMarked },
-  { id: "vocabulary", label: "Vocabulary", icon: LibraryBig },
-  { id: "gym", label: "Paraphrase Gym", icon: Dumbbell },
-  { id: "strategy", label: "Strategy", icon: Map },
+  ...(AI_FEATURES_ENABLED
+    ? ([
+        { id: "vocabulary", label: "Vocabulary", icon: LibraryBig },
+        { id: "gym", label: "Paraphrase Gym", icon: Dumbbell },
+        { id: "strategy", label: "Strategy", icon: Map },
+      ] as const)
+    : []),
 ];
 
 const TRAP_LABELS: Record<string, { label: string; className: string }> = {
@@ -202,38 +207,46 @@ export function ReadingReviewView({ attemptId, basePath }: Props) {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <LangToggle value={lang} onChange={setLang} />
-              <button
-                type="button"
-                onClick={() => setTutorOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2 text-[13px] font-bold text-white transition-colors hover:bg-navy-light"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-                Ask tutor
-              </button>
+              {AI_FEATURES_ENABLED ? (
+                <>
+                  <LangToggle value={lang} onChange={setLang} />
+                  <button
+                    type="button"
+                    onClick={() => setTutorOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2 text-[13px] font-bold text-white transition-colors hover:bg-navy-light"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Ask tutor
+                  </button>
+                </>
+              ) : null}
             </div>
           </header>
 
-          <nav className="flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-4 lg:px-5">
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-3 text-[13px] transition-colors",
-                  tab === id
-                    ? "border-brand-red font-bold text-navy"
-                    : "border-transparent text-muted hover:text-navy",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {label}
-              </button>
-            ))}
-          </nav>
+          {AI_FEATURES_ENABLED && TABS.length > 1 ? (
+            <nav className="flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-4 lg:px-5">
+              {TABS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTab(id)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-3 text-[13px] transition-colors",
+                    tab === id
+                      ? "border-brand-red font-bold text-navy"
+                      : "border-transparent text-muted hover:text-navy",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </nav>
+          ) : null}
 
-          {data.packStatus !== "ready" && (
+          {AI_FEATURES_ENABLED &&
+            data.packStatus !== "ready" &&
+            data.packStatus !== "disabled" && (
             <PracticeBanner
               icon={AlertTriangle}
               className="border-amber-200 bg-amber-50 text-amber-900"
@@ -256,30 +269,34 @@ export function ReadingReviewView({ attemptId, basePath }: Props) {
               selectedN={selectedN}
               onSelect={setSelectedN}
               onShowEvidence={showEvidence}
-              onAskAbout={askAbout}
+              onAskAbout={AI_FEATURES_ENABLED ? askAbout : undefined}
             />
           )}
 
-          {tab === "vocabulary" && (
+          {AI_FEATURES_ENABLED && tab === "vocabulary" && (
             <VocabularyTab
               words={vocabPack}
               onShowInPassage={showEvidence}
             />
           )}
 
-          {tab === "gym" && <ParaphraseGymTab drills={paraphraseDrills} />}
+          {AI_FEATURES_ENABLED && tab === "gym" && (
+            <ParaphraseGymTab drills={paraphraseDrills} />
+          )}
 
-          {tab === "strategy" && (
+          {AI_FEATURES_ENABLED && tab === "strategy" && (
             <StrategyTab templates={data.strategyTemplates} />
           )}
 
-          <ReadingTutorDrawer
-            attemptId={attemptId}
-            unitTitle={data.unit.title}
-            questionN={selectedN}
-            open={tutorOpen}
-            onClose={() => setTutorOpen(false)}
-          />
+          {AI_FEATURES_ENABLED ? (
+            <ReadingTutorDrawer
+              attemptId={attemptId}
+              unitTitle={data.unit.title}
+              questionN={selectedN}
+              open={tutorOpen}
+              onClose={() => setTutorOpen(false)}
+            />
+          ) : null}
         </PracticeScreen>
       )}
     </ApiDataShell>
@@ -313,7 +330,7 @@ function ReviewTab({
   selectedN: number | null;
   onSelect: (n: number | null) => void;
   onShowEvidence: (marker: string | null, quote: string) => void;
-  onAskAbout: (n: number) => void;
+  onAskAbout?: (n: number) => void;
 }) {
   const correct = items.filter((i) => i.verdict === "correct").length;
   const shown = selectedN == null ? items : items.filter((i) => i.n === selectedN);
@@ -420,10 +437,16 @@ function ReviewTab({
                     </button>
                   ))}
                 </div>
-                <p className="mt-2 text-[11px] text-slate-400">
-                  Chips jump to highlighted text. For free-form questions, use Ask
-                  tutor.
-                </p>
+                {onAskAbout ? (
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    Chips jump to highlighted text. For free-form questions, use Ask
+                    tutor.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    Chips jump to highlighted text in the passage.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -440,7 +463,7 @@ function CoachCard({
 }: {
   item: PracticeReviewItem;
   onShowEvidence: (marker: string | null, quote: string) => void;
-  onAskAbout: (n: number) => void;
+  onAskAbout?: (n: number) => void;
 }) {
   const [open, setOpen] = useState(item.verdict !== "correct");
   const trap = item.trap
@@ -625,14 +648,16 @@ function CoachCard({
                   : "Show evidence"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => onAskAbout(item.n)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
-            >
-              <MessageSquare className="h-3 w-3" />
-              Ask about Q{item.n}
-            </button>
+            {onAskAbout ? (
+              <button
+                type="button"
+                onClick={() => onAskAbout(item.n)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
+              >
+                <MessageSquare className="h-3 w-3" />
+                Ask about Q{item.n}
+              </button>
+            ) : null}
           </div>
         </div>
       )}

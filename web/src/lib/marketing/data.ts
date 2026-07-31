@@ -2,6 +2,7 @@
 // Field names mirror the production ERP model (TeacherProfile, MockTestPackage,
 // Grade, StudentProfile) so design and data stay 1:1.
 
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import { formatPrice } from "@/lib/format-price";
 import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 
@@ -14,8 +15,11 @@ export const SITE = {
   alternateNames: ["ITestU", "itestu", "iTu"] as const,
   domain: "https://www.itestu.uz",
   tagline: "Real examiners. Real feedback. Real bands.",
-  description:
-    "iTestU (iTu) — realistic computer-delivered IELTS mocks with certified examiner feedback, plus Reading, Listening, and AI Writing practice packages you can buy anytime.",
+  description: AI_FEATURES_ENABLED
+    ? "iTestU (iTu) — realistic computer-delivered IELTS mocks with certified examiner feedback, plus Reading, Listening, and AI Writing practice packages you can buy anytime."
+    : PRACTICE_MARKETING_VISIBLE
+      ? "iTestU (iTu) — realistic computer-delivered IELTS mocks with certified examiner feedback, plus Reading and Listening practice packages you can buy anytime."
+      : "iTestU (iTu) — realistic computer-delivered IELTS mocks with certified examiner feedback.",
   foundedYear: 2026,
   fullMockPrice: 56_000,
   currency: "UZS",
@@ -73,8 +77,9 @@ export const PRODUCT_CLAIMS = {
     "Confirm your identity and complete a device check at check-in before your first section.",
   desktopOptional:
     "Optional desktop app for exam day — book and prepare in your browser; download only if you want the dedicated app.",
-  practice:
-    "Self-paced practice packages for Reading passages, Listening sections, question-type drills, and AI Writing essay reviews — buy credits anytime from your student account. No examiner booking required.",
+  practice: AI_FEATURES_ENABLED
+    ? "Self-paced practice packages for Reading passages, Listening sections, question-type drills, and AI Writing essay reviews — buy credits anytime from your student account. No examiner booking required."
+    : "Self-paced practice packages for Reading passages, Listening sections, and question-type drills — buy credits anytime from your student account. No examiner booking required.",
   practiceVsMock:
     "Mocks are full exam-day simulations with human-graded Writing and Speaking. Practice packages are flexible drills you complete on your own schedule — ideal between mocks.",
   welcomeFreeRl:
@@ -434,7 +439,14 @@ export interface MarketingFaq {
 
 const MARKETING_FAQS_ALL: MarketingFaq[] = [
   { id: "practice", category: "Practice", question: "What is the difference between a mock exam and practice packages?", answer: PRODUCT_CLAIMS.practiceVsMock },
-  { id: "practice-buy", category: "Practice", question: "How do I buy practice packages?", answer: "Create a free student account, open Practice in your dashboard, and choose a package in the shop. Credits are added to your wallet after checkout — use them whenever you want on Reading, Listening, or AI Writing drills." },
+  {
+    id: "practice-buy",
+    category: "Practice",
+    question: "How do I buy practice packages?",
+    answer: AI_FEATURES_ENABLED
+      ? "Create a free student account, open Practice in your dashboard, and choose a package in the shop. Credits are added to your wallet after checkout — use them whenever you want on Reading, Listening, or AI Writing drills."
+      : "Create a free student account, open Practice in your dashboard, and choose a package in the shop. Credits are added to your wallet after checkout — use them whenever you want on Reading or Listening drills.",
+  },
   { id: "welcome-free", category: "Booking", question: "Do new students get a free mock?", answer: PRODUCT_CLAIMS.welcomeFreeRl },
   { id: "referral", category: "Booking", question: "Is there a referral bonus?", answer: PRODUCT_CLAIMS.referralBonus },
   { id: "pause", category: "The Exam", question: "Can I pause or rewind during the test?", answer: "No. The exam is server-authoritative — audio plays once, timers run continuously, and there is no pause or rewind. This mirrors the computer-delivered IELTS format used on test day." },
@@ -458,17 +470,19 @@ export const MARKETING_FAQS: MarketingFaq[] = PRACTICE_MARKETING_VISIBLE
 
 export const INSTITUTION_COPY = {
   headline: "Mocks and practice — one platform for your students",
-  subtitle:
-    "Edu Centers purchase mock sets, schedule cohort mock days, and give enrolled students self-serve Reading, Listening, and AI Writing practice between test days.",
+  subtitle: AI_FEATURES_ENABLED
+    ? "Edu Centers purchase mock sets, schedule cohort mock days, and give enrolled students self-serve Reading, Listening, and AI Writing practice between test days."
+    : "Edu Centers purchase mock sets, schedule cohort mock days, and give enrolled students self-serve Reading and Listening practice between test days.",
   mockEnrolments:
     "Buy B2B mock sets to unlock unlimited student enrolments on included section mocks. Schedule cohort mock days, monitor live sessions, and track every band from your centre dashboard.",
-  studentPractice:
-    "Students linked to your Edu Center sign in to their centre portal — My Mock for scheduled exams, Practice for subscription-style drills (Reading passages, Listening sections, question-type drills, and AI Writing reviews). They buy practice packages in the Practice shop when they need extra prep.",
+  studentPractice: AI_FEATURES_ENABLED
+    ? "Students linked to your Edu Center sign in to their centre portal — My Mock for scheduled exams, Practice for subscription-style drills (Reading passages, Listening sections, question-type drills, and AI Writing reviews). They buy practice packages in the Practice shop when they need extra prep."
+    : "Students linked to your Edu Center sign in to their centre portal — My Mock for scheduled exams, Practice for subscription-style drills (Reading passages, Listening sections, and question-type drills). They buy practice packages in the Practice shop when they need extra prep.",
   partnerApply:
     "Apply below for wholesale pricing, mock sets, and onboarding support. Email support@itestu.uz for custom cohort quotes.",
 } as const;
 
-export const PRACTICE_OFFERINGS = [
+const PRACTICE_OFFERINGS_ALL = [
   {
     id: "reading-passages",
     title: "Reading passages",
@@ -500,6 +514,10 @@ export const PRACTICE_OFFERINGS = [
     accent: "bg-violet-50 text-violet-600",
   },
 ] as const;
+
+export const PRACTICE_OFFERINGS = AI_FEATURES_ENABLED
+  ? PRACTICE_OFFERINGS_ALL
+  : PRACTICE_OFFERINGS_ALL.filter((item) => item.id !== "ai-writing");
 
 export const DESKTOP_COPY = {
   headline: "Optional desktop app for exam day",

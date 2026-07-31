@@ -7,15 +7,18 @@ import { CenterCard } from "@/components/marketing/shared/center-card";
 import { InstitutionForm } from "@/components/marketing/shared/institution-form";
 import { InstitutionStudentOfferingsSection } from "@/components/marketing/shared/institution-student-offerings";
 import { PartnerMarquee } from "@/components/marketing/shared/partner-marquee";
+import { AI_FEATURES_ENABLED } from "@/lib/ai/feature-flags";
 import { fetchCenters, fetchPartnerOnboarding } from "@/lib/marketing/server-data";
+import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Edu Centers — Find an iTestU Partner Near You",
-  description:
-    "Browse iTestU Edu Centers for computer-delivered IELTS mocks and student practice subscriptions. Partner with us for bulk mock credits, reporting, and centre onboarding.",
+  description: PRACTICE_MARKETING_VISIBLE
+    ? "Browse iTestU Edu Centers for computer-delivered IELTS mocks and student practice subscriptions. Partner with us for bulk mock credits, reporting, and centre onboarding."
+    : "Browse iTestU Edu Centers for computer-delivered IELTS mocks. Partner with us for bulk mock credits, reporting, and centre onboarding.",
   alternates: { canonical: "/centers" },
 };
 
@@ -32,12 +35,18 @@ const PARTNER_BENEFITS = [
     body: "Band distributions, skill breakdowns, and improvement trends for your students.",
     accent: "bg-violet-50 text-violet-600",
   },
-  {
-    icon: BookOpen,
-    title: "Student practice hub",
-    body: "Enrolled students buy Reading, Listening, and AI Writing practice packages in their centre portal — between scheduled mock days.",
-    accent: "bg-amber-50 text-amber-700",
-  },
+  ...(PRACTICE_MARKETING_VISIBLE
+    ? [
+        {
+          icon: BookOpen,
+          title: "Student practice hub",
+          body: AI_FEATURES_ENABLED
+            ? "Enrolled students buy Reading, Listening, and AI Writing practice packages in their centre portal — between scheduled mock days."
+            : "Enrolled students buy Reading and Listening practice packages in their centre portal — between scheduled mock days.",
+          accent: "bg-amber-50 text-amber-700",
+        },
+      ]
+    : []),
   {
     icon: GraduationCap,
     title: "Your examiners",

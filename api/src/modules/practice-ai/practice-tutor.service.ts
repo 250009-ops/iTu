@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PracticeAttemptStatus } from '@prisma/client';
+import { assertAiFeaturesEnabled } from '../../common/ai/ai-features';
 import { PrismaService } from '../../prisma/prisma.service';
 import { callOpenAiJson, paragraphPlain } from './openai-json';
 import { QuestionInsight, ReadingPassageLike } from './practice-ai.types';
@@ -42,6 +43,7 @@ export class PracticeTutorService {
       questionN?: number;
     },
   ) {
+    assertAiFeaturesEnabled('AI Review Coach');
     const attempt = await this.getOwnedCompletedAttempt(studentId, attemptId);
     const chipText = this.chipToPrompt(body.chipId, body.questionN);
     const userText = (body.message?.trim() || chipText || '').trim();

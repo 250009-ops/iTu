@@ -390,8 +390,8 @@ export function WritingGradingHub({
             emptyDescription={
               tab === "pending"
                 ? isCentre
-                  ? "When your centre's students complete Writing, AI-ready submissions appear here for grading. If AI assist is enabled, items wait until analysis finishes."
-                  : "Writing submissions appear here after students complete Writing on mock day. If AI assist is enabled, items wait until analysis finishes."
+                  ? "When your centre's students complete Writing, submissions appear here for grading."
+                  : "Writing submissions appear here after students complete Writing on mock day."
                 : "Submissions you have opened for grading appear here until you submit a band score."
             }
           />
