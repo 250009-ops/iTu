@@ -82,6 +82,11 @@ export class MailService {
       text: options.text,
       html: options.html,
       replyTo,
+      // Keep Unicode names (ʻ, ’) intact across SMTP relays / clients.
+      encoding: 'utf-8',
+      headers: {
+        'Content-Language': 'en',
+      },
     });
     return true;
   }

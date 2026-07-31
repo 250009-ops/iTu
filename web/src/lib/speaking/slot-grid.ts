@@ -113,6 +113,14 @@ export function formatSpeakingWallTime(
   return speakingWallParts(iso, timeZone).hhMm;
 }
 
+/** YYYY-MM-DD of a speaking instant in the platform timezone. */
+export function speakingCalendarDateIso(
+  iso: string | Date,
+  timeZone = PLATFORM_DISPLAY_TIMEZONE,
+): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(iso));
+}
+
 export function isSpeakingGridInstant(
   iso: string | Date,
   timeZone = PLATFORM_DISPLAY_TIMEZONE,

@@ -32,8 +32,11 @@ import {
   EXAM_START_TIMES,
   isMockTimeSelectionValid,
 } from "@/lib/student/exam-start-times";
-import { clampMockTimeForDate } from "@/lib/student/datetime";
-import { formatSpeakingWallTime } from "@/lib/speaking/slot-grid";
+import { clampMockTimeForDate, localTodayIso } from "@/lib/student/datetime";
+import {
+  formatSpeakingWallTime,
+  speakingCalendarDateIso,
+} from "@/lib/speaking/slot-grid";
 import { computeStudentBookingTotal } from "@/lib/booking-pricing";
 import { cn } from "@/lib/utils";
 
@@ -71,10 +74,6 @@ const STEP_LABELS: Record<WizardStepId, string> = {
   speakingSlot: "Speaking time",
   payment: "Payment",
 };
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function buildWizardSteps(product: BrowseProduct): WizardStepId[] {
   const steps: WizardStepId[] = ["date"];
@@ -122,8 +121,11 @@ export function BookingWizard({
   const [stepIndex, setStepIndex] = useState(0);
   const currentStep = steps[stepIndex]!;
 
-  const [mockDate, setMockDate] = useState(todayIso());
-  const [mockTime, setMockTime] = useState(() => defaultExamStartTime(todayIso()));
+  const [mockDate, setMockDate] = useState(() => localTodayIso());
+  const [mockTime, setMockTime] = useState(() =>
+    defaultExamStartTime(localTodayIso()),
+  );
+  const slotsRequestId = useRef(0);
 
   const [writingTeachers, setWritingTeachers] = useState<Teacher[]>([]);
   const [writingTeacherId, setWritingTeacherId] = useState<string | null>(
@@ -205,28 +207,43 @@ export function BookingWizard({
   }, []);
 
   const loadSpeakingExaminerAvailability = useCallback(async () => {
+    const requestId = ++slotsRequestId.current;
+    const requestDate = mockDate;
     setSlotsLoading(true);
+    setSlots([]);
     try {
-      const list = await getAvailability(mockDate);
+      const list = await getAvailability(requestDate);
+      if (slotsRequestId.current !== requestId) return;
       setSlots(list);
     } catch (err) {
+      if (slotsRequestId.current !== requestId) return;
       setError(getErrorMessage(err, "Could not load speaking availability"));
     } finally {
-      setSlotsLoading(false);
+      if (slotsRequestId.current === requestId) {
+        setSlotsLoading(false);
+      }
     }
   }, [mockDate]);
 
   const loadSpeakingSlots = useCallback(async () => {
     if (!speakingTeacherId) return;
+    const requestId = ++slotsRequestId.current;
+    const requestDate = mockDate;
+    const requestTeacher = speakingTeacherId;
     setSlotsLoading(true);
     setSelectedSlot(null);
+    setSlots([]);
     try {
-      const list = await getAvailability(mockDate, speakingTeacherId);
+      const list = await getAvailability(requestDate, requestTeacher);
+      if (slotsRequestId.current !== requestId) return;
       setSlots(list);
     } catch (err) {
+      if (slotsRequestId.current !== requestId) return;
       setError(getErrorMessage(err, "Could not load speaking slots"));
     } finally {
-      setSlotsLoading(false);
+      if (slotsRequestId.current === requestId) {
+        setSlotsLoading(false);
+      }
     }
   }, [mockDate, speakingTeacherId]);
 
@@ -330,11 +347,29 @@ export function BookingWizard({
     if (product.needsWriting && !writingTeacherId) return;
     if (product.needsSpeaking && (!speakingTeacherId || !selectedSlot)) return;
 
+    if (
+      product.needsSpeaking &&
+      selectedSlot &&
+      speakingCalendarDateIso(selectedSlot.startsAt) !== mockDate
+    ) {
+      setError(
+        "The selected speaking slot is not on your mock date. Please pick a slot again.",
+      );
+      setSelectedSlot(null);
+      void loadSpeakingSlots();
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     let navigatingToCheckout = false;
     try {
-      const bookingMockTime = showExamStartTime ? mockTime : EXAM_START_TIMES[0]!;
+      const speakingOnly = product.needsSpeaking && !product.needsWriting;
+      const bookingMockTime = showExamStartTime
+        ? mockTime
+        : speakingOnly && selectedSlot
+          ? formatSpeakingWallTime(selectedSlot.startsAt)
+          : EXAM_START_TIMES[0]!;
       const result = await createBooking({
         packageId: product.id,
         mockDate: new Date(`${mockDate}T${bookingMockTime}:00`).toISOString(),
@@ -442,7 +477,7 @@ export function BookingWizard({
                 </label>
                 <Input
                   type="date"
-                  min={todayIso()}
+                  min={localTodayIso()}
                   value={mockDate}
                   onChange={(e) => setMockDate(e.target.value)}
                 />
@@ -668,7 +703,15 @@ export function BookingWizard({
                         <dt className="text-muted">Speaking time</dt>
                         <dd className="font-medium text-foreground">
                           {selectedSlot
-                            ? formatSpeakingWallTime(selectedSlot.startsAt)
+                            ? `${new Date(selectedSlot.startsAt).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  timeZone: "Asia/Tashkent",
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )} · ${formatSpeakingWallTime(selectedSlot.startsAt)}`
                             : "—"}
                         </dd>
                       </div>

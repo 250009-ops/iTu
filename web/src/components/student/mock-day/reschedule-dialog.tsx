@@ -14,7 +14,8 @@ import {
   defaultExamStartTime,
   isMockTimeSelectionValid,
 } from "@/lib/student/exam-start-times";
-import { clampMockTimeForDate } from "@/lib/student/datetime";
+import { clampMockTimeForDate, localTodayIso } from "@/lib/student/datetime";
+import { speakingCalendarDateIso } from "@/lib/speaking/slot-grid";
 import { cn } from "@/lib/utils";
 
 type Slot = {
@@ -25,10 +26,6 @@ type Slot = {
   endsAt: string;
   status: string;
 };
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function RescheduleDialog({
   enrollmentId,
@@ -128,6 +125,17 @@ export function RescheduleDialog({
 
   async function handleConfirm() {
     if (hasSpeaking && !selectedSlot) return;
+    if (
+      hasSpeaking &&
+      selectedSlot &&
+      speakingCalendarDateIso(selectedSlot.startsAt) !== mockDate
+    ) {
+      setError(
+        "The selected speaking slot is not on your mock date. Please pick a slot again.",
+      );
+      setSelectedSlot(null);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -187,7 +195,7 @@ export function RescheduleDialog({
           </label>
           <Input
             type="date"
-            min={todayIso()}
+            min={localTodayIso()}
             value={mockDate}
             onChange={(e) => setMockDate(e.target.value)}
           />

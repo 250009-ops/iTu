@@ -74,7 +74,7 @@ export class EmailDispatchService {
         ? `${appUrl}${link}`
         : undefined;
     const { subject, text, html } = portalNotificationEmail(
-      user.name,
+      sanitizePersonNameForEmail(user.name),
       title,
       body,
       actionUrl,
@@ -116,4 +116,11 @@ export class EmailDispatchService {
 
     return true;
   }
+}
+
+/** Repair common mojibake / replacement-char damage in stored display names. */
+export function sanitizePersonNameForEmail(name: string): string {
+  return name
+    .replace(/(\p{L})\uFFFD(\p{L})/gu, "$1'$2")
+    .replace(/\uFFFD/g, "'");
 }

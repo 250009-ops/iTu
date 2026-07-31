@@ -17,7 +17,14 @@ import {
   SlotStatus,
 } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
-import { mockStartDateTime } from '../../common/band-resolution';
+import {
+  assertSpeakingSlotMatchesMockDay,
+  formatPlatformDateLabel,
+  formatPlatformDateTimeLabel,
+  mockStartDateTimeInTimeZone,
+  studentBookingConfirmationMessage,
+  studentRescheduleConfirmationMessage,
+} from '../../common/booking-messages';
 import {
   calendarDateIsoInTimeZone,
   extractCalendarDateIso,
@@ -33,6 +40,7 @@ import {
   assertSpeakingGridTime,
   isSpeakingGridInstant,
   SPEAKING_SLOT_DURATION_MINUTES,
+  wallClockHhMmInTimeZone,
 } from '../../common/speaking-slot-grid';
 import {
   AuditAction,
@@ -347,14 +355,15 @@ export class BookingsService {
       );
     }
 
-    const resolvedMockTime = params.mockTime ?? null;
+    let resolvedMockTime = params.mockTime ?? null;
     if (!flexibleStart) {
       if (!resolvedMockTime || !/^\d{2}:\d{2}$/.test(resolvedMockTime)) {
         throw new BadRequestException('mockTime must be in HH:mm format');
       }
-      const mockStart = mockStartDateTime(
-        new Date(params.mockDate),
+      const mockStart = mockStartDateTimeInTimeZone(
+        params.mockDate,
         resolvedMockTime,
+        timeZone,
       );
       if (mockStart.getTime() <= Date.now()) {
         throw new BadRequestException('Mock date and time must be in the future');
@@ -428,16 +437,11 @@ export class BookingsService {
           throw new BadRequestException('Speaking slot is no longer available');
         }
         assertSpeakingGridInstant(speakingSlot.startsAt, timeZone);
-        const slotDateIso = calendarDateIsoInTimeZone(
+        assertSpeakingSlotMatchesMockDay(
           speakingSlot.startsAt,
+          params.mockDate,
           timeZone,
         );
-        const mockDateIso = extractCalendarDateIso(params.mockDate, timeZone);
-        if (slotDateIso !== mockDateIso) {
-          throw new BadRequestException(
-            'Speaking slot must be on the same day as your mock date',
-          );
-        }
         if (speakingSlot.startsAt.getTime() <= Date.now()) {
           throw new BadRequestException('Speaking slot must be in the future');
         }
@@ -458,14 +462,30 @@ export class BookingsService {
           throw new BadRequestException('Speaking slot booking conflict');
         }
         slot = speakingSlot;
+        // Speaking-only packages have no CBT start — persist the slot wall time.
+        if (needsSpeaking && !needsWriting && skills.length === 1) {
+          resolvedMockTime = wallClockHhMmInTimeZone(
+            speakingSlot.startsAt,
+            timeZone,
+          );
+        }
       }
+
+      const enrollmentMockDate =
+        slot && needsSpeaking && !needsWriting && skills.length === 1
+          ? mockStartDateTimeInTimeZone(
+              calendarDateIsoInTimeZone(slot.startsAt, timeZone),
+              resolvedMockTime ?? wallClockHhMmInTimeZone(slot.startsAt, timeZone),
+              timeZone,
+            )
+          : new Date(params.mockDate);
 
       const enrollment = await tx.enrollment.create({
         data: {
           enrollmentCode,
           studentId: studentProfileId,
           packageId: params.packageId,
-          mockDate: new Date(params.mockDate),
+          mockDate: enrollmentMockDate,
           mockTime: resolvedMockTime,
           mockDayCutoffAt,
           status: EnrollmentStatus.ENROLLED,
@@ -606,12 +626,21 @@ export class BookingsService {
     ]);
 
     if (studentUser) {
-      const dateLabel = new Date(params.mockDate).toLocaleDateString();
-      const cutoffLabel = mockDayCutoffAt.toLocaleTimeString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
+      const dateLabel = formatPlatformDateLabel(
+        result.enrollment.mockDate,
+        timeZone,
+      );
+      const mockDayLabel = result.enrollment.mockTime
+        ? formatPlatformDateTimeLabel(
+            mockStartDateTimeInTimeZone(
+              result.enrollment.mockDate,
+              result.enrollment.mockTime,
+              timeZone,
+            ),
+            timeZone,
+          )
+        : dateLabel;
+      const cutoffLabel = wallClockHhMmInTimeZone(mockDayCutoffAt, timeZone);
       let body: string;
       let title: string;
       if (welcomePromo && flexibleStart) {
@@ -629,16 +658,23 @@ export class BookingsService {
         body = `An admin granted you a free mock on ${dateLabel}. Start anytime before ${cutoffLabel} on that day.`;
       } else if (params.isReappointment) {
         title = 'Mock reappointed';
-        body = `Your mock has been reappointed for ${dateLabel}${resolvedMockTime ? ` at ${resolvedMockTime}` : ` — start before ${cutoffLabel}`}.`;
+        body = `Your mock has been reappointed for ${mockDayLabel}${result.enrollment.mockTime ? '' : ` — start before ${cutoffLabel}`}.`;
       } else if (complimentary) {
         title = 'Free mock granted';
-        body = `An admin granted you a free mock on ${dateLabel} at ${resolvedMockTime}.`;
+        body = `An admin granted you a free mock on ${mockDayLabel}.`;
       } else if (institutionGranted) {
         title = 'Mock assigned by your centre';
         body = `Your centre enrolled you for a mock on ${dateLabel}. Start anytime before ${cutoffLabel}; speaking time is set by your centre.`;
       } else {
-        title = 'Mock booked';
-        body = `Your mock is confirmed for ${dateLabel} at ${resolvedMockTime}.`;
+        const confirmed = studentBookingConfirmationMessage({
+          skills,
+          mockDate: result.enrollment.mockDate,
+          mockTime: result.enrollment.mockTime,
+          speakingStartsAt: result.slot?.startsAt ?? null,
+          timeZone,
+        });
+        title = confirmed.title;
+        body = confirmed.body;
       }
       await this.notifications.create(
         studentUser.id,
@@ -663,7 +699,7 @@ export class BookingsService {
       await this.notifications.create(
         speakingTeacher.userId,
         'Speaking session scheduled',
-        `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
+        `Speaking session on ${formatPlatformDateTimeLabel(result.slot.startsAt, timeZone)}.`,
         NotificationType.REMINDER,
         examinerSpeakingPath(
           speakingTeacher.institutionId,
@@ -1014,12 +1050,9 @@ export class BookingsService {
       });
     });
 
-    const dateLabel = new Date(dto.mockDate).toLocaleDateString();
-    const cutoffLabel = mockDayCutoffAt.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
+    const grantTimeZone = await this.settings.getPlatformTimezone();
+    const dateLabel = formatPlatformDateLabel(dto.mockDate, grantTimeZone);
+    const cutoffLabel = wallClockHhMmInTimeZone(mockDayCutoffAt, grantTimeZone);
 
     await this.notifications.create(
       enrollment.student.userId,
@@ -1097,7 +1130,12 @@ export class BookingsService {
       );
     }
 
-    this.assertMockStartWithinWindow(dto.mockDate, dto.mockTime, mockDayCutoffAt);
+    this.assertMockStartWithinWindow(
+      dto.mockDate,
+      dto.mockTime,
+      mockDayCutoffAt,
+      timeZone,
+    );
 
     const needsSpeaking = packageExamSkills(enrollment.package.skills).includes(
       ExamSkill.SPEAKING,
@@ -1163,6 +1201,10 @@ export class BookingsService {
         throw new BadRequestException('Speaking slot is no longer available');
       }
       assertSpeakingGridInstant(slot.startsAt, timeZone);
+      assertSpeakingSlotMatchesMockDay(slot.startsAt, dto.mockDate, timeZone);
+      if (slot.startsAt.getTime() <= Date.now()) {
+        throw new BadRequestException('Speaking slot must be in the future');
+      }
 
       const booked = await tx.teacherSlot.updateMany({
         where: { id: dto.speakingSlotId, status: SlotStatus.AVAILABLE },
@@ -1182,11 +1224,25 @@ export class BookingsService {
         });
       }
 
+      const skills = this.packageSkills(enrollment.package);
+      const speakingOnly =
+        needsSpeaking && !skills.includes('writing') && skills.length === 1;
+      const nextMockTime = speakingOnly
+        ? wallClockHhMmInTimeZone(slot.startsAt, timeZone)
+        : dto.mockTime;
+      const nextMockDate = speakingOnly
+        ? mockStartDateTimeInTimeZone(
+            calendarDateIsoInTimeZone(slot.startsAt, timeZone),
+            nextMockTime,
+            timeZone,
+          )
+        : new Date(dto.mockDate);
+
       const updated = await tx.enrollment.update({
         where: { id: enrollment.id },
         data: {
-          mockDate: new Date(dto.mockDate),
-          mockTime: dto.mockTime,
+          mockDate: nextMockDate,
+          mockTime: nextMockTime,
           mockDayCutoffAt,
           speakingTeacherId: slot.teacherId,
           speakingSlotId: slot.id,
@@ -1220,7 +1276,7 @@ export class BookingsService {
       await this.notifications.create(
         speakingTeacher.userId,
         'Speaking session rescheduled',
-        `Session moved to ${result.slot.startsAt.toLocaleString()}.`,
+        `Session moved to ${formatPlatformDateTimeLabel(result.slot.startsAt, timeZone)}.`,
         NotificationType.REMINDER,
         examinerSpeakingPath(
           speakingTeacher.institutionId,
@@ -1233,10 +1289,17 @@ export class BookingsService {
       where: { studentProfile: { id: user.studentProfileId! } },
     });
     if (studentUser) {
+      const rescheduled = studentRescheduleConfirmationMessage({
+        skills: this.packageSkills(enrollment.package),
+        mockDate: result.updated.mockDate,
+        mockTime: result.updated.mockTime,
+        speakingStartsAt: result.slot?.startsAt ?? null,
+        timeZone,
+      });
       await this.notifications.create(
         studentUser.id,
-        'Mock rescheduled',
-        `Your mock is now scheduled for ${result.updated.mockDate.toLocaleDateString()} at ${result.updated.mockTime}.`,
+        rescheduled.title,
+        rescheduled.body,
         NotificationType.INFO,
         '/student/mock-day',
       );
@@ -1417,7 +1480,7 @@ export class BookingsService {
       await this.notifications.create(
         speakingTeacher.userId,
         'Speaking session scheduled',
-        `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
+        `Speaking session on ${formatPlatformDateTimeLabel(result.slot.startsAt, timeZone)}.`,
         NotificationType.REMINDER,
         examinerSpeakingPath(
           speakingTeacher.institutionId,
@@ -1680,6 +1743,22 @@ export class BookingsService {
           throw new BadRequestException('Speaking slot is no longer available');
         }
         assertSpeakingGridInstant(speakingSlot.startsAt, timeZone);
+        assertSpeakingSlotMatchesMockDay(
+          speakingSlot.startsAt,
+          params.mockDate,
+          timeZone,
+        );
+        if (speakingSlot.startsAt.getTime() <= Date.now()) {
+          throw new BadRequestException('Speaking slot must be in the future');
+        }
+        if (
+          params.speakingTeacherId &&
+          params.speakingTeacherId !== speakingSlot.teacherId
+        ) {
+          throw new BadRequestException(
+            'Speaking examiner must match the selected slot',
+          );
+        }
         const booked = await tx.teacherSlot.updateMany({
           where: { id: params.speakingSlotId, status: SlotStatus.AVAILABLE },
           data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
@@ -1690,13 +1769,28 @@ export class BookingsService {
         slot = speakingSlot;
       }
 
+      const speakingOnly =
+        needsSpeaking && !skills.includes('writing') && skills.length === 1;
+      const resolvedMockTime =
+        speakingOnly && slot
+          ? wallClockHhMmInTimeZone(slot.startsAt, timeZone)
+          : (params.mockTime ?? null);
+      const enrollmentMockDate =
+        speakingOnly && slot && resolvedMockTime
+          ? mockStartDateTimeInTimeZone(
+              calendarDateIsoInTimeZone(slot.startsAt, timeZone),
+              resolvedMockTime,
+              timeZone,
+            )
+          : new Date(params.mockDate);
+
       const enrollment = await tx.enrollment.create({
         data: {
           enrollmentCode,
           studentId: studentProfileId,
           packageId: params.packageId,
-          mockDate: new Date(params.mockDate),
-          mockTime: params.mockTime ?? null,
+          mockDate: enrollmentMockDate,
+          mockTime: resolvedMockTime,
           mockDayCutoffAt,
           status: EnrollmentStatus.PENDING_PAYMENT,
           writingTeacherId: params.writingTeacherId ?? null,
@@ -1799,11 +1893,18 @@ export class BookingsService {
     );
 
     const studentUser = order.student.user;
-    const dateLabel = order.enrollment.mockDate.toLocaleDateString();
+    const timeZone = await this.settings.getPlatformTimezone();
+    const confirmed = studentBookingConfirmationMessage({
+      skills: this.packageSkills(order.package),
+      mockDate: order.enrollment.mockDate,
+      mockTime: order.enrollment.mockTime,
+      speakingStartsAt: result.slot?.startsAt ?? null,
+      timeZone,
+    });
     await this.notifications.create(
       studentUser.id,
-      'Mock booked',
-      `Your mock is confirmed for ${dateLabel}${order.enrollment.mockTime ? ` at ${order.enrollment.mockTime}` : ''}.`,
+      confirmed.title,
+      confirmed.body,
       NotificationType.INFO,
       '/student/mock-day',
     );
@@ -1833,7 +1934,7 @@ export class BookingsService {
         await this.notifications.create(
           speakingTeacher.userId,
           'Speaking session scheduled',
-          `Speaking session on ${result.slot.startsAt.toLocaleString()}.`,
+          `Speaking session on ${formatPlatformDateTimeLabel(result.slot.startsAt, timeZone)}.`,
           NotificationType.REMINDER,
           examinerSpeakingPath(
           speakingTeacher.institutionId,
@@ -1997,15 +2098,34 @@ export class BookingsService {
     if (!params.mockTime || !/^\d{2}:\d{2}$/.test(params.mockTime)) {
       throw new BadRequestException('mockTime must be in HH:mm format');
     }
-    const mockStart = mockStartDateTime(
-      new Date(params.mockDate),
+    const mockStart = mockStartDateTimeInTimeZone(
+      params.mockDate,
       params.mockTime,
+      timeZone,
     );
     if (mockStart.getTime() <= Date.now()) {
       throw new BadRequestException('Mock date and time must be in the future');
     }
     if (mockStart.getTime() > mockDayCutoffAt.getTime()) {
       throw new BadRequestException('Mock start time must be before the day cutoff');
+    }
+
+    if (needsSpeaking && params.speakingSlotId) {
+      const speakingSlot = await this.prisma.teacherSlot.findUnique({
+        where: { id: params.speakingSlotId },
+      });
+      if (!speakingSlot || speakingSlot.status !== SlotStatus.AVAILABLE) {
+        throw new BadRequestException('Speaking slot is no longer available');
+      }
+      assertSpeakingGridInstant(speakingSlot.startsAt, timeZone);
+      assertSpeakingSlotMatchesMockDay(
+        speakingSlot.startsAt,
+        params.mockDate,
+        timeZone,
+      );
+      if (speakingSlot.startsAt.getTime() <= Date.now()) {
+        throw new BadRequestException('Speaking slot must be in the future');
+      }
     }
 
     const availability = await evaluatePackageAvailability(
@@ -2025,11 +2145,12 @@ export class BookingsService {
     mockDate: Date | string,
     mockTime: string,
     mockDayCutoffAt: Date,
+    timeZone = 'Asia/Tashkent',
   ): void {
     if (!mockTime || !/^\d{2}:\d{2}$/.test(mockTime)) {
       throw new BadRequestException('mockTime must be in HH:mm format');
     }
-    const mockStart = mockStartDateTime(new Date(mockDate), mockTime);
+    const mockStart = mockStartDateTimeInTimeZone(mockDate, mockTime, timeZone);
     if (mockStart.getTime() <= Date.now()) {
       throw new BadRequestException('Mock date and time must be in the future');
     }
