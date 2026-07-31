@@ -67,7 +67,7 @@ export const orderStatusFilterOptions = [
   { value: "paid", label: "Paid" },
   { value: "complimentary", label: "Complimentary" },
   { value: "refunded", label: "Refunded" },
-  { value: "failed", label: "Failed" },
+  { value: "failed", label: "Payment failed" },
   { value: "pending", label: "Pending" },
 ] as const;
 

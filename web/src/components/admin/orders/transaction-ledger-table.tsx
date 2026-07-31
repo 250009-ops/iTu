@@ -36,7 +36,7 @@ const statusStyles: Record<
     pill: "bg-slate-100 text-slate-600",
   },
   failed: {
-    label: "Failed",
+    label: "Payment failed",
     dot: "bg-rose-500",
     pill: "bg-rose-50 text-rose-700",
   },

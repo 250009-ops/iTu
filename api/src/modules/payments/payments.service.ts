@@ -73,10 +73,17 @@ export class PaymentsService {
     return { received: true };
   }
 
-  /** Reconcile a pending order against Uzum and fulfill when paid. */
+  /**
+   * Reconcile a checkout against Uzum and fulfill when paid.
+   * Accepts PENDING (normal) and FAILED (recovery after premature expiry).
+   */
   async reconcilePendingOrder(orderId: string): Promise<boolean> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order || order.status !== OrderStatus.PENDING || !order.uzumCheckoutId) {
+    if (
+      !order ||
+      !order.uzumCheckoutId ||
+      (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.FAILED)
+    ) {
       return false;
     }
 
@@ -256,7 +263,10 @@ export class PaymentsService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    if (order.status === OrderStatus.PENDING && order.uzumCheckoutId) {
+    if (
+      (order.status === OrderStatus.PENDING || order.status === OrderStatus.FAILED) &&
+      order.uzumCheckoutId
+    ) {
       await this.reconcilePendingOrder(order.id);
       const refreshed = await this.prisma.order.findFirst({
         where: { orderCode, studentId: studentProfileId },

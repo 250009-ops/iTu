@@ -1878,12 +1878,30 @@ export class BookingsService {
     if (!order?.enrollment || !order.package || !order.student || !order.studentId) {
       throw new NotFoundException('Pending order not found');
     }
-    if (order.enrollment.status !== EnrollmentStatus.PENDING_PAYMENT) {
+    // Late webhooks can arrive after checkout expiry cancelled the hold.
+    // Only skip when the enrollment was already delivered (or actively used).
+    if (
+      order.enrollment.status !== EnrollmentStatus.PENDING_PAYMENT &&
+      order.enrollment.status !== EnrollmentStatus.CANCELLED
+    ) {
       return {
         enrollmentId: order.enrollment.id,
         enrollmentCode: order.enrollment.enrollmentCode,
         alreadyFulfilled: true,
       };
+    }
+
+    if (order.enrollment.status === EnrollmentStatus.CANCELLED) {
+      const cutoff = order.enrollment.mockDayCutoffAt?.getTime() ?? 0;
+      if (cutoff > 0 && cutoff < Date.now()) {
+        // Money captured after the mock day ended — keep CANCELLED; admin refund/rebook.
+        return {
+          enrollmentId: order.enrollment.id,
+          enrollmentCode: order.enrollment.enrollmentCode,
+          alreadyFulfilled: false,
+        };
+      }
+      await this.reholdCancelledCheckoutResources(order.enrollment);
     }
 
     const result = await this.completeEnrollmentDelivery(
@@ -1950,6 +1968,58 @@ export class BookingsService {
       sessionCode: result.session.sessionCode,
       alreadyFulfilled: false,
     };
+  }
+
+  /**
+   * Re-books a speaking slot released by checkout expiry so a late payment
+   * webhook can still deliver the enrollment.
+   */
+  private async reholdCancelledCheckoutResources(enrollment: {
+    id: string;
+    speakingSlotId: string | null;
+  }) {
+    if (!enrollment.speakingSlotId) return;
+
+    const claimed = await this.prisma.teacherSlot.updateMany({
+      where: {
+        id: enrollment.speakingSlotId,
+        status: SlotStatus.AVAILABLE,
+      },
+      data: { status: SlotStatus.BOOKED, version: { increment: 1 } },
+    });
+    if (claimed.count > 0) return;
+
+    const slot = await this.prisma.teacherSlot.findUnique({
+      where: { id: enrollment.speakingSlotId },
+    });
+    if (!slot || slot.status !== SlotStatus.BOOKED) {
+      throw new BadRequestException(
+        'Speaking slot is no longer available after payment recovery',
+      );
+    }
+
+    const conflicting = await this.prisma.enrollment.findFirst({
+      where: {
+        speakingSlotId: enrollment.speakingSlotId,
+        id: { not: enrollment.id },
+        status: {
+          in: [
+            EnrollmentStatus.PENDING_PAYMENT,
+            EnrollmentStatus.ENROLLED,
+            EnrollmentStatus.IN_PROGRESS,
+            EnrollmentStatus.AWAITING_RESULTS,
+            EnrollmentStatus.COMPLETED,
+            EnrollmentStatus.MISSED,
+          ],
+        },
+      },
+      select: { id: true, enrollmentCode: true },
+    });
+    if (conflicting) {
+      throw new BadRequestException(
+        `Speaking slot is held by ${conflicting.enrollmentCode}; payment recovery needs admin help`,
+      );
+    }
   }
 
   /** Releases held resources when checkout expires or payment fails. */
