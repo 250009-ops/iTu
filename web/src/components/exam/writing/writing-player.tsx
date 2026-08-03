@@ -31,6 +31,11 @@ import { ApiDataShell } from "@/components/shared/api-data-shell";
 import { ExamIntegrityWarning } from "@/components/exam/shell/exam-integrity-warning";
 import { ExamRemoteNotice } from "@/components/exam/shell/exam-remote-notice";
 
+/** Stable essay/nav key — never rely solely on content task.id (many mocks share one). */
+function writingTaskKey(taskNumber: number): string {
+  return `task-${taskNumber}`;
+}
+
 export function WritingPlayer({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const { content, loading, error } = useExamContent<WritingContent>(
@@ -46,7 +51,9 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   const draggingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const state = useExamState(content?.tasks[0]?.id ?? "task-1");
+  const state = useExamState(
+    content?.tasks[0] ? writingTaskKey(content.tasks[0].taskNumber) : "task-1",
+  );
   const { remaining, expired } = useServerTimer(sessionId, { enabled: started });
   const { warning, dismissWarning } = useExamIntegrity(sessionId);
   const { markLocalSubmit, remoteNotice } = useExamSectionSync(sessionId, "writing", {
@@ -55,17 +62,24 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
 
   const task1 = content?.tasks.find((t) => t.taskNumber === 1);
   const task2 = content?.tasks.find((t) => t.taskNumber === 2);
-  const task1Text = task1 ? (essays[task1.id] ?? "") : "";
-  const task2Text = task2 ? (essays[task2.id] ?? "") : "";
+  const task1Text = task1 ? (essays[writingTaskKey(task1.taskNumber)] ?? "") : "";
+  const task2Text = task2 ? (essays[writingTaskKey(task2.taskNumber)] ?? "") : "";
   const saveStatus = useWritingAutosave(sessionId, task1Text, task2Text);
   const hydration = useExamProgressHydration(sessionId, "writing", started);
   const presence = useExamPresence(sessionId, { enabled: started });
 
   useEffect(() => {
+    if (!content?.tasks.length) return;
+    const keys = content.tasks.map((t) => writingTaskKey(t.taskNumber));
+    if (keys.includes(state.activePart)) return;
+    state.setActivePart(keys[0]!);
+  }, [content?.tasks, state.activePart, state.setActivePart]);
+
+  useEffect(() => {
     if (hydration.loading || !hydration.hydratedWriting || !content) return;
     const next: Record<string, string> = {};
-    if (task1) next[task1.id] = hydration.hydratedWriting.task1Text;
-    if (task2) next[task2.id] = hydration.hydratedWriting.task2Text;
+    if (task1) next[writingTaskKey(task1.taskNumber)] = hydration.hydratedWriting.task1Text;
+    if (task2) next[writingTaskKey(task2.taskNumber)] = hydration.hydratedWriting.task2Text;
     setEssays((prev) => ({ ...prev, ...next }));
   }, [hydration.loading, hydration.hydratedWriting, content, task1, task2]);
 
@@ -117,15 +131,21 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
   }, [onMouseMove, stopDrag]);
 
   const activeTask =
-    content?.tasks.find((t) => t.id === state.activePart) ?? content?.tasks[0];
-  const essay = activeTask ? (essays[activeTask.id] ?? "") : "";
+    content?.tasks.find(
+      (t) => writingTaskKey(t.taskNumber) === state.activePart,
+    ) ?? content?.tasks[0];
+  const activeEssayKey = activeTask
+    ? writingTaskKey(activeTask.taskNumber)
+    : "task-1";
+  const essay = essays[activeEssayKey] ?? "";
   const words = countWords(essay);
   const meetsMin = activeTask ? words >= activeTask.minWords : false;
 
   const completedTasks = useMemo(
     () =>
       content?.tasks.filter(
-        (t) => countWords(essays[t.id] ?? "") >= t.minWords,
+        (t) =>
+          countWords(essays[writingTaskKey(t.taskNumber)] ?? "") >= t.minWords,
       ).length ?? 0,
     [content?.tasks, essays],
   );
@@ -177,10 +197,10 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
         onToggleTimer={state.setHideTimer}
       />
 
-      {activeTask.introScreen && !introDismissed[activeTask.id] && (
+      {activeTask.introScreen && !introDismissed[activeEssayKey] && (
         <InstructionScreen
           group={{
-            id: `${activeTask.id}-intro`,
+            id: `${activeEssayKey}-intro`,
             type: "instruction_screen",
             from: 0,
             to: 0,
@@ -190,7 +210,7 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
           }}
           overlay
           onContinue={() =>
-            setIntroDismissed((prev) => ({ ...prev, [activeTask.id]: true }))
+            setIntroDismissed((prev) => ({ ...prev, [activeEssayKey]: true }))
           }
         />
       )}
@@ -239,10 +259,10 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
 
         <div className="flex min-h-0 flex-1 flex-col bg-slate-50" data-exam-surface>
           <EssayEditor
-            key={activeTask.id}
+            key={activeEssayKey}
             value={essay}
             onChange={(v) =>
-              setEssays((prev) => ({ ...prev, [activeTask.id]: v }))
+              setEssays((prev) => ({ ...prev, [activeEssayKey]: v }))
             }
             placeholder="Type your answer here. Use Ctrl+X to cut, Ctrl+V to paste, and Ctrl+Z to undo."
             textSize={state.textSize}
@@ -275,14 +295,15 @@ export function WritingPlayer({ sessionId }: { sessionId: string }) {
       <footer className="z-20 flex shrink-0 items-center gap-2 border-t border-slate-200 bg-white px-4 py-2.5">
         <div className="flex flex-1 gap-2">
           {content.tasks.map((t) => {
-            const tWords = countWords(essays[t.id] ?? "");
+            const key = writingTaskKey(t.taskNumber);
+            const tWords = countWords(essays[key] ?? "");
             const done = tWords >= t.minWords;
-            const isActive = t.id === state.activePart;
+            const isActive = key === state.activePart;
             return (
               <button
-                key={t.id}
+                key={key}
                 type="button"
-                onClick={() => state.setActivePart(t.id)}
+                onClick={() => state.setActivePart(key)}
                 className={cn(
                   "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition",
                   isActive

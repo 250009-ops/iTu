@@ -116,13 +116,41 @@ function mapSlotStatus(status: string): SlotStatus {
   return "empty";
 }
 
+export type SpeakingSessionUiStatus =
+  | "upcoming"
+  | "live"
+  | "awaiting_grade"
+  | "graded"
+  | "no_show"
+  | "cancelled";
+
+function resolveDashboardScheduleStatus(
+  s: Dashboard["speakingSchedule"][number],
+): SpeakingSessionUiStatus {
+  if (s.uiStatus) return s.uiStatus;
+  // Legacy API payloads without uiStatus — never treat completed as upcoming.
+  const status = s.status.toLowerCase();
+  if (status === "completed") return "awaiting_grade";
+  if (status === "no_show") return "no_show";
+  if (status === "cancelled") return "cancelled";
+  if (status === "active" || status === "waiting") return "live";
+  return "upcoming";
+}
+
 export function mapTeacherStats(data: Dashboard) {
+  const openToday =
+    data.stats.sessionsOpenToday ??
+    data.speakingSchedule.filter((s) => {
+      const status = resolveDashboardScheduleStatus(s);
+      return status === "upcoming" || status === "live";
+    }).length;
+
   return [
     {
       id: "sessions",
       label: "Today's Sessions",
       value: String(data.stats.sessionsToday),
-      sub: `${data.speakingSchedule.length} scheduled`,
+      sub: `${openToday} open`,
       trend: null,
       tone: "sky" as const,
     },
@@ -162,28 +190,21 @@ export function mapTeacherStats(data: Dashboard) {
 }
 
 export function mapSpeakingSchedule(data: Dashboard) {
-  return data.speakingSchedule.map((s) => ({
-    id: s.id,
-    studentName: s.studentName,
-    initials: initialsFromName(s.studentName),
-    timeRange: s.scheduledAt
-      ? formatSpeakingWallTime(s.scheduledAt)
-      : "TBD",
-    sessionType: "Speaking Part 1–3",
-    status:
-      s.status === "active" || s.status === "waiting"
-        ? ("live" as const)
-        : ("upcoming" as const),
-  }));
+  return data.speakingSchedule.map((s) => {
+    const uiStatus = resolveDashboardScheduleStatus(s);
+    return {
+      id: s.id,
+      studentName: s.studentName,
+      initials: initialsFromName(s.studentName),
+      timeRange: s.scheduledAt
+        ? formatSpeakingWallTime(s.scheduledAt)
+        : "TBD",
+      sessionType: "Speaking Part 1–3",
+      status: uiStatus,
+      overallBand: s.overallBand ?? null,
+    };
+  });
 }
-
-export type SpeakingSessionUiStatus =
-  | "upcoming"
-  | "live"
-  | "awaiting_grade"
-  | "graded"
-  | "no_show"
-  | "cancelled";
 
 export type MappedSpeakingSessionItem = {
   id: string;

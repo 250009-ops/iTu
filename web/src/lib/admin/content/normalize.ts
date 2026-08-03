@@ -216,7 +216,22 @@ function repairWritingContent(raw: object): WritingContent {
   if (tasks.length === 0) {
     return emptyWritingContent(typeof c.title === "string" ? c.title : "Writing");
   }
-  return { ...c, tasks: tasks as WritingContent["tasks"] };
+  // newId() used Date.now() only; Task 1+2 created in the same ms shared one id,
+  // which collapsed exam navigation and essay/word-count state onto Task 1.
+  const seen = new Set<string>();
+  return {
+    ...c,
+    tasks: (tasks as WritingContent["tasks"]).map((task, index) => {
+      const taskNumber =
+        typeof task.taskNumber === "number" && task.taskNumber > 0
+          ? task.taskNumber
+          : index + 1;
+      let id = (task.id && String(task.id).trim()) || `w-task-${taskNumber}`;
+      if (seen.has(id)) id = `w-task-${taskNumber}-${index}`;
+      seen.add(id);
+      return { ...task, id, taskNumber };
+    }),
+  };
 }
 
 function repairTopicGroups(

@@ -10,6 +10,10 @@ import {
   teacherCanAccessSpeaking,
   teacherCanAccessWriting,
 } from '../../common/teacher-speciality';
+import {
+  resolveSpeakingSessionUiStatus,
+  speakingSessionEndsAt,
+} from '../../common/speaking-session-ui-status';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const ACTIVE_STATUSES = ['ENROLLED', 'IN_PROGRESS', 'AWAITING_RESULTS'] as const;
@@ -291,36 +295,16 @@ export class InstExaminerService {
       },
       todaySpeaking: speakingToday.map((s) => {
         const scheduledAt = s.scheduledAt;
-        const endsAt = scheduledAt
-          ? new Date(scheduledAt.getTime() + 20 * 60_000)
-          : null;
-        let uiStatus:
-          | 'upcoming'
-          | 'live'
-          | 'awaiting_grade'
-          | 'graded'
-          | 'no_show'
-          | 'cancelled';
-        if (s.grade) {
-          uiStatus = 'graded';
-        } else if (s.status === 'NO_SHOW') {
-          uiStatus = 'no_show';
-        } else if (s.status === 'COMPLETED') {
-          uiStatus = 'awaiting_grade';
-        } else if (s.status === 'ACTIVE' || s.status === 'WAITING') {
-          uiStatus = 'live';
-        } else if (s.status === 'CANCELLED') {
-          uiStatus = 'cancelled';
-        } else if (
-          scheduledAt &&
-          endsAt &&
-          now >= scheduledAt &&
-          now < endsAt
-        ) {
-          uiStatus = 'live';
-        } else {
-          uiStatus = 'upcoming';
-        }
+        const endsAt = speakingSessionEndsAt(scheduledAt);
+        const uiStatus = resolveSpeakingSessionUiStatus(
+          {
+            status: s.status,
+            scheduledAt,
+            startedAt: s.startedAt,
+            grade: s.grade,
+          },
+          now,
+        );
         return {
           id: s.id,
           studentName: studentName(s),
@@ -329,6 +313,7 @@ export class InstExaminerService {
           graded: s.grade != null,
           band: s.grade?.overallBand ?? null,
           uiStatus,
+          endsAt,
         };
       }),
       writingQueue: writingPending.map((w) => {

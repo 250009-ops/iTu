@@ -27,8 +27,16 @@ import { isPlaceholderAnswerKey } from "@/lib/mock/exam-answer-keys";
 
 export type AnswerKeyMap = Record<string, string | string[]>;
 
+let idCounter = 0;
+
+/** Unique id for admin content nodes. Includes a counter so same-ms calls never collide. */
 export function newId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}`;
+  idCounter += 1;
+  const rand =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  return `${prefix}-${Date.now().toString(36)}-${idCounter.toString(36)}-${rand}`;
 }
 
 export function gapsInInlineNodes(nodes: InlineNode[]): number[] {

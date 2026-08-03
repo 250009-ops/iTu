@@ -44,6 +44,11 @@ import {
   minutesFromHhMm,
   SPEAKING_SLOT_DURATION_MINUTES,
 } from '../../common/speaking-slot-grid';
+import {
+  isActionableSpeakingUiStatus,
+  resolveSpeakingSessionUiStatus,
+  speakingSessionEndsAt,
+} from '../../common/speaking-session-ui-status';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
@@ -69,18 +74,16 @@ export class TeachersService {
 
   async getDashboard(user: RequestUser) {
     const teacher = await this.requireTeacher(user);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    const { todayStart, tomorrowStart } = await this.getPlatformDayBounds(now);
 
     const speakingToday = await this.prisma.speakingSession.findMany({
       where: {
         teacherId: teacher.id,
-        scheduledAt: { gte: today, lt: tomorrow },
+        scheduledAt: { gte: todayStart, lt: tomorrowStart },
       },
       include: {
+        grade: true,
         sectionAttempt: {
           include: {
             session: {
@@ -93,6 +96,7 @@ export class TeachersService {
           },
         },
       },
+      orderBy: { scheduledAt: 'asc' },
     });
 
     const writingQueue = await this.countVisibleWritingQueue(teacher.id);
@@ -105,6 +109,28 @@ export class TeachersService {
       },
     });
 
+    const speakingSchedule = speakingToday.map((s) => {
+      const uiStatus = resolveSpeakingSessionUiStatus(
+        {
+          status: s.status,
+          scheduledAt: s.scheduledAt,
+          startedAt: s.startedAt,
+          grade: s.grade,
+        },
+        now,
+      );
+      return {
+        id: s.id,
+        studentName:
+          s.sectionAttempt.session.enrollment.student.user.name,
+        scheduledAt: s.scheduledAt,
+        endsAt: speakingSessionEndsAt(s.scheduledAt),
+        status: s.status.toLowerCase(),
+        uiStatus,
+        overallBand: s.grade?.overallBand ?? null,
+      };
+    });
+
     return {
       stats: {
         sessionsToday: speakingToday.length,
@@ -112,14 +138,11 @@ export class TeachersService {
         speakingQueue,
         rating: teacher.rating,
         totalEarned: teacher.totalEarned,
+        sessionsOpenToday: speakingSchedule.filter((s) =>
+          isActionableSpeakingUiStatus(s.uiStatus),
+        ).length,
       },
-      speakingSchedule: speakingToday.map((s) => ({
-        id: s.id,
-        studentName:
-          s.sectionAttempt.session.enrollment.student.user.name,
-        scheduledAt: s.scheduledAt,
-        status: s.status.toLowerCase(),
-      })),
+      speakingSchedule,
     };
   }
 
@@ -144,10 +167,7 @@ export class TeachersService {
     const teacher = await this.requireTeacher(user);
     assertTeacherSkillAccess(teacher.speciality, 'speaking');
     const now = new Date();
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const { todayStart, tomorrowStart } = await this.getPlatformDayBounds(now);
 
     const sessions = await this.prisma.speakingSession.findMany({
       where: { teacherId: teacher.id },
@@ -173,33 +193,19 @@ export class TeachersService {
 
     const mapped = sessions.map((s) => {
       const scheduledAt = s.scheduledAt;
-      const endsAt = scheduledAt
-        ? new Date(scheduledAt.getTime() + 20 * 60_000)
-        : null;
+      const endsAt = speakingSessionEndsAt(scheduledAt);
       const enrollment = s.sectionAttempt.session.enrollment;
       const studentName = enrollment.student.user.name;
       const examType = enrollment.package.examType;
-
-      let uiStatus:
-        | 'upcoming'
-        | 'live'
-        | 'awaiting_grade'
-        | 'graded'
-        | 'no_show'
-        | 'cancelled';
-      if (s.grade) {
-        uiStatus = 'graded';
-      } else if (s.status === 'NO_SHOW') {
-        uiStatus = 'no_show';
-      } else if (s.status === 'COMPLETED') {
-        uiStatus = 'awaiting_grade';
-      } else if (s.status === 'ACTIVE' || s.status === 'WAITING') {
-        uiStatus = 'live';
-      } else if (s.status === 'CANCELLED') {
-        uiStatus = 'cancelled';
-      } else {
-        uiStatus = 'upcoming';
-      }
+      const uiStatus = resolveSpeakingSessionUiStatus(
+        {
+          status: s.status,
+          scheduledAt,
+          startedAt: s.startedAt,
+          grade: s.grade,
+        },
+        now,
+      );
 
       return {
         id: s.id,
@@ -226,13 +232,16 @@ export class TeachersService {
     const todaySessions = mapped.filter((s) => {
       if (!s.scheduledAt) return false;
       const d = new Date(s.scheduledAt);
-      return d >= today && d < tomorrow;
+      return d >= todayStart && d < tomorrowStart;
     });
 
     const upcoming = mapped.filter((s) => {
       if (!s.scheduledAt) return false;
       const d = new Date(s.scheduledAt);
-      return d >= tomorrow && (s.uiStatus === 'upcoming' || s.uiStatus === 'live');
+      return (
+        d >= tomorrowStart &&
+        (s.uiStatus === 'upcoming' || s.uiStatus === 'live')
+      );
     });
 
     const completed = mapped.filter((s) => s.uiStatus === 'graded');
@@ -457,6 +466,19 @@ export class TeachersService {
     d.setDate(d.getDate() + diff);
     d.setHours(0, 0, 0, 0);
     return d;
+  }
+
+  /** Midnight-to-midnight bounds for "today" in the platform timezone. */
+  private async getPlatformDayBounds(now = new Date()) {
+    const timeZone = await this.settings.getPlatformTimezone();
+    const todayIso = calendarDateIsoInTimeZone(now, timeZone);
+    const tomorrowIso = addCalendarDaysIso(todayIso, 1, timeZone);
+    return {
+      timeZone,
+      todayIso,
+      todayStart: zonedWallClockToUtc(todayIso, 0, 0, 0, timeZone),
+      tomorrowStart: zonedWallClockToUtc(tomorrowIso, 0, 0, 0, timeZone),
+    };
   }
 
   /**

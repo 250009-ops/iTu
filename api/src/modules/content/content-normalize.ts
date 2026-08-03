@@ -359,7 +359,24 @@ function repairReadingContent(c: Json): Json {
 }
 
 function repairWritingContent(c: Json): Json {
-  return { ...c, tasks: asArray(c.tasks) };
+  // Admin templates minted Task 1/2 with newId() in the same millisecond, so many
+  // published writing tests share one task id. Deduplicate so the exam player can
+  // switch tasks and keep per-task essays / word counts.
+  const seen = new Set<string>();
+  const tasks = asArray<Json>(c.tasks).map((task, index) => {
+    const taskNumber =
+      typeof task.taskNumber === 'number' && task.taskNumber > 0
+        ? task.taskNumber
+        : index + 1;
+    let id =
+      typeof task.id === 'string' && task.id.trim()
+        ? task.id.trim()
+        : `w-task-${taskNumber}`;
+    if (seen.has(id)) id = `w-task-${taskNumber}-${index}`;
+    seen.add(id);
+    return { ...task, id, taskNumber };
+  });
+  return { ...c, tasks };
 }
 
 function repairTopicGroups(

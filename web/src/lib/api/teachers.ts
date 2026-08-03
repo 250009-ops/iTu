@@ -1,9 +1,29 @@
 import { apiFetch } from "./client";
 
+export type SpeakingSessionListItem = {
+  id: string;
+  enrollmentId?: string;
+  enrollmentCode?: string;
+  sessionCode?: string;
+  studentName: string;
+  scheduledAt: string | null;
+  endsAt: string | null;
+  status: string;
+  uiStatus: "upcoming" | "live" | "awaiting_grade" | "graded" | "no_show" | "cancelled";
+  examType: string;
+  packageTitle: string;
+  grade: {
+    overallBand: number;
+    criteriaScores: Record<string, number>;
+  } | null;
+  recordingUrl: string | null;
+};
+
 export function getTeacherDashboard() {
   return apiFetch<{
     stats: {
       sessionsToday: number;
+      sessionsOpenToday?: number;
       writingQueue: number;
       speakingQueue: number;
       rating: number | null;
@@ -13,7 +33,10 @@ export function getTeacherDashboard() {
       id: string;
       studentName: string;
       scheduledAt: string | null;
+      endsAt?: string | null;
       status: string;
+      uiStatus?: SpeakingSessionListItem["uiStatus"];
+      overallBand?: number | null;
     }[];
   }>("/teachers/dashboard");
 }
@@ -34,25 +57,6 @@ export function getTeacherSpeakingSessions() {
     minutesUntilNext: number | null;
   }>("/teachers/speaking-sessions");
 }
-
-export type SpeakingSessionListItem = {
-  id: string;
-  enrollmentId?: string;
-  enrollmentCode?: string;
-  sessionCode?: string;
-  studentName: string;
-  scheduledAt: string | null;
-  endsAt: string | null;
-  status: string;
-  uiStatus: "upcoming" | "live" | "awaiting_grade" | "graded" | "no_show" | "cancelled";
-  examType: string;
-  packageTitle: string;
-  grade: {
-    overallBand: number;
-    criteriaScores: Record<string, number>;
-  } | null;
-  recordingUrl: string | null;
-};
 
 export function getTeacherAvailability(weekStart?: string) {
   const query = weekStart ? `?weekStart=${encodeURIComponent(weekStart)}` : "";

@@ -245,7 +245,7 @@ function WritingPreview({
       <div className="flex flex-wrap gap-2 border-b border-border bg-slate-50 px-4 py-3">
         {tasks.map((t, idx) => (
           <button
-            key={t.id}
+            key={`writing-task-${t.taskNumber}-${idx}`}
             type="button"
             onClick={() => setTaskIdx(idx)}
             className={cn(

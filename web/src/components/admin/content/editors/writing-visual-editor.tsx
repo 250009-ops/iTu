@@ -55,7 +55,7 @@ export function WritingVisualEditor({
         <div className="flex flex-wrap gap-2">
           {tasks.map((t, idx) => (
             <button
-              key={t.id}
+              key={`writing-task-${t.taskNumber}-${idx}`}
               type="button"
               onClick={() => setActiveIdx(idx)}
               className={cn(

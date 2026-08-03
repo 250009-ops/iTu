@@ -44,6 +44,50 @@ describe('normalizeContentForType', () => {
   });
 });
 
+describe('normalizeContentForType — writing task ids', () => {
+  it('deduplicates colliding Task 1 / Task 2 ids', () => {
+    const content = {
+      title: 'Writing',
+      tasks: [
+        {
+          id: 'w-task-dup',
+          part: 1,
+          taskNumber: 1,
+          minWords: 150,
+          prompt: 'Task 1',
+        },
+        {
+          id: 'w-task-dup',
+          part: 2,
+          taskNumber: 2,
+          minWords: 250,
+          prompt: 'Task 2',
+        },
+      ],
+    };
+    const out = normalizeContentForType(ContentTestType.WRITING, content);
+    const tasks = (out as { tasks: { id: string; taskNumber: number }[] }).tasks;
+    expect(tasks).toHaveLength(2);
+    expect(tasks[0].id).toBe('w-task-dup');
+    expect(tasks[1].id).toBe('w-task-2-1');
+    expect(tasks[0].id).not.toBe(tasks[1].id);
+    expect(tasks.map((t) => t.taskNumber)).toEqual([1, 2]);
+  });
+
+  it('fills missing task ids from taskNumber', () => {
+    const content = {
+      tasks: [
+        { taskNumber: 1, prompt: 'A' },
+        { taskNumber: 2, prompt: 'B' },
+      ],
+    };
+    const out = normalizeContentForType(ContentTestType.WRITING, content);
+    const tasks = (out as { tasks: { id: string }[] }).tasks;
+    expect(tasks[0].id).toBe('w-task-1');
+    expect(tasks[1].id).toBe('w-task-2');
+  });
+});
+
 describe('normalizeContentForType — speaking topics', () => {
   it('migrates legacy flat part1Questions into a single topic', () => {
     const content = {
