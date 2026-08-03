@@ -222,10 +222,11 @@ function repairWritingContent(raw: object): WritingContent {
   return {
     ...c,
     tasks: (tasks as WritingContent["tasks"]).map((task, index) => {
-      const taskNumber =
+      const rawNumber =
         typeof task.taskNumber === "number" && task.taskNumber > 0
           ? task.taskNumber
           : index + 1;
+      const taskNumber: 1 | 2 = rawNumber === 2 ? 2 : 1;
       let id = (task.id && String(task.id).trim()) || `w-task-${taskNumber}`;
       if (seen.has(id)) id = `w-task-${taskNumber}-${index}`;
       seen.add(id);
