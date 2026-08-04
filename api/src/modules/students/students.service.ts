@@ -41,6 +41,10 @@ import {
   REFERRAL_REQUIRED_INVITES,
 } from '../../common/referral';
 import {
+  bonusEnrollmentLabel,
+  isPaidCheckoutOrder,
+} from '../../common/bonus-enrollment';
+import {
   buildWelcomePromosForDashboard,
   countDisqualifyingCompletedMocks,
   isWelcomePromoEligibleForSkill,
@@ -569,6 +573,7 @@ export class StudentsService {
         speaking: scores.bySkill.speaking ?? null,
         overall: scores.overall,
         status: e.status.toLowerCase(),
+        accessLabel: bonusEnrollmentLabel(e),
       })),
       activities: this.dedupeActivities(notifications).slice(0, 5).map((n) => ({
         id: n.id,
@@ -814,7 +819,8 @@ export class StudentsService {
 
     if (!profile) return null;
 
-    const paidOrders = profile.orders.filter((o) => o.status === 'PAID');
+    // Complimentary $0 grants are PAID for fulfillment but are bonuses, not purchases.
+    const paidOrders = profile.orders.filter(isPaidCheckoutOrder);
     const latestOrder = paidOrders[0] ?? null;
     const paidEnrollmentIds = new Set(
       paidOrders
@@ -1430,6 +1436,7 @@ export class StudentsService {
         mockTime: e.mockTime,
         status: e.status,
         resultsStatus: e.resultsStatus,
+        accessLabel: bonusEnrollmentLabel(e),
         writingTeacher: e.writingTeacher?.user.name ?? null,
         speakingTeacher: e.speakingTeacher?.user.name ?? null,
         sections:
@@ -1444,7 +1451,10 @@ export class StudentsService {
       orders: orders.map((o) => ({
         orderCode: o.orderCode,
         amount: o.amount,
-        status: o.status,
+        status:
+          o.status === 'PAID' && o.paymentMethod === 'COMPLIMENTARY'
+            ? 'COMPLIMENTARY'
+            : o.status,
         paymentMethod: o.paymentMethod,
         createdAt: o.createdAt,
       })),

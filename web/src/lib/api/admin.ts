@@ -166,6 +166,10 @@ export function getAdminEnrollments() {
       speakingExaminer: string;
       writingExaminer: string;
       adminGranted?: boolean;
+      welcomePromoGranted?: boolean;
+      referralRewardGranted?: boolean;
+      institutionGranted?: boolean;
+      complimentaryAccess?: boolean;
       lifecycle: string;
     }[];
   }>("/admin/enrollments");

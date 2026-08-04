@@ -70,6 +70,34 @@ describe('evaluatePackageAvailability', () => {
     expect(result.blockingReason).toContain('already enrolled');
   });
 
+  it('does not block on PENDING_PAYMENT holds (failed/expired checkout)', async () => {
+    const tx = mockTx({
+      poolTests: { LISTENING: 'listen-1', READING: 'read-1' },
+    });
+    (tx as { enrollment: { findFirst: jest.Mock } }).enrollment.findFirst =
+      jest.fn(async ({ where }: { where: { status?: { in?: string[] } } }) => {
+        // Simulate a PENDING_PAYMENT row existing, but query only matches active statuses.
+        if (where.status?.in?.includes('PENDING_PAYMENT')) {
+          return { enrollmentCode: 'ENR-PENDING' };
+        }
+        return null;
+      });
+
+    const result = await evaluatePackageAvailability(tx, 'student-1', pkg);
+    expect(result.canPurchase).toBe(true);
+    expect(
+      (tx as { enrollment: { findFirst: jest.Mock } }).enrollment.findFirst,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: {
+            in: ['ENROLLED', 'IN_PROGRESS', 'AWAITING_RESULTS', 'COMPLETED'],
+          },
+        }),
+      }),
+    );
+  });
+
   it('allows package when tests are fresh for the student', async () => {
     const result = await evaluatePackageAvailability(
       mockTx({ poolTests: { LISTENING: 'listen-1', READING: 'read-1' } }),
@@ -77,6 +105,31 @@ describe('evaluatePackageAvailability', () => {
       pkg,
     );
     expect(result.canPurchase).toBe(true);
+  });
+
+  it('only counts finished tests from paid enrollments (bonus ≠ paid purchase)', async () => {
+    const tx = mockTx({
+      poolTests: { LISTENING: 'listen-1', READING: 'read-1' },
+    });
+    await evaluatePackageAvailability(tx, 'student-1', pkg);
+    expect(
+      (tx as { sectionAttempt: { findMany: jest.Mock } }).sectionAttempt
+        .findMany,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          session: {
+            enrollment: expect.objectContaining({
+              studentId: 'student-1',
+              welcomePromoGranted: false,
+              referralRewardGranted: false,
+              adminGranted: false,
+              institutionGranted: false,
+            }),
+          },
+        }),
+      }),
+    );
   });
 });
 

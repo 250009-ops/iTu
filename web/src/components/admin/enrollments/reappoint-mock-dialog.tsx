@@ -13,14 +13,15 @@ export function ReappointMockDialog({
   enrollmentId,
   enrollmentCode,
   studentName,
-  adminGranted,
+  complimentaryAccess,
   onClose,
   onDone,
 }: {
   enrollmentId: string;
   enrollmentCode: string;
   studentName: string;
-  adminGranted: boolean;
+  /** Zero-charge grant (admin / welcome / referral / centre) — not a paid purchase. */
+  complimentaryAccess: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -61,7 +62,7 @@ export function ReappointMockDialog({
             <h2 className="text-lg font-bold text-navy">Reappoint missed mock</h2>
             <p className="text-sm text-muted">
               {studentName} · {enrollmentCode}
-              {adminGranted ? " · complimentary" : " · paid"}
+              {complimentaryAccess ? " · complimentary / bonus" : " · paid"}
             </p>
           </div>
         </div>

@@ -572,6 +572,14 @@ export class AdminService {
           speakingExaminer: e.speakingTeacher?.user.name ?? '—',
           writingExaminer: e.writingTeacher?.user.name ?? '—',
           adminGranted: e.adminGranted,
+          welcomePromoGranted: e.welcomePromoGranted,
+          referralRewardGranted: e.referralRewardGranted,
+          institutionGranted: e.institutionGranted,
+          complimentaryAccess:
+            e.adminGranted ||
+            e.welcomePromoGranted ||
+            e.referralRewardGranted ||
+            e.institutionGranted,
           lifecycle: lifecycleMap[e.status] ?? 'in_progress',
         };
       }),

@@ -312,6 +312,13 @@ export function mapEnrollments(data: EnrollmentsResponse) {
       examDate: formatDate(e.examDate),
       examTime: e.examTime ?? "Flexible",
       adminGranted: Boolean(e.adminGranted),
+      complimentaryAccess: Boolean(
+        e.complimentaryAccess ??
+          (e.adminGranted ||
+            e.welcomePromoGranted ||
+            e.referralRewardGranted ||
+            e.institutionGranted),
+      ),
       includedModules,
       completedModules: e.completedModules
         .map(normalizeModule)

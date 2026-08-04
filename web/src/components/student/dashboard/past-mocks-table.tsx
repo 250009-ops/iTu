@@ -104,6 +104,11 @@ export function PastMocksTable() {
                     <td className="px-5 py-4">
                       <p className="font-medium text-foreground">{dateLabel}</p>
                       <p className="text-xs text-muted">{mock.package}</p>
+                      {mock.accessLabel ? (
+                        <span className="mt-1 inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                          {mock.accessLabel}
+                        </span>
+                      ) : null}
                     </td>
                     {visibleColumns.map((col) => (
                       <td key={col.key} className="px-3 py-4 text-center">

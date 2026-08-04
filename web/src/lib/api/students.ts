@@ -65,6 +65,8 @@ export type StudentDashboardResponse = {
     speaking: number | null;
     overall: number | null;
     status: string;
+    /** Present when the mock was a free bonus / grant, not a paid purchase. */
+    accessLabel?: string | null;
   }[];
   activities: {
     id: string;

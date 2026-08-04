@@ -48,7 +48,16 @@ export async function packageTestIdForSkill(
   return null;
 }
 
-/** Content test ids this student has finished (submitted section attempts). */
+/**
+ * Content test ids this student has finished via a **paid** enrollment.
+ *
+ * Welcome / referral / admin complimentary / institution grants are bonuses —
+ * completing their papers must not behave like a paid purchase for Full Mock
+ * or other cross-package availability. Tradeoff: after a free welcome L/R
+ * claim, the same paper may appear again on a later paid Full Mock (welcome
+ * packages share seed content with Full Mock 001; separate welcome papers are
+ * not provisioned).
+ */
 export async function studentFinishedTestIds(
   tx: Tx,
   studentId: string,
@@ -57,7 +66,15 @@ export async function studentFinishedTestIds(
     where: {
       contentTestId: { not: null },
       submittedAt: { not: null },
-      session: { enrollment: { studentId } },
+      session: {
+        enrollment: {
+          studentId,
+          welcomePromoGranted: false,
+          referralRewardGranted: false,
+          adminGranted: false,
+          institutionGranted: false,
+        },
+      },
     },
     select: { contentTestId: true },
   });
@@ -156,11 +173,15 @@ export async function evaluatePackageAvailability(
     });
   }
 
+  // Only active/paid enrollments block re-purchase. PENDING_PAYMENT is a
+  // checkout hold (may fail or expire) and must not permanently lock the package.
   const priorEnrollment = await tx.enrollment.findFirst({
     where: {
       studentId,
       packageId: pkg.id,
-      status: { notIn: ['CANCELLED', 'MISSED'] },
+      status: {
+        in: ['ENROLLED', 'IN_PROGRESS', 'AWAITING_RESULTS', 'COMPLETED'],
+      },
       ...(options?.exceptEnrollmentId
         ? { id: { not: options.exceptEnrollmentId } }
         : {}),

@@ -117,7 +117,7 @@ export function EnrollmentsTable() {
     id: string;
     enrollmentId: string;
     studentName: string;
-    adminGranted: boolean;
+    complimentaryAccess: boolean;
   } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -265,6 +265,11 @@ export function EnrollmentsTable() {
                           />
                           {lifecycle.label}
                         </span>
+                        {enrollment.complimentaryAccess ? (
+                          <span className="inline-flex w-fit rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+                            Bonus / complimentary
+                          </span>
+                        ) : null}
                         {enrollment.lifecycle === "missed" && (
                           <button
                             type="button"
@@ -274,7 +279,8 @@ export function EnrollmentsTable() {
                                 id: enrollment.id,
                                 enrollmentId: enrollment.enrollmentId,
                                 studentName: enrollment.studentName,
-                                adminGranted: enrollment.adminGranted,
+                                complimentaryAccess:
+                                  enrollment.complimentaryAccess,
                               });
                             }}
                             className="w-fit rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100"
@@ -331,7 +337,7 @@ export function EnrollmentsTable() {
           enrollmentId={reappointTarget.id}
           enrollmentCode={reappointTarget.enrollmentId}
           studentName={reappointTarget.studentName}
-          adminGranted={reappointTarget.adminGranted}
+          complimentaryAccess={reappointTarget.complimentaryAccess}
           onClose={() => setReappointTarget(null)}
           onDone={() => void refresh()}
         />

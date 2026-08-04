@@ -107,6 +107,8 @@ export type Enrollment = {
   writingExaminer: string;
   writingExaminerInitials: string;
   adminGranted: boolean;
+  /** True for any zero-charge grant (admin / welcome / referral / centre). */
+  complimentaryAccess: boolean;
   lifecycle: LifecycleStatus;
 };
 

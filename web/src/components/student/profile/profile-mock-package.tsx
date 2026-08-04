@@ -36,16 +36,17 @@ export function ProfileMockPackage() {
             Mock Package
           </h3>
           <p className="mt-0.5 text-gray-500" style={{ fontSize: "13px" }}>
-            Your purchased exam credits and usage
+            Paid mock credits and usage (free bonuses are listed separately)
           </p>
         </div>
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-6 py-10 text-center">
           <Package size={28} className="mx-auto text-gray-300" />
           <p className="mt-3 font-semibold text-gray-900" style={{ fontSize: "14px" }}>
-            No package purchased yet
+            No paid package yet
           </p>
           <p className="mt-1 text-gray-500" style={{ fontSize: "13px" }}>
-            Book a mock package to see your credits, usage, and invoice here.
+            Free welcome or referral bonuses do not appear here. Book a paid mock
+            to see credits, usage, and invoice.
           </p>
           <Link
             href="/student/browse"
@@ -72,7 +73,7 @@ export function ProfileMockPackage() {
           Mock Package
         </h3>
         <p className="mt-0.5 text-gray-500" style={{ fontSize: "13px" }}>
-          Your purchased exam credits and usage
+          Paid mock credits and usage (free bonuses are listed separately)
         </p>
       </div>
 
@@ -91,7 +92,7 @@ export function ProfileMockPackage() {
               </span>
             </div>
             <p className="mt-0.5 text-gray-500" style={{ fontSize: "12px" }}>
-              Purchased {pkg.purchased} · Expires {pkg.expires}
+              Paid {pkg.purchased} · Expires {pkg.expires}
             </p>
           </div>
         </div>
