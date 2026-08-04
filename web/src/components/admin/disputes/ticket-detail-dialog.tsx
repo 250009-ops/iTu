@@ -508,7 +508,7 @@ export function TicketDetailDialog({
               enrollmentId={ticket.enrollmentId}
               enrollmentCode={ticket.enrollmentRef}
               studentName={studentName}
-              adminGranted={ticket.enrollmentAdminGranted}
+              complimentaryAccess={ticket.enrollmentAdminGranted}
               onClose={() => setReappointOpen(false)}
               onDone={() => {
                 void refreshTicket(ticket.id);
