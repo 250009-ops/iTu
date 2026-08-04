@@ -14,7 +14,8 @@ import { Section, SectionHeading, SkillIcon } from "@/components/marketing/ui/pr
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
 import { MarketingDesktopAppSection } from "@/components/marketing/shared/desktop-app-section";
-import { PRODUCT_CLAIMS, type SkillId } from "@/lib/marketing/data";
+import { PRODUCT_CLAIMS, fullMockCtaLabel, type SkillId } from "@/lib/marketing/data";
+import { fetchPackages } from "@/lib/marketing/server-data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -114,7 +115,10 @@ const TIMELINE: Array<[string, string, string, string]> = [
   ["~15:00", "Results released", "When graded", "text-emerald-600"],
 ];
 
-export default function HowItWorksPage() {
+export default async function HowItWorksPage() {
+  const packages = await fetchPackages();
+  const fullMockLabel = fullMockCtaLabel(packages);
+
   return (
     <>
       <PageHero
@@ -256,7 +260,7 @@ export default function HowItWorksPage() {
       <FinalCta
         title="Ready to sit your mock?"
         subtitle="Book a full 4-skill mock with a certified examiner. Same-day results."
-        primaryLabel="Book a Full Mock — 56,000 so'm"
+        primaryLabel={fullMockLabel}
       />
     </>
   );

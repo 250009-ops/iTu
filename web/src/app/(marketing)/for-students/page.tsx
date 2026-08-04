@@ -7,7 +7,8 @@ import { TestimonialCard } from "@/components/marketing/shared/testimonial-card"
 import { StatsBand } from "@/components/marketing/shared/stats-band";
 import { PracticeOfferingSection } from "@/components/marketing/shared/practice-offering-section";
 import { StudentOffersSection } from "@/components/marketing/shared/student-offers-section";
-import { fetchStats, fetchTestimonials } from "@/lib/marketing/server-data";
+import { fullMockCtaLabel } from "@/lib/marketing/data";
+import { fetchPackages, fetchStats, fetchTestimonials } from "@/lib/marketing/server-data";
 import { PRACTICE_MARKETING_VISIBLE } from "@/lib/practice/feature-flags";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +50,12 @@ function Cmp({ v }: { v: boolean }) {
 }
 
 export default async function ForStudentsPage() {
-  const [testimonials, stats] = await Promise.all([fetchTestimonials(), fetchStats()]);
+  const [testimonials, stats, packages] = await Promise.all([
+    fetchTestimonials(),
+    fetchStats(),
+    fetchPackages(),
+  ]);
+  const fullMockLabel = fullMockCtaLabel(packages);
   return (
     <>
       <PageHero
@@ -140,7 +146,7 @@ export default async function ForStudentsPage() {
         </Stagger>
         <Reveal className="mt-10 flex justify-center">
           <CtaButton href="/mock-exams" variant="primary" size="lg" withArrow>
-            Book a Full Mock — 56,000 so'm
+            {fullMockLabel}
           </CtaButton>
         </Reveal>
       </Section>

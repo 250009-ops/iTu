@@ -23,6 +23,12 @@ const EMPTY_HERO_STATS: HeroStats = {
   ratingRaw: null,
 };
 
+type HomeHeroProps = {
+  stats?: HeroStats;
+  /** Live catalog CTA — pass from server via fullMockCtaLabel(packages). */
+  fullMockLabel?: string;
+};
+
 const container = {
   hidden: {},
   show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
@@ -40,8 +46,12 @@ function heroTrustLine(stats: HeroStats): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
+export function HomeHero({
+  stats = EMPTY_HERO_STATS,
+  fullMockLabel,
+}: HomeHeroProps) {
   const trustLine = heroTrustLine(stats);
+  const ctaLabel = fullMockLabel ?? fullMockCtaLabel();
 
   return (
     <section className="relative overflow-hidden bg-navy pt-28 pb-20 sm:pt-36 sm:pb-28">
@@ -90,7 +100,7 @@ export function HomeHero({ stats = EMPTY_HERO_STATS }: { stats?: HeroStats }) {
               href="/mock-exams"
               className="group inline-flex h-13 items-center justify-center gap-2 rounded-xl bg-brand-red px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-red/30 transition-all hover:bg-brand-red-hover hover:-translate-y-0.5"
             >
-              {fullMockCtaLabel()}
+              {ctaLabel}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link

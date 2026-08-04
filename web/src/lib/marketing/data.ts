@@ -21,7 +21,8 @@ export const SITE = {
       ? "iTestU (iTu) — realistic computer-delivered IELTS mocks with certified examiner feedback, plus Reading and Listening practice packages you can buy anytime."
       : "iTestU (iTu) — realistic computer-delivered IELTS mocks with certified examiner feedback.",
   foundedYear: 2026,
-  fullMockPrice: 56_000,
+  /** Offline fallback only — prefer live catalog `fromPrice` via fullMockCtaLabel(packages). */
+  fullMockPrice: 38_000,
   currency: "UZS",
   supportEmail: "support@itestu.uz",
 } as const;

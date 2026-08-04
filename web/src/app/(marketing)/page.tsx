@@ -9,7 +9,9 @@ import {
   fetchTeachers,
   fetchTestimonials,
   fetchCenters,
+  fetchPackages,
 } from "@/lib/marketing/server-data";
+import type { MockPackage } from "@/lib/marketing/data";
 import { candidatesCtaCopy } from "@/lib/marketing/social-proof";
 import { Section, SectionHeading, CtaButton } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
@@ -35,7 +37,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-function buildJsonLd(rating: string | null) {
+function fullMockOfferPrice(packages: MockPackage[]) {
+  const full = packages.find(
+    (p) => p.examType === "ACADEMIC" && p.skills.length === 4,
+  );
+  return full?.fromPrice ?? full?.price ?? SITE.fullMockPrice;
+}
+
+function buildJsonLd(rating: string | null, packages: MockPackage[]) {
   const product: Record<string, unknown> = {
     "@type": "Product",
     name: "Full Academic IELTS Mock Exam",
@@ -44,7 +53,7 @@ function buildJsonLd(rating: string | null) {
     brand: { "@type": "Brand", name: SITE.name },
     offers: {
       "@type": "Offer",
-      price: String(SITE.fullMockPrice),
+      price: String(fullMockOfferPrice(packages)),
       priceCurrency: SITE.currency,
       availability: "https://schema.org/InStock",
     },
@@ -89,16 +98,19 @@ function buildJsonLd(rating: string | null) {
 }
 
 export default async function HomePage() {
-  const [stats, heroStats, leaderboard, teachers, testimonials, centers] = await Promise.all([
-    fetchStats(),
-    fetchHeroStats(),
-    fetchLeaderboard(),
-    fetchTeachers(),
-    fetchTestimonials(),
-    fetchCenters(),
-  ]);
+  const [stats, heroStats, leaderboard, teachers, testimonials, centers, packages] =
+    await Promise.all([
+      fetchStats(),
+      fetchHeroStats(),
+      fetchLeaderboard(),
+      fetchTeachers(),
+      fetchTestimonials(),
+      fetchCenters(),
+      fetchPackages(),
+    ]);
   const topTeachers = teachers.slice(0, 4);
-  const jsonLd = buildJsonLd(heroStats.rating);
+  const fullMockLabel = fullMockCtaLabel(packages);
+  const jsonLd = buildJsonLd(heroStats.rating, packages);
 
   return (
     <>
@@ -107,7 +119,7 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <HomeHero stats={heroStats} />
+      <HomeHero stats={heroStats} fullMockLabel={fullMockLabel} />
       {centers.length > 0 ? <PartnerMarquee centers={centers} /> : null}
       <StatsBand stats={stats} />
       <StudentOffersSection className="bg-white pt-0" />
@@ -241,7 +253,7 @@ export default async function HomePage() {
       <FinalCta
         title="Ready to find out your real band?"
         subtitle={candidatesCtaCopy(heroStats.candidates)}
-        primaryLabel={fullMockCtaLabel()}
+        primaryLabel={fullMockLabel}
       />
     </>
   );

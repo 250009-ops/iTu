@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Clock, Award, GraduationCap, TrendingUp, MessageSquare } from "lucide-react";
 import type { MarketingFaq } from "@/lib/marketing/data";
+import { fullMockCtaLabel } from "@/lib/marketing/data";
 import { PageHero } from "@/components/marketing/ui/page-hero";
 import { Section, SectionHeading } from "@/components/marketing/ui/primitives";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/motion/reveal";
 import { FaqAccordion } from "@/components/marketing/shared/faq-accordion";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
+import { fetchPackages } from "@/lib/marketing/server-data";
 
 export const metadata: Metadata = {
   title: "Results — iTestU Band Reports & Examiner Feedback",
@@ -101,7 +103,9 @@ function ProgressionChart() {
   );
 }
 
-export default function ResultsPage() {
+export default async function ResultsPage() {
+  const packages = await fetchPackages();
+  const fullMockLabel = fullMockCtaLabel(packages);
   return (
     <>
       <PageHero
@@ -269,7 +273,7 @@ export default function ResultsPage() {
       <FinalCta
         title="See your own band report"
         subtitle="Book a full mock and receive the same detailed breakdown with criteria-level examiner feedback."
-        primaryLabel="Book a Full Mock — 56,000 so'm"
+        primaryLabel={fullMockLabel}
       />
     </>
   );

@@ -68,7 +68,7 @@ export function packageIsExaminerPriced(skills: unknown): boolean {
 }
 
 export function autoScoredSkillFee(skill: 'listening' | 'reading'): number {
-  return UZS_PRICE_BY_PACKAGE_KIND[skill] ?? 16_000;
+  return UZS_PRICE_BY_PACKAGE_KIND[skill] ?? 8_000;
 }
 
 /** Fallback when no approved examiners exist yet (catalog "from" price). */

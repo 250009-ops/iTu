@@ -7,7 +7,7 @@ describe('package-templates', () => {
       'listening+reading+writing+speaking',
       ExamType.ACADEMIC,
     );
-    expect(t.suggestedPrice).toBe(56_000);
+    expect(t.suggestedPrice).toBe(46_000);
     expect(t.included.length).toBeGreaterThan(2);
     expect(t.description).toContain('Academic');
   });

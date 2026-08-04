@@ -6,7 +6,8 @@ import { Glow, Avatar, Pill, Section } from "@/components/marketing/ui/primitive
 import { WaveDivider } from "@/components/marketing/ui/page-hero";
 import { TeacherProfileTabs } from "@/components/marketing/shared/teacher-profile-tabs";
 import { FinalCta } from "@/components/marketing/shared/final-cta";
-import { fetchTeacher } from "@/lib/marketing/server-data";
+import { fullMockCtaLabel } from "@/lib/marketing/data";
+import { fetchPackages, fetchTeacher } from "@/lib/marketing/server-data";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,10 @@ export default async function TeacherProfilePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const teacher = await fetchTeacher(slug);
+  const [teacher, packages] = await Promise.all([
+    fetchTeacher(slug),
+    fetchPackages(),
+  ]);
   if (!teacher) notFound();
 
   return (
@@ -134,7 +138,7 @@ export default async function TeacherProfilePage({
       <FinalCta
         title="Book your mock with a certified examiner"
         subtitle="Pick your package, choose your date, and select your examiner at checkout."
-        primaryLabel="Book a Full Mock — 56,000 so'm"
+        primaryLabel={fullMockCtaLabel(packages)}
       />
     </>
   );

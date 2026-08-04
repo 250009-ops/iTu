@@ -21,9 +21,43 @@ function isExaminerPriced(pkg: MockPackage) {
   return Boolean(pkg.priceDependsOnExaminers || pkg.pricingMode === "examiner");
 }
 
-function priceText(pkg: MockPackage) {
+function PriceBlock({
+  pkg,
+  tone = "light",
+  size = "md",
+  align = "right",
+}: {
+  pkg: MockPackage;
+  tone?: "light" | "dark";
+  size?: "md" | "lg";
+  align?: "left" | "right";
+}) {
   const amount = formatPrice(pkg.fromPrice ?? pkg.price, pkg.currency);
-  return isExaminerPriced(pkg) ? `from ${amount}` : amount;
+  const examiner = isExaminerPriced(pkg);
+  const amountClass =
+    size === "lg"
+      ? "text-3xl font-extrabold tracking-tight sm:text-4xl"
+      : "text-2xl font-extrabold tracking-tight sm:text-3xl";
+  const mutedClass = tone === "dark" ? "text-slate-400" : "text-muted";
+
+  return (
+    <div
+      className={cn(
+        align === "right" ? "text-right" : "text-left",
+        tone === "dark" ? "text-white" : "text-navy",
+      )}
+    >
+      {examiner ? (
+        <p className={cn("text-xs font-semibold uppercase tracking-wide", mutedClass)}>
+          from
+        </p>
+      ) : null}
+      <p className={cn(amountClass, "whitespace-nowrap")}>{amount}</p>
+      {examiner ? (
+        <p className={cn("mt-0.5 text-xs", mutedClass)}>depends on examiners</p>
+      ) : null}
+    </div>
+  );
 }
 
 export function PricingPlans({ packages = PACKAGES }: Props) {
@@ -57,8 +91,8 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
         {full ? (
           <div className="relative rounded-3xl border-2 border-brand-red bg-navy p-7 text-white shadow-xl sm:p-9">
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   {full.mostPopular && (
                     <span className="rounded-full bg-brand-red px-3 py-0.5 text-[11px] font-bold uppercase tracking-wide">
                       Most Popular
@@ -70,11 +104,8 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
                 </div>
                 <h3 className="mt-3 text-2xl font-bold">{full.title}</h3>
               </div>
-              <div className="text-right">
-                <p className="text-4xl font-extrabold">{priceText(full)}</p>
-                <p className="text-xs text-slate-400">
-                  {isExaminerPriced(full) ? "depends on examiners" : "per exam"}
-                </p>
+              <div className="ml-auto shrink-0">
+                <PriceBlock pkg={full} tone="dark" size="lg" />
                 {full.rating > 0 && full.reviewCount > 0 ? (
                   <StarRating
                     rating={full.rating}
@@ -144,10 +175,9 @@ export function PricingPlans({ packages = PACKAGES }: Props) {
               >
                 <h3 className="font-bold text-navy">{pkg.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted">{pkg.description}</p>
-                <p className="mt-4 text-3xl font-extrabold text-navy">{priceText(pkg)}</p>
-                {isExaminerPriced(pkg) ? (
-                  <p className="mt-1 text-xs text-muted">depends on examiners</p>
-                ) : null}
+                <div className="mt-4">
+                  <PriceBlock pkg={pkg} align="left" />
+                </div>
                 <ul className="mt-4 flex-1 space-y-2">
                   {pkg.included.map((item) => (
                     <li key={item} className="flex items-start gap-2 text-sm text-muted">

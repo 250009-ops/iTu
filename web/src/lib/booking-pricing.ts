@@ -1,5 +1,5 @@
 /** Mirrors api/src/common/booking-pricing.ts for student UI totals. */
-export const AUTO_SCORED_FEE_UZS = 16_000;
+export const AUTO_SCORED_FEE_UZS = 8_000;
 
 export type BookingSkill = "listening" | "reading" | "writing" | "speaking";
 

@@ -45,9 +45,12 @@ export function PackageCard({ pkg }: { pkg: MockPackage }) {
       <p className="mt-2 text-sm leading-relaxed text-muted">{pkg.description}</p>
 
       <div className="mt-4">
-        <span className="text-4xl font-extrabold text-navy">
-          {dependsOnExaminers ? `from ${priceLabel}` : priceLabel}
-        </span>
+        {dependsOnExaminers ? (
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">from</p>
+        ) : null}
+        <p className="text-3xl font-extrabold tracking-tight text-navy whitespace-nowrap sm:text-4xl">
+          {priceLabel}
+        </p>
         {dependsOnExaminers ? (
           <p className="mt-1 text-xs text-muted">depends on examiners</p>
         ) : null}

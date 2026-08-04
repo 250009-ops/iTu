@@ -35,9 +35,9 @@ describe('booking-pricing', () => {
       writingGross: 10_000,
       speakingGross: 18_000,
     });
-    expect(result.amount).toBe(16_000 + 16_000 + 10_000 + 18_000);
-    expect(result.breakdown.listening).toBe(16_000);
-    expect(result.breakdown.reading).toBe(16_000);
+    expect(result.amount).toBe(8_000 + 8_000 + 10_000 + 18_000);
+    expect(result.breakdown.listening).toBe(8_000);
+    expect(result.breakdown.reading).toBe(8_000);
   });
 
   it('prices listening-only from package.price when provided', () => {
@@ -52,7 +52,7 @@ describe('booking-pricing', () => {
 
   it('falls back to catalog fee for listening-only without packagePrice', () => {
     const result = computeBookingPrice({ skills: ['listening'] });
-    expect(result.amount).toBe(16_000);
+    expect(result.amount).toBe(8_000);
   });
 
   it('is incomplete until required examiner rates are present', () => {
@@ -76,6 +76,6 @@ describe('booking-pricing', () => {
       writingMinGross: 10_000,
       speakingMinGross: 12_000,
     });
-    expect(result.amount).toBe(16_000 + 16_000 + 10_000 + 12_000);
+    expect(result.amount).toBe(8_000 + 8_000 + 10_000 + 12_000);
   });
 });
