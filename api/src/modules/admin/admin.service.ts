@@ -88,6 +88,11 @@ import {
 } from '../content/content-package-assignments';
 import { filterPackagesAvailableToStudent } from '../content/content-assignment';
 import { hasExamStarted } from '../../common/mock-day-policy';
+import {
+  laterDate,
+  resolveRevenueStatsSince,
+  revenueCreatedAtGte,
+} from '../../common/revenue-stats-since';
 
 const SKILL_ACCENTS = [
   { id: 'listening', name: 'Listening', detail: '~32 min · plays once', badge: 'Auto-scored', color: 'sky' },
@@ -291,9 +296,12 @@ export class AdminService {
     const syncedAt = new Date();
     const currentMonthStart = monthStart(syncedAt);
     const currentMonthEnd = monthEnd(syncedAt);
-    const revenueWindowStart = monthStart(
-      new Date(syncedAt.getFullYear(), syncedAt.getMonth() - 5, 1),
+    const revenueStatsSince = resolveRevenueStatsSince();
+    const revenueWindowStart = laterDate(
+      monthStart(new Date(syncedAt.getFullYear(), syncedAt.getMonth() - 5, 1)),
+      revenueStatsSince,
     );
+    const revenueSinceFilter = revenueCreatedAtGte(revenueStatsSince);
 
     const [
       totalEnrollments,
@@ -308,6 +316,7 @@ export class AdminService {
         where: {
           status: 'PAID',
           paymentMethod: { not: 'COMPLIMENTARY' },
+          ...(revenueSinceFilter ? { createdAt: revenueSinceFilter } : {}),
         },
         _sum: { amount: true },
       }),
@@ -1520,6 +1529,13 @@ export class AdminService {
   }
 
   async getOrders() {
+    const syncedAt = new Date();
+    const revenueStatsSince = resolveRevenueStatsSince();
+    const revenueWindowStart = laterDate(
+      monthStart(new Date(syncedAt.getFullYear(), syncedAt.getMonth() - 5, 1)),
+      revenueStatsSince,
+    );
+
     const [orders, monthlyOrders] = await Promise.all([
       this.prisma.order.findMany({
         include: {
@@ -1535,19 +1551,12 @@ export class AdminService {
         where: {
           status: 'PAID',
           paymentMethod: { not: 'COMPLIMENTARY' },
-          createdAt: {
-            gte: new Date(
-              new Date().getFullYear(),
-              new Date().getMonth() - 5,
-              1,
-            ),
-          },
+          createdAt: { gte: revenueWindowStart },
         },
         select: { amount: true, createdAt: true },
       }),
     ]);
 
-    const syncedAt = new Date();
     const monthlyRevenue = this.buildMonthlyRevenue(monthlyOrders, syncedAt);
 
     const mapped = orders.map((o) => {
@@ -1576,10 +1585,22 @@ export class AdminService {
       };
     });
 
-    const paid = mapped.filter((o) => o.status === 'paid');
-    const refunded = mapped.filter((o) => o.status === 'refunded');
-    const failed = mapped.filter((o) => o.status === 'failed');
-    const pending = mapped.filter((o) => o.status === 'pending');
+    // KPI cards / trend honor REVENUE_STATS_SINCE; ledger keeps full audit history.
+    const inStatsWindow = (createdAt: Date) =>
+      !revenueStatsSince || createdAt >= revenueStatsSince;
+
+    const paid = mapped.filter(
+      (o) => o.status === 'paid' && inStatsWindow(o.createdAt),
+    );
+    const refunded = mapped.filter(
+      (o) => o.status === 'refunded' && inStatsWindow(o.createdAt),
+    );
+    const failed = mapped.filter(
+      (o) => o.status === 'failed' && inStatsWindow(o.createdAt),
+    );
+    const pending = mapped.filter(
+      (o) => o.status === 'pending' && inStatsWindow(o.createdAt),
+    );
 
     return {
       orders: mapped,
@@ -1594,6 +1615,9 @@ export class AdminService {
         pendingPayments: pending.length,
       },
       monthlyRevenue,
+      meta: {
+        revenueStatsSince: revenueStatsSince?.toISOString() ?? null,
+      },
     };
   }
 
@@ -1744,11 +1768,25 @@ export class AdminService {
     const timeframe = normalizeReportTimeframe(timeframeInput);
     const period = resolveReportPeriod(timeframe, syncedAt);
     const prevPeriod = previousReportPeriod(period.start, period.end);
+    const revenueStatsSince = resolveRevenueStatsSince();
 
     const paidOrderFilter = {
       status: 'PAID' as const,
       paymentMethod: { not: 'COMPLIMENTARY' as const },
     };
+
+    const clampRevenueRange = (start: Date, end: Date) => {
+      const clampedStart = laterDate(start, revenueStatsSince);
+      if (clampedStart >= end) {
+        return null;
+      }
+      return { gte: clampedStart, lt: end };
+    };
+    const periodRevenueRange = clampRevenueRange(period.start, period.end);
+    const prevPeriodRevenueRange = clampRevenueRange(
+      prevPeriod.start,
+      prevPeriod.end,
+    );
 
     const [
       periodOrders,
@@ -1764,20 +1802,24 @@ export class AdminService {
       prevPeriodPayouts,
       teachers,
     ] = await Promise.all([
-      this.prisma.order.findMany({
-        where: {
-          ...paidOrderFilter,
-          createdAt: { gte: period.start, lt: period.end },
-        },
-        select: { amount: true, createdAt: true },
-      }),
-      this.prisma.order.findMany({
-        where: {
-          ...paidOrderFilter,
-          createdAt: { gte: prevPeriod.start, lt: prevPeriod.end },
-        },
-        select: { amount: true },
-      }),
+      periodRevenueRange
+        ? this.prisma.order.findMany({
+            where: {
+              ...paidOrderFilter,
+              createdAt: periodRevenueRange,
+            },
+            select: { amount: true, createdAt: true },
+          })
+        : Promise.resolve([] as { amount: number; createdAt: Date }[]),
+      prevPeriodRevenueRange
+        ? this.prisma.order.findMany({
+            where: {
+              ...paidOrderFilter,
+              createdAt: prevPeriodRevenueRange,
+            },
+            select: { amount: true },
+          })
+        : Promise.resolve([] as { amount: number }[]),
       this.prisma.enrollment.findMany({
         where: {
           OR: [
