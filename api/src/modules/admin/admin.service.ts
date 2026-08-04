@@ -90,8 +90,8 @@ import { filterPackagesAvailableToStudent } from '../content/content-assignment'
 import { hasExamStarted } from '../../common/mock-day-policy';
 import {
   laterDate,
+  paidRevenueOrderWhere,
   resolveRevenueStatsSince,
-  revenueCreatedAtGte,
 } from '../../common/revenue-stats-since';
 
 const SKILL_ACCENTS = [
@@ -301,7 +301,6 @@ export class AdminService {
       monthStart(new Date(syncedAt.getFullYear(), syncedAt.getMonth() - 5, 1)),
       revenueStatsSince,
     );
-    const revenueSinceFilter = revenueCreatedAtGte(revenueStatsSince);
 
     const [
       totalEnrollments,
@@ -313,11 +312,7 @@ export class AdminService {
     ] = await Promise.all([
       this.prisma.enrollment.count(),
       this.prisma.order.aggregate({
-        where: {
-          status: 'PAID',
-          paymentMethod: { not: 'COMPLIMENTARY' },
-          ...(revenueSinceFilter ? { createdAt: revenueSinceFilter } : {}),
-        },
+        where: paidRevenueOrderWhere(revenueStatsSince),
         _sum: { amount: true },
       }),
       this.prisma.supportTicket.count({
@@ -329,8 +324,7 @@ export class AdminService {
       this.getLiveSessions(),
       this.prisma.order.findMany({
         where: {
-          status: 'PAID',
-          paymentMethod: { not: 'COMPLIMENTARY' },
+          ...paidRevenueOrderWhere(null),
           createdAt: { gte: revenueWindowStart },
         },
         select: { amount: true, createdAt: true },
@@ -1549,8 +1543,7 @@ export class AdminService {
       }),
       this.prisma.order.findMany({
         where: {
-          status: 'PAID',
-          paymentMethod: { not: 'COMPLIMENTARY' },
+          ...paidRevenueOrderWhere(null),
           createdAt: { gte: revenueWindowStart },
         },
         select: { amount: true, createdAt: true },
@@ -1590,7 +1583,10 @@ export class AdminService {
       !revenueStatsSince || createdAt >= revenueStatsSince;
 
     const paid = mapped.filter(
-      (o) => o.status === 'paid' && inStatsWindow(o.createdAt),
+      (o) =>
+        o.status === 'paid' &&
+        o.amount > 0 &&
+        inStatsWindow(o.createdAt),
     );
     const refunded = mapped.filter(
       (o) => o.status === 'refunded' && inStatsWindow(o.createdAt),
@@ -1770,10 +1766,7 @@ export class AdminService {
     const prevPeriod = previousReportPeriod(period.start, period.end);
     const revenueStatsSince = resolveRevenueStatsSince();
 
-    const paidOrderFilter = {
-      status: 'PAID' as const,
-      paymentMethod: { not: 'COMPLIMENTARY' as const },
-    };
+    const paidOrderFilter = paidRevenueOrderWhere(null);
 
     const clampRevenueRange = (start: Date, end: Date) => {
       const clampedStart = laterDate(start, revenueStatsSince);

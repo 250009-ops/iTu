@@ -42,6 +42,7 @@ import {
 } from '../../common/referral';
 import {
   buildWelcomePromosForDashboard,
+  countDisqualifyingCompletedMocks,
   isWelcomePromoEligibleForSkill,
   resolveWelcomePromoPackage,
 } from '../../common/welcome-promo';
@@ -123,10 +124,12 @@ export class StudentsService {
       throw new NotFoundException('Student profile not found');
     }
 
-    const completedCount = await this.prisma.enrollment.count({
+    // Completing a free welcome mock must not revoke the other welcome skill.
+    const disqualifyingCompleted = await this.prisma.enrollment.count({
       where: {
         studentId: user.studentProfileId,
         status: 'COMPLETED',
+        welcomePromoGranted: false,
       },
     });
 
@@ -135,7 +138,7 @@ export class StudentsService {
         profile,
         profile.user,
         dto.skill,
-        completedCount,
+        disqualifyingCompleted,
       )
     ) {
       throw new BadRequestException('This welcome offer is no longer available');
@@ -464,7 +467,7 @@ export class StudentsService {
           this.prisma,
           profile,
           profile.user,
-          completed.length,
+          countDisqualifyingCompletedMocks(refreshed),
         )
       : [];
 

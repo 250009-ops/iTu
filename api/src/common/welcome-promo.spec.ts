@@ -1,5 +1,6 @@
 import {
   WELCOME_PROMO_WINDOW_DAYS,
+  countDisqualifyingCompletedMocks,
   isWelcomePromoClaimed,
   isWelcomePromoEligible,
   isWelcomePromoEligibleForSkill,
@@ -27,7 +28,7 @@ describe('welcome promo eligibility', () => {
     expect(isWithinWelcomePromoWindow(staleUser.createdAt, now)).toBe(false);
   });
 
-  it('requires zero completed mocks and account age', () => {
+  it('requires zero non-welcome completions and account age', () => {
     expect(
       isWelcomePromoEligibleForSkill(
         emptyProfile,
@@ -86,6 +87,44 @@ describe('welcome promo eligibility', () => {
     expect(
       isWelcomePromoEligible(partialProfile, freshUser, 0, now),
     ).toBe(true);
+  });
+
+  it('keeps the other welcome skill after completing a free welcome mock', () => {
+    const partialProfile = {
+      welcomeListeningClaimedAt: new Date('2026-07-12T10:00:00.000Z'),
+      welcomeReadingClaimedAt: null,
+    };
+    // Completing welcome Listening is not disqualifying.
+    expect(
+      countDisqualifyingCompletedMocks([
+        { status: 'COMPLETED', welcomePromoGranted: true },
+      ]),
+    ).toBe(0);
+    expect(
+      isWelcomePromoEligibleForSkill(
+        partialProfile,
+        freshUser,
+        'reading',
+        0,
+        now,
+      ),
+    ).toBe(true);
+    // A paid / grant completion still ends the welcome window.
+    expect(
+      countDisqualifyingCompletedMocks([
+        { status: 'COMPLETED', welcomePromoGranted: true },
+        { status: 'COMPLETED', welcomePromoGranted: false },
+      ]),
+    ).toBe(1);
+    expect(
+      isWelcomePromoEligibleForSkill(
+        partialProfile,
+        freshUser,
+        'reading',
+        1,
+        now,
+      ),
+    ).toBe(false);
   });
 
   it('is fully ineligible once both promos are claimed', () => {

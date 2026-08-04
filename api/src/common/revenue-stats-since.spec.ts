@@ -1,5 +1,6 @@
 import {
   laterDate,
+  paidRevenueOrderWhere,
   resolveRevenueStatsSince,
   revenueCreatedAtGte,
 } from './revenue-stats-since';
@@ -45,5 +46,25 @@ describe('laterDate', () => {
     const late = new Date('2026-08-04T00:00:00.000Z');
     expect(laterDate(early, late)).toBe(late);
     expect(laterDate(late, early)).toBe(late);
+  });
+});
+
+describe('paidRevenueOrderWhere', () => {
+  it('excludes complimentary and zero-amount orders', () => {
+    expect(paidRevenueOrderWhere(null)).toEqual({
+      status: 'PAID',
+      paymentMethod: { not: 'COMPLIMENTARY' },
+      amount: { gt: 0 },
+    });
+  });
+
+  it('adds REVENUE_STATS_SINCE createdAt lower bound when set', () => {
+    const since = new Date('2026-08-03T19:00:00.000Z');
+    expect(paidRevenueOrderWhere(since)).toEqual({
+      status: 'PAID',
+      paymentMethod: { not: 'COMPLIMENTARY' },
+      amount: { gt: 0 },
+      createdAt: { gte: since },
+    });
   });
 });

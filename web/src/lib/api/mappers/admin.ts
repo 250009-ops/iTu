@@ -121,13 +121,15 @@ function normalizeOrderStatus(status: string): OrderStatus {
   return "pending";
 }
 
-/** Paid checkout only — free admin grants / reappointments are not revenue. */
+/** Paid checkout only — free grants / reappointments / $0 rows are not revenue. */
 function isPaidCheckoutOrder(order: {
   status: OrderStatus;
   paymentMethod: string;
+  amount?: number;
 }): boolean {
   return (
     order.status === "paid" &&
+    (order.amount ?? 0) > 0 &&
     !String(order.paymentMethod).toLowerCase().includes("complimentary")
   );
 }

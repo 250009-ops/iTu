@@ -61,14 +61,19 @@ export function isWelcomePromoClaimed(
     : profile.welcomeReadingClaimedAt != null;
 }
 
+/**
+ * @param disqualifyingCompletedMocks COMPLETED enrollments that are not
+ * welcome-promo grants. Completing free Listening must not revoke free Reading
+ * (and vice versa); paid / admin / institution / referral completions still do.
+ */
 export function isWelcomePromoEligibleForSkill(
   profile: WelcomePromoProfile,
   user: WelcomePromoUser,
   skill: WelcomePromoSkill,
-  mocksCompleted: number,
+  disqualifyingCompletedMocks: number,
   now: Date = new Date(),
 ): boolean {
-  if (mocksCompleted > 0) return false;
+  if (disqualifyingCompletedMocks > 0) return false;
   if (!isWithinWelcomePromoWindow(user.createdAt, now)) return false;
   if (isWelcomePromoClaimed(profile, skill)) return false;
   return true;
@@ -77,15 +82,24 @@ export function isWelcomePromoEligibleForSkill(
 export function isWelcomePromoEligible(
   profile: WelcomePromoProfile,
   user: WelcomePromoUser,
-  mocksCompleted: number,
+  disqualifyingCompletedMocks: number,
   now: Date = new Date(),
 ): boolean {
-  if (mocksCompleted > 0) return false;
+  if (disqualifyingCompletedMocks > 0) return false;
   if (!isWithinWelcomePromoWindow(user.createdAt, now)) return false;
   return (
     !isWelcomePromoClaimed(profile, 'listening') ||
     !isWelcomePromoClaimed(profile, 'reading')
   );
+}
+
+/** Completions that end "new student" welcome eligibility. */
+export function countDisqualifyingCompletedMocks(
+  enrollments: Array<{ status: string; welcomePromoGranted?: boolean | null }>,
+): number {
+  return enrollments.filter(
+    (e) => e.status === 'COMPLETED' && !e.welcomePromoGranted,
+  ).length;
 }
 
 export async function resolveWelcomePromoPackage(
@@ -108,10 +122,12 @@ export async function buildWelcomePromosForDashboard(
   prisma: Pick<PrismaClient, 'mockTestPackage'>,
   profile: WelcomePromoProfile & { examType: ExamType },
   user: WelcomePromoUser,
-  mocksCompleted: number,
+  disqualifyingCompletedMocks: number,
   now: Date = new Date(),
 ): Promise<WelcomePromoDashboardItem[]> {
-  if (!isWelcomePromoEligible(profile, user, mocksCompleted, now)) {
+  if (
+    !isWelcomePromoEligible(profile, user, disqualifyingCompletedMocks, now)
+  ) {
     return [];
   }
 
@@ -125,7 +141,7 @@ export async function buildWelcomePromosForDashboard(
       profile,
       user,
       skill,
-      mocksCompleted,
+      disqualifyingCompletedMocks,
       now,
     );
     if (!eligible) continue;

@@ -31,3 +31,22 @@ export function laterDate(a: Date, b: Date | null): Date {
   if (!b) return a;
   return a.getTime() >= b.getTime() ? a : b;
 }
+
+/**
+ * Orders that count as collected cash revenue.
+ * Excludes complimentary / bonus / reappointment $0 rows (still PAID for fulfillment).
+ */
+export function paidRevenueOrderWhere(since: Date | null = null): {
+  status: 'PAID';
+  paymentMethod: { not: 'COMPLIMENTARY' };
+  amount: { gt: number };
+  createdAt?: { gte: Date };
+} {
+  const createdAt = revenueCreatedAtGte(since);
+  return {
+    status: 'PAID',
+    paymentMethod: { not: 'COMPLIMENTARY' },
+    amount: { gt: 0 },
+    ...(createdAt ? { createdAt } : {}),
+  };
+}
